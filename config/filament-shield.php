@@ -17,7 +17,7 @@ return [
     'tenant_model' => null,
 
     'auth_provider_model' => [
-        'fqcn' => 'App\\Models\\User',
+        'fqcn' => 'Lunar\\Admin\\Models\\Staff',
     ],
 
     'super_admin' => [

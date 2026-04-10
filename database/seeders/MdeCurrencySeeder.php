@@ -19,7 +19,6 @@ class MdeCurrencySeeder extends Seeder
                 'decimal_places' => 2,
                 'enabled' => true,
                 'default' => true,
-                'format' => '{{ price }} €',
             ],
         );
     }

@@ -9,18 +9,21 @@ Guide de contribution : [`CLAUDE.md`](./CLAUDE.md).
 
 ## Stack
 
-- PHP 8.3 (conteneur Sail)
+- PHP 8.3 + Apache (conteneur custom basé sur `php:8.3-apache`)
 - Laravel 11
 - Lunar 1.x (`lunarphp/lunar`)
 - Filament 3 (livré par Lunar Admin)
 - Filament Shield 3 (`bezhansalleh/filament-shield`) — RBAC
-- MySQL 8, Redis 7, Mailpit (dev)
-- Laravel Sail pour l'environnement Docker local
+- MySQL 8, Redis 7, phpMyAdmin
+- Mailpit **partagé** (service externe branché sur `traefik_network`)
+- Traefik en reverse proxy (réseau externe `traefik_network`)
 
 ## Prérequis
 
 - Docker et Docker Compose v2
+- Traefik démarré avec un réseau externe nommé `traefik_network`
 - Make (optionnel mais recommandé)
+- Entrées `/etc/hosts` ou résolution `*.localhost` fonctionnelle
 - 4 Go de RAM libres pour le conteneur `mysql`
 
 ## Installation
@@ -35,33 +38,40 @@ make install
 
 La commande `make install` exécute :
 
-1. `sail up -d --build` (construction des images + démarrage)
-2. `sail artisan migrate --graceful --force`
-3. `sail artisan lunar:install` (création du premier staff + seed Lunar de base)
-4. `sail artisan shield:install admin --no-interaction`
-5. `sail artisan shield:generate --all --panel=admin --no-interaction`
-6. `sail artisan db:seed --force` (seeders MDE : 50 produits, 3+ collections, 2 groupes clients, 10 commandes)
+1. `docker compose up -d --build` (construction de l'image applicative + démarrage)
+2. `composer install` dans le conteneur `app`
+3. Correction des permissions `storage/` et `bootstrap/cache/`
+4. `php artisan key:generate --force`
+5. `php artisan migrate --graceful --force`
+6. `php artisan lunar:install` (création du premier staff + seed Lunar de base)
+7. `php artisan shield:install admin --no-interaction`
+8. `php artisan shield:generate --all --panel=admin --no-interaction`
+9. `php artisan db:seed --force` (seeders MDE : 50 produits, 3+ collections, 2 groupes clients, 10 commandes)
 
 > ℹ️ Lors de `lunar:install`, l'installeur demande les identifiants du premier staff admin en interactif. Proposition dev : `admin@mde-distribution.fr` / `password`.
 
 ## Accès
 
-- Back-office : <http://localhost/admin>
-- Mailpit : <http://localhost:8025>
-- MySQL : localhost:3307 (user `sail` / password `password`)
-- Redis : localhost:6380
+- Back-office : <http://mde-laravel.localhost/admin>
+- phpMyAdmin : <http://pma.mde-laravel.localhost>
+- Mailpit : <http://mailpit.localhost> (service partagé)
+- MySQL : accessible via phpMyAdmin ou via `make shell` (user `mde` / password `mde_password`, root `root_password`)
+- Redis : interne au réseau `backend`
 
 ## Commandes utiles
 
 ```bash
-make up          # démarrer Sail
+make up          # démarrer les conteneurs
 make down        # arrêter
-make shell       # shell conteneur app
+make shell       # bash dans le conteneur app (user sail)
 make migrate     # migrations
 make fresh       # migrate:fresh --seed (reset DB complet)
 make seed        # seeders MDE uniquement
 make test        # PHPUnit
 make lint        # Laravel Pint (PSR-12)
+make logs        # suivre les logs
+make ps          # statut des conteneurs
+make permissions # corriger storage/ + bootstrap/cache/
 make artisan CMD='tinker'
 make composer CMD='dump-autoload'
 ```

@@ -1,73 +1,102 @@
-SAIL=./vendor/bin/sail
+DC=docker compose
+EXEC=$(DC) exec -u sail app
+EXEC_ROOT=$(DC) exec app
 
-.PHONY: help install up down restart shell artisan composer migrate fresh seed test lint logs lunar shield
+.PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions
 
 help:
 	@echo "MDE Distribution — Back-office Laravel + Lunar + Filament"
 	@echo ""
 	@echo "Usage :"
-	@echo "  make install   Première installation complète (build + up + migrate + lunar + shield + seed)"
-	@echo "  make up        Démarrer l'environnement Docker (Sail)"
-	@echo "  make down      Arrêter l'environnement"
-	@echo "  make restart   Redémarrer les conteneurs"
-	@echo "  make shell     Shell dans le conteneur applicatif"
-	@echo "  make artisan   Lancer une commande artisan : make artisan CMD='migrate:status'"
-	@echo "  make composer  Lancer composer : make composer CMD='dump-autoload'"
-	@echo "  make migrate   Exécuter les migrations"
-	@echo "  make fresh     migrate:fresh --seed (reset DB complet)"
-	@echo "  make seed      Exécuter les seeders MDE"
-	@echo "  make test      Lancer la suite PHPUnit"
-	@echo "  make lint      Laravel Pint (PSR-12)"
-	@echo "  make logs      Suivre les logs Sail"
-	@echo "  make lunar     Relancer lunar:install"
-	@echo "  make shield    Générer les policies Shield (--all)"
+	@echo "  make install     Première installation (build + up + composer + migrate + lunar + shield + seed)"
+	@echo "  make build       Reconstruire l'image app"
+	@echo "  make up          Démarrer les conteneurs"
+	@echo "  make down        Arrêter les conteneurs"
+	@echo "  make restart     Redémarrer les conteneurs"
+	@echo "  make shell       Shell bash dans le conteneur app"
+	@echo "  make artisan     Lancer artisan : make artisan CMD='migrate:status'"
+	@echo "  make composer    Lancer composer : make composer CMD='dump-autoload'"
+	@echo "  make migrate     Exécuter les migrations"
+	@echo "  make fresh       migrate:fresh --seed (reset DB complet)"
+	@echo "  make seed        Exécuter les seeders MDE"
+	@echo "  make test        Lancer la suite PHPUnit"
+	@echo "  make lint        Laravel Pint (PSR-12)"
+	@echo "  make logs        Suivre les logs des conteneurs"
+	@echo "  make ps          Statut des conteneurs"
+	@echo "  make lunar       Relancer lunar:install"
+	@echo "  make shield      Générer les policies Shield (--all)"
+	@echo "  make permissions Corriger les permissions storage + bootstrap/cache"
+	@echo ""
+	@echo "URLs :"
+	@echo "  Back-office    http://mde-laravel.localhost/admin"
+	@echo "  phpMyAdmin     http://pma.mde-laravel.localhost"
+	@echo "  Mailpit        http://mailpit.localhost (shared)"
 
 install:
-	$(SAIL) up -d --build
-	$(SAIL) artisan migrate --graceful --force
-	$(SAIL) artisan lunar:install
-	$(SAIL) artisan shield:install admin --no-interaction
-	$(SAIL) artisan shield:generate --all --panel=admin --no-interaction
-	$(SAIL) artisan db:seed --force
+	$(DC) up -d --build
+	$(EXEC) composer install
+	$(MAKE) permissions
+	$(EXEC) php artisan key:generate --force
+	$(EXEC) php artisan migrate --graceful --force
+	$(EXEC) php artisan lunar:create-admin \
+		--firstname=Admin \
+		--lastname=MDE \
+		--email=admin@mde-distribution.fr \
+		--password=password123 \
+		--no-interaction
+	$(EXEC) php artisan lunar:install --no-interaction
+	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
+	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
+	$(EXEC) php artisan db:seed --force
+
+build:
+	$(DC) build --no-cache
 
 up:
-	$(SAIL) up -d
+	$(DC) up -d
 
 down:
-	$(SAIL) down
+	$(DC) down
 
 restart:
-	$(SAIL) restart
+	$(DC) restart
 
 shell:
-	$(SAIL) shell
+	$(EXEC) bash
 
 artisan:
-	$(SAIL) artisan $(CMD)
+	$(EXEC) php artisan $(CMD)
 
 composer:
-	$(SAIL) composer $(CMD)
+	$(EXEC) composer $(CMD)
 
 migrate:
-	$(SAIL) artisan migrate
+	$(EXEC) php artisan migrate
 
 fresh:
-	$(SAIL) artisan migrate:fresh --seed
+	$(EXEC) php artisan migrate:fresh --seed
 
 seed:
-	$(SAIL) artisan db:seed
+	$(EXEC) php artisan db:seed
 
 test:
-	$(SAIL) artisan test
+	$(EXEC) php artisan test
 
 lint:
-	$(SAIL) composer exec pint
+	$(EXEC) ./vendor/bin/pint
 
 logs:
-	$(SAIL) logs -f
+	$(DC) logs -f
+
+ps:
+	$(DC) ps
 
 lunar:
-	$(SAIL) artisan lunar:install
+	$(EXEC) php artisan lunar:install
 
 shield:
-	$(SAIL) artisan shield:generate --all --panel=admin
+	$(EXEC) php artisan shield:generate --all --panel=admin
+
+permissions:
+	$(EXEC_ROOT) chown -R sail:sail storage bootstrap/cache
+	$(EXEC_ROOT) chmod -R ug+rwX storage bootstrap/cache

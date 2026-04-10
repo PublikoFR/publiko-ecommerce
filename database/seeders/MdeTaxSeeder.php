@@ -27,7 +27,7 @@ class MdeTaxSeeder extends Seeder
             ],
         );
 
-        $taxZone->countries()->syncWithoutDetaching([$france->id]);
+        $taxZone->countries()->firstOrCreate(['country_id' => $france->id]);
 
         $standardClass = TaxClass::query()->updateOrCreate(
             ['name' => 'TVA 20%'],
