@@ -12,7 +12,9 @@ use Lunar\Models\Order;
 class CarrierShipment extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_CREATED = 'created';
+
     public const STATUS_FAILED = 'failed';
 
     protected $table = 'mde_carrier_shipments';

@@ -107,7 +107,7 @@ class CarrierShipmentResource extends BaseResource
                         && Storage::disk('local')->exists($record->label_path))
                     ->action(function (CarrierShipment $record) {
                         return response()->streamDownload(
-                            fn () => print(Storage::disk('local')->get($record->label_path)),
+                            fn () => print (Storage::disk('local')->get($record->label_path)),
                             basename($record->label_path),
                             ['Content-Type' => 'application/pdf'],
                         );

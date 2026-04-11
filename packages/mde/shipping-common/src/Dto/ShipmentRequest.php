@@ -8,7 +8,7 @@ final class ShipmentRequest
 {
     /**
      * @param  array<string, mixed>  $recipient  keys: name, company, street, zip, city, country, phone, email
-     * @param  array<string, mixed>  $shipper    same keys as $recipient
+     * @param  array<string, mixed>  $shipper  same keys as $recipient
      */
     public function __construct(
         public readonly int $orderId,

@@ -8,7 +8,6 @@ use Illuminate\Support\ServiceProvider;
 use Lunar\Base\ShippingModifiers;
 use Mde\ShippingChronopost\Modifiers\ChronopostModifier;
 use Mde\ShippingChronopost\Services\ChronopostClient;
-use Mde\ShippingCommon\Contracts\CarrierClient;
 
 class ShippingChronopostServiceProvider extends ServiceProvider
 {

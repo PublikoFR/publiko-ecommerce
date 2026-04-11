@@ -108,16 +108,16 @@ class ColissimoClient implements CarrierClient
         try {
             $generate = new Generate($options);
 
-            $service = (new ColissimoService())
+            $service = (new ColissimoService)
                 ->setProductCode($request->serviceCode)
                 ->setDepositDate(date('Y-m-d'))
                 ->setOrderNumber($request->orderReference)
                 ->setCommercialName((string) ($shipper['name'] ?? 'MDE Distribution'));
 
-            $parcel = (new Parcel())
+            $parcel = (new Parcel)
                 ->setWeight(max(0.01, $request->weightKg));
 
-            $senderAddress = (new Address())
+            $senderAddress = (new Address)
                 ->setCompanyName((string) ($shipper['name'] ?? ''))
                 ->setLastName((string) ($shipper['name'] ?? ''))
                 ->setLine2((string) ($shipper['street'] ?? ''))
@@ -127,11 +127,11 @@ class ColissimoClient implements CarrierClient
                 ->setEmail((string) ($shipper['email'] ?? ''))
                 ->setPhoneNumber((string) ($shipper['phone'] ?? ''));
 
-            $sender = (new Sender())
+            $sender = (new Sender)
                 ->setSenderParcelRef($request->orderReference)
                 ->setAddress($senderAddress);
 
-            $recipientAddress = (new Address())
+            $recipientAddress = (new Address)
                 ->setCompanyName((string) ($recipient['company'] ?? ''))
                 ->setLastName((string) ($recipient['name'] ?? ''))
                 ->setFirstName('')
@@ -142,23 +142,23 @@ class ColissimoClient implements CarrierClient
                 ->setEmail((string) ($recipient['email'] ?? ''))
                 ->setPhoneNumber((string) ($recipient['phone'] ?? ''));
 
-            $addressee = (new Addressee())
+            $addressee = (new Addressee)
                 ->setAddresseeParcelRef($request->orderReference)
                 ->setAddress($recipientAddress);
 
-            $letter = (new Letter())
+            $letter = (new Letter)
                 ->setService($service)
                 ->setParcel($parcel)
                 ->setSender($sender)
                 ->setAddressee($addressee);
 
             $outputFormatConfig = $this->config['output_format'] ?? [];
-            $outputFormat = (new OutputFormat())
+            $outputFormat = (new OutputFormat)
                 ->setX((int) ($outputFormatConfig['x'] ?? 0))
                 ->setY((int) ($outputFormatConfig['y'] ?? 0))
                 ->setOutputPrintingType((string) ($outputFormatConfig['output_printing_type'] ?? 'PDF_A4_300dpi'));
 
-            $labelRequest = (new GenerateLabelRequest())
+            $labelRequest = (new GenerateLabelRequest)
                 ->setContractNumber($contractNumber)
                 ->setPassword($password)
                 ->setOutputFormat($outputFormat)
