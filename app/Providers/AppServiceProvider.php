@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Filament\Pages\StripeConfig;
+use App\Filament\Pages\TreeManager;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
                 ])
                 ->pages([
                     StripeConfig::class,
+                    TreeManager::class,
                 ])
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())

@@ -365,6 +365,45 @@ Chaque écriture dispatche un event Laravel :
 
 ---
 
+## 7.ter Publiko Tree Manager — page admin unifiée catégories + caractéristiques
+
+### 7.ter.1 Objectif
+
+Une seule page admin (`/admin/tree-manager`) qui remplace l'aller-retour entre le CRUD Collections de Lunar Admin et la Resource `FeatureFamily` du package `catalog-features`. Mêmes écrans, mêmes données, même expérience drag-n-drop des deux côtés avec modales CRUD live et import/export JSON par arbre.
+
+### 7.ter.2 Anatomie
+
+- **Page Filament** : `app/Filament/Pages/TreeManager.php`, extend `Lunar\Admin\Support\Pages\BasePage`, enregistrée via `LunarPanel::panel()->pages([...])` dans `AppServiceProvider::register()`.
+- **Livewire state public** : `$collectionGroupId`, `$collectionsTree` (nested array), `$featureFamilies` (flat array famille → values).
+- **Côté catégories** : `Lunar\Models\Collection` + `NodeTrait` kalnoy/nestedset — arbo illimitée, reparenting par `saveAsRoot()` / `appendToNode()`, repositionnement exact via `insertBeforeNode()`.
+- **Côté caractéristiques** : 2 niveaux stricts `FeatureFamily` → `FeatureValue`, position entière, renumérotation manuelle en transaction lors d'un drag (y compris renumbering de la famille source quand une valeur change de parent).
+- **Modales CRUD** : Filament Actions (`createCollectionAction`, `editCollectionAction`, `deleteCollectionAction`, équivalents famille / valeur). Chaque action a son `->form()` et son `->fillForm()`. Déclenchées depuis la blade via `wire:click="mountAction('xxxAction', { id: 42 })"`.
+- **Drag-n-drop** : **SortableJS 1.15.2** chargé via **CDN** (`cdn.jsdelivr.net`) directement dans la blade — pas de dépendance npm, pas d'entry Vite admin. Alpine component `treeManager` inline attache Sortable sur chaque `<ul data-sortable="...">` et appelle `$wire.moveCollection / moveFeatureValue / moveFeatureFamily` au `onEnd`. Réinitialisation post-Livewire via `Livewire.hook('morph.updated')`.
+- **Import / export JSON** : 1 fichier par arbre (header actions séparés). Format versionné (`version: 1`). Import = transaction + `fixTree()` final côté collections, `updateOrCreate` par handle côté features (préserve l'ID existant).
+
+### 7.ter.3 SEO catégories — choix de stockage
+
+`meta_title` et `meta_description` sont stockés comme **Lunar Attributes translatables** dans `attribute_data` (type `Lunar\FieldTypes\TranslatedText`, section `seo`), **pas** en colonnes plates sur `lunar_collections`. Ils apparaissent donc aussi dans l'onglet « Attributs » de Lunar Admin standard, restent multi-langue, et n'imposent aucune migration structurelle sur une table Lunar.
+
+Seeder : migration `2026_04_11_140000_add_mde_seo_collection_attributes.php` — crée (si absent) un AttributeGroup `collection_seo` et les 2 attributes via `Attribute::updateOrCreate` keyés sur `(attribute_type=collection, handle)`. Idempotent, rollback supprime les 2 handles.
+
+### 7.ter.4 SortableJS via CDN — pourquoi pas npm
+
+- Pas d'entry Vite admin dédié dans le projet (`resources/js/app.js` cible le front Blade)
+- `FilamentAsset::register([Js::make(...)])` exigerait un build Vite pour résoudre l'URL, complexité inutile pour 1 page
+- SortableJS n'a pas de dépendances, 45 Ko min, version épinglée en dur dans l'URL CDN → reproductible
+- Chargement scopé à la page (balise inline dans `tree-manager.blade.php`), pas d'impact sur le reste de l'admin
+
+Bascule npm envisageable si une 2ᵉ page admin a besoin de la même lib — créer alors `resources/js/admin.js` + `FilamentAsset::register()` dans `AppServiceProvider::boot()`.
+
+### 7.ter.5 Hors scope
+
+- Sélecteur `CollectionGroup` (la page utilise le premier groupe par ID — MDE n'en a qu'un en pratique)
+- Image ou SEO sur `FeatureFamily` / `FeatureValue` (décision : caractéristiques restent purement fonctionnelles)
+- Authorization fine : réutilise la policy Shield `page_TreeManager` générée automatiquement, rattachée au rôle `admin`. À régénérer via `make artisan CMD='shield:generate --panel=lunar'` après déploiement.
+
+---
+
 ## 8. Tests
 
 **Framework** : PHPUnit 11 (pas Pest — volonté d'avoir une syntaxe unique avec le reste de l'écosystème Laravel/Lunar).
