@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "docker",
+            "args": [
+                "compose",
+                "exec",
+                "-T",
+                "-u",
+                "sail",
+                "app",
+                "php",
+                "artisan",
+                "boost:mcp"
+            ]
+        },
+        "lunar-docs": {
+            "type": "http",
+            "url": "https://docs.lunarphp.com/mcp"
+        }
+    }
+}
