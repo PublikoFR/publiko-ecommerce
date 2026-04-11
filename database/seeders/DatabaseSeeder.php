@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             MdeLanguageSeeder::class,
             MdeCountrySeeder::class,
             MdeTaxSeeder::class,
+            MdeShippingSeeder::class,
             MdeCustomerGroupSeeder::class,
             MdeBrandSeeder::class,
             MdeCollectionSeeder::class,

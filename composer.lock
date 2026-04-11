@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "97ed7c32b41ee18f221869aea29363d8",
+    "content-hash": "a5c77737437646e11d950197af93b617",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -2938,6 +2938,41 @@
             "time": "2026-03-29T12:05:03+00:00"
         },
         {
+            "name": "ladromelaboratoire/chronopostws",
+            "version": "0.0.13",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ladromelaboratoire/ChronopostWS.git",
+                "reference": "f245b1f1241ee7a2b2870596f9fc8fd48b3d2bf7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ladromelaboratoire/ChronopostWS/zipball/f245b1f1241ee7a2b2870596f9fc8fd48b3d2bf7",
+                "reference": "f245b1f1241ee7a2b2870596f9fc8fd48b3d2bf7",
+                "shasum": ""
+            },
+            "require": {
+                "ext-soap": "*",
+                "php": ">=7.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "ladromelaboratoire\\chronopostws\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-3-Clause"
+            ],
+            "description": "Chronopost SOAP web-service module for various integrations",
+            "support": {
+                "issues": "https://github.com/ladromelaboratoire/ChronopostWS/issues",
+                "source": "https://github.com/ladromelaboratoire/ChronopostWS/tree/0.0.13"
+            },
+            "time": "2023-02-07T11:24:11+00:00"
+        },
+        {
             "name": "laravel/framework",
             "version": "v11.51.0",
             "source": {
@@ -4488,6 +4523,142 @@
                 }
             ],
             "time": "2026-01-29T11:24:01+00:00"
+        },
+        {
+            "name": "lunarphp/stripe",
+            "version": "1.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lunarphp/stripe.git",
+                "reference": "53218fa49c269e4f274fd4791365499e73917de0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lunarphp/stripe/zipball/53218fa49c269e4f274fd4791365499e73917de0",
+                "reference": "53218fa49c269e4f274fd4791365499e73917de0",
+                "shasum": ""
+            },
+            "require": {
+                "lunarphp/core": "self.version",
+                "php": "^8.2",
+                "stripe/stripe-php": "^16.0"
+            },
+            "type": "project",
+            "extra": {
+                "lunar": {
+                    "name": "Stripe Payments"
+                },
+                "laravel": {
+                    "providers": [
+                        "Lunar\\Stripe\\StripePaymentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Lunar\\Stripe\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Lunar",
+                    "homepage": "https://lunarphp.io/"
+                }
+            ],
+            "description": "Stripe payment driver for Lunar.",
+            "keywords": [
+                "cart",
+                "e-commerce",
+                "ecommerce",
+                "headless",
+                "laravel",
+                "lunarphp",
+                "shop",
+                "store",
+                "stripe"
+            ],
+            "support": {
+                "source": "https://github.com/lunarphp/stripe/tree/1.3.0"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/lunar",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-11-12T16:37:17+00:00"
+        },
+        {
+            "name": "lunarphp/table-rate-shipping",
+            "version": "1.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lunarphp/table-rate-shipping.git",
+                "reference": "2d272a904136017d53556bb153b198162fa10918"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lunarphp/table-rate-shipping/zipball/2d272a904136017d53556bb153b198162fa10918",
+                "reference": "2d272a904136017d53556bb153b198162fa10918",
+                "shasum": ""
+            },
+            "require": {
+                "lunarphp/lunar": "self.version",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "lunar": {
+                    "name": "Table Rate Shipping"
+                },
+                "laravel": {
+                    "providers": [
+                        "Lunar\\Shipping\\ShippingServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Lunar\\Shipping\\": "src",
+                    "Lunar\\Shipping\\Database\\Factories\\": "database/factories"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Lunar",
+                    "homepage": "https://lunarphp.io/"
+                }
+            ],
+            "description": "Lunar Table Rate Shipping Addon",
+            "keywords": [
+                "cart",
+                "e-commerce",
+                "ecommerce",
+                "headless",
+                "laravel",
+                "lunar",
+                "shop",
+                "store"
+            ],
+            "support": {
+                "issues": "https://github.com/lunarphp/table-rate-shipping/issues",
+                "source": "https://github.com/lunarphp/table-rate-shipping/tree/1.3.0"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/lunar",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-12-08T13:52:29+00:00"
         },
         {
             "name": "maennchen/zipstream-php",
@@ -7682,6 +7853,65 @@
                 }
             ],
             "time": "2026-03-23T22:56:56+00:00"
+        },
+        {
+            "name": "stripe/stripe-php",
+            "version": "v16.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/stripe/stripe-php.git",
+                "reference": "d6de0a536f00b5c5c74f36b8f4d0d93b035499ff"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/stripe/stripe-php/zipball/d6de0a536f00b5c5c74f36b8f4d0d93b035499ff",
+                "reference": "d6de0a536f00b5c5c74f36b8f4d0d93b035499ff",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": ">=5.6.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "3.5.0",
+                "phpstan/phpstan": "^1.2",
+                "phpunit/phpunit": "^5.7 || ^9.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Stripe\\": "lib/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Stripe and contributors",
+                    "homepage": "https://github.com/stripe/stripe-php/contributors"
+                }
+            ],
+            "description": "Stripe PHP Library",
+            "homepage": "https://stripe.com/",
+            "keywords": [
+                "api",
+                "payment processing",
+                "stripe"
+            ],
+            "support": {
+                "issues": "https://github.com/stripe/stripe-php/issues",
+                "source": "https://github.com/stripe/stripe-php/tree/v16.6.0"
+            },
+            "time": "2025-02-24T22:35:29+00:00"
         },
         {
             "name": "symfony/clock",
@@ -11255,6 +11485,159 @@
                 "source": "https://github.com/webmozarts/assert/tree/2.2.0"
             },
             "time": "2026-04-09T16:54:47+00:00"
+        },
+        {
+            "name": "wsdltophp/package-colissimo-postage",
+            "version": "3.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/WsdlToPhp/PackageColissimoPostage.git",
+                "reference": "e5e364fab63cd6cb1628324b22f6f079025cb0cd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/WsdlToPhp/PackageColissimoPostage/zipball/e5e364fab63cd6cb1628324b22f6f079025cb0cd",
+                "reference": "e5e364fab63cd6cb1628324b22f6f079025cb0cd",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-mbstring": "*",
+                "ext-soap": "*",
+                "php": ">=7.4",
+                "wsdltophp/packagebase": "~5.0"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.4"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "SoapClient\\": "./SoapClient/",
+                    "ColissimoPostage\\": "./src/ColissimoPostage"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Mikael DELSOL",
+                    "email": "contact@wsdltophp.com",
+                    "homepage": "https://www.wsdltophp.com",
+                    "role": "owner"
+                },
+                {
+                    "name": "Maxime Veber",
+                    "email": "nek.dev@gmail.com",
+                    "role": "Contributor"
+                }
+            ],
+            "description": "Package generated from https://ws.colissimo.fr/sls-ws/SlsServiceWS?wsdl using wsdltophp/packagegenerator",
+            "support": {
+                "issues": "https://github.com/WsdlToPhp/PackageColissimoPostage/issues",
+                "source": "https://github.com/WsdlToPhp/PackageColissimoPostage/tree/3.0.0"
+            },
+            "time": "2022-02-22T20:17:12+00:00"
+        },
+        {
+            "name": "wsdltophp/packagebase",
+            "version": "5.0.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/WsdlToPhp/PackageBase.git",
+                "reference": "7a92579b0f854ef1cb56c7a0f3aace175b9d2639"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/WsdlToPhp/PackageBase/zipball/7a92579b0f854ef1cb56c7a0f3aace175b9d2639",
+                "reference": "7a92579b0f854ef1cb56c7a0f3aace175b9d2639",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-json": "*",
+                "ext-soap": "*",
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.0",
+                "phpstan/phpstan": "^2",
+                "phpunit/phpunit": "^9",
+                "rector/rector": "^2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "WsdlToPhp\\PackageBase\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Mikaël DELSOL",
+                    "email": "contact@wsdltophp.com",
+                    "role": "Owner"
+                },
+                {
+                    "name": "Luke Rodgers",
+                    "email": "lukerodgers90@gmail.com",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Arthur Moore",
+                    "email": "github@cd-net.net",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Necati Yared Ozal",
+                    "email": "mail@necatiozal.com",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Gemorroj",
+                    "email": "wapinet@mail.ru",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "hordijk",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Jacob Dreesen",
+                    "email": "jacob.dreesen@gmail.com",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Karl Pierce",
+                    "email": "kpierce@ratespecial.com",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "maurobn",
+                    "role": "Contributor"
+                },
+                {
+                    "name": "Christo Yovev",
+                    "role": "Contributor"
+                }
+            ],
+            "description": "Contains the base classes to be used by classes generated by wsdltophp/packagegenerator",
+            "homepage": "https://github.com/WsdlToPhp/PackageBase",
+            "keywords": [
+                "models",
+                "php"
+            ],
+            "support": {
+                "email": "contact@wsdltophp.com",
+                "issues": "https://github.com/WsdlToPhp/PackageBase/issues",
+                "source": "https://github.com/WsdlToPhp/PackageBase/tree/5.0.5"
+            },
+            "time": "2026-02-07T10:55:33+00:00"
         }
     ],
     "packages-dev": [

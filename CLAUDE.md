@@ -125,6 +125,114 @@ resources/views/vendor/lunar/          ← overrides Blade — à minimiser
 - **`php artisan lunar:install`** : crée le premier staff + seed Lunar de base. À ré-exécuter après un `migrate:fresh`.
 - **`kalnoy/nestedset`** est épinglé à `6.0.7` — les versions ultérieures utilisent `whenBooted()` qui n'existe pas en Laravel 11.
 
+## Paiements (Lunar Payments)
+
+Le système de paiement Lunar est *driver-based* : chaque "type" de paiement (`cash-in-hand`, `card`…) est défini dans `config/lunar/payments.php` et mappe vers un driver enregistré via `Payments::extend('<driver>', ...)` par un service provider.
+
+### Points clés
+
+- **Ne jamais utiliser Laravel Cashier** pour encaisser des commandes Lunar. Cashier est un moteur d'abonnement SaaS lié à `App\Models\User`, il duplique `lunar_orders` / `lunar_transactions` et casse la cohérence. Réserver Cashier à d'éventuels abonnements MDE dédiés s'ils apparaissent un jour.
+- **Transactions Lunar** : tous les encaissements / remboursements doivent transiter par `Lunar\Models\Transaction` (rattachées à `lunar_orders`), et non par des tables tierces.
+- **Résolution des drivers** : utiliser `Lunar\Facades\Payments::driver('card')` (singleton via `PaymentManagerInterface`). `app(PaymentManager::class)` instancie une classe fraîche **sans** les creators enregistrés par les addons.
+
+### Drivers installés
+
+| Type Lunar | Driver | Package | Webhook |
+|---|---|---|---|
+| `cash-in-hand` | `offline` | core | — |
+| `card` | `stripe` | `lunarphp/stripe` | `POST /stripe/webhook` |
+
+### Stripe (`lunarphp/stripe`)
+
+- Config : `config/lunar/stripe.php` (`policy`, `webhook_path`, `status_mapping`…)
+- Credentials dans `config/services.php` → `'stripe'`
+- Env vars : `STRIPE_PK`, `STRIPE_SECRET`, `LUNAR_STRIPE_WEBHOOK_SECRET`
+- Webhook URL publique à renseigner dans le Stripe Dashboard : `https://<host>/stripe/webhook`
+- Migration dédiée : `lunar_stripe_payment_intents` (table créée par l'addon)
+
+### PayPal (phase 2)
+
+`lunarphp/paypal` existe officiellement (je l'avais raté initialement). À installer quand le besoin est confirmé côté front — attention, il s'enregistre aussi sur le type `card` ce qui entre en conflit avec Stripe, il faudra soit créer un type dédié (`paypal`) soit arbitrer entre les deux.
+
+## Shipping (Lunar Table Rate Shipping)
+
+Les frais de port sont gérés par l'addon officiel **`lunarphp/table-rate-shipping`**. Lunar core ne fournit **aucun** système de zones/méthodes/tarifs — c'est ce package qui publie tables, modèles, drivers et resources Filament.
+
+### Points clés
+
+- **Plugin** : `Lunar\Shipping\ShippingPlugin::make()` enregistré dans `AppServiceProvider::register()` après `FilamentShieldPlugin`.
+- **NavigationGroup** : `Expédition` (string ajoutée au `->navigationGroups([...])` entre `Marketing` et `Configuration` pour figer l'ordre).
+- **Namespace modèles** : `Lunar\Shipping\Models\{ShippingZone, ShippingMethod, ShippingRate, ShippingExclusionList}` — **pas** `Lunar\Models\*`.
+- **Resources Filament** : ShippingZoneResource, ShippingMethodResource, ShippingExclusionListResource (ShippingRate est exposé comme RelationManager de ShippingMethod, pas comme resource top-level → pas de policy Shield dédiée).
+- **Drivers inclus** (4) : `ship-by`, `flat-rate`, `free-shipping`, `collection`. Résolution via `Shipping::driver($method->driver)`.
+
+### Structure données (attention, contre-intuitif)
+
+- `ShippingMethod` porte `driver` (string) + `data` (cast `AsArrayObject` → config driver-specific).
+- `ShippingRate` **ne porte ni `driver` ni `data`** — juste la jonction `shipping_method_id` + `shipping_zone_id` + `enabled`.
+- Les **brackets tarifaires** sont stockés via le trait `HasPrices` → table `lunar_prices` morphée, avec `min_quantity` comme seuil déclencheur. Le driver `ship-by` fait `Pricing::for($rate)->qty($tier)->get()` où `$tier` = somme poids × qty (si `charge_by=weight`) ou sous-total (si `charge_by=cart_total`).
+- Le driver `free-shipping` lit `data.minimum_spend` qui peut être un int ou un array keyed par code devise (`['EUR' => 50000]`).
+
+### Seed MDE de base
+
+`MdeShippingSeeder` (lancé après `MdeTaxSeeder` dans `DatabaseSeeder`) crée :
+
+- 1 zone `France métropolitaine` (type `country`, rattachée à FR)
+- 3 méthodes : `mde-standard` (ship-by par poids), `mde-pickup` (collection, retrait entrepôt), `mde-free` (free-shipping dès 500 €)
+- 3 rates attachés avec brackets : 4 paliers pour le standard (690/990/1490/1990 cents), 1 bracket à 0 pour pickup + free
+
+### Phase 2 — Chronopost + Colissimo (réalisée)
+
+Intégration SOAP de **Chronopost** et **Colissimo** via 3 packages sous `packages/mde/` :
+
+| Package | Namespace | Rôle |
+|---|---|---|
+| `shipping-common` | `Mde\ShippingCommon\` | Contracts, DTOs, modèle `CarrierShipment`, Job, Observer, ZoneResolver, WeightCalculator, resource Filament « Envois transporteurs » |
+| `shipping-chronopost` | `Mde\ShippingChronopost\` | Client SOAP (SDK `ladromelaboratoire/chronopostws`), `ChronopostModifier`, page Filament « Configuration Chronopost » |
+| `shipping-colissimo` | `Mde\ShippingColissimo\` | Client SOAP (SDK `wsdltophp/package-colissimo-postage`), `ColissimoModifier`, page Filament « Configuration Colissimo » |
+
+**Flux** :
+
+1. **Checkout** : les deux `ShippingModifier` custom (enregistrés via `ShippingModifiers::add()`) injectent des `ShippingOption` dans le manifest à partir de grilles **statiques** en config (pas d'appel API au checkout — latence & résilience). Identifiers : `chronopost.{service}` / `colissimo.{service}`.
+2. **Zone** : `ZoneResolver::isMetropole()` filtre France métropolitaine uniquement (skip Corse `20*`, DOM `971`–`978`, étranger).
+3. **Poids** : `WeightCalculator::fromCart()` / `fromOrder()` normalise en kg (accepte `kg`/`g`/`lb`, throw sur unité inconnue).
+4. **Post-paiement** : `OrderShipmentObserver::updated()` observe `Order::payment_status` → transition vers `paid` → dispatche `CreateCarrierShipmentJob(order_id, carrier, service_code)`.
+5. **Job async** : `$tries = 5`, `$backoff = [60, 300, 900, 3600, 14400]`. Appelle le `CarrierClient` résolu via `app("mde.shipping.carrier.{$carrier}")`, persiste le `CarrierShipment` (table `mde_carrier_shipments`), sauvegarde le PDF dans `storage/app/labels/{order_id}/{carrier}-{tracking}.pdf`. Après 5 échecs → `status = 'failed'` + `error_message`.
+6. **Admin** : resource Filament `CarrierShipmentResource` (groupe **Expédition**) → liste, filtre par carrier/statut, action « Télécharger étiquette », action « Relancer » pour les échecs.
+
+**Config** : grilles tarifaires dans `config/chronopost.php` et `config/colissimo.php` (paliers poids → prix en cents). **Swap vers quote temps réel** = remplacer l'impl de `CarrierClient::quote()` dans le Client — interface stable, modifiers et job inchangés.
+
+**Dépendances** :
+- `ladromelaboratoire/chronopostws` (SOAP Chronopost ShippingServiceWS v4)
+- `wsdltophp/package-colissimo-postage` (SOAP Colissimo SlsServiceWS `generateLabel`)
+- **Extension PHP `ext-soap` requise** — installée dans le conteneur `app` à l'exécution. À figer dans le Dockerfile au prochain rebuild pour persister (`apt-get install libxml2-dev && docker-php-ext-install soap`).
+
+**Env vars** :
+
+```
+# Credentials (vides par défaut, renseigner en prod)
+CHRONOPOST_ACCOUNT=
+CHRONOPOST_PASSWORD=
+CHRONOPOST_SUB_ACCOUNT=
+COLISSIMO_CONTRACT=
+COLISSIMO_PASSWORD=
+COLISSIMO_WSDL_URL=https://ws.colissimo.fr/sls-ws/SlsServiceWS?wsdl
+
+# Adresse expéditeur (partagée Chronopost + Colissimo, valeurs de test en local)
+MDE_SHIPPER_NAME, MDE_SHIPPER_STREET, MDE_SHIPPER_ZIP, MDE_SHIPPER_CITY,
+MDE_SHIPPER_COUNTRY, MDE_SHIPPER_PHONE, MDE_SHIPPER_EMAIL
+```
+
+**Règle** : ne jamais modifier les SDK vendor. Toute personnalisation dans les `Client` des packages `shipping-chronopost` / `shipping-colissimo`.
+
+### Hors scope shipping
+
+- Points relais (`BPR` Colissimo, `Chrono Relais`)
+- Tracking webhook (polling ou push transporteur)
+- Retour / annulation d'envoi (`cancelSkybill`)
+- Livraison hors France métropolitaine (Corse, DOM, étranger)
+- Sendcloud (alternative SaaS écartée pour coût)
+
 ## Filament Shield
 
 - Panel ID Lunar = `admin`
@@ -137,7 +245,7 @@ resources/views/vendor/lunar/          ← overrides Blade — à minimiser
 - PHPUnit 11. Suite : `make test`
 - Tests feature minimaux fournis :
   - `tests/Feature/AdminPanelAccessTest.php` — guard redirect, login page OK
-  - `tests/Feature/SeedersTest.php` — vérifie 50 produits / ≥3 collections / 2 groupes clients / 10 commandes / ≥5 marques
+  - `tests/Feature/SeedersTest.php` — vérifie 50 produits / ≥3 collections / 2 groupes clients / 10 commandes / ≥5 marques + zone shipping FR / 3 méthodes / 3 rates
 - Ajouter des tests pour tout pipeline critique : calcul de prix, stock, cycle de vie commande.
 
 ## Ce qu'il faut **éviter**
