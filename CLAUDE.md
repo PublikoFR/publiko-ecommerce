@@ -42,7 +42,11 @@ La doc est partie intégrante du deliverable. Un commit qui introduit une décis
 
 Slug du projet : `ecom-laravel`
 
-Notes dans `~/webdev/projects/brain²/vault/wiki/projects/ecom-laravel/`. Voir les règles globales dans `~/.claude/CLAUDE.md` section brain².
+Notes dans `~/webdev/projects/brain²/vault/wiki/projects/ecom-laravel/`.
+
+Règles :
+- **Harness / outils** : `~/.claude/CLAUDE.md` §brain²
+- **Contenu / format / linking** (source de vérité) : `~/webdev/projects/brain²/vault/CLAUDE.md`
 
 ---
 
