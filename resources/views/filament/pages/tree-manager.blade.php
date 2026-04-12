@@ -2,35 +2,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
             defer></script>
 
-    {{-- Tab switcher --}}
-    <div class="flex items-center gap-2 mb-4">
-        <x-filament::button
-            size="sm"
-            :color="$activeTab === 'categories' ? 'primary' : 'gray'"
-            wire:click="$set('activeTab', 'categories')"
-            icon="heroicon-o-rectangle-stack">
-            Catégories
-        </x-filament::button>
-        <x-filament::button
-            size="sm"
-            :color="$activeTab === 'features' ? 'primary' : 'gray'"
-            wire:click="$set('activeTab', 'features')"
-            icon="heroicon-o-tag">
-            Caractéristiques
-        </x-filament::button>
-        <x-filament::button
-            size="sm"
-            :color="$activeTab === 'both' ? 'primary' : 'gray'"
-            wire:click="$set('activeTab', 'both')"
-            icon="heroicon-o-squares-2x2">
-            Les deux
-        </x-filament::button>
-    </div>
-
-    <div class="grid grid-cols-1 gap-6 {{ $activeTab === 'both' ? 'lg:grid-cols-2' : '' }}"
+    <div class="grid gap-6"
+         @if($activeTab === 'both') style="grid-template-columns: repeat(2, minmax(0, 1fr))" @endif
          x-data="treeManager()"
-         x-init="boot()"
-         wire:ignore.self>
+         x-init="boot()">
 
         {{-- ============================================================ --}}
         {{-- CATÉGORIES                                                   --}}
@@ -48,12 +23,20 @@
             </x-slot>
 
             <x-slot name="headerEnd">
-                <x-filament::button
-                    size="sm"
-                    icon="heroicon-o-plus"
-                    wire:click="mountAction('createCollectionAction')">
-                    Ajouter
-                </x-filament::button>
+                <div class="flex items-center gap-1">
+                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
+                        wire:click="mountAction('exportCollections')">
+                        Export
+                    </x-filament::button>
+                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
+                        wire:click="mountAction('importCollections')">
+                        Import
+                    </x-filament::button>
+                    <x-filament::button size="sm" icon="heroicon-o-plus"
+                        wire:click="mountAction('createCollectionAction')">
+                        Ajouter
+                    </x-filament::button>
+                </div>
             </x-slot>
 
             <div class="space-y-3">
@@ -97,12 +80,20 @@
             </x-slot>
 
             <x-slot name="headerEnd">
-                <x-filament::button
-                    size="sm"
-                    icon="heroicon-o-plus"
-                    wire:click="mountAction('createFamilyAction')">
-                    Ajouter
-                </x-filament::button>
+                <div class="flex items-center gap-1">
+                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
+                        wire:click="mountAction('exportFeatures')">
+                        Export
+                    </x-filament::button>
+                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
+                        wire:click="mountAction('importFeatures')">
+                        Import
+                    </x-filament::button>
+                    <x-filament::button size="sm" icon="heroicon-o-plus"
+                        wire:click="mountAction('createFamilyAction')">
+                        Ajouter
+                    </x-filament::button>
+                </div>
             </x-slot>
 
             <div class="space-y-3">
@@ -239,6 +230,11 @@
             background-color: rgb(255 255 255);
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         }
+        @media (max-width: 1023px) {
+            .grid[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 
     @script
@@ -276,9 +272,11 @@
             makeSortable(el) {
                 const kind = el.dataset.sortable;
                 return new Sortable(el, {
-                    group: (kind === 'values' || kind === 'values-any')
-                        ? { name: 'features-values', pull: true, put: true }
-                        : kind,
+                    group: (kind === 'collections' || kind === 'collection-children')
+                        ? { name: 'collections-tree', pull: true, put: true }
+                        : (kind === 'values' || kind === 'values-any')
+                            ? { name: 'features-values', pull: true, put: true }
+                            : kind,
                     handle: '.tree-node__handle',
                     animation: 150,
                     fallbackOnBody: true,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\Component;
@@ -59,6 +60,13 @@ class TreeManager extends BasePage implements HasActions, HasForms
     public string $featureSearch = '';
 
     public string $activeTab = 'both';
+
+    public function switchTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['categories', 'features', 'both'], true) ? $tab : 'both';
+        $this->cachedHeaderActions = [];
+        $this->cacheHeaderActions();
+    }
 
     /**
      * @return array<NavigationItem>
@@ -699,19 +707,36 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
     protected function getHeaderActions(): array
     {
-        $actions = [$this->fixTreeAction()];
-
-        if (in_array($this->activeTab, ['categories', 'both'], true)) {
-            $actions[] = $this->exportCollectionsAction();
-            $actions[] = $this->importCollectionsAction();
-        }
-
-        if (in_array($this->activeTab, ['features', 'both'], true)) {
-            $actions[] = $this->exportFeaturesAction();
-            $actions[] = $this->importFeaturesAction();
-        }
-
-        return $actions;
+        return [
+            Action::make('tabCategories')
+                ->label('Catégories')
+                ->icon('heroicon-o-rectangle-stack')
+                ->color(fn (): string => $this->activeTab === 'categories' ? 'primary' : 'gray')
+                ->action(fn () => $this->switchTab('categories')),
+            Action::make('tabFeatures')
+                ->label('Caractéristiques')
+                ->icon('heroicon-o-tag')
+                ->color(fn (): string => $this->activeTab === 'features' ? 'primary' : 'gray')
+                ->action(fn () => $this->switchTab('features')),
+            Action::make('tabBoth')
+                ->label('Les deux')
+                ->icon('heroicon-o-squares-2x2')
+                ->color(fn (): string => $this->activeTab === 'both' ? 'primary' : 'gray')
+                ->action(fn () => $this->switchTab('both')),
+            ActionGroup::make([
+                Action::make('maintenanceFixTree')
+                    ->label('Réparer l\'arbre')
+                    ->icon('heroicon-o-wrench-screwdriver')
+                    ->action(function (): void {
+                        LunarCollection::fixTree();
+                        $this->hydrateCollections();
+                        Notification::make()->success()->title('Arbre recalculé')->send();
+                    }),
+            ])
+                ->icon('heroicon-o-ellipsis-vertical')
+                ->color('gray')
+                ->tooltip('Maintenance'),
+        ];
     }
 
     public function fixTreeAction(): Action
