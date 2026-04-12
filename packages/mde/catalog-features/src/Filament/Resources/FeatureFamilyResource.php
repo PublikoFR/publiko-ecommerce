@@ -35,6 +35,11 @@ class FeatureFamilyResource extends BaseResource
         return 'Catalogue';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-tag';

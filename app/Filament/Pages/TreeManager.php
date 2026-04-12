@@ -16,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Navigation\NavigationItem;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Contracts\Support\Htmlable;
@@ -41,15 +42,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
     protected static ?string $navigationGroup = 'Catalogue';
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
-    protected static ?string $navigationLabel = 'Publiko Tree Manager';
-
-    protected static ?string $title = 'Publiko Tree Manager';
-
     protected static string $view = 'filament.pages.tree-manager';
-
-    protected static ?int $navigationSort = 1;
 
     protected const LOCALE = 'fr';
 
@@ -65,8 +58,49 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
     public string $featureSearch = '';
 
+    public string $activeTab = 'both';
+
+    /**
+     * @return array<NavigationItem>
+     */
+    public static function getNavigationItems(): array
+    {
+        $baseUrl = static::getUrl();
+
+        return [
+            NavigationItem::make('Catégories')
+                ->group('Catalogue')
+                ->icon('heroicon-o-rectangle-stack')
+                ->sort(4)
+                ->url($baseUrl.'?tab=categories')
+                ->isActiveWhen(fn (): bool => request()->routeIs(static::getNavigationItemActiveRoutePattern())
+                    && request()->query('tab') === 'categories'),
+            NavigationItem::make('Caractéristiques')
+                ->group('Catalogue')
+                ->icon('heroicon-o-tag')
+                ->sort(5)
+                ->url($baseUrl.'?tab=features')
+                ->isActiveWhen(fn (): bool => request()->routeIs(static::getNavigationItemActiveRoutePattern())
+                    && request()->query('tab') === 'features'),
+        ];
+    }
+
+    public function getTitle(): string|Htmlable
+    {
+        return match ($this->activeTab) {
+            'categories' => 'Catégories',
+            'features' => 'Caractéristiques',
+            default => 'Catégories & Caractéristiques',
+        };
+    }
+
     public function mount(): void
     {
+        $tab = request()->query('tab', 'both');
+        $this->activeTab = in_array($tab, ['categories', 'features', 'both'], true)
+            ? $tab
+            : 'both';
+
         $group = CollectionGroup::query()->orderBy('id')->first();
 
         abort_if($group === null, 500, 'Aucun CollectionGroup configuré.');
@@ -665,13 +699,19 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
     protected function getHeaderActions(): array
     {
-        return [
-            $this->fixTreeAction(),
-            $this->exportCollectionsAction(),
-            $this->importCollectionsAction(),
-            $this->exportFeaturesAction(),
-            $this->importFeaturesAction(),
-        ];
+        $actions = [$this->fixTreeAction()];
+
+        if (in_array($this->activeTab, ['categories', 'both'], true)) {
+            $actions[] = $this->exportCollectionsAction();
+            $actions[] = $this->importCollectionsAction();
+        }
+
+        if (in_array($this->activeTab, ['features', 'both'], true)) {
+            $actions[] = $this->exportFeaturesAction();
+            $actions[] = $this->importFeaturesAction();
+        }
+
+        return $actions;
     }
 
     public function fixTreeAction(): Action
@@ -941,6 +981,10 @@ class TreeManager extends BasePage implements HasActions, HasForms
         $categoryCount = count($this->collectionsTree);
         $familyCount = count($this->featureFamilies);
 
-        return "Gérez les catégories produits et les caractéristiques filtrables. {$categoryCount} catégorie(s) racine, {$familyCount} famille(s) de caractéristique.";
+        return match ($this->activeTab) {
+            'categories' => "{$categoryCount} catégorie(s) racine.",
+            'features' => "{$familyCount} famille(s) de caractéristique.",
+            default => "{$categoryCount} catégorie(s) racine, {$familyCount} famille(s) de caractéristique.",
+        };
     }
 }

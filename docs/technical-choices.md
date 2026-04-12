@@ -602,7 +602,46 @@ Après un `boost:install` complet (avec guidelines), un `boost.json` est génér
 
 ---
 
-## 13. Documentation externe
+## 13. Navigation admin — réorganisation et Media Library
+
+### Problème initial
+
+L'admin Lunar enregistre ~20 resources dans 3 groupes anglais (`Catalog`, `Sales`, `Settings`). Le projet définissait des groupes français (`Catalogue`, `Commandes`, `Configuration`) dans `AppServiceProvider`, mais sans traductions FR pour Lunar → les resources Lunar se retrouvaient dans des groupes anglais distincts des groupes français de l'app.
+
+### Solution : traductions FR Lunar + sous-classes navigation + reflection swap
+
+**Traductions** : `lang/vendor/lunarpanel/fr/global.php` mappe `catalog→Catalogue`, `sales→Commandes`, `settings→Configuration`. Les resources Lunar tombent maintenant dans les bons groupes français.
+
+**Sous-classes** : 4 resources dans `app/Filament/Resources/Mde*Resource.php` étendent les resources Lunar `ProductTypeResource`, `ProductOptionResource`, `AttributeGroupResource`, `CollectionGroupResource` pour changer uniquement `getNavigationGroup()` → `'Paramètres catalogue'`. `ProductTypeResource` retire aussi `getNavigationParentItem()` (était imbriqué sous "Produits").
+
+**Reflection swap** : `LunarPanelManager::$resources` est `protected static` sans setter. `AppServiceProvider::swapLunarResources()` utilise `ReflectionProperty` pour substituer les 4 classes **avant** `register()`. Fragile en cas de changement interne Lunar — à surveiller lors des mises à jour.
+
+### Navigation cible
+
+| Groupe | Entrées | Usage |
+|--------|---------|-------|
+| **Catalogue** | Produits, Medias, Marques, Catégories, Caractéristiques | Quotidien |
+| **Paramètres catalogue** (collapsed) | Types de produits, Options de produits, Groupes d'attributs, Groupes de collections | Setup initial |
+
+**TreeManager** : anciennement 1 entrée nav, désormais 2 (`Catégories` et `Caractéristiques`) via `getNavigationItems()` retournant 2 `NavigationItem` avec query param `?tab=categories|features`. Toggle 3 modes sur la page (catégories seules, features seules, les deux).
+
+**FeatureFamilyResource** : `shouldRegisterNavigation()` retourne `false`. Resource toujours enregistrée (URLs actives), juste absente du sidebar.
+
+### Media Library — `tomatophp/filament-media-manager`
+
+Package retenu pour la gestion centralisée des médias (photos, vidéos) dans l'admin, style WordPress. Basé sur Spatie MediaLibrary (compatible Lunar qui l'utilise déjà).
+
+- Dossiers et sous-dossiers
+- Alt tags / titres / descriptions via custom properties Spatie
+- Traductions FR : `lang/vendor/filament-media-manager/fr/messages.php`
+- Config : `config/filament-media-manager.php`, `navigation_sort => 2`
+- Tables : `folders`, `media_has_models`, `folder_has_models`
+
+Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb/filament-image-library` (système propre incompatible). Option premium `ralphjsmit/media-library-pro` non retenue pour le moment (budget).
+
+---
+
+## 14. Documentation externe
 
 - [Lunar](https://docs.lunarphp.com) — **servie aussi via le MCP `lunar-docs`**
 - [Filament 3](https://filamentphp.com/docs/3.x)
@@ -614,4 +653,4 @@ Après un `boost:install` complet (avec guidelines), un `boost.json` est génér
 
 ---
 
-_Dernière mise à jour : 2026-04-11 — MCP servers laravel-boost + lunar-docs ajoutés + CLAUDE.md refondu en instructions pures._
+_Dernière mise à jour : 2026-04-12 — réorganisation navigation admin, media library tomatophp, traductions FR Lunar, reflection swap resources._

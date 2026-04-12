@@ -2,13 +2,40 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
             defer></script>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2"
+    {{-- Tab switcher --}}
+    <div class="flex items-center gap-2 mb-4">
+        <x-filament::button
+            size="sm"
+            :color="$activeTab === 'categories' ? 'primary' : 'gray'"
+            wire:click="$set('activeTab', 'categories')"
+            icon="heroicon-o-rectangle-stack">
+            Catégories
+        </x-filament::button>
+        <x-filament::button
+            size="sm"
+            :color="$activeTab === 'features' ? 'primary' : 'gray'"
+            wire:click="$set('activeTab', 'features')"
+            icon="heroicon-o-tag">
+            Caractéristiques
+        </x-filament::button>
+        <x-filament::button
+            size="sm"
+            :color="$activeTab === 'both' ? 'primary' : 'gray'"
+            wire:click="$set('activeTab', 'both')"
+            icon="heroicon-o-squares-2x2">
+            Les deux
+        </x-filament::button>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 {{ $activeTab === 'both' ? 'lg:grid-cols-2' : '' }}"
          x-data="treeManager()"
          x-init="boot()"
          wire:ignore.self>
+
         {{-- ============================================================ --}}
         {{-- CATÉGORIES                                                   --}}
         {{-- ============================================================ --}}
+        @if (in_array($activeTab, ['categories', 'both']))
         <x-filament::section>
             <x-slot name="heading">
                 <div class="flex items-center gap-2">
@@ -52,10 +79,12 @@
                 @endif
             </div>
         </x-filament::section>
+        @endif
 
         {{-- ============================================================ --}}
         {{-- CARACTÉRISTIQUES                                             --}}
         {{-- ============================================================ --}}
+        @if (in_array($activeTab, ['features', 'both']))
         <x-filament::section>
             <x-slot name="heading">
                 <div class="flex items-center gap-2">
@@ -98,6 +127,7 @@
                 @endif
             </div>
         </x-filament::section>
+        @endif
     </div>
 
     <style>
