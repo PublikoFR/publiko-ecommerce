@@ -17,7 +17,7 @@
                     <x-heroicon-o-rectangle-stack class="h-5 w-5 text-primary-500" />
                     Catégories
                     <span class="ml-auto text-xs font-normal text-gray-500">
-                        {{ count($collectionsTree) }} racine(s)
+                        {{ count($this->collectionsTree) }} racine, {{ $this->countNodes($this->collectionsTree) }} au total
                     </span>
                 </div>
             </x-slot>
@@ -44,10 +44,11 @@
                     <x-filament::input
                         type="search"
                         placeholder="Rechercher une catégorie…"
-                        wire:model.live.debounce.300ms="collectionSearch" />
+                        data-filter-target=".tree-list--collections"
+                        x-on:input.debounce.200ms="filterTree($el, '.tree-list--collections')" />
                 </x-filament::input.wrapper>
 
-                @if (count($collectionsTree) === 0)
+                @if (count($this->collectionsTree) === 0)
                     <div class="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700">
                         Aucune catégorie. Cliquez sur « Ajouter ».
                     </div>
@@ -55,7 +56,7 @@
                     <ul class="tree-list tree-list--collections space-y-1"
                         data-sortable="collections"
                         data-parent-id="">
-                        @foreach ($collectionsTree as $node)
+                        @foreach ($this->collectionsTree as $node)
                             @include('filament.pages.tree-manager.collection-node', ['node' => $node, 'depth' => 0])
                         @endforeach
                     </ul>
@@ -74,7 +75,7 @@
                     <x-heroicon-o-tag class="h-5 w-5 text-primary-500" />
                     Caractéristiques
                     <span class="ml-auto text-xs font-normal text-gray-500">
-                        {{ count($featureFamilies) }} famille(s)
+                        {{ count($this->featureFamilies) }} familles, {{ $this->countValues($this->featureFamilies) }} valeurs
                     </span>
                 </div>
             </x-slot>
@@ -101,17 +102,18 @@
                     <x-filament::input
                         type="search"
                         placeholder="Rechercher une caractéristique…"
-                        wire:model.live.debounce.300ms="featureSearch" />
+                        data-filter-target=".tree-list--families"
+                        x-on:input.debounce.200ms="filterTree($el, '.tree-list--families')" />
                 </x-filament::input.wrapper>
 
-                @if (count($featureFamilies) === 0)
+                @if (count($this->featureFamilies) === 0)
                     <div class="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700">
                         Aucune famille. Cliquez sur « Ajouter ».
                     </div>
                 @else
                     <ul class="tree-list tree-list--families space-y-2"
                         data-sortable="families">
-                        @foreach ($featureFamilies as $family)
+                        @foreach ($this->featureFamilies as $family)
                             @include('filament.pages.tree-manager.feature-family', ['family' => $family])
                         @endforeach
                     </ul>
@@ -156,13 +158,16 @@
             cursor: grabbing;
         }
         .tree-node__label {
-            flex: 1;
             min-width: 0;
             font-size: 0.875rem;
             color: rgb(17 24 39);
             overflow: hidden;
-            text-overflow: ellipsis;
             white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .tree-node__label .tree-node__badge {
+            margin-left: 0.25rem;
+            vertical-align: middle;
         }
         .dark .tree-node__label {
             color: rgb(243 244 246);
@@ -185,6 +190,7 @@
             opacity: 0;
             transition: opacity 0.15s;
             flex-shrink: 0;
+            margin-left: auto;
         }
         .tree-node:hover .tree-node__actions {
             opacity: 1;
@@ -205,12 +211,24 @@
         .tree-node__action--danger:hover {
             color: rgb(220 38 38);
         }
-        .tree-node__thumb {
-            width: 1.25rem;
-            height: 1.25rem;
+        .tree-node__toggle {
+            padding: 0.125rem;
             border-radius: 0.25rem;
-            object-fit: cover;
+            color: rgb(107 114 128);
             flex-shrink: 0;
+            transition: transform 0.15s;
+        }
+        .tree-node__toggle:hover {
+            color: rgb(17 24 39);
+        }
+        .dark .tree-node__toggle:hover {
+            color: rgb(243 244 246);
+        }
+        .tree-node__toggle {
+            transform: rotate(90deg);
+        }
+        li.tree-collapsed > .tree-node .tree-node__toggle {
+            transform: rotate(0deg);
         }
         .tree-children {
             list-style: none;
@@ -219,8 +237,19 @@
             border-left: 2px dashed rgb(229 231 235);
             margin-left: 0.75rem;
         }
+        li.tree-collapsed > .tree-children {
+            display: none;
+        }
         .dark .tree-children {
             border-left-color: rgb(55 65 81);
+        }
+        mark.tree-hl {
+            background-color: rgb(254 240 138);
+            color: inherit;
+        }
+        .dark mark.tree-hl {
+            background-color: rgb(133 77 14);
+            color: rgb(254 240 138);
         }
         .tree-list .sortable-ghost {
             opacity: 0.4;
@@ -240,32 +269,115 @@
     @script
     <script>
         Alpine.data('treeManager', () => ({
-            instances: [],
+            sortableMap: new WeakMap(),
 
-            boot() {
-                this.initAll();
-                // Re-init after Livewire updates DOM
-                Livewire.hook('morph.updated', ({ el, component }) => {
-                    this.$nextTick(() => this.initAll());
+            labelText(li) {
+                const lbl = li.querySelector(':scope > .tree-node .tree-node__label');
+                if (!lbl) return '';
+                let t = '';
+                lbl.childNodes.forEach(n => {
+                    if (n.nodeType === 3) t += n.textContent;
+                    else if (n.nodeType === 1 && !n.classList.contains('tree-node__badge')) t += n.textContent;
+                });
+                return t.toLowerCase();
+            },
+
+            filterTree(inputEl, listSelector) {
+                const query = inputEl.value.toLowerCase().trim();
+                const list = this.$root.querySelector(listSelector);
+                if (!list) return;
+
+                this.clearHighlights(list);
+
+                const items = [...list.querySelectorAll('li')];
+
+                if (!query) {
+                    items.forEach(li => li.style.display = '');
+                    return;
+                }
+
+                items.forEach(li => { li._m = this.labelText(li).includes(query); li._v = false; });
+
+                items.forEach(li => {
+                    if (!li._m) return;
+                    li._v = true;
+                    let p = li.parentElement?.closest('li');
+                    while (p) { p._v = true; p = p.parentElement?.closest('li'); }
+                });
+
+                items.forEach(li => li.style.display = li._v ? '' : 'none');
+                this.applyHighlights(list, query);
+            },
+
+            clearHighlights(root) {
+                root.querySelectorAll('mark.tree-hl').forEach(m => m.replaceWith(...m.childNodes));
+                root.querySelectorAll('.tree-node__label').forEach(el => el.normalize());
+            },
+
+            applyHighlights(list, query) {
+                list.querySelectorAll('li:not([style*="none"]) > .tree-node .tree-node__label').forEach(lbl => {
+                    this.hlWalk(lbl, query);
                 });
             },
 
-            destroyAll() {
-                this.instances.forEach((i) => {
-                    try { i.destroy(); } catch (e) { /* no-op */ }
+            hlWalk(el, q) {
+                [...el.childNodes].forEach(n => {
+                    if (n.nodeType === 1 && n.tagName !== 'MARK' && !n.classList.contains('tree-node__badge')) {
+                        this.hlWalk(n, q);
+                    } else if (n.nodeType === 3) {
+                        let rest = n.textContent, lo = rest.toLowerCase(), i = lo.indexOf(q);
+                        if (i === -1) return;
+                        const f = document.createDocumentFragment();
+                        while ((i = lo.indexOf(q)) !== -1) {
+                            if (i > 0) f.appendChild(document.createTextNode(rest.slice(0, i)));
+                            const m = document.createElement('mark');
+                            m.className = 'tree-hl';
+                            m.textContent = rest.slice(i, i + q.length);
+                            f.appendChild(m);
+                            rest = rest.slice(i + q.length);
+                            lo = lo.slice(i + q.length);
+                        }
+                        if (rest) f.appendChild(document.createTextNode(rest));
+                        n.parentNode.replaceChild(f, n);
+                    }
                 });
-                this.instances = [];
+            },
+
+            toggleNode(el) {
+                el.closest('li').classList.toggle('tree-collapsed');
+            },
+
+            boot() {
+                this.waitForSortable(() => this.initAll());
+
+                let pending = false;
+                Livewire.hook('morph.updated', () => {
+                    if (pending) return;
+                    pending = true;
+                    requestAnimationFrame(() => {
+                        this.initAll();
+                        this.reapplyFilters();
+                        pending = false;
+                    });
+                });
+            },
+
+            reapplyFilters() {
+                this.$root.querySelectorAll('input[type="search"][data-filter-target]').forEach(input => {
+                    if (input.value.trim()) this.filterTree(input, input.dataset.filterTarget);
+                });
+            },
+
+            waitForSortable(cb) {
+                if (typeof Sortable !== 'undefined') { cb(); return; }
+                setTimeout(() => this.waitForSortable(cb), 150);
             },
 
             initAll() {
-                if (typeof Sortable === 'undefined') {
-                    // SortableJS not yet loaded (defer). Retry shortly.
-                    setTimeout(() => this.initAll(), 150);
-                    return;
-                }
-                this.destroyAll();
                 this.$root.querySelectorAll('[data-sortable]').forEach((el) => {
-                    this.instances.push(this.makeSortable(el));
+                    if (!this.sortableMap.has(el)) {
+                        this.sortableMap.set(el, this.makeSortable(el));
+                    }
                 });
             },
 

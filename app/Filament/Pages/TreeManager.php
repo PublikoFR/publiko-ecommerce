@@ -27,6 +27,7 @@ use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
 use Lunar\Admin\Support\Pages\BasePage;
 use Lunar\FieldTypes\Text as LunarText;
 use Lunar\FieldTypes\TranslatedText;
@@ -48,16 +49,6 @@ class TreeManager extends BasePage implements HasActions, HasForms
     protected const LOCALE = 'fr';
 
     public ?int $collectionGroupId = null;
-
-    /** @var array<int, array<string, mixed>> */
-    public array $collectionsTree = [];
-
-    /** @var array<int, array<string, mixed>> */
-    public array $featureFamilies = [];
-
-    public string $collectionSearch = '';
-
-    public string $featureSearch = '';
 
     public string $activeTab = 'both';
 
@@ -114,20 +105,18 @@ class TreeManager extends BasePage implements HasActions, HasForms
         abort_if($group === null, 500, 'Aucun CollectionGroup configuré.');
 
         $this->collectionGroupId = $group->id;
-        $this->rehydrate();
     }
 
-    public function rehydrate(): void
-    {
-        $this->hydrateCollections();
-        $this->hydrateFeatures();
-    }
-
-    protected function hydrateCollections(): void
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    #[Computed]
+    public function collectionsTree(): array
     {
         /** @var EloquentCollection<int, LunarCollection> $collections */
         $collections = LunarCollection::query()
             ->where('collection_group_id', $this->collectionGroupId)
+            ->withCount('products')
             ->defaultOrder()
             ->get();
 
@@ -141,17 +130,20 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 return [
                     'id' => $node->id,
                     'name' => (string) ($node->translateAttribute('name', self::LOCALE) ?? '—'),
-                    'thumbnail' => $node->getThumbnailImage() ?: null,
-                    'product_count' => $node->products()->count(),
+                    'product_count' => $node->products_count ?? 0,
                     'children' => $build($node->id),
                 ];
             })->values()->all();
         };
 
-        $this->collectionsTree = $build(null);
+        return $build(null);
     }
 
-    protected function hydrateFeatures(): void
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    #[Computed]
+    public function featureFamilies(): array
     {
         /** @var EloquentCollection<int, FeatureFamily> $families */
         $families = FeatureFamily::query()
@@ -159,7 +151,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->ordered()
             ->get();
 
-        $this->featureFamilies = $families->map(fn (FeatureFamily $family): array => [
+        return $families->map(fn (FeatureFamily $family): array => [
             'id' => $family->id,
             'name' => $family->name,
             'handle' => $family->handle,
@@ -216,7 +208,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             }
         });
 
-        $this->hydrateCollections();
+        $this->skipRender();
     }
 
     public function moveFeatureFamily(int $id, int $newIndex): void
@@ -243,7 +235,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             }
         });
 
-        $this->hydrateFeatures();
+        $this->skipRender();
     }
 
     public function moveFeatureValue(int $id, int $newFamilyId, int $newIndex): void
@@ -287,7 +279,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             }
         });
 
-        $this->hydrateFeatures();
+        $this->skipRender();
     }
 
     // =========================================================================
@@ -332,8 +324,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     $this->attachImageIfPresent($collection, $data['image'] ?? null);
                 });
 
-                $this->hydrateCollections();
-
+                unset($this->collectionsTree);
                 Notification::make()->success()->title('Catégorie créée')->send();
             });
     }
@@ -368,8 +359,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     $this->attachImageIfPresent($collection, $data['image'] ?? null);
                 });
 
-                $this->hydrateCollections();
-
+                unset($this->collectionsTree);
                 Notification::make()->success()->title('Catégorie mise à jour')->send();
             });
     }
@@ -388,8 +378,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 $collection = LunarCollection::query()->findOrFail($arguments['id']);
                 $collection->delete();
 
-                $this->hydrateCollections();
-
+                unset($this->collectionsTree);
                 Notification::make()->success()->title('Catégorie supprimée')->send();
             });
     }
@@ -510,8 +499,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'position' => $maxPosition + 1,
                 ]);
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Famille créée')->send();
             });
     }
@@ -542,8 +530,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'searchable' => (bool) $data['searchable'],
                 ]);
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Famille mise à jour')->send();
             });
     }
@@ -560,8 +547,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->action(function (array $arguments): void {
                 FeatureFamily::query()->where('id', $arguments['id'])->delete();
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Famille supprimée')->send();
             });
     }
@@ -623,8 +609,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'position' => $maxPosition + 1,
                 ]);
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Valeur créée')->send();
             });
     }
@@ -653,8 +638,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'handle' => $data['handle'],
                 ]);
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Valeur mise à jour')->send();
             });
     }
@@ -670,8 +654,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->action(function (array $arguments): void {
                 FeatureValue::query()->where('id', $arguments['id'])->delete();
 
-                $this->hydrateFeatures();
-
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Valeur supprimée')->send();
             });
     }
@@ -729,7 +712,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     ->icon('heroicon-o-wrench-screwdriver')
                     ->action(function (): void {
                         LunarCollection::fixTree();
-                        $this->hydrateCollections();
+                        unset($this->collectionsTree);
                         Notification::make()->success()->title('Arbre recalculé')->send();
                     }),
             ])
@@ -747,7 +730,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->color('gray')
             ->action(function (): void {
                 LunarCollection::fixTree();
-                $this->hydrateCollections();
+                unset($this->collectionsTree);
                 Notification::make()->success()->title('Arbre recalculé')->send();
             });
     }
@@ -808,11 +791,15 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ])
             ->action(function (array $data): void {
                 $payload = $this->resolveImportPayload($data);
-                abort_if(! is_array($payload) || ! isset($payload['tree']), 422, 'Format invalide. Clé "tree" manquante.');
+                abort_if(! is_array($payload), 422, 'JSON invalide.');
+
+                if (! isset($payload['tree'])) {
+                    $payload = ['tree' => $this->flatMapToTree($payload)];
+                }
 
                 $this->importCollectionsPayload($payload);
-                $this->hydrateCollections();
 
+                unset($this->collectionsTree);
                 Notification::make()->success()->title('Catégories importées')->send();
             });
     }
@@ -873,11 +860,15 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ])
             ->action(function (array $data): void {
                 $payload = $this->resolveImportPayload($data);
-                abort_if(! is_array($payload) || ! isset($payload['families']), 422, 'Format invalide. Clé "families" manquante.');
+                abort_if(! is_array($payload), 422, 'JSON invalide.');
+
+                if (! isset($payload['families'])) {
+                    $payload = ['families' => $this->flatMapToFamilies($payload)];
+                }
 
                 $this->importFeaturesPayload($payload);
-                $this->hydrateFeatures();
 
+                unset($this->featureFamilies);
                 Notification::make()->success()->title('Caractéristiques importées')->send();
             });
     }
@@ -915,6 +906,76 @@ class TreeManager extends BasePage implements HasActions, HasForms
         }
 
         abort(422, 'Veuillez coller du JSON ou sélectionner un fichier.');
+    }
+
+    /**
+     * Convert {"Parent": ["Child1", "Child2"], "Child1": ["GrandChild"]} into
+     * [{"name": "Parent", "children": [{"name": "Child1", "children": [...]}]}].
+     *
+     * @param  array<string, list<string>>  $map
+     * @return list<array{name: string, children: list<mixed>}>
+     */
+    private function flatMapToTree(array $map): array
+    {
+        $allChildren = [];
+        foreach ($map as $children) {
+            if (is_array($children)) {
+                foreach ($children as $child) {
+                    $allChildren[(string) $child] = true;
+                }
+            }
+        }
+
+        $build = function (string $name) use (&$build, $map): array {
+            $node = ['name' => $name, 'children' => []];
+            if (isset($map[$name]) && is_array($map[$name])) {
+                foreach ($map[$name] as $child) {
+                    $node['children'][] = $build((string) $child);
+                }
+            }
+
+            return $node;
+        };
+
+        $roots = [];
+        foreach (array_keys($map) as $key) {
+            if (! isset($allChildren[$key])) {
+                $roots[] = $build((string) $key);
+            }
+        }
+
+        return $roots;
+    }
+
+    /**
+     * Convert {"Marque": ["Bosch", "Makita"]} into the families import format.
+     *
+     * @param  array<string, list<string>>  $map
+     * @return list<array{handle: string, name: string, values: list<array{handle: string, name: string}>}>
+     */
+    private function flatMapToFamilies(array $map): array
+    {
+        $families = [];
+        foreach ($map as $familyName => $values) {
+            $family = [
+                'handle' => Str::slug((string) $familyName),
+                'name' => (string) $familyName,
+                'multi_value' => true,
+                'searchable' => false,
+                'values' => [],
+            ];
+            if (is_array($values)) {
+                foreach ($values as $valueName) {
+                    $family['values'][] = [
+                        'handle' => Str::slug((string) $valueName),
+                        'name' => (string) $valueName,
+                    ];
+                }
+            }
+            $families[] = $family;
+        }
+
+        return $families;
     }
 
     /**
@@ -1092,13 +1153,39 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
     public function getSubheading(): string|Htmlable|null
     {
-        $categoryCount = count($this->collectionsTree);
-        $familyCount = count($this->featureFamilies);
+        $rootCats = count($this->collectionsTree);
+        $totalCats = $this->countNodes($this->collectionsTree);
+        $families = count($this->featureFamilies);
+        $totalValues = $this->countValues($this->featureFamilies);
+
+        $catLabel = "{$rootCats} racine, {$totalCats} au total";
+        $featLabel = "{$families} familles, {$totalValues} valeurs au total";
 
         return match ($this->activeTab) {
-            'categories' => "{$categoryCount} catégorie(s) racine.",
-            'features' => "{$familyCount} famille(s) de caractéristique.",
-            default => "{$categoryCount} catégorie(s) racine, {$familyCount} famille(s) de caractéristique.",
+            'categories' => $catLabel,
+            'features' => $featLabel,
+            default => "Catégories : {$catLabel} — Caractéristiques : {$featLabel}",
         };
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $nodes
+     */
+    private function countNodes(array $nodes): int
+    {
+        $count = count($nodes);
+        foreach ($nodes as $node) {
+            $count += $this->countNodes($node['children'] ?? []);
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $families
+     */
+    private function countValues(array $families): int
+    {
+        return array_sum(array_map(fn (array $f): int => count($f['values'] ?? []), $families));
     }
 }

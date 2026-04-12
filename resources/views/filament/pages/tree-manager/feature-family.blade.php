@@ -1,17 +1,24 @@
+@php($hasValues = count($family['values'] ?? []) > 0)
 <li data-id="{{ $family['id'] }}">
     <div class="tree-node">
         <x-heroicon-o-bars-3 class="tree-node__handle h-4 w-4" />
-        <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 text-gray-400" />
+        @if ($hasValues)
+            <button type="button" class="tree-node__toggle" x-on:click.stop="toggleNode($el)">
+                <x-heroicon-o-chevron-right class="h-3.5 w-3.5" />
+            </button>
+        @endif
+        <x-heroicon-o-tag class="h-4 w-4 flex-shrink-0 text-gray-400" />
         <span class="tree-node__label">
             {{ $family['name'] }}
             <span class="ml-1 font-mono text-xs text-gray-400">{{ $family['handle'] }}</span>
+            @if ($family['multi_value'])
+                <span class="tree-node__badge" title="Multi-valeurs">multi</span>
+            @endif
+            @if ($family['searchable'])
+                <span class="tree-node__badge" title="Indexée pour la recherche">idx</span>
+            @endif
+            <span class="tree-node__badge">{{ count($family['values'] ?? []) }}</span>
         </span>
-        @if ($family['multi_value'])
-            <span class="tree-node__badge" title="Multi-valeurs">[multi]</span>
-        @endif
-        @if ($family['searchable'])
-            <span class="tree-node__badge" title="Indexée pour la recherche">[idx]</span>
-        @endif
         <div class="tree-node__actions">
             <button type="button"
                     class="tree-node__action"
@@ -33,6 +40,7 @@
             </button>
         </div>
     </div>
+    @if ($hasValues)
     <ul class="tree-children"
         data-sortable="values"
         data-family-id="{{ $family['id'] }}">
@@ -63,4 +71,5 @@
             </li>
         @endforeach
     </ul>
+    @endif
 </li>

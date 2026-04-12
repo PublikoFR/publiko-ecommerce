@@ -3,13 +3,16 @@
 <li data-id="{{ $node['id'] }}">
     <div class="tree-node">
         <x-heroicon-o-bars-3 class="tree-node__handle h-4 w-4" />
-        @if (! empty($node['thumbnail']))
-            <img src="{{ $node['thumbnail'] }}" class="tree-node__thumb" alt="" />
-        @else
-            <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 text-gray-400" />
+        @if ($hasChildren)
+            <button type="button" class="tree-node__toggle" x-on:click.stop="toggleNode($el)">
+                <x-heroicon-o-chevron-right class="h-3.5 w-3.5" />
+            </button>
         @endif
-        <span class="tree-node__label">{{ $node['name'] }}</span>
-        <span class="tree-node__badge">{{ $node['product_count'] }}</span>
+        <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 text-gray-400" />
+        <span class="tree-node__label">
+            {{ $node['name'] }}
+            <span class="tree-node__badge">{{ $node['product_count'] }}</span>
+        </span>
         <div class="tree-node__actions">
             <button type="button"
                     class="tree-node__action"
@@ -31,6 +34,7 @@
             </button>
         </div>
     </div>
+    @if ($hasChildren)
     <ul class="tree-children"
         data-sortable="collection-children"
         data-parent-id="{{ $node['id'] }}">
@@ -38,4 +42,5 @@
             @include('filament.pages.tree-manager.collection-node', ['node' => $child, 'depth' => $depth + 1])
         @endforeach
     </ul>
+    @endif
 </li>
