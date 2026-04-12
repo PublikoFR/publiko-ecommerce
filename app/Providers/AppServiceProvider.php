@@ -24,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     {
         LunarPanel::panel(function (Panel $panel): Panel {
             return $panel
+                ->spa(false)
                 ->path('admin')
                 ->brandName('MDE Distribution')
                 ->navigationGroups([
