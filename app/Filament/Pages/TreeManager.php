@@ -755,33 +755,60 @@ class TreeManager extends BasePage implements HasActions, HasForms
     public function exportCollectionsAction(): Action
     {
         return Action::make('exportCollections')
-            ->label('Exporter catégories')
+            ->label('Export')
             ->icon('heroicon-o-arrow-down-tray')
             ->color('gray')
+            ->modalHeading('Exporter les catégories')
+            ->modalSubmitActionLabel('Télécharger JSON')
+            ->form([
+                Textarea::make('json_data')
+                    ->label('Données')
+                    ->rows(15)
+                    ->readOnly()
+                    ->extraInputAttributes(['class' => 'font-mono text-xs']),
+            ])
+            ->fillForm(fn (): array => [
+                'json_data' => json_encode(
+                    $this->serializeCollectionsTree(),
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
+            ])
             ->action(fn (): StreamedResponse => $this->streamJson(
                 'categories-'.now()->format('Ymd-His').'.json',
                 $this->serializeCollectionsTree(),
-            ));
+            ))
+            ->extraModalFooterActions(fn (): array => [
+                Action::make('copyCollectionsJson')
+                    ->label('Copier')
+                    ->icon('heroicon-o-clipboard-document')
+                    ->color('gray')
+                    ->alpineClickHandler(self::clipboardJs()),
+            ]);
     }
 
     public function importCollectionsAction(): Action
     {
         return Action::make('importCollections')
-            ->label('Importer catégories')
+            ->label('Import')
             ->icon('heroicon-o-arrow-up-tray')
             ->color('gray')
+            ->modalHeading('Importer les catégories')
+            ->modalSubmitActionLabel('Importer')
             ->form([
+                Textarea::make('json_data')
+                    ->label('Données JSON')
+                    ->placeholder('Collez vos données JSON ici…')
+                    ->rows(10)
+                    ->extraInputAttributes(['class' => 'font-mono text-xs']),
                 FileUpload::make('file')
-                    ->label('Fichier JSON')
+                    ->label('Ou importez un fichier')
                     ->acceptedFileTypes(['application/json'])
-                    ->required()
                     ->disk('local')
                     ->directory('tree-manager/imports'),
             ])
             ->action(function (array $data): void {
-                $path = Storage::disk('local')->path((string) $data['file']);
-                $payload = json_decode((string) file_get_contents($path), true);
-                abort_if(! is_array($payload) || ! isset($payload['tree']), 422, 'Format invalide.');
+                $payload = $this->resolveImportPayload($data);
+                abort_if(! is_array($payload) || ! isset($payload['tree']), 422, 'Format invalide. Clé "tree" manquante.');
 
                 $this->importCollectionsPayload($payload);
                 $this->hydrateCollections();
@@ -793,39 +820,101 @@ class TreeManager extends BasePage implements HasActions, HasForms
     public function exportFeaturesAction(): Action
     {
         return Action::make('exportFeatures')
-            ->label('Exporter caractéristiques')
+            ->label('Export')
             ->icon('heroicon-o-arrow-down-tray')
             ->color('gray')
+            ->modalHeading('Exporter les caractéristiques')
+            ->modalSubmitActionLabel('Télécharger JSON')
+            ->form([
+                Textarea::make('json_data')
+                    ->label('Données')
+                    ->rows(15)
+                    ->readOnly()
+                    ->extraInputAttributes(['class' => 'font-mono text-xs']),
+            ])
+            ->fillForm(fn (): array => [
+                'json_data' => json_encode(
+                    $this->serializeFeaturesTree(),
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
+            ])
             ->action(fn (): StreamedResponse => $this->streamJson(
                 'features-'.now()->format('Ymd-His').'.json',
                 $this->serializeFeaturesTree(),
-            ));
+            ))
+            ->extraModalFooterActions(fn (): array => [
+                Action::make('copyFeaturesJson')
+                    ->label('Copier')
+                    ->icon('heroicon-o-clipboard-document')
+                    ->color('gray')
+                    ->alpineClickHandler(self::clipboardJs()),
+            ]);
     }
 
     public function importFeaturesAction(): Action
     {
         return Action::make('importFeatures')
-            ->label('Importer caractéristiques')
+            ->label('Import')
             ->icon('heroicon-o-arrow-up-tray')
             ->color('gray')
+            ->modalHeading('Importer les caractéristiques')
+            ->modalSubmitActionLabel('Importer')
             ->form([
+                Textarea::make('json_data')
+                    ->label('Données JSON')
+                    ->placeholder('Collez vos données JSON ici…')
+                    ->rows(10)
+                    ->extraInputAttributes(['class' => 'font-mono text-xs']),
                 FileUpload::make('file')
-                    ->label('Fichier JSON')
+                    ->label('Ou importez un fichier')
                     ->acceptedFileTypes(['application/json'])
-                    ->required()
                     ->disk('local')
                     ->directory('tree-manager/imports'),
             ])
             ->action(function (array $data): void {
-                $path = Storage::disk('local')->path((string) $data['file']);
-                $payload = json_decode((string) file_get_contents($path), true);
-                abort_if(! is_array($payload) || ! isset($payload['families']), 422, 'Format invalide.');
+                $payload = $this->resolveImportPayload($data);
+                abort_if(! is_array($payload) || ! isset($payload['families']), 422, 'Format invalide. Clé "families" manquante.');
 
                 $this->importFeaturesPayload($payload);
                 $this->hydrateFeatures();
 
                 Notification::make()->success()->title('Caractéristiques importées')->send();
             });
+    }
+
+    private static function clipboardJs(): string
+    {
+        return <<<'JS'
+            const textarea = $el.closest('.fi-modal').querySelector('textarea');
+            if (textarea) {
+                navigator.clipboard.writeText(textarea.value);
+                const label = $el.querySelector('.fi-btn-label');
+                if (label) {
+                    const prev = label.textContent;
+                    label.textContent = 'Copié !';
+                    setTimeout(() => label.textContent = prev, 2000);
+                }
+            }
+        JS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
+    private function resolveImportPayload(array $data): ?array
+    {
+        if (filled($data['file'] ?? null)) {
+            $path = Storage::disk('local')->path((string) $data['file']);
+
+            return json_decode((string) file_get_contents($path), true);
+        }
+
+        if (filled($data['json_data'] ?? null)) {
+            return json_decode((string) $data['json_data'], true);
+        }
+
+        abort(422, 'Veuillez coller du JSON ou sélectionner un fichier.');
     }
 
     /**
