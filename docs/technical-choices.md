@@ -378,8 +378,10 @@ Une seule page admin (`/admin/tree-manager`) qui remplace l'aller-retour entre l
 - **Côté catégories** : `Lunar\Models\Collection` + `NodeTrait` kalnoy/nestedset — arbo illimitée, reparenting par `saveAsRoot()` / `appendToNode()`, repositionnement exact via `insertBeforeNode()`.
 - **Côté caractéristiques** : 2 niveaux stricts `FeatureFamily` → `FeatureValue`, position entière, renumérotation manuelle en transaction lors d'un drag (y compris renumbering de la famille source quand une valeur change de parent).
 - **Modales CRUD** : Filament Actions (`createCollectionAction`, `editCollectionAction`, `deleteCollectionAction`, équivalents famille / valeur). Chaque action a son `->form()` et son `->fillForm()`. Déclenchées depuis la blade via `wire:click="mountAction('xxxAction', { id: 42 })"`.
-- **Drag-n-drop** : **SortableJS 1.15.2** chargé via **CDN** (`cdn.jsdelivr.net`) directement dans la blade — pas de dépendance npm, pas d'entry Vite admin. Alpine component `treeManager` inline attache Sortable sur chaque `<ul data-sortable="...">` et appelle `$wire.moveCollection / moveFeatureValue / moveFeatureFamily` au `onEnd`. Réinitialisation post-Livewire via `Livewire.hook('morph.updated')`.
-- **Import / export JSON** : 1 fichier par arbre (header actions séparés). Format versionné (`version: 1`). Import = transaction + `fixTree()` final côté collections, `updateOrCreate` par handle côté features (préserve l'ID existant).
+- **Tab switcher** : 3 `Action` objects dans `getHeaderActions()` (catégories / caractéristiques / les deux) avec closures `->color()` dynamiques. Méthode `switchTab()` invalide le cache `$this->cachedHeaderActions` car Filament le fige au boot. Un `ActionGroup` dropdown ("...") regroupe les actions de maintenance (Réparer l'arbre).
+- **Layout** : mode `both` = inline `style="grid-template-columns: repeat(2, minmax(0, 1fr))"` (pas Tailwind JIT, cf. section 13). Responsive via `@media (max-width: 1023px)` en CSS inline.
+- **Drag-n-drop** : **SortableJS 1.15.2** chargé via **CDN** (`cdn.jsdelivr.net`) directement dans la blade — pas de dépendance npm, pas d'entry Vite admin. Alpine component `treeManager` inline attache Sortable sur chaque `<ul data-sortable="...">` et appelle `$wire.moveCollection / moveFeatureValue / moveFeatureFamily` au `onEnd`. Réinitialisation post-Livewire via `Livewire.hook('morph.updated')`. Les listes `collections` et `collection-children` partagent le groupe SortableJS `{ name: 'collections-tree', pull: true, put: true }` pour le reparenting cross-level. Même pattern `features-values` côté caractéristiques.
+- **Import / export JSON** : boutons Export/Import dans le `headerEnd` slot de chaque `<x-filament::section>`, contextuels par arbre. Format versionné (`version: 1`). Import = transaction + `fixTree()` final côté collections, `updateOrCreate` par handle côté features (préserve l'ID existant).
 
 ### 7.ter.3 SEO catégories — choix de stockage
 
@@ -625,6 +627,16 @@ L'admin Lunar enregistre ~20 resources dans 3 groupes anglais (`Catalog`, `Sales
 
 **TreeManager** : anciennement 1 entrée nav, désormais 2 (`Catégories` et `Caractéristiques`) via `getNavigationItems()` retournant 2 `NavigationItem` avec query param `?tab=categories|features`. Toggle 3 modes sur la page (catégories seules, features seules, les deux).
 
+**UX header actions** : le tab switcher (catégories / caractéristiques / les deux) est implémenté comme des `Action` objects dans `getHeaderActions()` avec des closures dynamiques `->color(fn (): string => $this->activeTab === 'xxx' ? 'primary' : 'gray')`. Raison : les boutons vivent dans la barre d'en-tête Filament natif, pas dans un composant Blade custom. Le bouton « Réparer l'arbre » et les actions de maintenance sont regroupés dans un `ActionGroup` dropdown (icône "...") pour désencombrer la barre.
+
+**Export/Import** : les boutons Export/Import sont placés dans le `headerEnd` slot de chaque `<x-filament::section>` (catégories et caractéristiques), pas dans les header actions globaux. Chaque section a ses propres boutons contextuels.
+
+**`switchTab()` et cache Filament** : Filament cache les header actions pendant `bootedInteractsWithHeaderActions()`. Un simple `$set` ou `$this->activeTab = ...` ne suffit pas à rafraîchir les couleurs des boutons tab. La méthode `switchTab()` vide manuellement `$this->cachedHeaderActions = []` puis rappelle `$this->cacheHeaderActions()` pour forcer la réévaluation des closures `color()`.
+
+**Layout côte-à-côte** : le mode `both` utilise un `style="grid-template-columns: repeat(2, minmax(0, 1fr))"` inline au lieu d'une classe Tailwind (`grid-cols-2`). Raison : Tailwind JIT ne résout pas les classes dynamiques générées par Livewire morph (`@if($activeTab === 'both') class="grid-cols-2" @endif` n'est pas scanné par le compilateur JIT). Le style inline + media query CSS `@media (max-width: 1023px)` gère le responsive.
+
+**SortableJS cross-level drag** : les listes catégories racine (`data-sortable="collections"`) et enfants (`data-sortable="collection-children"`) partagent le même groupe SortableJS `{ name: 'collections-tree', pull: true, put: true }`. Cela permet le reparenting drag-and-drop entre niveaux (racine ↔ enfant, enfant ↔ autre parent). Même pattern côté valeurs de caractéristiques avec le groupe `features-values`.
+
 **FeatureFamilyResource** : `shouldRegisterNavigation()` retourne `false`. Resource toujours enregistrée (URLs actives), juste absente du sidebar.
 
 ### Media Library — `tomatophp/filament-media-manager`
@@ -653,4 +665,4 @@ Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb
 
 ---
 
-_Dernière mise à jour : 2026-04-12 — réorganisation navigation admin, media library tomatophp, traductions FR Lunar, reflection swap resources._
+_Dernière mise à jour : 2026-04-12 — TreeManager UX refonte (tab switcher header actions, switchTab cache invalidation, SortableJS cross-level drag, layout inline style), réorganisation navigation admin, media library tomatophp, traductions FR Lunar, reflection swap resources._
