@@ -37,6 +37,7 @@ install:
 	$(EXEC) composer install
 	$(MAKE) permissions
 	$(EXEC) php artisan key:generate --force
+	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate --graceful --force
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
@@ -68,6 +69,7 @@ migrate:
 	$(EXEC) php artisan migrate
 
 fresh:
+	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate:fresh --force
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
