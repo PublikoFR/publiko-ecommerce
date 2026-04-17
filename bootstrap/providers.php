@@ -1,6 +1,7 @@
 <?php
 
 use App\Providers\AppServiceProvider;
+use Mde\Account\AccountServiceProvider;
 use Mde\AiImporter\AiImporterServiceProvider;
 use Mde\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Mde\CustomerAuth\CustomerAuthServiceProvider;
@@ -20,4 +21,5 @@ return [
     AiImporterServiceProvider::class,
     StorefrontServiceProvider::class,
     CustomerAuthServiceProvider::class,
+    AccountServiceProvider::class,
 ];
