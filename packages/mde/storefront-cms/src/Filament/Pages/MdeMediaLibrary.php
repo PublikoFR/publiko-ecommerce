@@ -46,6 +46,12 @@ class MdeMediaLibrary extends Page implements HasForms
 
     public ?string $editAlt = null;
 
+    public bool $showCreateFolderModal = false;
+
+    public string $newFolderName = '';
+
+    public string $newFolderCollection = 'default';
+
     public function mount(): void
     {
         $this->form->fill(['files' => []]);
@@ -82,19 +88,13 @@ class MdeMediaLibrary extends Page implements HasForms
     public function getFoldersTreeProperty(): array
     {
         return Folder::query()
-            ->whereNull('parent_id')
-            ->with(['folders' => fn ($q) => $q->orderBy('name')])
             ->orderBy('name')
             ->get()
             ->map(fn (Folder $f) => [
                 'id' => $f->id,
                 'name' => $f->name,
                 'collection' => $f->collection,
-                'children' => $f->folders->map(fn (Folder $c) => [
-                    'id' => $c->id,
-                    'name' => $c->name,
-                    'collection' => $c->collection,
-                ])->toArray(),
+                'children' => [],
             ])
             ->toArray();
     }
@@ -122,6 +122,39 @@ class MdeMediaLibrary extends Page implements HasForms
     {
         $this->currentFolderId = $id;
         $this->selectedMediaId = null;
+    }
+
+    public function createFolder(): void
+    {
+        $this->validate([
+            'newFolderName' => 'required|string|max:120',
+            'newFolderCollection' => 'required|string|max:120',
+        ]);
+
+        $folder = Folder::create([
+            'name' => $this->newFolderName,
+            'collection' => Str::slug($this->newFolderCollection),
+        ]);
+
+        $this->newFolderName = '';
+        $this->newFolderCollection = 'default';
+        $this->showCreateFolderModal = false;
+        $this->currentFolderId = $folder->id;
+
+        Notification::make()->success()->title('Dossier « '.$folder->name.' » créé')->send();
+    }
+
+    public function deleteFolder(int $id): void
+    {
+        $folder = Folder::find($id);
+        if ($folder === null) {
+            return;
+        }
+        $folder->delete();
+        if ($this->currentFolderId === $id) {
+            $this->currentFolderId = null;
+        }
+        Notification::make()->success()->title('Dossier supprimé')->send();
     }
 
     // ------------------ Upload ------------------

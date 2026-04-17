@@ -97,6 +97,33 @@
         </div>
     </div>
 
+    {{-- Modal Create Folder --}}
+    @if ($showCreateFolderModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/40" wire:click="$set('showCreateFolderModal', false)"></div>
+            <div class="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md p-6">
+                <h2 class="font-bold text-lg text-gray-900 dark:text-white mb-4">Nouveau dossier</h2>
+                <form wire:submit="createFolder" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom du dossier</label>
+                        <input type="text" wire:model="newFolderName" required class="block w-full rounded-md border-gray-300 dark:bg-white/5 dark:border-white/10 text-sm" placeholder="Ex: Produits Milwaukee" />
+                        @error('newFolderName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Collection Spatie</label>
+                        <input type="text" wire:model="newFolderCollection" required class="block w-full rounded-md border-gray-300 dark:bg-white/5 dark:border-white/10 text-sm font-mono" placeholder="default" />
+                        <p class="mt-1 text-xs text-gray-500">Identifiant technique (slug). Utilise <code>default</code> sauf si tu sais ce que tu fais. Les médias Lunar sont sous <code>products</code>.</p>
+                        @error('newFolderCollection')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-white/10">
+                        <x-filament::button type="button" color="gray" wire:click="$set('showCreateFolderModal', false)">Annuler</x-filament::button>
+                        <x-filament::button type="submit">Créer</x-filament::button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
     {{-- Slide-over Edit --}}
     @if ($this->selectedMedia)
         <div class="fixed inset-0 z-50 overflow-hidden">
