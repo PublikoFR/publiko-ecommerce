@@ -6,6 +6,8 @@ use Mde\AiImporter\AiImporterServiceProvider;
 use Mde\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Mde\CustomerAuth\CustomerAuthServiceProvider;
 use Mde\Loyalty\LoyaltyServiceProvider;
+use Mde\PurchaseLists\PurchaseListsServiceProvider;
+use Mde\QuickOrder\QuickOrderServiceProvider;
 use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
 use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
 use Mde\ShippingCommon\ShippingCommonServiceProvider;
@@ -22,4 +24,6 @@ return [
     StorefrontServiceProvider::class,
     CustomerAuthServiceProvider::class,
     AccountServiceProvider::class,
+    PurchaseListsServiceProvider::class,
+    QuickOrderServiceProvider::class,
 ];
