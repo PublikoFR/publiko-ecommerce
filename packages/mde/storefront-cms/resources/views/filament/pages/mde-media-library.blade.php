@@ -1,7 +1,10 @@
 <x-filament-panels::page>
-    <div class="flex flex-col lg:flex-row gap-6">
+    <div x-data class="media-library-layout" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+        <style>
+            @media (min-width: 1024px) { .media-library-layout { grid-template-columns: 280px minmax(0, 1fr) !important; } }
+        </style>
         {{-- Sidebar Folders --}}
-        <aside class="w-full lg:w-72 shrink-0 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-5 h-fit lg:sticky lg:top-24">
+        <aside class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-5 h-fit lg:sticky lg:top-24">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-sm uppercase tracking-wider text-gray-700 dark:text-gray-300">Dossiers</h3>
                 <button type="button" wire:click="$set('showCreateFolderModal', true)" class="text-xs text-primary-600 hover:text-primary-700 font-semibold">+ Nouveau</button>
@@ -30,7 +33,7 @@
         </aside>
 
         {{-- Main content --}}
-        <div class="flex-1 min-w-0 space-y-6">
+        <div class="space-y-6" style="min-width: 0;">
             @if ($currentFolderId === null)
                 <div class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-16 text-center">
                     <x-filament::icon icon="heroicon-o-folder-open" class="w-16 h-16 mx-auto text-gray-300" />
