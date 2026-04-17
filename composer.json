@@ -39,7 +39,8 @@
             "Mde\\ShippingColissimo\\": "packages/mde/shipping-colissimo/src/",
             "Mde\\CatalogFeatures\\": "packages/mde/catalog-features/src/",
             "Mde\\AiImporter\\": "packages/mde/ai-importer/src/",
-            "Mde\\Loyalty\\": "packages/mde/loyalty/src/"
+            "Mde\\Loyalty\\": "packages/mde/loyalty/src/",
+            "Mde\\Loyalty\\Database\\Seeders\\": "packages/mde/loyalty/database/seeders/"
         }
     },
     "autoload-dev": {
