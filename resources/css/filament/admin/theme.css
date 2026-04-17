@@ -1,0 +1,10 @@
+@import '/vendor/filament/filament/resources/css/theme.css';
+@import './modules/media-library.css';
+
+@config 'tailwind.config.js';
+
+/* ==========================================================================
+   MDE Admin — Thème Filament back-office
+   Les modules sont importés en tête de fichier (contrainte CSS @import).
+   Chaque module vit dans ./modules/<module>.css et cible un écran précis.
+   ========================================================================== */

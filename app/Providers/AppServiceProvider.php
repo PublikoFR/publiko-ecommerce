@@ -49,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
                 ->spa(false)
                 ->path('admin')
                 ->brandName('MDE Distribution')
+                ->viteTheme('resources/css/filament/admin/theme.css')
                 ->navigationGroups([
                     'Catalogue',
                     NavigationGroup::make('Paramètres catalogue')->collapsed(),

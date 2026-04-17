@@ -4,21 +4,19 @@ declare(strict_types=1);
 
 namespace Mde\StorefrontCms\Filament\Pages;
 
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
+use Livewire\WithFileUploads;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use TomatoPHP\FilamentMediaManager\Models\Folder;
 
-class MdeMediaLibrary extends Page implements HasForms
+class MdeMediaLibrary extends Page
 {
-    use InteractsWithForms;
+    use WithFileUploads;
 
     protected static ?string $navigationGroup = 'Storefront';
 
@@ -32,13 +30,19 @@ class MdeMediaLibrary extends Page implements HasForms
 
     protected static string $view = 'storefront-cms::filament.pages.mde-media-library';
 
+    public function getMaxContentWidth(): MaxWidth|string|null
+    {
+        return MaxWidth::Full;
+    }
+
     #[Url(as: 'folder')]
     public ?int $currentFolderId = null;
 
     #[Url(as: 'media')]
     public ?int $selectedMediaId = null;
 
-    public ?array $uploadState = [];
+    /** @var mixed Slot unique pour un upload temporaire en cours via.upload() */
+    public $pendingUpload = null;
 
     public string $editName = '';
 
@@ -52,39 +56,22 @@ class MdeMediaLibrary extends Page implements HasForms
 
     public string $newFolderCollection = 'default';
 
+    /** @var array<int,int> IDs des médias cochés */
+    public array $selectedMediaIds = [];
+
+    public bool $showBulkMoveModal = false;
+
+    public ?int $bulkMoveTargetFolderId = null;
+
     public function mount(): void
     {
-        $this->form->fill(['files' => []]);
+        if ($this->currentFolderId === null) {
+            $this->currentFolderId = Folder::query()->orderBy('name')->value('id');
+        }
+
         if ($this->selectedMediaId) {
             $this->loadSelectedMedia();
         }
-    }
-
-    public function form(Form $form): Form
-    {
-        return $form->schema([
-            FileUpload::make('files')
-                ->label('')
-                ->multiple()
-                ->appendFiles()
-                ->previewable()
-                ->panelLayout('grid')
-                ->imagePreviewHeight('100')
-                ->maxSize(20480)
-                ->maxFiles(100)
-                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'application/pdf', 'video/mp4'])
-                ->disk('local')
-                ->directory('livewire-tmp')
-                ->visibility('private')
-                ->storeFileNamesIn('original_filenames')
-                ->columnSpanFull()
-                ->live()
-                ->afterStateUpdated(function ($state) {
-                    if (! empty($state) && $this->currentFolderId !== null) {
-                        $this->saveUploads();
-                    }
-                }),
-        ])->statePath('uploadState');
     }
 
     // ------------------ Folder ------------------
@@ -126,6 +113,114 @@ class MdeMediaLibrary extends Page implements HasForms
     {
         $this->currentFolderId = $id;
         $this->selectedMediaId = null;
+        $this->selectedMediaIds = [];
+    }
+
+    // ------------------ Bulk selection ------------------
+
+    public function toggleMediaSelection(int $id): void
+    {
+        if (in_array($id, $this->selectedMediaIds, true)) {
+            $this->selectedMediaIds = array_values(array_diff($this->selectedMediaIds, [$id]));
+        } else {
+            $this->selectedMediaIds[] = $id;
+        }
+    }
+
+    public function selectAllMedias(): void
+    {
+        $this->selectedMediaIds = $this->medias->pluck('id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    public function clearMediaSelection(): void
+    {
+        $this->selectedMediaIds = [];
+    }
+
+    public function bulkDeleteMedias(): void
+    {
+        if (empty($this->selectedMediaIds)) {
+            return;
+        }
+
+        $medias = Media::query()
+            ->whereIn('id', $this->selectedMediaIds)
+            ->where('model_type', Folder::class)
+            ->get();
+
+        $count = 0;
+        foreach ($medias as $media) {
+            try {
+                $media->delete();
+                $count++;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $this->selectedMediaIds = [];
+
+        Notification::make()
+            ->success()
+            ->title($count.' média'.($count > 1 ? 's supprimés' : ' supprimé'))
+            ->send();
+    }
+
+    public function openBulkMoveModal(): void
+    {
+        if (empty($this->selectedMediaIds)) {
+            return;
+        }
+        $this->bulkMoveTargetFolderId = null;
+        $this->showBulkMoveModal = true;
+    }
+
+    public function confirmBulkMove(): void
+    {
+        $this->validate([
+            'bulkMoveTargetFolderId' => 'required|integer|exists:folders,id',
+        ]);
+
+        if ($this->bulkMoveTargetFolderId === $this->currentFolderId) {
+            Notification::make()->warning()->title('Dossier identique au courant')->send();
+
+            return;
+        }
+
+        $target = Folder::find($this->bulkMoveTargetFolderId);
+        if ($target === null) {
+            return;
+        }
+
+        $medias = Media::query()
+            ->whereIn('id', $this->selectedMediaIds)
+            ->where('model_type', Folder::class)
+            ->get();
+
+        $count = 0;
+        foreach ($medias as $media) {
+            $media->model_id = $target->id;
+            $media->collection_name = (string) ($target->collection ?: 'default');
+            $media->save();
+            $count++;
+        }
+
+        $this->selectedMediaIds = [];
+        $this->showBulkMoveModal = false;
+        $this->bulkMoveTargetFolderId = null;
+
+        Notification::make()
+            ->success()
+            ->title($count.' média'.($count > 1 ? 's déplacés' : ' déplacé').' vers « '.$target->name.' »')
+            ->send();
+    }
+
+    public function getOtherFoldersProperty()
+    {
+        return Folder::query()
+            ->when($this->currentFolderId, fn ($q) => $q->where('id', '!=', $this->currentFolderId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'collection']);
     }
 
     public function createFolder(): void
@@ -154,6 +249,22 @@ class MdeMediaLibrary extends Page implements HasForms
         if ($folder === null) {
             return;
         }
+
+        $mediaCount = Media::query()
+            ->where('model_type', Folder::class)
+            ->where('model_id', $folder->id)
+            ->count();
+
+        if ($mediaCount > 0) {
+            Notification::make()
+                ->danger()
+                ->title('Dossier non vide')
+                ->body("Ce dossier contient {$mediaCount} média".($mediaCount > 1 ? 's' : '').'. Supprime ou déplace les médias avant de supprimer le dossier.')
+                ->send();
+
+            return;
+        }
+
         $folder->delete();
         if ($this->currentFolderId === $id) {
             $this->currentFolderId = null;
@@ -161,48 +272,44 @@ class MdeMediaLibrary extends Page implements HasForms
         Notification::make()->success()->title('Dossier supprimé')->send();
     }
 
-    // ------------------ Upload ------------------
+    // ------------------ Upload (WP-style) ------------------
 
-    public function saveUploads(): void
+    /**
+     * Persiste un fichier uploadé via $wire.upload('pendingUpload', file, ...).
+     * Retourne l'id du média créé (utilisé côté JS pour retirer la tuile optimiste).
+     */
+    public function persistPendingUpload(string $originalName): ?int
     {
         $folder = $this->currentFolder;
         if ($folder === null) {
             Notification::make()->danger()->title('Sélectionnez d\'abord un dossier')->send();
 
-            return;
+            return null;
         }
 
-        $data = $this->form->getState();
-        $files = (array) ($data['files'] ?? []);
-        $names = (array) ($data['original_filenames'] ?? []);
-
-        $added = 0;
-        foreach ($files as $key => $relative) {
-            try {
-                $absolute = Storage::disk('local')->path($relative);
-                if (! is_file($absolute)) {
-                    continue;
-                }
-
-                $originalName = (string) ($names[$key] ?? basename($relative));
-                $base = pathinfo($originalName, PATHINFO_FILENAME);
-                $ext = pathinfo($originalName, PATHINFO_EXTENSION);
-
-                $folder->addMedia($absolute)
-                    ->usingName($base)
-                    ->usingFileName(Str::slug($base).'.'.$ext)
-                    ->toMediaCollection((string) ($folder->collection ?: 'default'));
-
-                $added++;
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        $upload = $this->pendingUpload;
+        if ($upload === null) {
+            return null;
         }
 
-        $this->form->fill(['files' => []]);
+        try {
+            $base = pathinfo($originalName, PATHINFO_FILENAME);
+            $ext = pathinfo($originalName, PATHINFO_EXTENSION)
+                ?: $upload->getClientOriginalExtension();
 
-        if ($added > 0) {
-            Notification::make()->success()->title($added.' fichier'.($added > 1 ? 's ajoutés' : ' ajouté'))->send();
+            $added = $folder->addMedia($upload->getRealPath())
+                ->usingName($base)
+                ->usingFileName(Str::slug($base).'.'.$ext)
+                ->toMediaCollection((string) ($folder->collection ?: 'default'));
+
+            $this->pendingUpload = null;
+
+            return (int) $added->id;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->pendingUpload = null;
+
+            return null;
         }
     }
 
@@ -273,7 +380,6 @@ class MdeMediaLibrary extends Page implements HasForms
             return;
         }
         $media->delete();
-        $this->closeMedia();
         Notification::make()->success()->title('Média supprimé')->send();
     }
 

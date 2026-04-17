@@ -814,6 +814,40 @@ Package retenu pour la gestion centralisée des médias (photos, vidéos) dans l
 
 Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb/filament-image-library` (système propre incompatible). Option premium `ralphjsmit/media-library-pro` non retenue pour le moment (budget).
 
+### Médiathèque custom — `MdeMediaLibrary` (route `admin/mediatheque`)
+
+La page Filament par défaut de `tomatophp/filament-media-manager` est conservée en backend (modèle `Folder`, tables) mais **remplacée par une page custom** `Mde\StorefrontCms\Filament\Pages\MdeMediaLibrary` pour l'UI (layout WP-style, multi-sélection, lightbox, slide-over édition).
+
+**Uploader optimiste WP-style** :
+- Dropzone HTML custom (pas de FilePond) : `<label>` + `<input type="file" multiple>` + drag/drop natif
+- Tuiles "en cours" injectées dans la grid via Alpine (`x-data="mlibUploader()"`) avec preview locale (`URL.createObjectURL`) et spinner SVG circulaire basé sur l'event `progress` de Livewire
+- Persistance : `$wire.upload('pendingUpload', file, finishCb, errorCb, progressCb)` → property `$pendingUpload` (trait `Livewire\WithFileUploads`) → méthode `persistPendingUpload(string $originalName)` qui fait `$folder->addMedia()->toMediaCollection()`
+- Sécurité suppression dossier : `deleteFolder()` compte les médias (`model_type=Folder, model_id=$id`) et refuse si > 0
+- Multi-sélection : property `$selectedMediaIds[]`, actions `bulkDeleteMedias()` / `confirmBulkMove()` (update `model_id` + `collection_name`, fichiers physiques inchangés car le path Spatie est basé sur l'id)
+
+### Thème Filament custom — `resources/css/filament/admin/`
+
+Le panel Lunar ne charge pas le CSS storefront (`resources/css/app.css`). Les classes Tailwind utilisées dans les views custom Filament (pages, plugins MDE) ne sont donc pas compilées dans le bundle admin par défaut.
+
+**Solution** : thème Filament dédié, enregistré via `->viteTheme('resources/css/filament/admin/theme.css')` dans `AppServiceProvider`.
+
+**Structure atomique** (une règle : un module = un fichier) :
+```
+resources/css/filament/admin/
+├── theme.css                      # entrée — imports vendor Filament + modules
+├── tailwind.config.js             # preset Filament + scan des views admin et packages MDE
+└── modules/
+    └── media-library.css          # styles de MdeMediaLibrary
+```
+
+- Pour modifier un module : éditer **uniquement** son fichier dans `modules/`
+- Pour ajouter un module : créer `modules/<nom>.css` + ajouter `@import './modules/<nom>.css';` en tête de `theme.css` (contrainte CSS : tous les `@import` doivent précéder tout autre contenu)
+- Ajouté à `vite.config.js` en 2ᵉ input aux côtés de `resources/css/app.css`
+
+**Dépendances NPM ajoutées** (requises par le preset Filament) :
+- `@tailwindcss/typography` (dev)
+- `postcss-nesting` (dev)
+
 ---
 
 ## 13.bis Module Fidélité — package `mde/loyalty`
