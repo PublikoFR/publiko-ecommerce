@@ -1,6 +1,7 @@
 <?php
 
 use App\Providers\AppServiceProvider;
+use Mde\AiImporter\AiImporterServiceProvider;
 use Mde\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
 use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
@@ -12,4 +13,5 @@ return [
     ShippingCommonServiceProvider::class,
     ShippingChronopostServiceProvider::class,
     ShippingColissimoServiceProvider::class,
+    AiImporterServiceProvider::class,
 ];

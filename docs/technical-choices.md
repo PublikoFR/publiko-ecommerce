@@ -480,6 +480,138 @@ Pour les menuiseries sur mesure (le client saisit ses dimensions), les variantes
 
 ---
 
+## 7.quinquies AI Importer — portage du module PrestaShop Publiko
+
+### 7.quinquies.1 Contexte
+
+Portage du module PrestaShop **Publiko AI Importer** (23 560 lignes de code, 43 actions, parsing Excel multi-feuilles, LLM, staging) vers un package Laravel `packages/mde/ai-importer/` intégré Lunar + Filament. Branche de travail : `ai-importer`. Plan détaillé : `docs/ai-importer-migration-plan.md`.
+
+### 7.quinquies.2 Architecture
+
+- Package **Filament Plugin** autonome `Mde\AiImporter\` sous `packages/mde/ai-importer/`
+- 5 tables `mde_ai_importer_*` (configs, llm_configs, jobs, staging, logs)
+- Pipeline d'actions **polymorphe** — 17 classes (après simplification Proposition D, fusion `multiply/divide/add/subtract` → `math`, `uppercase/lowercase/capitalize` → `change_case`, `map/category_map` → `map` multi-value, `prefix` supprimé au profit de `concat → truncate → change_case`)
+- Workflow découpé en 2 Laravel Jobs queue (`ParseFileToStagingJob`, `ImportStagingToLunarJob`), replacent les 3 cron PS (`cron.php`, `cron-prepare.php`, `cron-import.php`)
+- Preview & import via **Filament Resources** natives (pas de DataTables server-side custom) — réutilise les patterns perf TreeManager (`#[Computed]`, pagination SQL, cache Redis progress)
+
+### 7.quinquies.3 Décisions tranchées
+
+| Question | Choix | Raison |
+|---|---|---|
+| Simplification actions | 43 → 17 (Proposition D de `SIMPLIFICATION.md`) | Les actions PS étaient redondantes. Moins de code, UI cohérente |
+| Stockage clé API LLM | Cast Eloquent `encrypted` | Le module PS stockait en clair → faille corrigée |
+| Orchestration cron | Laravel Queues + `Bus::batch()` | Aligné stack, resume natif, pas de cron custom |
+| Rollback | Backup ciblé tables Lunar concernées (JSON gzippé) plutôt que `spatie/laravel-backup` | Plus léger, plus rapide sur gros imports |
+| Édition config JSON v1 | Textarea JSON brut + validation | Phase 5 livrera l'éditeur drag-n-drop Livewire/Alpine |
+| UUID job | `HasUuids` Laravel + `uniqueIds()` | Remplace la génération manuelle PS `job_TIMESTAMP_random` |
+| Virtual scroll preview | Non — Filament Table pagination SQL | 50 lignes/page suffit, même sur 10 000+ staging rows |
+| Progress real-time | Cache Redis + Livewire polling 2s | Pas de Reverb en phase 1 (ajout possible phase 6) |
+
+### 7.quinquies.4 Dépendance externe
+
+- `phpoffice/phpspreadsheet: ^2.0 || ^3.0` — déclaré dans le composer du package. Phase 3 gérera l'itération streaming pour éviter le full-load en mémoire.
+
+### 7.quinquies.5 Intégration avec le reste du projet
+
+- **`mde/catalog-features`** : l'importeur appelle `Features::syncByHandles($product, [...])` à la fin de chaque row importée pour mapper les caractéristiques filtrables
+- **Prix Lunar** : toujours écrits en **cents entiers** via `Price::updateOrCreate([...])`, jamais en float
+- **`attribute_data`** : toujours assemblé comme collection de `Lunar\FieldTypes\*` (TranslatedText, Number…), jamais de strings bruts
+- **Stock** : écrit sur `ProductVariant::stock` (int), pas de table dédiée — diffère du modèle PS `ps_stock_available`
+- **Images** : Spatie MediaLibrary (`$product->addMediaFromUrl(...)`) — déjà utilisé par Lunar
+
+### 7.quinquies.6 Navigation
+
+Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration*) avec 3 Resources :
+
+- `ImportJobResource` — liste des imports, création (upload + config + options), détail (preview staging + logs)
+- `ImporterConfigResource` — CRUD configs de mapping par fournisseur
+- `LlmConfigResource` — CRUD clés API LLM (Claude, OpenAI)
+
+### 7.quinquies.7 Phase 1 — Foundation (commit 4a66a3e)
+
+- Squelette package complet, 5 migrations appliquées, 5 modèles Eloquent, 6 enums, contrats, 16 classes d'action, LLM Manager + providers, 2 Jobs queue (squelettes), 3 Filament Resources, enregistrement `composer.json` + `bootstrap/providers.php` + `AppServiceProvider`.
+
+### 7.quinquies.8 Phases 2-6 livrées (ce commit)
+
+#### Phase 3 — Parsing multi-feuilles
+
+- **`Services/SpreadsheetParser`** : lecteur PhpSpreadsheet (XLSX/XLS/CSV). Itération générateur sur la feuille primaire, pré-indexation paresseuse des feuilles secondaires par `join_key`. Chaque ligne est exposée en double clé : par nom d'en-tête ET par lettre de colonne (`A`, `B`, `M`...), pour rester rétro-compatible avec les configs PS qui pointent en lettres.
+- **`Services/ProgressCache`** (Redis) : clé `ai-importer:job:{uuid}:progress` contenant `{processed, total, percentage, updated_at}`, TTL 15 min. Alimenté par les jobs toutes les `checkpoint_every` lignes, lu par Livewire polling (évite un SELECT DB toutes les 2 s).
+- **`Jobs/ParseFileToStagingJob`** (réel, plus un stub) : lit le fichier, construit l'`ExecutionContext` par ligne (row + secondary sheets indexed), fait tourner `ActionPipeline` pour chaque colonne du mapping, bulk-insert `StagingRecord` avec `status=pending`. Resume natif via `last_processed_row`. Transition statut `pending → parsing → parsed/error` + écriture dans `ImportLog`.
+- **Dépendance ajoutée** : `phpoffice/phpspreadsheet: ^3.0` au composer racine (PhpSpreadsheet 3.x — API stable, PHP 8.2+).
+
+#### Phase 4 — Écriture Lunar + backup/rollback
+
+- **`Services/LunarProductWriter`** : écriture d'un `StagingRecord` vers `Product` + `ProductVariant` + `Price` + `Collection` + `Brand` + MDE Features. Résolution par SKU (`reference`). Cache par instance pour brand et collection lookups. Contrat de clés staging documenté in-code — voir la docblock de la classe pour la liste exhaustive (17 clés reconnues).
+- **`attribute_data`** assemblé comme Collection de `Lunar\FieldTypes\TranslatedText` pour `name`, `description`, `description_short`, `meta_title`, `meta_description`, `meta_keywords` + `Text` pour `url_key`. Préserve les traductions existantes sur update (merge par langue).
+- **Prix** : `Price::updateOrCreate` keyé sur `(priceable_type, priceable_id, currency_id, customer_group_id=null, min_quantity=1)`, valeur en cents entiers. Support `compare_price_cents`.
+- **Features MDE** : `Mde\CatalogFeatures\Facades\Features::syncByHandles()` via `class_exists` guard (le writer reste utilisable même si catalog-features est désinstallé).
+- **`Services/LunarBackupManager`** : snapshot avant import. Collecte les SKUs présents en staging → récupère les `ProductVariant` correspondants + leurs produits + prix + pivot `lunar_collection_product`. Stockage `storage/app/ai-importer/backups/job_{uuid}_{datetime}.json.gz` (gzip level 6, typiquement 70-80% compression). Format JSON brut, lisible à l'œil. `restore()` replay en transaction.
+- **`Jobs/ImportStagingToLunarJob`** (réel) : boucle `chunkById(200)` sur staging (statuts `pending|validated|warning`), appelle le writer par row, gère les 3 politiques d'erreur :
+  - `ignore` → log + continue
+  - `stop` → retourne false depuis `chunkById`, transition `import_status=error`
+  - `rollback` → `LunarBackupManager::restore()` + `import_status=rolled_back`
+- Snapshot créé UNE fois au premier run. Sur resume, le backup_path existant est réutilisé.
+
+#### Phase 5 — UI Filament (RelationManagers + Actions)
+
+- **`StagingRecordsRelationManager`** : tableau preview avec colonnes `row_number / SKU / nom / prix formaté / statut badgé / erreur`. Filtre par statut, search sur JSON (`where data like %"reference":"%Q%"`). Edit modale avec textarea JSON + validation `json`. Bulk actions : valider / ignorer / supprimer.
+- **`ImportLogsRelationManager`** : tableau read-only, polling 5s, tri `id desc`, filtre par niveau, badge coloré. Fournit la vue temps-réel pendant le parse/import.
+- **Header actions sur `ViewImportJob`** :
+  - `Resume parse` — visible si `Paused | Error`
+  - `Launch import Lunar` — visible si `Parsed` et `import_status ∈ {Pending, Scheduled}`
+  - `Rollback` — visible si `Imported` avec `backup_path` et `!rollback_completed`
+  - `Cancel` — visible si `Pending | Parsing | Paused`
+- L'éditeur visuel drag-n-drop de config (remplace le textarea JSON actuel) reste hors scope — tracked comme phase 5+ dédiée.
+
+#### Phase 6 — CLI migration depuis PS
+
+- **`php artisan ai-importer:import-ps-config {file} [--name=] [--supplier=] [--replace]`** : lit un JSON Publiko AI Importer et crée un `ImporterConfig`. Compatibilité v0 : si une colonne a `action:{}` (objet unique legacy) au lieu de `actions:[]`, la commande le lift automatiquement. Affiche un résumé : colonnes mappées / actions totales / feuilles.
+
+#### Phase 2 — Tests
+
+- **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count).
+- **`tests/Unit/AiImporter/Services/ActionPipelineTest`** (5 tests) : chaînage ordonné, défaut sur valeur null, `condition` true/false, lève sur type inconnu.
+- **`tests/Feature/AiImporter/ParseFileToStagingJobTest`** : CSV fake → pipeline → staging (fixture CSV minimale via `Storage::fake`).
+- **`tests/Feature/AiImporter/LunarProductWriterTest`** (3 tests) : création produit + variant + prix, update sur 2e appel, erreur sur `reference` manquante.
+
+Couverture totale : **26 nouveaux tests verts** (61 total sur le projet).
+
+### 7.quinquies.9 Contrat du writer (clés staging reconnues)
+
+Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une écriture Lunar :
+
+| Clé | Cible Lunar | Notes |
+|---|---|---|
+| `reference` **(requis)** | `ProductVariant::sku` | Résolveur : existe ? update. Sinon : create. |
+| `name` **(requis en création)** | `attribute_data.name` (TranslatedText) | Stocké dans la langue par défaut |
+| `description` | `attribute_data.description` (TranslatedText) | |
+| `description_short` | `attribute_data.description_short` | |
+| `meta_title` / `meta_description` / `meta_keywords` | `attribute_data.*` (TranslatedText) | |
+| `url_key` | `attribute_data.url` (Text) | |
+| `ean` | `ProductVariant::ean` | |
+| `stock` | `ProductVariant::stock` (int) | |
+| `price_cents` | `Price::price` (cents) | UpdateOrCreate keyé sur variant+currency+tier |
+| `compare_price_cents` | `Price::compare_price` (cents) | Optionnel |
+| `weight_value` | `ProductVariant::weight_value` (kg) | Unité forcée à `kg` |
+| `length_value` / `width_value` / `height_value` | `ProductVariant::{axis}_value` (cm) | Unité forcée à `cm` |
+| `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` |
+| `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
+| `features` | pivot `mde_feature_value_product` | Hash `{family_handle => [value_handle, ...]}`, delegated à `catalog-features` |
+
+Les clés inconnues du writer sont **ignorées silencieusement** — le config author peut donc émettre des keys arbitraires pour d'autres consommateurs downstream.
+
+### 7.quinquies.10 Limitations connues
+
+- Images produits : Spatie MediaLibrary `addMediaFromUrl` pas câblé en phase 4 (à faire via une action `image_download` ou une clé `images[]` reconnue par le writer — à trancher).
+- ProductType : le writer utilise le premier `ProductType` trouvé (ordre `id asc`). À remplacer par une résolution via clé `product_type_handle` sur le staging row.
+- TaxClass : idem, premier trouvé.
+- True streaming XLSX : `PhpSpreadsheet::load()` charge tout en RAM. Au-delà de ~100k lignes, basculer sur un `IReadFilter` chunked — l'API parser reste stable.
+- Éditeur config visual : reste en textarea JSON (phase 5+).
+- Appels LLM réels non testés automatiquement (nécessitent une clé API valide, hors CI).
+
+---
+
 ## 8. Tests
 
 **Framework** : PHPUnit 11 (pas Pest — volonté d'avoir une syntaxe unique avec le reste de l'écosystème Laravel/Lunar).
@@ -684,4 +816,4 @@ Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb
 
 ---
 
-_Dernière mise à jour : 2026-04-12 — TreeManager performance architecture (Computed properties, skipRender, withCount, Alpine search, WeakMap lazy init), TreeManager UX refonte (tab switcher header actions, switchTab cache invalidation, SortableJS cross-level drag, layout inline style), réorganisation navigation admin, media library tomatophp, traductions FR Lunar, reflection swap resources._
+_Dernière mise à jour : 2026-04-17 — AI Importer phases 2-6 : SpreadsheetParser multi-feuilles + ProgressCache Redis, LunarProductWriter (17 clés staging → Product/Variant/Price/Collection/Brand/Features) + LunarBackupManager (snapshot JSON gzippé + rollback transactionnel), ImportStagingToLunarJob réel (chunkById + 3 politiques erreur), RelationManagers staging + logs polling, header actions (Launch/Rollback/Resume/Cancel), CLI `ai-importer:import-ps-config`, 26 tests unit+feature. Dépendance `phpoffice/phpspreadsheet: ^3.0` ajoutée._

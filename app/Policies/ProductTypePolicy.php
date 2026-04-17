@@ -15,7 +15,7 @@ class ProductTypePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_product::type');
+        return $staff->can('view_any_mde::product::type');
     }
 
     /**
@@ -23,7 +23,7 @@ class ProductTypePolicy
      */
     public function view(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('view_product::type');
+        return $staff->can('view_mde::product::type');
     }
 
     /**
@@ -31,7 +31,7 @@ class ProductTypePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_product::type');
+        return $staff->can('create_mde::product::type');
     }
 
     /**
@@ -39,7 +39,7 @@ class ProductTypePolicy
      */
     public function update(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('update_product::type');
+        return $staff->can('update_mde::product::type');
     }
 
     /**
@@ -47,7 +47,7 @@ class ProductTypePolicy
      */
     public function delete(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('delete_product::type');
+        return $staff->can('delete_mde::product::type');
     }
 
     /**
@@ -55,7 +55,7 @@ class ProductTypePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_product::type');
+        return $staff->can('delete_any_mde::product::type');
     }
 
     /**
@@ -63,7 +63,7 @@ class ProductTypePolicy
      */
     public function forceDelete(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('force_delete_product::type');
+        return $staff->can('force_delete_mde::product::type');
     }
 
     /**
@@ -71,7 +71,7 @@ class ProductTypePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_product::type');
+        return $staff->can('force_delete_any_mde::product::type');
     }
 
     /**
@@ -79,7 +79,7 @@ class ProductTypePolicy
      */
     public function restore(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('restore_product::type');
+        return $staff->can('restore_mde::product::type');
     }
 
     /**
@@ -87,7 +87,7 @@ class ProductTypePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_product::type');
+        return $staff->can('restore_any_mde::product::type');
     }
 
     /**
@@ -95,7 +95,7 @@ class ProductTypePolicy
      */
     public function replicate(Staff $staff, ProductType $productType): bool
     {
-        return $staff->can('replicate_product::type');
+        return $staff->can('replicate_mde::product::type');
     }
 
     /**
@@ -103,6 +103,6 @@ class ProductTypePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_product::type');
+        return $staff->can('reorder_mde::product::type');
     }
 }
