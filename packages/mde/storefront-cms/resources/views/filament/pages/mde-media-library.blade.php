@@ -1,7 +1,7 @@
 <x-filament-panels::page>
-    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 p-2">
+    <div class="flex flex-col lg:flex-row gap-6">
         {{-- Sidebar Folders --}}
-        <aside class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-5 h-fit lg:sticky lg:top-24">
+        <aside class="w-full lg:w-72 shrink-0 bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-5 h-fit lg:sticky lg:top-24">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-sm uppercase tracking-wider text-gray-700 dark:text-gray-300">Dossiers</h3>
                 <button type="button" wire:click="$set('showCreateFolderModal', true)" class="text-xs text-primary-600 hover:text-primary-700 font-semibold">+ Nouveau</button>
@@ -30,7 +30,7 @@
         </aside>
 
         {{-- Main content --}}
-        <div class="space-y-6">
+        <div class="flex-1 min-w-0 space-y-6">
             @if ($currentFolderId === null)
                 <div class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-16 text-center">
                     <x-filament::icon icon="heroicon-o-folder-open" class="w-16 h-16 mx-auto text-gray-300" />
@@ -94,7 +94,7 @@
             x-init="document.body.style.overflow='hidden'"
             x-on:keydown.escape.window="$wire.set('showCreateFolderModal', false)"
             x-on:remove.once="document.body.style.overflow=''"
-            class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
             <div x-transition.opacity class="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" wire:click="$set('showCreateFolderModal', false)"></div>
             <div x-transition class="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -132,7 +132,7 @@
         x-cloak
     >
         @if ($this->selectedMedia)
-            <div class="fixed inset-0 z-[55] overflow-hidden">
+            <div class="fixed inset-0 z-50 overflow-hidden">
                 <div
                     x-transition:enter="transition-opacity ease-out duration-200"
                     x-transition:enter-start="opacity-0"
