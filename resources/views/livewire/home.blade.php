@@ -10,7 +10,7 @@
     <section class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div class="flex items-end justify-between mb-6">
             <h2 class="text-2xl md:text-3xl font-black text-neutral-900">Nouveautés & produits vedettes</h2>
-            <a href="/collections/nouveautes" class="text-sm font-semibold text-primary-600 hover:text-primary-700" wire:navigate>Voir tout →</a>
+            <a href="/collections#nouveautes" class="text-sm font-semibold text-primary-600 hover:text-primary-700" wire:navigate>Voir tout →</a>
         </div>
         @livewire('storefront-cms.home-featured')
     </section>

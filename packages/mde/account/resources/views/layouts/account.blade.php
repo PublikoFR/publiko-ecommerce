@@ -2,7 +2,7 @@
 $navItems = [
     ['label' => 'Tableau de bord', 'route' => 'account.dashboard', 'icon' => 'user'],
     ['label' => 'Mes commandes', 'route' => 'account.orders', 'icon' => 'shopping-bag'],
-    ['label' => 'Mes listes d\'achat', 'route' => 'account.dashboard', 'icon' => 'list', 'href' => '/compte/listes-achat'],
+    ['label' => 'Mes listes d\'achat', 'route' => 'account.purchase-lists.index', 'icon' => 'list'],
     ['label' => 'Mes adresses', 'route' => 'account.addresses', 'icon' => 'map-pin'],
     ['label' => 'Ma société', 'route' => 'account.company', 'icon' => 'users'],
     ['label' => 'Mon profil', 'route' => 'account.profile', 'icon' => 'user'],

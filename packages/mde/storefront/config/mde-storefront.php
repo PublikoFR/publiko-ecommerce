@@ -40,8 +40,8 @@ return [
     'nav' => [
         'secondary' => [
             ['label' => 'Tous nos produits', 'route' => null, 'mega' => true],
-            ['label' => 'Nouveautés', 'route' => null, 'href' => '/collections/nouveautes'],
-            ['label' => 'Exclusivités MDE', 'route' => null, 'href' => '/collections/exclusivites'],
+            ['label' => 'Nouveautés', 'route' => null, 'href' => '/collections#nouveautes'],
+            ['label' => 'Exclusivités MDE', 'route' => null, 'href' => '/collections'],
             ['label' => 'Nos magasins', 'route' => null, 'href' => '/magasins'],
             ['label' => 'Actualités', 'route' => null, 'href' => '/actualites'],
         ],

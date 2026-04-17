@@ -11,6 +11,7 @@ use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Lunar\Models\Brand;
 use Lunar\Models\Collection as CollectionModel;
 use Lunar\Models\Product;
 use Mde\CatalogFeatures\Facades\Features;
@@ -24,6 +25,10 @@ class CollectionPage extends Component
     /** @var array<int, array<int, bool>> */
     #[Url(as: 'f')]
     public array $selected = [];
+
+    /** @var array<int, bool> */
+    #[Url(as: 'b')]
+    public array $selectedBrands = [];
 
     #[Url(as: 'sort')]
     public string $sort = 'new';
@@ -55,9 +60,20 @@ class CollectionPage extends Component
         $this->resetPage();
     }
 
+    public function toggleBrand(int $brandId): void
+    {
+        if (! empty($this->selectedBrands[$brandId])) {
+            unset($this->selectedBrands[$brandId]);
+        } else {
+            $this->selectedBrands[$brandId] = true;
+        }
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->selected = [];
+        $this->selectedBrands = [];
         $this->resetPage();
     }
 
@@ -93,6 +109,11 @@ class CollectionPage extends Component
             $query->whereIn('products.id', $filteredIds);
         }
 
+        $brandIds = array_keys(array_filter($this->selectedBrands));
+        if ($brandIds !== []) {
+            $query->whereIn('brand_id', $brandIds);
+        }
+
         match ($this->sort) {
             'price-asc', 'price-desc', 'name-asc' => $query->orderBy('id'),
             default => $query->orderByDesc('created_at'),
@@ -123,11 +144,24 @@ class CollectionPage extends Component
             });
     }
 
+    /** @return Collection<int, object> */
+    public function getBrandsProperty(): Collection
+    {
+        $collection = $this->collection;
+
+        return Brand::query()
+            ->whereHas('products', fn ($q) => $q->whereHas('collections', fn ($c) => $c->where('lunar_collections.id', $collection->id)))
+            ->withCount(['products' => fn ($q) => $q->whereHas('collections', fn ($c) => $c->where('lunar_collections.id', $collection->id))])
+            ->orderBy('name')
+            ->get();
+    }
+
     public function render(): View
     {
         return view('livewire.collection-page', [
             'products' => $this->products,
             'families' => $this->families,
+            'brands' => $this->brands,
         ]);
     }
 }
