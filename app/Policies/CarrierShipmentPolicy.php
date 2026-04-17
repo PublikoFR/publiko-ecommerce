@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Mde\ShippingCommon\Models\CarrierShipment;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class CarrierShipmentPolicy
 {

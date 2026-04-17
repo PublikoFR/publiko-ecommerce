@@ -33,6 +33,9 @@ use Mde\Loyalty\Filament\LoyaltyPlugin;
 use Mde\ShippingChronopost\Filament\ChronopostPlugin;
 use Mde\ShippingColissimo\Filament\ColissimoPlugin;
 use Mde\ShippingCommon\Filament\ShippingCommonPlugin;
+use Mde\StorefrontCms\Filament\Pages\StorefrontSettings;
+use Mde\StorefrontCms\Filament\StorefrontCmsPlugin;
+use Mde\StoreLocator\Filament\StoreLocatorPlugin;
 use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
                 ->navigationGroups([
                     'Catalogue',
                     NavigationGroup::make('Paramètres catalogue')->collapsed(),
+                    'Storefront',
                     'Commandes',
                     'Clients',
                     'Marketing',
@@ -59,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
                 ->pages([
                     StripeConfig::class,
                     TreeManager::class,
+                    StorefrontSettings::class,
                 ])
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
@@ -68,6 +73,8 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(AiImporterPlugin::make())
                 ->plugin(LoyaltyPlugin::make())
+                ->plugin(StorefrontCmsPlugin::make())
+                ->plugin(StoreLocatorPlugin::make())
                 ->plugin(FilamentMediaManagerPlugin::make()
                     ->allowSubFolders());
         })->register();

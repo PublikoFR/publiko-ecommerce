@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use TomatoPHP\FilamentMediaManager\Models\Media;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class MediaPolicy
 {
