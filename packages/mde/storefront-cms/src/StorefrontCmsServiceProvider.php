@@ -12,6 +12,7 @@ use Mde\StorefrontCms\Livewire\HomeHero;
 use Mde\StorefrontCms\Livewire\HomeOffers;
 use Mde\StorefrontCms\Livewire\HomePosts;
 use Mde\StorefrontCms\Livewire\HomeTiles;
+use Mde\StorefrontCms\Models\Setting;
 
 class StorefrontCmsServiceProvider extends ServiceProvider
 {
@@ -41,7 +42,7 @@ class StorefrontCmsServiceProvider extends ServiceProvider
                 return;
             }
 
-            $rows = \Mde\StorefrontCms\Models\Setting::all(['key', 'value']);
+            $rows = Setting::all(['key', 'value']);
             if ($rows->isEmpty()) {
                 return;
             }
