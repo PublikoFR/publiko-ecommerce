@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             MdeOrderSeeder::class,
             DefaultTiersSeeder::class,
             MdeStorefrontCmsSeeder::class,
+            MdeStoreSeeder::class,
         ]);
 
         Model::reguard();

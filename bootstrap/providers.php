@@ -13,6 +13,7 @@ use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
 use Mde\ShippingCommon\ShippingCommonServiceProvider;
 use Mde\Storefront\StorefrontServiceProvider;
 use Mde\StorefrontCms\StorefrontCmsServiceProvider;
+use Mde\StoreLocator\StoreLocatorServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -28,4 +29,5 @@ return [
     PurchaseListsServiceProvider::class,
     QuickOrderServiceProvider::class,
     StorefrontCmsServiceProvider::class,
+    StoreLocatorServiceProvider::class,
 ];
