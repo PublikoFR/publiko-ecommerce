@@ -71,7 +71,7 @@ class CartPage extends Component
         return CartSession::current();
     }
 
-    #[Layout('components.layouts.storefront')]
+    #[Layout('layouts.storefront')]
     public function render(): View
     {
         return view('livewire.cart-page');
