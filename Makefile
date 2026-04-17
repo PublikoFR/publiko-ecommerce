@@ -37,17 +37,12 @@ install:
 	$(EXEC) composer install
 	$(MAKE) permissions
 	$(EXEC) php artisan key:generate --force
+	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate --graceful --force
-	$(EXEC) php artisan lunar:create-admin \
-		--firstname=Admin \
-		--lastname=MDE \
-		--email=admin@mde-distribution.fr \
-		--password=password123 \
-		--no-interaction
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
-	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
 	$(EXEC) php artisan db:seed --force
+	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
 
 build:
 	$(DC) build --no-cache
@@ -74,7 +69,12 @@ migrate:
 	$(EXEC) php artisan migrate
 
 fresh:
-	$(EXEC) php artisan migrate:fresh --seed
+	$(EXEC) php artisan storage:link
+	$(EXEC) php artisan migrate:fresh --force
+	$(EXEC) php artisan lunar:install --no-interaction
+	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
+	$(EXEC) php artisan db:seed --force
+	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
 
 seed:
 	$(EXEC) php artisan db:seed

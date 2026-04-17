@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mde\StorefrontCms\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+
+class HomeOffer extends Model
+{
+    protected $table = 'mde_home_offers';
+
+    protected $fillable = ['title', 'subtitle', 'image_url', 'cta_label', 'cta_url', 'badge', 'position', 'is_active', 'ends_at'];
+
+    protected $casts = ['is_active' => 'bool', 'ends_at' => 'datetime', 'position' => 'integer'];
+
+    public function scopeActive(Builder $q): Builder
+    {
+        return $q->where('is_active', true)
+            ->where(fn ($q2) => $q2->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->orderBy('position');
+    }
+}

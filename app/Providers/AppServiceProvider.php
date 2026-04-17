@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\MdeAttributeGroupResource;
@@ -14,6 +15,7 @@ use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Illuminate\Support\ServiceProvider;
+use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
@@ -31,7 +33,10 @@ use Mde\Loyalty\Filament\LoyaltyPlugin;
 use Mde\ShippingChronopost\Filament\ChronopostPlugin;
 use Mde\ShippingColissimo\Filament\ColissimoPlugin;
 use Mde\ShippingCommon\Filament\ShippingCommonPlugin;
-use TomatoPHP\FilamentMediaManager\FilamentMediaManagerPlugin;
+use Mde\StorefrontCms\Filament\MediaManagerShimPlugin;
+use Mde\StorefrontCms\Filament\Pages\StorefrontSettings;
+use Mde\StorefrontCms\Filament\StorefrontCmsPlugin;
+use Mde\StoreLocator\Filament\StoreLocatorPlugin;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -44,9 +49,11 @@ class AppServiceProvider extends ServiceProvider
                 ->spa(false)
                 ->path('admin')
                 ->brandName('MDE Distribution')
+                ->viteTheme('resources/css/filament/admin/theme.css')
                 ->navigationGroups([
                     'Catalogue',
                     NavigationGroup::make('Paramètres catalogue')->collapsed(),
+                    'Storefront',
                     'Commandes',
                     'Clients',
                     'Marketing',
@@ -57,6 +64,7 @@ class AppServiceProvider extends ServiceProvider
                 ->pages([
                     StripeConfig::class,
                     TreeManager::class,
+                    StorefrontSettings::class,
                 ])
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
@@ -66,8 +74,9 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(AiImporterPlugin::make())
                 ->plugin(LoyaltyPlugin::make())
-                ->plugin(FilamentMediaManagerPlugin::make()
-                    ->allowSubFolders());
+                ->plugin(StorefrontCmsPlugin::make())
+                ->plugin(StoreLocatorPlugin::make())
+                ->plugin(MediaManagerShimPlugin::make());
         })->register();
 
         LunarPanel::extensions([
@@ -76,6 +85,9 @@ class AppServiceProvider extends ServiceProvider
             ],
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
+            ],
+            Dashboard::class => [
+                DisableBrokenChartsExtension::class,
             ],
         ]);
     }

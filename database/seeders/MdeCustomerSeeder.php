@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 
@@ -26,6 +28,8 @@ class MdeCustomerSeeder extends Seeder
         $groups = CustomerGroup::query()->pluck('id', 'handle');
 
         foreach (self::CUSTOMERS as $data) {
+            $isPro = $data['group'] === 'installateurs';
+
             $customer = Customer::query()->updateOrCreate(
                 [
                     'first_name' => $data['first_name'],
@@ -36,12 +40,27 @@ class MdeCustomerSeeder extends Seeder
                     'company_name' => $data['company_name'],
                     'tax_identifier' => $data['tax_identifier'],
                     'meta' => $data['meta'],
+                    'sirene_status' => $isPro ? 'active' : null,
+                    'sirene_verified_at' => $isPro ? now() : null,
+                    'naf_code' => $isPro ? '4752A' : null,
                 ],
             );
 
             $customer->customerGroups()->syncWithoutDetaching([
                 $groups[$data['group']],
             ]);
+
+            if ($isPro) {
+                $email = strtolower($data['first_name'].'.'.$data['last_name']).'@mde-distribution.test';
+                $user = User::updateOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $data['first_name'].' '.$data['last_name'],
+                        'password' => Hash::make('testing123'),
+                    ],
+                );
+                $customer->users()->syncWithoutDetaching([$user->id]);
+            }
         }
     }
 }
