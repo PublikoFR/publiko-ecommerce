@@ -1058,9 +1058,29 @@ Compte admin Filament (seeded par `MdeAdminUserSeeder`) :
 - Email : `admin@mde-distribution.fr`
 - Password : `testing123`
 
-### 15.12 Follow-up documentés (hors scope phase 2)
+### 15.12 Administration CMS (Filament)
 
-- **Filament admin resources** pour `mde_home_slides`, `mde_home_tiles`, `mde_home_offers`, `mde_posts`, `mde_pages`, `mde_stores`, `mde_purchase_lists`, `mde_newsletter_subscribers` (les tables + models existent, seule l'UI admin reste à poser).
+Nouveau groupe de navigation **Storefront** dans l'admin Filament avec 7 resources et 1 page :
+
+| Resource / Page | Modèle | Fonctionnalités |
+|---|---|---|
+| **Slides accueil** | `HomeSlide` | CRUD modal, reorder drag-n-drop (`position`), color pickers fond/texte, dates début/fin, CTA. Cache `mde.home.slides.v1` flush au save. |
+| **Tuiles accueil** | `HomeTile` | 4 cards promotionnelles (titre, sous-titre, image, CTA, reorder). Cache `mde.home.tiles.v1`. |
+| **Offres du moment** | `HomeOffer` | Badge (ex. -25%), image, date fin, CTA. Cache `mde.home.offers.v1`. |
+| **Actualités** | `Post` | RichEditor Filament, slug auto depuis titre, cover, extrait, status draft/published, date publication. Cache `mde.home.posts.v1`. |
+| **Pages CMS** | `Page` | RichEditor, slug unique, status (published/draft). Routes `/pages/{slug}` (CGV, mentions, FAQ, politique…). |
+| **Abonnés newsletter** | `NewsletterSubscriber` | Liste read-only (pas de create), bulk delete, search + sort. |
+| **Magasins** | `Store` | Sections Identité / Adresse / Contact / Horaires (`KeyValue` jour→plage), slug auto, coordonnées lat/lng. |
+| **Paramètres** (page) | `Setting` | Contact (tél, e-mail, accroche), bannière info (toggle + texte + icône select), seuil livraison offerte cents, social links (FB/IG/LI/YT), USPs via `Repeater` icône+titre+sous-titre, slug collection vedette home. |
+
+Plugins Filament : `Mde\StorefrontCms\Filament\StorefrontCmsPlugin` et `Mde\StoreLocator\Filament\StoreLocatorPlugin` enregistrés dans `AppServiceProvider`. Nav group inséré avant `Commandes`.
+
+**Source de vérité config** : table `mde_storefront_settings` (key/value JSON) → modèle `Mde\StorefrontCms\Models\Setting` (helper static `get/set/forget`, cache Redis 1h). `StorefrontCmsServiceProvider::mergeDbSettingsIntoConfig()` au boot surcharge les valeurs de `config('mde-storefront.*')` quand la table est peuplée (guard `Schema::hasTable` pour install/CI). Résultat : l'admin peut éditer tous les réglages frontoffice sans toucher au `.env`.
+
+Policies Shield régénérées (`make artisan CMD='shield:generate --all --panel=admin --no-interaction'`) après ajout des nouveaux modèles.
+
+### 15.13 Follow-up documentés (hors scope phase 2)
+
 - **Scout Typesense** : upgrade du driver `database` → Typesense self-hosted pour performance + typo-tolerance sur 60k+ références.
 - **Pays checkout** : `CheckoutPage::getCountriesProperty()` hardcodé `[GBR, USA]` (hérité starter kit) à remplacer par France/UE.
 - **Cache Navigation versionné** : observer `Collection::saved` qui invalide `mde.storefront.nav.roots.v1`.
@@ -1082,6 +1102,8 @@ Compte admin Filament (seeded par `MdeAdminUserSeeder`) :
 - [lunarphp/table-rate-shipping](https://github.com/lunarphp/table-rate-shipping)
 
 ---
+
+_2026-04-17 — Admin CMS storefront (§15.12) : groupe Filament « Storefront » avec 7 resources (Slides, Tiles, Offers, Posts, Pages, Newsletter, Stores) + page Paramètres (contact/bannière/social/USPs/collection vedette). Table `mde_storefront_settings` key/value + modèle `Setting` avec cache 1h. Surcharge automatique de `config('mde-storefront.*')` au boot. Cart drawer storefront (side-panel qui s'ouvre à l'add-to-cart)._
 
 _2026-04-17 — Frontoffice B2B pro MDE complet (§15) : 7 nouveaux packages (storefront + customer-auth + account + purchase-lists + quick-order + storefront-cms + store-locator), design system bleu pro, price gating strict (Connectez-vous pour voir vos prix), inscription auto + vérif SIRET INSEE V3, mega-menu cache 1h, catalogue faceté via catalog-features, home CMS (slides + tiles + offers + posts + pages), magasins Leaflet, autocomplete header DB. Compte pro de test : `thierry.leroy@mde-distribution.test` / `testing123`._
 
