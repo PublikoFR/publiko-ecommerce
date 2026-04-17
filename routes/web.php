@@ -11,7 +11,8 @@ use App\Livewire\SearchPage;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', Home::class)->name('home');
-Route::get('/search', SearchPage::class)->name('search.view');
+Route::get('/recherche', SearchPage::class)->name('search.view');
+Route::get('/search', SearchPage::class);
 Route::get('/collections/{slug}', CollectionPage::class)->name('collection.view');
 Route::get('/products/{slug}', ProductPage::class)->name('product.view');
 Route::get('/checkout', CheckoutPage::class)->name('checkout.view');

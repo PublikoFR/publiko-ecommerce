@@ -60,7 +60,7 @@ $user = auth()->user();
 
             {{-- Search --}}
             <div class="hidden md:flex flex-1 max-w-2xl">
-                <x-layout.search-bar />
+                @livewire('storefront.search-autocomplete')
             </div>
 
             {{-- Actions --}}
