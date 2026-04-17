@@ -1,0 +1,26 @@
+{
+    "name": "mde/ai-importer",
+    "description": "MDE AI Importer — pipeline d'import produits modulaire (Excel multi-feuilles, actions chaînées, LLM, staging) intégré Lunar + Filament.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "filament/filament": "^3.0",
+        "lunarphp/lunar": "^1.0",
+        "phpoffice/phpspreadsheet": "^2.0 || ^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mde\\AiImporter\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mde\\AiImporter\\AiImporterServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

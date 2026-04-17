@@ -36,7 +36,8 @@
             "Mde\\ShippingCommon\\": "packages/mde/shipping-common/src/",
             "Mde\\ShippingChronopost\\": "packages/mde/shipping-chronopost/src/",
             "Mde\\ShippingColissimo\\": "packages/mde/shipping-colissimo/src/",
-            "Mde\\CatalogFeatures\\": "packages/mde/catalog-features/src/"
+            "Mde\\CatalogFeatures\\": "packages/mde/catalog-features/src/",
+            "Mde\\AiImporter\\": "packages/mde/ai-importer/src/"
         }
     },
     "autoload-dev": {

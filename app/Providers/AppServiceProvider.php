@@ -22,6 +22,7 @@ use Lunar\Admin\Filament\Resources\ProductTypeResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Shipping\ShippingPlugin;
+use Mde\AiImporter\Filament\AiImporterPlugin;
 use Mde\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Mde\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Mde\ShippingChronopost\Filament\ChronopostPlugin;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
                     'Clients',
                     'Marketing',
                     'Expédition',
+                    'Imports',
                     'Configuration',
                 ])
                 ->pages([
@@ -59,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(ChronopostPlugin::make())
                 ->plugin(ColissimoPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
+                ->plugin(AiImporterPlugin::make())
                 ->plugin(FilamentMediaManagerPlugin::make()
                     ->allowSubFolders());
         })->register();

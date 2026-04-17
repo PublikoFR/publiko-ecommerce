@@ -480,6 +480,77 @@ Pour les menuiseries sur mesure (le client saisit ses dimensions), les variantes
 
 ---
 
+## 7.quinquies AI Importer — portage du module PrestaShop Publiko
+
+### 7.quinquies.1 Contexte
+
+Portage du module PrestaShop **Publiko AI Importer** (23 560 lignes de code, 43 actions, parsing Excel multi-feuilles, LLM, staging) vers un package Laravel `packages/mde/ai-importer/` intégré Lunar + Filament. Branche de travail : `ai-importer`. Plan détaillé : `docs/ai-importer-migration-plan.md`.
+
+### 7.quinquies.2 Architecture
+
+- Package **Filament Plugin** autonome `Mde\AiImporter\` sous `packages/mde/ai-importer/`
+- 5 tables `mde_ai_importer_*` (configs, llm_configs, jobs, staging, logs)
+- Pipeline d'actions **polymorphe** — 17 classes (après simplification Proposition D, fusion `multiply/divide/add/subtract` → `math`, `uppercase/lowercase/capitalize` → `change_case`, `map/category_map` → `map` multi-value, `prefix` supprimé au profit de `concat → truncate → change_case`)
+- Workflow découpé en 2 Laravel Jobs queue (`ParseFileToStagingJob`, `ImportStagingToLunarJob`), replacent les 3 cron PS (`cron.php`, `cron-prepare.php`, `cron-import.php`)
+- Preview & import via **Filament Resources** natives (pas de DataTables server-side custom) — réutilise les patterns perf TreeManager (`#[Computed]`, pagination SQL, cache Redis progress)
+
+### 7.quinquies.3 Décisions tranchées
+
+| Question | Choix | Raison |
+|---|---|---|
+| Simplification actions | 43 → 17 (Proposition D de `SIMPLIFICATION.md`) | Les actions PS étaient redondantes. Moins de code, UI cohérente |
+| Stockage clé API LLM | Cast Eloquent `encrypted` | Le module PS stockait en clair → faille corrigée |
+| Orchestration cron | Laravel Queues + `Bus::batch()` | Aligné stack, resume natif, pas de cron custom |
+| Rollback | Backup ciblé tables Lunar concernées (JSON gzippé) plutôt que `spatie/laravel-backup` | Plus léger, plus rapide sur gros imports |
+| Édition config JSON v1 | Textarea JSON brut + validation | Phase 5 livrera l'éditeur drag-n-drop Livewire/Alpine |
+| UUID job | `HasUuids` Laravel + `uniqueIds()` | Remplace la génération manuelle PS `job_TIMESTAMP_random` |
+| Virtual scroll preview | Non — Filament Table pagination SQL | 50 lignes/page suffit, même sur 10 000+ staging rows |
+| Progress real-time | Cache Redis + Livewire polling 2s | Pas de Reverb en phase 1 (ajout possible phase 6) |
+
+### 7.quinquies.4 Dépendance externe
+
+- `phpoffice/phpspreadsheet: ^2.0 || ^3.0` — déclaré dans le composer du package. Phase 3 gérera l'itération streaming pour éviter le full-load en mémoire.
+
+### 7.quinquies.5 Intégration avec le reste du projet
+
+- **`mde/catalog-features`** : l'importeur appelle `Features::syncByHandles($product, [...])` à la fin de chaque row importée pour mapper les caractéristiques filtrables
+- **Prix Lunar** : toujours écrits en **cents entiers** via `Price::updateOrCreate([...])`, jamais en float
+- **`attribute_data`** : toujours assemblé comme collection de `Lunar\FieldTypes\*` (TranslatedText, Number…), jamais de strings bruts
+- **Stock** : écrit sur `ProductVariant::stock` (int), pas de table dédiée — diffère du modèle PS `ps_stock_available`
+- **Images** : Spatie MediaLibrary (`$product->addMediaFromUrl(...)`) — déjà utilisé par Lunar
+
+### 7.quinquies.6 Navigation
+
+Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration*) avec 3 Resources :
+
+- `ImportJobResource` — liste des imports, création (upload + config + options), détail (preview staging + logs)
+- `ImporterConfigResource` — CRUD configs de mapping par fournisseur
+- `LlmConfigResource` — CRUD clés API LLM (Claude, OpenAI)
+
+### 7.quinquies.7 État actuel (phase 1 — foundation)
+
+Livrés dans ce commit :
+
+- Squelette package complet (composer.json, config, ServiceProvider, Plugin)
+- 5 migrations + 5 modèles Eloquent (casts enums + `AsArrayObject` + `encrypted`)
+- 6 enums (`JobStatus`, `ImportStatus`, `StagingStatus`, `ErrorPolicy`, `LogLevel`, `LlmProviderName`)
+- Contrats (`ActionInterface`, `LlmProviderInterface`) + base `Action` + `ActionRegistry` + `ActionPipeline` + `ExecutionContext`
+- **16 classes d'action** (pipeline opérationnel pour les transformations simples ; `LlmTransformAction` câble le provider mais attend la validation des providers en phase 2)
+- LLM Manager + `ClaudeProvider` et `OpenAiProvider` (Http facade, retries, backoff exponentiel)
+- 2 Jobs queue skeleton (`ParseFileToStagingJob`, `ImportStagingToLunarJob`) — TODOs balisés pour phases 3 et 4
+- 3 Filament Resources (liste/form/pages) enregistrées via `AiImporterPlugin`
+- Enregistrement dans `composer.json` PSR-4 + `bootstrap/providers.php` + `AppServiceProvider::panel()`
+
+### 7.quinquies.8 À livrer (phases 2 à 6, hors scope de ce commit)
+
+- Phase 2 : tests unitaires pipeline + appels LLM réels (retry/backoff)
+- Phase 3 : `SpreadsheetParser` (multi-sheets, streaming) + multiline aggregate opérationnel
+- Phase 4 : `LunarProductWriter` + `LunarBackupManager` + rollback
+- Phase 5 : éditeur config JSON Livewire (drag-n-drop actions, modales par type)
+- Phase 6 : commande `ai-importer:import-ps-config`, tests d'intégration, docs utilisateur
+
+---
+
 ## 8. Tests
 
 **Framework** : PHPUnit 11 (pas Pest — volonté d'avoir une syntaxe unique avec le reste de l'écosystème Laravel/Lunar).
@@ -684,4 +755,4 @@ Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb
 
 ---
 
-_Dernière mise à jour : 2026-04-12 — TreeManager performance architecture (Computed properties, skipRender, withCount, Alpine search, WeakMap lazy init), TreeManager UX refonte (tab switcher header actions, switchTab cache invalidation, SortableJS cross-level drag, layout inline style), réorganisation navigation admin, media library tomatophp, traductions FR Lunar, reflection swap resources._
+_Dernière mise à jour : 2026-04-17 — AI Importer phase 1 (portage module PS Publiko AI Importer) : squelette `packages/mde/ai-importer/`, 5 tables `mde_ai_importer_*`, pipeline 17 actions polymorphe, LLM providers Claude+OpenAI, 3 Filament Resources enregistrées via `AiImporterPlugin`, migration `ai-importer` de la branche Git._
