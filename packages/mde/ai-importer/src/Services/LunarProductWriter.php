@@ -1,0 +1,297 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mde\AiImporter\Services;
+
+use Illuminate\Support\Collection;
+use Lunar\FieldTypes\Text;
+use Lunar\FieldTypes\TranslatedText;
+use Lunar\Models\Brand;
+use Lunar\Models\Currency;
+use Lunar\Models\Language;
+use Lunar\Models\Price;
+use Lunar\Models\Product;
+use Lunar\Models\ProductType;
+use Lunar\Models\ProductVariant;
+use Lunar\Models\TaxClass;
+use Mde\AiImporter\Enums\StagingStatus;
+use Mde\AiImporter\Models\StagingRecord;
+use Mde\CatalogFeatures\Facades\Features;
+
+/**
+ * Writes a single `StagingRecord` into the Lunar data model.
+ *
+ * Contract — the keys the writer understands in `StagingRecord::data` are:
+ *
+ *  - `reference`            (required) SKU, used to resolve an existing variant.
+ *  - `name`                 (required on create) product name, goes to `attribute_data.name` as TranslatedText[default_lang].
+ *  - `description`          `attribute_data.description` (TranslatedText).
+ *  - `description_short`    `attribute_data.description_short` (TranslatedText).
+ *  - `meta_title`           `attribute_data.meta_title` (TranslatedText).
+ *  - `meta_description`     `attribute_data.meta_description` (TranslatedText).
+ *  - `ean`                  ProductVariant.ean
+ *  - `stock`                int, ProductVariant.stock
+ *  - `price_cents`          int cents, creates/updates the base Price row
+ *  - `compare_price_cents`  int cents, optional, compare-at price
+ *  - `weight_value`         float kg, ProductVariant.weight_value (unit forced to `kg`)
+ *  - `length_value` / `width_value` / `height_value`  floats, forced to `cm`
+ *  - `brand_name`           resolves `lunar_brands.name` → Product.brand_id (firstOrCreate)
+ *  - `collections`          array<int>|array<string>|string (CSV) of collection IDs or handles
+ *  - `features`             hash {family_handle => [value_handle, ...]} (delegates to catalog-features)
+ *
+ * Anything the writer doesn't recognise is ignored. Config authors are free
+ * to output extra keys for their own downstream consumers.
+ *
+ * Resolvers cache look-ups per instance — build one writer per job, not per row.
+ */
+final class LunarProductWriter
+{
+    /** @var array<string, int> */
+    private array $brandCache = [];
+
+    /** @var array<string, int> */
+    private array $collectionHandleCache = [];
+
+    private ?int $defaultProductTypeId = null;
+
+    private ?int $defaultTaxClassId = null;
+
+    private ?int $defaultCurrencyId = null;
+
+    private ?string $defaultLanguage = null;
+
+    public function write(StagingRecord $record): void
+    {
+        $data = $record->data instanceof \ArrayObject
+            ? $record->data->getArrayCopy()
+            : (array) $record->data;
+
+        $sku = trim((string) ($data['reference'] ?? ''));
+        if ($sku === '') {
+            $this->markError($record, 'reference manquante');
+
+            return;
+        }
+
+        $variant = ProductVariant::query()->where('sku', $sku)->first();
+        $product = $variant?->product;
+        $wasCreate = false;
+
+        if (! $product) {
+            if (! isset($data['name']) || $data['name'] === '') {
+                $this->markError($record, 'name requis à la création');
+
+                return;
+            }
+
+            $product = Product::query()->create([
+                'product_type_id' => $this->defaultProductTypeId(),
+                'status' => 'published',
+                'brand_id' => $this->resolveBrand($data),
+                'attribute_data' => $this->buildAttributeData($data),
+            ]);
+
+            $variant = ProductVariant::query()->create([
+                'product_id' => $product->id,
+                'tax_class_id' => $this->defaultTaxClassId(),
+                'sku' => $sku,
+                'ean' => $data['ean'] ?? null,
+                'stock' => (int) ($data['stock'] ?? 0),
+                'unit_quantity' => 1,
+                'min_quantity' => 1,
+                'quantity_increment' => 1,
+                'shippable' => true,
+                'purchasable' => 'always',
+                ...$this->dimensions($data),
+            ]);
+
+            $wasCreate = true;
+        } else {
+            $product->update(array_filter([
+                'brand_id' => $this->resolveBrand($data),
+                'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
+            ], static fn ($v) => $v !== null));
+
+            $variant->update(array_filter([
+                'ean' => $data['ean'] ?? null,
+                'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
+                ...$this->dimensions($data),
+            ], static fn ($v) => $v !== null));
+        }
+
+        if (isset($data['price_cents'])) {
+            $this->upsertPrice($variant, (int) $data['price_cents'], isset($data['compare_price_cents']) ? (int) $data['compare_price_cents'] : null);
+        }
+
+        if (! empty($data['collections'])) {
+            $ids = $this->resolveCollectionIds($data['collections']);
+            if ($ids !== []) {
+                $product->collections()->syncWithoutDetaching($ids);
+            }
+        }
+
+        if (! empty($data['features']) && is_array($data['features']) && class_exists(Features::class)) {
+            Features::syncByHandles($product, $data['features']);
+        }
+
+        $record->update([
+            'status' => $wasCreate ? StagingStatus::Created : StagingStatus::Updated,
+            'lunar_product_id' => $product->id,
+            'imported_at' => now(),
+            'error_message' => null,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function buildAttributeData(array $data, Collection|\ArrayAccess|null $existing = null): ?Collection
+    {
+        $lang = $this->defaultLanguage();
+
+        $existingArr = $existing instanceof Collection
+            ? $existing->all()
+            : ($existing instanceof \ArrayAccess ? iterator_to_array($existing) : []);
+
+        $fields = collect($existingArr);
+
+        $translateIf = function (string $key, Collection $fields) use ($data, $lang): Collection {
+            if (! array_key_exists($key, $data) || $data[$key] === null || $data[$key] === '') {
+                return $fields;
+            }
+            /** @var TranslatedText|null $current */
+            $current = $fields->get($key);
+            $values = $current?->getValue() ?? [];
+            $values[$lang] = (string) $data[$key];
+
+            return $fields->put($key, new TranslatedText(collect($values)));
+        };
+
+        foreach (['name', 'description', 'description_short', 'meta_title', 'meta_description', 'meta_keywords'] as $k) {
+            $fields = $translateIf($k, $fields);
+        }
+
+        if (isset($data['url_key']) && $data['url_key'] !== '') {
+            $fields = $fields->put('url', new Text((string) $data['url_key']));
+        }
+
+        return $fields->isEmpty() ? null : $fields;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function dimensions(array $data): array
+    {
+        $out = [];
+        if (isset($data['weight_value'])) {
+            $out['weight_value'] = (float) $data['weight_value'];
+            $out['weight_unit'] = 'kg';
+        }
+        foreach (['length', 'width', 'height'] as $axis) {
+            if (isset($data[$axis.'_value'])) {
+                $out[$axis.'_value'] = (float) $data[$axis.'_value'];
+                $out[$axis.'_unit'] = 'cm';
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveBrand(array $data): ?int
+    {
+        $name = isset($data['brand_name']) ? trim((string) $data['brand_name']) : '';
+        if ($name === '') {
+            return null;
+        }
+        if (isset($this->brandCache[$name])) {
+            return $this->brandCache[$name];
+        }
+        $brand = Brand::query()->firstOrCreate(['name' => $name]);
+
+        return $this->brandCache[$name] = (int) $brand->id;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function resolveCollectionIds(mixed $value): array
+    {
+        $raw = is_array($value) ? $value : array_filter(array_map('trim', explode(',', (string) $value)));
+        $ids = [];
+
+        foreach ($raw as $token) {
+            if (is_numeric($token)) {
+                $ids[] = (int) $token;
+
+                continue;
+            }
+            $handle = (string) $token;
+            if (isset($this->collectionHandleCache[$handle])) {
+                $ids[] = $this->collectionHandleCache[$handle];
+
+                continue;
+            }
+            $collection = \Lunar\Models\Collection::query()->where('handle', $handle)->first();
+            if ($collection) {
+                $ids[] = $this->collectionHandleCache[$handle] = (int) $collection->id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents): void
+    {
+        Price::query()->updateOrCreate(
+            [
+                'priceable_type' => ProductVariant::class,
+                'priceable_id' => $variant->id,
+                'currency_id' => $this->defaultCurrencyId(),
+                'customer_group_id' => null,
+                'min_quantity' => 1,
+            ],
+            [
+                'price' => $priceCents,
+                'compare_price' => $comparePriceCents,
+            ],
+        );
+    }
+
+    private function defaultProductTypeId(): int
+    {
+        return $this->defaultProductTypeId ??= (int) (ProductType::query()->orderBy('id')->value('id') ?? throw new \RuntimeException('No ProductType exists — seed at least one.'));
+    }
+
+    private function defaultTaxClassId(): int
+    {
+        return $this->defaultTaxClassId ??= (int) (TaxClass::query()->orderBy('id')->value('id') ?? throw new \RuntimeException('No TaxClass exists — seed at least one.'));
+    }
+
+    private function defaultCurrencyId(): int
+    {
+        return $this->defaultCurrencyId ??= (int) (Currency::query()->where('default', true)->value('id')
+            ?? Currency::query()->orderBy('id')->value('id')
+            ?? throw new \RuntimeException('No Currency exists.'));
+    }
+
+    private function defaultLanguage(): string
+    {
+        return $this->defaultLanguage ??= (string) (Language::query()->where('default', true)->value('code')
+            ?? Language::query()->orderBy('id')->value('code')
+            ?? 'fr');
+    }
+
+    private function markError(StagingRecord $record, string $message): void
+    {
+        $record->update([
+            'status' => StagingStatus::Error,
+            'error_message' => $message,
+        ]);
+    }
+}

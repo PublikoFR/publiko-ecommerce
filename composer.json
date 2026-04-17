@@ -15,6 +15,7 @@
         "lunarphp/lunar": "^1.0",
         "lunarphp/stripe": "^1.3",
         "lunarphp/table-rate-shipping": "^1.3",
+        "phpoffice/phpspreadsheet": "^3.0",
         "tomatophp/filament-media-manager": "^1.1",
         "wsdltophp/package-colissimo-postage": "^3.0"
     },

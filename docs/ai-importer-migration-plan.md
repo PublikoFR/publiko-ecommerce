@@ -398,18 +398,25 @@ La règle `syncByHandles` ne touche **que** les familles listées — les caract
 
 ---
 
-## 10. Phases & estimation
+## 10. Phases & état
 
-| Phase | Périmètre | Durée | Livrables clés |
-|---|---|---|---|
-| **1 — Foundation** (ce commit) | Squelette package, migrations, modèles, providers, stubs | 1-2 j | Structure complète + migrations appliquables |
-| **2 — Actions + LLM** | 17 actions implémentées, ClaudeProvider + OpenAiProvider fonctionnels, tests unitaires pipeline | 3-5 j | `ActionPipeline::run()` opérationnel |
-| **3 — Parse job** | `SpreadsheetParser` + `ParseFileToStagingJob` + checkpoint + progress + multi-sheet | 5-7 j | Parse end-to-end fichier → staging |
-| **4 — Import + backup** | `LunarProductWriter` (Lunar natif) + `ImportStagingToLunarJob` + backup/rollback + integration features | 5-7 j | Import end-to-end staging → Lunar |
-| **5 — UI Filament** | Resources complètes (config editor, staging preview, job detail) + NewImportJob page + real-time progress | 5-7 j | Interface admin complète |
-| **6 — Polish** | Commande import PS config, tests d'intégration, docs utilisateur | 2-3 j | MVP prod-ready |
+| Phase | Périmètre | État |
+|---|---|---|
+| **1 — Foundation** | Squelette package, migrations, modèles, providers, stubs | **Livré** (commit `4a66a3e`) |
+| **2 — Actions + LLM + tests** | 17 actions polymorphes, ClaudeProvider + OpenAiProvider, tests unit/feature | **Livré** (26 tests verts) |
+| **3 — Parse job** | `SpreadsheetParser` + `ProgressCache` + `ParseFileToStagingJob` réel | **Livré** |
+| **4 — Import + backup** | `LunarProductWriter` + `LunarBackupManager` + `ImportStagingToLunarJob` + 3 politiques erreur | **Livré** |
+| **5 — UI Filament** | RelationManagers staging + logs, header actions Launch/Rollback/Resume/Cancel | **Livré (partiel)** — éditeur visuel de config à venir |
+| **6 — CLI + polish** | `ai-importer:import-ps-config` | **Livré** |
 
-**Total : 20-30 j** pour feature-parity complète.
+### Reste à faire (hors scope MVP)
+
+- **Éditeur visuel de config** (Livewire + SortableJS, drag-n-drop actions, modales par type) — remplace le textarea JSON actuel
+- **Image pipeline** : téléchargement URL distantes → Spatie MediaLibrary dans le writer (clé `images[]`)
+- **Streaming XLSX** : chunked read filter PhpSpreadsheet pour fichiers >100k lignes
+- **Tests LLM** avec clé API réelle (hors CI, en manuel)
+- **ProductType / TaxClass dynamiques** via clés staging `product_type_handle` / `tax_class_handle`
+- **Scheduler** : `Schedule::command('ai-importer:run-scheduled')` toutes les 5 min pour déclencher les jobs `scheduled_at <= now`
 
 ---
 

@@ -6,6 +6,7 @@ namespace Mde\AiImporter;
 
 use Illuminate\Support\ServiceProvider;
 use Mde\AiImporter\Actions\ActionRegistry;
+use Mde\AiImporter\Console\ImportPsConfigCommand;
 use Mde\AiImporter\Llm\LlmManager;
 use Mde\AiImporter\Services\ActionPipeline;
 
@@ -28,5 +29,11 @@ class AiImporterServiceProvider extends ServiceProvider
         ], 'ai-importer-config');
 
         ActionRegistry::bootDefaults();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ImportPsConfigCommand::class,
+            ]);
+        }
     }
 }

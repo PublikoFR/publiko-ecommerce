@@ -12,6 +12,8 @@ use Lunar\Admin\Support\Resources\BaseResource;
 use Mde\AiImporter\Enums\ImportStatus;
 use Mde\AiImporter\Enums\JobStatus;
 use Mde\AiImporter\Filament\Resources\ImportJobResource\Pages;
+use Mde\AiImporter\Filament\Resources\ImportJobResource\RelationManagers\ImportLogsRelationManager;
+use Mde\AiImporter\Filament\Resources\ImportJobResource\RelationManagers\StagingRecordsRelationManager;
 use Mde\AiImporter\Models\ImportJob;
 
 class ImportJobResource extends BaseResource
@@ -108,6 +110,14 @@ class ImportJobResource extends BaseResource
                 Tables\Actions\DeleteAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            StagingRecordsRelationManager::class,
+            ImportLogsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
