@@ -4,7 +4,7 @@
         <aside class="bg-white dark:bg-gray-900 rounded-xl ring-1 ring-gray-200 dark:ring-white/10 p-4">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="font-bold text-sm uppercase tracking-wider text-gray-700 dark:text-gray-300">Dossiers</h3>
-                <a href="{{ route('filament.admin.resources.folders.create') }}" class="text-xs text-primary-600 hover:text-primary-700 font-semibold">+ Nouveau</a>
+                <a href="{{ url('/admin/folders/create') }}" class="text-xs text-primary-600 hover:text-primary-700 font-semibold">+ Nouveau</a>
             </div>
 
             <button type="button" wire:click="selectFolder(null)" class="w-full text-left px-3 py-2 text-sm rounded-md mb-1 {{ $currentFolderId === null ? 'bg-primary-50 text-primary-700 font-semibold dark:bg-primary-500/10' : 'hover:bg-gray-50 dark:hover:bg-white/5' }}">
