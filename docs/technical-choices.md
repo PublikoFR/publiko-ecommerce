@@ -804,6 +804,37 @@ Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb
 
 ---
 
+## 13.bis Module Fidélité — package `mde/loyalty`
+
+Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : back-office uniquement, storefront différé.
+
+### Décisions
+- **Package** : `packages/mde/loyalty`, namespace `Mde\Loyalty\`, ServiceProvider `LoyaltyServiceProvider` (enregistré dans `bootstrap/providers.php`).
+- **Plugin Filament** : `LoyaltyPlugin` enregistré dans `AppServiceProvider` après `CatalogFeaturesPlugin`. Resources : `LoyaltyTier` (CRUD), `GiftHistory` (statut + notes + badge nav unviewed), `PointsHistory` (readonly). Page `LoyaltySettings` (ratio + email admin). Group nav : **Marketing**.
+- **Trigger calcul points** : observer Eloquent sur `Lunar\Models\Order` (`updated`/`created`), déclenché quand `placed_at` passe à non-null. Choix vs `PaymentAttemptEvent` : robuste pour les paiements offline et idempotent (vérification d'existence dans `mde_loyalty_points_history.order_id` unique).
+- **Source HT** : colonne `lunar_orders.sub_total` (entier cents, hors taxes). `points = floor((sub_total/100) / ratio)`.
+- **Anti-doublon palier** : index unique `(customer_id, tier_id)` sur `mde_loyalty_gift_history`.
+- **Notifications** : `Illuminate\Notifications\Notification` (mail). Client via routing sur `Customer->users()->first()->email`. Admin via `Setting::get('admin_email')` puis fallback `config('mde-loyalty.admin_email')` / env `MDE_LOYALTY_ADMIN_EMAIL`.
+- **Settings** : table dédiée `mde_loyalty_settings(key, value)` — pas de dépendance `spatie/laravel-settings` ajoutée. Lecture via `Mde\Loyalty\Models\Setting::get()`.
+
+### Tables (préfixe `mde_loyalty_`)
+- `mde_loyalty_tiers` — paliers (name, points_required, gift_*, position, active)
+- `mde_loyalty_customer_points` — agrégat par client (unique customer_id)
+- `mde_loyalty_points_history` — trace par commande (unique order_id → idempotence)
+- `mde_loyalty_gift_history` — déblocages (status enum pending/processing/sent, admin_notes, admin_viewed)
+- `mde_loyalty_settings` — kv config
+
+### Variables d'env
+- `MDE_LOYALTY_DEFAULT_RATIO` (défaut `1` — 1€HT = 1 point)
+- `MDE_LOYALTY_ADMIN_EMAIL` — destinataire des notifications de déblocage côté admin
+
+### Backlog phase 2
+- Storefront sections (progress / next gifts / unlocked / history) — data déjà exposée via `LoyaltyManager::getCustomerSnapshot()`.
+- Gestion remboursements / annulations (retrait points).
+- Commande artisan `loyalty:recalculate` pour rejouer historique clients existants.
+
+---
+
 ## 14. Documentation externe
 
 - [Lunar](https://docs.lunarphp.com) — **servie aussi via le MCP `lunar-docs`**

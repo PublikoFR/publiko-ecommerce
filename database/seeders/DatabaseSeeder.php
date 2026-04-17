@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
+use Mde\Loyalty\Database\Seeders\DefaultTiersSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,6 +28,7 @@ class DatabaseSeeder extends Seeder
             MdeProductSeeder::class,
             MdeCustomerSeeder::class,
             MdeOrderSeeder::class,
+            DefaultTiersSeeder::class,
         ]);
 
         Model::reguard();

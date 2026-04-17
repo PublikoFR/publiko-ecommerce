@@ -16,6 +16,7 @@ use Filament\Panel;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
+use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
@@ -25,6 +26,8 @@ use Lunar\Shipping\ShippingPlugin;
 use Mde\AiImporter\Filament\AiImporterPlugin;
 use Mde\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Mde\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
+use Mde\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
+use Mde\Loyalty\Filament\LoyaltyPlugin;
 use Mde\ShippingChronopost\Filament\ChronopostPlugin;
 use Mde\ShippingColissimo\Filament\ColissimoPlugin;
 use Mde\ShippingCommon\Filament\ShippingCommonPlugin;
@@ -62,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(ColissimoPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(AiImporterPlugin::make())
+                ->plugin(LoyaltyPlugin::make())
                 ->plugin(FilamentMediaManagerPlugin::make()
                     ->allowSubFolders());
         })->register();
@@ -69,6 +73,9 @@ class AppServiceProvider extends ServiceProvider
         LunarPanel::extensions([
             ProductResource::class => [
                 ProductFeaturesExtension::class,
+            ],
+            CustomerResource::class => [
+                CustomerLoyaltyExtension::class,
             ],
         ]);
     }
