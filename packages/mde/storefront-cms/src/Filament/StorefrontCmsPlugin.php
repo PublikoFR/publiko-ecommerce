@@ -6,7 +6,7 @@ namespace Mde\StorefrontCms\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
-use Mde\StorefrontCms\Filament\Pages\BulkMediaUpload;
+use Mde\StorefrontCms\Filament\Pages\MdeMediaLibrary;
 use Mde\StorefrontCms\Filament\Resources\HomeOfferResource;
 use Mde\StorefrontCms\Filament\Resources\HomeSlideResource;
 use Mde\StorefrontCms\Filament\Resources\HomeTileResource;
@@ -33,7 +33,7 @@ class StorefrontCmsPlugin implements Plugin
                 NewsletterSubscriberResource::class,
             ])
             ->pages([
-                BulkMediaUpload::class,
+                MdeMediaLibrary::class,
             ]);
     }
 
