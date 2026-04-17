@@ -7,6 +7,7 @@ namespace Mde\Storefront;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Mde\Storefront\Livewire\CartDrawer;
 use Mde\Storefront\Livewire\SearchAutocomplete;
 
 class StorefrontServiceProvider extends ServiceProvider
@@ -23,6 +24,7 @@ class StorefrontServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(__DIR__.'/../resources/views/components');
 
         Livewire::component('storefront.search-autocomplete', SearchAutocomplete::class);
+        Livewire::component('storefront.cart-drawer', CartDrawer::class);
 
         $this->publishes([
             __DIR__.'/../config/mde-storefront.php' => config_path('mde-storefront.php'),

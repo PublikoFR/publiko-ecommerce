@@ -94,15 +94,22 @@ $user = auth()->user();
                     </a>
                 @endif
 
-                <a href="/panier" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-neutral-700 hover:text-primary-700 hover:bg-primary-50 transition">
-                    <div class="relative">
+                @auth
+                    <button type="button" x-data @click="$dispatch('open-cart-drawer')" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-neutral-700 hover:text-primary-700 hover:bg-primary-50 transition">
+                        <div class="relative">
+                            <x-ui.icon name="cart" class="w-5 h-5" />
+                            @if ($cartCount > 0)
+                                <span class="absolute -top-1.5 -right-2 bg-primary-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{{ $cartCount }}</span>
+                            @endif
+                        </div>
+                        <span class="text-[11px] font-semibold uppercase tracking-wide">Panier</span>
+                    </button>
+                @else
+                    <a href="/connexion" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md text-neutral-700 hover:text-primary-700 hover:bg-primary-50 transition">
                         <x-ui.icon name="cart" class="w-5 h-5" />
-                        @if ($cartCount > 0)
-                            <span class="absolute -top-1.5 -right-2 bg-primary-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{{ $cartCount }}</span>
-                        @endif
-                    </div>
-                    <span class="text-[11px] font-semibold uppercase tracking-wide">Panier</span>
-                </a>
+                        <span class="text-[11px] font-semibold uppercase tracking-wide">Panier</span>
+                    </a>
+                @endauth
             </div>
         </div>
 

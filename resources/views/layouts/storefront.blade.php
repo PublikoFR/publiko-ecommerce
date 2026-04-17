@@ -24,6 +24,10 @@
 
     <x-layout.footer />
 
+    @auth
+        @livewire('storefront.cart-drawer')
+    @endauth
+
     @livewireScripts
     @stack('scripts')
 </body>
