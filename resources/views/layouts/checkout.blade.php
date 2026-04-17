@@ -13,13 +13,10 @@
         content="Example of an ecommerce storefront built with Lunar."
     >
     <link
-        href="{{ asset('css/app.css') }}"
-        rel="stylesheet"
-    >
-    <link
         rel="icon"
         href="{{ asset('favicon.svg') }}"
     >
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     @stripeScripts
 </head>
