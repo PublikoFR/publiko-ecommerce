@@ -66,7 +66,6 @@ class MdeMediaLibrary extends Page implements HasForms
             FileUpload::make('files')
                 ->label('')
                 ->multiple()
-                ->reorderable()
                 ->appendFiles()
                 ->previewable()
                 ->panelLayout('grid')
@@ -79,7 +78,12 @@ class MdeMediaLibrary extends Page implements HasForms
                 ->visibility('private')
                 ->storeFileNamesIn('original_filenames')
                 ->columnSpanFull()
-                ->hint('Glissez-déposez ici ou cliquez pour parcourir · Max 100 fichiers · 20 Mo chacun'),
+                ->live()
+                ->afterStateUpdated(function ($state) {
+                    if (! empty($state) && $this->currentFolderId !== null) {
+                        $this->saveUploads();
+                    }
+                }),
         ])->statePath('uploadState');
     }
 
