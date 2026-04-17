@@ -18,6 +18,7 @@ use Mde\AiImporter\Enums\StagingStatus;
 use Mde\AiImporter\Models\ImportJob;
 use Mde\AiImporter\Models\ImportLog;
 use Mde\AiImporter\Models\StagingRecord;
+use Mde\AiImporter\Notifications\ImportJobNotifier;
 use Mde\AiImporter\Services\ActionPipeline;
 use Mde\AiImporter\Services\ProgressCache;
 use Mde\AiImporter\Services\SpreadsheetParser;
@@ -69,7 +70,14 @@ class ParseFileToStagingJob implements ShouldQueue
             $absolutePath = $disk->path($job->input_file_path);
 
             $config = $job->config->config_data->getArrayCopy();
-            $parser->load($absolutePath, $config);
+            // Stream XLSX/XLS past 10k rows; CSV is always streamed by PhpSpreadsheet anyway.
+            $fileSize = @filesize($absolutePath) ?: 0;
+            $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+            if (in_array($ext, ['xlsx', 'xls'], true) && $fileSize > 5 * 1024 * 1024) {
+                $parser->loadStreamed($absolutePath, $config, (int) ($job->chunk_size ?: 2000));
+            } else {
+                $parser->load($absolutePath, $config);
+            }
 
             $primary = $parser->primarySheetName();
             $total = $parser->countRows($primary);
@@ -141,6 +149,8 @@ class ParseFileToStagingJob implements ShouldQueue
                 'total_rows' => $total,
                 'staging_rows' => $stagingCount,
             ]);
+
+            ImportJobNotifier::parseCompleted($job->fresh());
         } catch (\Throwable $e) {
             $this->fail($job, $e->getMessage());
             throw $e;

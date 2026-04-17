@@ -4,9 +4,9 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Lunar\Models\ProductType;
+use Mde\AiImporter\Models\ImportJob;
 
-class ProductTypePolicy
+class ImportJobPolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class ProductTypePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_mde::product::type');
+        return $staff->can('view_any_import::job');
     }
 
     /**
      * Determine whether the staff can view the model.
      */
-    public function view(Staff $staff, ProductType $productType): bool
+    public function view(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('view_mde::product::type');
+        return $staff->can('view_import::job');
     }
 
     /**
@@ -31,23 +31,23 @@ class ProductTypePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_mde::product::type');
+        return $staff->can('create_import::job');
     }
 
     /**
      * Determine whether the staff can update the model.
      */
-    public function update(Staff $staff, ProductType $productType): bool
+    public function update(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('update_mde::product::type');
+        return $staff->can('update_import::job');
     }
 
     /**
      * Determine whether the staff can delete the model.
      */
-    public function delete(Staff $staff, ProductType $productType): bool
+    public function delete(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('delete_mde::product::type');
+        return $staff->can('delete_import::job');
     }
 
     /**
@@ -55,15 +55,15 @@ class ProductTypePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_mde::product::type');
+        return $staff->can('delete_any_import::job');
     }
 
     /**
      * Determine whether the staff can permanently delete.
      */
-    public function forceDelete(Staff $staff, ProductType $productType): bool
+    public function forceDelete(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('force_delete_mde::product::type');
+        return $staff->can('force_delete_import::job');
     }
 
     /**
@@ -71,15 +71,15 @@ class ProductTypePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_mde::product::type');
+        return $staff->can('force_delete_any_import::job');
     }
 
     /**
      * Determine whether the staff can restore.
      */
-    public function restore(Staff $staff, ProductType $productType): bool
+    public function restore(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('restore_mde::product::type');
+        return $staff->can('restore_import::job');
     }
 
     /**
@@ -87,15 +87,15 @@ class ProductTypePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_mde::product::type');
+        return $staff->can('restore_any_import::job');
     }
 
     /**
      * Determine whether the staff can replicate.
      */
-    public function replicate(Staff $staff, ProductType $productType): bool
+    public function replicate(Staff $staff, ImportJob $importJob): bool
     {
-        return $staff->can('replicate_mde::product::type');
+        return $staff->can('replicate_import::job');
     }
 
     /**
@@ -103,6 +103,6 @@ class ProductTypePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_mde::product::type');
+        return $staff->can('reorder_import::job');
     }
 }

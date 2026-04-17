@@ -17,6 +17,7 @@ use Mde\AiImporter\Enums\StagingStatus;
 use Mde\AiImporter\Models\ImportJob;
 use Mde\AiImporter\Models\ImportLog;
 use Mde\AiImporter\Models\StagingRecord;
+use Mde\AiImporter\Notifications\ImportJobNotifier;
 use Mde\AiImporter\Services\LunarBackupManager;
 use Mde\AiImporter\Services\LunarProductWriter;
 use Mde\AiImporter\Services\ProgressCache;
@@ -139,6 +140,8 @@ class ImportStagingToLunarJob implements ShouldQueue
                 'imported' => $imported,
                 'errors' => $errors,
             ]);
+
+            ImportJobNotifier::importCompleted($job->fresh());
         } catch (\Throwable $e) {
             DB::transaction(function () use ($job, $e): void {
                 $job->update([
@@ -147,6 +150,7 @@ class ImportStagingToLunarJob implements ShouldQueue
                 ]);
                 $this->log($job, LogLevel::Error, 'Import interrompu: '.$e->getMessage());
             });
+            ImportJobNotifier::importFailed($job->fresh(), $e->getMessage());
             throw $e;
         }
     }

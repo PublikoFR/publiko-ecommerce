@@ -7,6 +7,8 @@ namespace Mde\AiImporter;
 use Illuminate\Support\ServiceProvider;
 use Mde\AiImporter\Actions\ActionRegistry;
 use Mde\AiImporter\Console\ImportPsConfigCommand;
+use Mde\AiImporter\Console\PreviewConfigCommand;
+use Mde\AiImporter\Console\RunScheduledImportsCommand;
 use Mde\AiImporter\Llm\LlmManager;
 use Mde\AiImporter\Services\ActionPipeline;
 
@@ -33,6 +35,8 @@ class AiImporterServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ImportPsConfigCommand::class,
+                PreviewConfigCommand::class,
+                RunScheduledImportsCommand::class,
             ]);
         }
     }

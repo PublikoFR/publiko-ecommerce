@@ -22,26 +22,35 @@ use Mde\CatalogFeatures\Facades\Features;
 /**
  * Writes a single `StagingRecord` into the Lunar data model.
  *
- * Contract — the keys the writer understands in `StagingRecord::data` are:
+ * Contract — the keys the writer understands in `StagingRecord::data`:
  *
- *  - `reference`            (required) SKU, used to resolve an existing variant.
- *  - `name`                 (required on create) product name, goes to `attribute_data.name` as TranslatedText[default_lang].
- *  - `description`          `attribute_data.description` (TranslatedText).
- *  - `description_short`    `attribute_data.description_short` (TranslatedText).
- *  - `meta_title`           `attribute_data.meta_title` (TranslatedText).
- *  - `meta_description`     `attribute_data.meta_description` (TranslatedText).
- *  - `ean`                  ProductVariant.ean
- *  - `stock`                int, ProductVariant.stock
- *  - `price_cents`          int cents, creates/updates the base Price row
- *  - `compare_price_cents`  int cents, optional, compare-at price
- *  - `weight_value`         float kg, ProductVariant.weight_value (unit forced to `kg`)
- *  - `length_value` / `width_value` / `height_value`  floats, forced to `cm`
- *  - `brand_name`           resolves `lunar_brands.name` → Product.brand_id (firstOrCreate)
- *  - `collections`          array<int>|array<string>|string (CSV) of collection IDs or handles
- *  - `features`             hash {family_handle => [value_handle, ...]} (delegates to catalog-features)
+ *  - `reference`            (required) SKU, resolves an existing variant.
+ *  - `name`                 (required on create) TranslatedText[default_lang].
+ *  - `description` / `description_short` / `meta_title` / `meta_description` /
+ *    `meta_keywords`        attribute_data, TranslatedText.
+ *  - `url_key`              attribute_data.url (Text).
+ *  - `ean`                  ProductVariant.ean.
+ *  - `stock`                int, ProductVariant.stock.
+ *  - `price_cents`          int cents, base Price row.
+ *  - `compare_price_cents`  int cents, optional compare-at price.
+ *  - `weight_value`         float kg.
+ *  - `length_value` / `width_value` / `height_value`  floats in cm.
+ *  - `brand_name`           Brand::firstOrCreate(['name' => ...]) → Product.brand_id.
+ *  - `product_type_handle`  lookup ProductType by handle, fallback to first.
+ *  - `tax_class_handle`     lookup TaxClass by handle, fallback to first.
+ *  - `collections`          array|CSV of collection IDs or handles — syncWithoutDetaching.
+ *  - `features`             hash `{family_handle => [value_handle, ...]}` — routed through
+ *                           MDE `catalog-features` (Features::syncByHandles), NOT Lunar's
+ *                           native Attribute/attribute_data system.
+ *  - `images`               array|CSV of remote URLs — downloaded into Spatie MediaLibrary
+ *                           collection `config('lunar.media.collection')`. Idempotent via
+ *                           `custom_properties.source_url`. First URL flagged `primary=true`
+ *                           (becomes thumbnail).
+ *  - `videos`               array|CSV of YouTube/Vimeo URLs — stashed on
+ *                           `attribute_data.videos` (comma-joined string). Dedicated MDE
+ *                           table planned for later phase (richer per-video metadata).
  *
- * Anything the writer doesn't recognise is ignored. Config authors are free
- * to output extra keys for their own downstream consumers.
+ * Anything the writer doesn't recognise is ignored.
  *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
@@ -53,6 +62,12 @@ final class LunarProductWriter
     /** @var array<string, int> */
     private array $collectionHandleCache = [];
 
+    /** @var array<string, int> */
+    private array $productTypeCache = [];
+
+    /** @var array<string, int> */
+    private array $taxClassCache = [];
+
     private ?int $defaultProductTypeId = null;
 
     private ?int $defaultTaxClassId = null;
@@ -60,6 +75,13 @@ final class LunarProductWriter
     private ?int $defaultCurrencyId = null;
 
     private ?string $defaultLanguage = null;
+
+    private readonly ProductImagePipeline $imagePipeline;
+
+    public function __construct(?ProductImagePipeline $imagePipeline = null)
+    {
+        $this->imagePipeline = $imagePipeline ?? new ProductImagePipeline;
+    }
 
     public function write(StagingRecord $record): void
     {
@@ -86,7 +108,7 @@ final class LunarProductWriter
             }
 
             $product = Product::query()->create([
-                'product_type_id' => $this->defaultProductTypeId(),
+                'product_type_id' => $this->resolveProductTypeId($data),
                 'status' => 'published',
                 'brand_id' => $this->resolveBrand($data),
                 'attribute_data' => $this->buildAttributeData($data),
@@ -94,7 +116,7 @@ final class LunarProductWriter
 
             $variant = ProductVariant::query()->create([
                 'product_id' => $product->id,
-                'tax_class_id' => $this->defaultTaxClassId(),
+                'tax_class_id' => $this->resolveTaxClassId($data),
                 'sku' => $sku,
                 'ean' => $data['ean'] ?? null,
                 'stock' => (int) ($data['stock'] ?? 0),
@@ -133,6 +155,19 @@ final class LunarProductWriter
 
         if (! empty($data['features']) && is_array($data['features']) && class_exists(Features::class)) {
             Features::syncByHandles($product, $data['features']);
+        }
+
+        if (! empty($data['images'])) {
+            $this->imagePipeline->syncImages($product, $data['images']);
+        }
+
+        if (! empty($data['videos'])) {
+            $videos = $this->imagePipeline->stashVideoUrls($data['videos']);
+            if ($videos !== []) {
+                $fields = collect($product->attribute_data?->all() ?? []);
+                $fields = $fields->put('videos', new Text(implode(',', $videos)));
+                $product->update(['attribute_data' => $fields]);
+            }
         }
 
         $record->update([
@@ -261,6 +296,40 @@ final class LunarProductWriter
                 'compare_price' => $comparePriceCents,
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveProductTypeId(array $data): int
+    {
+        $handle = isset($data['product_type_handle']) ? (string) $data['product_type_handle'] : '';
+        if ($handle === '') {
+            return $this->defaultProductTypeId();
+        }
+        if (isset($this->productTypeCache[$handle])) {
+            return $this->productTypeCache[$handle];
+        }
+        $id = (int) (ProductType::query()->where('handle', $handle)->value('id') ?? $this->defaultProductTypeId());
+
+        return $this->productTypeCache[$handle] = $id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveTaxClassId(array $data): int
+    {
+        $handle = isset($data['tax_class_handle']) ? (string) $data['tax_class_handle'] : '';
+        if ($handle === '') {
+            return $this->defaultTaxClassId();
+        }
+        if (isset($this->taxClassCache[$handle])) {
+            return $this->taxClassCache[$handle];
+        }
+        $id = (int) (TaxClass::query()->where('handle', $handle)->value('id') ?? $this->defaultTaxClassId());
+
+        return $this->taxClassCache[$handle] = $id;
     }
 
     private function defaultProductTypeId(): int

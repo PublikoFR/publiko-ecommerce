@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use Lunar\Models\Staff;
+use Lunar\Admin\Models\Staff;
 use Mde\AiImporter\Enums\ErrorPolicy;
 use Mde\AiImporter\Enums\ImportStatus;
 use Mde\AiImporter\Enums\JobStatus;

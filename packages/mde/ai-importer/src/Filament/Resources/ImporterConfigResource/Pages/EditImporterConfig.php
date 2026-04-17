@@ -16,4 +16,14 @@ class EditImporterConfig extends EditRecord
     {
         return [Actions\DeleteAction::make()];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return ImporterConfigResource::hydrateVisual($data);
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return ImporterConfigResource::dehydrateVisual($data);
+    }
 }

@@ -8,6 +8,7 @@ use Mde\AiImporter\Actions\Types\ChangeCaseAction;
 use Mde\AiImporter\Actions\Types\ConcatAction;
 use Mde\AiImporter\Actions\Types\CopyAction;
 use Mde\AiImporter\Actions\Types\DateFormatAction;
+use Mde\AiImporter\Actions\Types\FeatureBuildAction;
 use Mde\AiImporter\Actions\Types\LlmTransformAction;
 use Mde\AiImporter\Actions\Types\MapAction;
 use Mde\AiImporter\Actions\Types\MathAction;
@@ -55,6 +56,7 @@ final class ActionRegistry
             MapAction::class,
             LlmTransformAction::class,
             MultilineAggregateAction::class,
+            FeatureBuildAction::class,
         ] as $class) {
             self::register($class::type(), $class);
         }

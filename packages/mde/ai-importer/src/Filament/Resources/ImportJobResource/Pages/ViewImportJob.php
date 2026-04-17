@@ -10,6 +10,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Mde\AiImporter\Enums\ImportStatus;
 use Mde\AiImporter\Enums\JobStatus;
 use Mde\AiImporter\Filament\Resources\ImportJobResource;
+use Mde\AiImporter\Filament\Widgets\ImportJobProgressWidget;
 use Mde\AiImporter\Jobs\ImportStagingToLunarJob;
 use Mde\AiImporter\Jobs\ParseFileToStagingJob;
 use Mde\AiImporter\Services\LunarBackupManager;
@@ -17,6 +18,18 @@ use Mde\AiImporter\Services\LunarBackupManager;
 class ViewImportJob extends ViewRecord
 {
     protected static string $resource = ImportJobResource::class;
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            ImportJobProgressWidget::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
 
     protected function getHeaderActions(): array
     {
@@ -58,6 +71,20 @@ class ViewImportJob extends ViewRecord
                     $backup->restore($this->record);
                     Notification::make()->warning()->title('Rollback exécuté')->send();
                     $this->record->update(['import_status' => ImportStatus::RolledBack]);
+                }),
+            Actions\Action::make('resumeImport')
+                ->label('Reprendre l\'import')
+                ->icon('heroicon-o-play')
+                ->color('warning')
+                ->visible(fn (): bool => in_array($this->record->import_status, [ImportStatus::Error], true)
+                    && $this->record->status === JobStatus::Parsed)
+                ->requiresConfirmation()
+                ->modalDescription('Relance l\'import sur les lignes staging restantes (status=pending|validated|warning). Les lignes déjà importées sont ignorées.')
+                ->action(function (): void {
+                    ImportStagingToLunarJob::dispatch($this->record->id)
+                        ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
+                    $this->record->update(['import_status' => ImportStatus::Pending, 'error_message' => null]);
+                    Notification::make()->success()->title('Import relancé')->send();
                 }),
             Actions\Action::make('cancel')
                 ->label('Annuler')
