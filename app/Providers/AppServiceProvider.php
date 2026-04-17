@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\MdeAttributeGroupResource;
@@ -14,16 +15,13 @@ use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Illuminate\Support\ServiceProvider;
+use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
-use Lunar\Admin\Filament\Widgets\Dashboard\Customers\NewVsReturningCustomersChart;
-use Lunar\Admin\Filament\Widgets\Dashboard\Orders\AverageOrderValueChart;
-use Lunar\Admin\Filament\Widgets\Dashboard\Orders\OrdersSalesChart;
-use Lunar\Admin\Filament\Widgets\Dashboard\Orders\OrderTotalsChart;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Shipping\ShippingPlugin;
@@ -42,7 +40,6 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->swapLunarResources();
-        $this->disableBrokenLunarWidgets();
 
         LunarPanel::panel(function (Panel $panel): Panel {
             return $panel
@@ -82,6 +79,9 @@ class AppServiceProvider extends ServiceProvider
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
             ],
+            Dashboard::class => [
+                DisableBrokenChartsExtension::class,
+            ],
         ]);
     }
 
@@ -94,25 +94,6 @@ class AppServiceProvider extends ServiceProvider
      * Swap 4 Lunar resources with MDE subclasses that override navigation placement.
      * Must run BEFORE LunarPanel::panel()->register() reads the static $resources array.
      */
-    /**
-     * Désactive les widgets Lunar qui cassent sur Livewire polling (RootTagMissing).
-     * Cause : ApexChartWidget perd le panel context sur /livewire/update → render() vide.
-     */
-    private function disableBrokenLunarWidgets(): void
-    {
-        $disabled = [
-            OrdersSalesChart::class,
-            OrderTotalsChart::class,
-            AverageOrderValueChart::class,
-            NewVsReturningCustomersChart::class,
-        ];
-
-        $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('widgets');
-        /** @var array<int, class-string> $widgets */
-        $widgets = $prop->getValue();
-        $prop->setValue(null, array_values(array_diff($widgets, $disabled)));
-    }
-
     private function swapLunarResources(): void
     {
         $swaps = [
