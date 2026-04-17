@@ -3,6 +3,7 @@
 use App\Providers\AppServiceProvider;
 use Mde\AiImporter\AiImporterServiceProvider;
 use Mde\CatalogFeatures\CatalogFeaturesServiceProvider;
+use Mde\CustomerAuth\CustomerAuthServiceProvider;
 use Mde\Loyalty\LoyaltyServiceProvider;
 use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
 use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
@@ -18,4 +19,5 @@ return [
     ShippingColissimoServiceProvider::class,
     AiImporterServiceProvider::class,
     StorefrontServiceProvider::class,
+    CustomerAuthServiceProvider::class,
 ];
