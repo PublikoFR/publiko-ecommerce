@@ -240,6 +240,18 @@ Pour une fonctionnalité packagée réutilisable (Chronopost, Colissimo, futurs 
 
 **Installation automatisée** : `make install` lance `shield:install admin` puis `shield:generate --all --panel=admin` pour générer toutes les policies d'un coup.
 
+### 6.1 Credentials admin de dev — source de vérité
+
+Un seul point de création du compte admin : **`MdeAdminUserSeeder`**, premier seeder appelé par `DatabaseSeeder`. Idempotent (`updateOrCreate` par email), il garantit qu'après un `make fresh` ou `make install` le compte admin est toujours restauré avec les mêmes credentials.
+
+Credentials par défaut :
+- Email : `admin@mde-distribution.fr`
+- Password : `testing123`
+
+Overridables via les variables d'env `MDE_ADMIN_EMAIL` et `MDE_ADMIN_PASSWORD` (utile pour environnements non-locaux).
+
+Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:install` → `shield:generate` → `db:seed` (crée Staff id=1) → `shield:super-admin --user=1` (assigne le rôle `super_admin`). La commande `lunar:create-admin` n'est plus utilisée (remplacée par le seeder).
+
 ---
 
 ## 7. Lunar — points d'attention
@@ -898,4 +910,6 @@ Tous les fichiers PHP portés portent `declare(strict_types=1);` (CLAUDE.md §3.
 
 ---
 
-_Dernière mise à jour : 2026-04-17 — Port du Lunar Livewire Starter Kit comme base du frontoffice (§13.bis) : 6 pages Livewire (`/`, `/search`, `/collections/{slug}`, `/products/{slug}`, `/checkout`, `/checkout/success`), 5 composants (Cart, AddToCart, Navigation, CheckoutAddress, ShippingOptions), layouts storefront/checkout, trait `FetchesUrls`, view component `ProductPrice`. Écarts : pas de `ShippingModifier` factice (drivers réels §5), pas d'override `Product`, pas de sanctum/meilisearch/predis. NPM ajoute `@tailwindcss/forms`, `@ryangjchandler/alpine-clipboard`. `config/livewire.php` publié (layout par défaut = `layouts.storefront`)._
+_2026-04-17 — Admin dev credentials stabilisés via `MdeAdminUserSeeder` idempotent (§6.1) : `admin@mde-distribution.fr` / `testing123` toujours restaurés par `make fresh`/`make install`. Overridable via `MDE_ADMIN_EMAIL` / `MDE_ADMIN_PASSWORD`._
+
+_2026-04-17 — Port du Lunar Livewire Starter Kit comme base du frontoffice (§13.bis) : 6 pages Livewire (`/`, `/search`, `/collections/{slug}`, `/products/{slug}`, `/checkout`, `/checkout/success`), 5 composants (Cart, AddToCart, Navigation, CheckoutAddress, ShippingOptions), layouts storefront/checkout, trait `FetchesUrls`, view component `ProductPrice`. Écarts : pas de `ShippingModifier` factice (drivers réels §5), pas d'override `Product`, pas de sanctum/meilisearch/predis. NPM ajoute `@tailwindcss/forms`, `@ryangjchandler/alpine-clipboard`. `config/livewire.php` publié (layout par défaut = `layouts.storefront`)._

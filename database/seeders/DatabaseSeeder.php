@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
         Model::unguard();
 
         $this->call([
+            MdeAdminUserSeeder::class,
             MdeCurrencySeeder::class,
             MdeChannelSeeder::class,
             MdeLanguageSeeder::class,
