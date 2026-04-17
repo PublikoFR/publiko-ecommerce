@@ -7,6 +7,7 @@ use Mde\Loyalty\LoyaltyServiceProvider;
 use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
 use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
 use Mde\ShippingCommon\ShippingCommonServiceProvider;
+use Mde\Storefront\StorefrontServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -16,4 +17,5 @@ return [
     ShippingChronopostServiceProvider::class,
     ShippingColissimoServiceProvider::class,
     AiImporterServiceProvider::class,
+    StorefrontServiceProvider::class,
 ];

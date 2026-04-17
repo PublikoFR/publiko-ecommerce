@@ -40,7 +40,14 @@
             "Mde\\CatalogFeatures\\": "packages/mde/catalog-features/src/",
             "Mde\\AiImporter\\": "packages/mde/ai-importer/src/",
             "Mde\\Loyalty\\": "packages/mde/loyalty/src/",
-            "Mde\\Loyalty\\Database\\Seeders\\": "packages/mde/loyalty/database/seeders/"
+            "Mde\\Loyalty\\Database\\Seeders\\": "packages/mde/loyalty/database/seeders/",
+            "Mde\\Storefront\\": "packages/mde/storefront/src/",
+            "Mde\\CustomerAuth\\": "packages/mde/customer-auth/src/",
+            "Mde\\Account\\": "packages/mde/account/src/",
+            "Mde\\PurchaseLists\\": "packages/mde/purchase-lists/src/",
+            "Mde\\QuickOrder\\": "packages/mde/quick-order/src/",
+            "Mde\\StorefrontCms\\": "packages/mde/storefront-cms/src/",
+            "Mde\\StoreLocator\\": "packages/mde/store-locator/src/"
         }
     },
     "autoload-dev": {
