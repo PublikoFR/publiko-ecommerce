@@ -12,6 +12,7 @@ use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
 use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
 use Mde\ShippingCommon\ShippingCommonServiceProvider;
 use Mde\Storefront\StorefrontServiceProvider;
+use Mde\StorefrontCms\StorefrontCmsServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -26,4 +27,5 @@ return [
     AccountServiceProvider::class,
     PurchaseListsServiceProvider::class,
     QuickOrderServiceProvider::class,
+    StorefrontCmsServiceProvider::class,
 ];
