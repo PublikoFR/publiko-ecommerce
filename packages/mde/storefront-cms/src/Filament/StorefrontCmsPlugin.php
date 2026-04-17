@@ -6,6 +6,7 @@ namespace Mde\StorefrontCms\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Mde\StorefrontCms\Filament\Pages\BulkMediaUpload;
 use Mde\StorefrontCms\Filament\Resources\HomeOfferResource;
 use Mde\StorefrontCms\Filament\Resources\HomeSlideResource;
 use Mde\StorefrontCms\Filament\Resources\HomeTileResource;
@@ -22,14 +23,18 @@ class StorefrontCmsPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        $panel->resources([
-            HomeSlideResource::class,
-            HomeTileResource::class,
-            HomeOfferResource::class,
-            PostResource::class,
-            PageResource::class,
-            NewsletterSubscriberResource::class,
-        ]);
+        $panel
+            ->resources([
+                HomeSlideResource::class,
+                HomeTileResource::class,
+                HomeOfferResource::class,
+                PostResource::class,
+                PageResource::class,
+                NewsletterSubscriberResource::class,
+            ])
+            ->pages([
+                BulkMediaUpload::class,
+            ]);
     }
 
     public function boot(Panel $panel): void {}
