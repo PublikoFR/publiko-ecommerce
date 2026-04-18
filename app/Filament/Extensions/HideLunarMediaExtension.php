@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Extensions;
 
+use Filament\Forms\Components\Section;
+use Filament\Forms\Form;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Table;
 use Lunar\Admin\Filament\Resources\BrandResource\Pages\ManageBrandMedia;
@@ -11,6 +13,7 @@ use Lunar\Admin\Filament\Resources\CollectionResource\Pages\ManageCollectionMedi
 use Lunar\Admin\Filament\Resources\ProductResource\Pages\ManageProductMedia;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Admin\Support\RelationManagers\MediaRelationManager;
+use Mde\StorefrontCms\Filament\Forms\Components\MediaPicker;
 
 /**
  * Hide Lunar's native Spatie MediaLibrary UI on Product/Collection/Brand resources.
@@ -67,6 +70,30 @@ class HideLunarMediaExtension extends ResourceExtension
             $managers,
             fn ($m) => $m !== MediaRelationManager::class,
         ));
+    }
+
+    /**
+     * Inject the unified MediaPicker (thumbnail single + gallery multi) at the end
+     * of the record edit form. Data persists to `mde_mediables` pivot directly —
+     * no trait required on the underlying Lunar model.
+     */
+    public function extendForm(Form $form): Form
+    {
+        return $form->schema([
+            ...$form->getComponents(),
+            Section::make('Médias')
+                ->description('Image principale et galerie — système MDE unifié.')
+                ->schema([
+                    MediaPicker::make('thumbnail')
+                        ->label('Image principale')
+                        ->mediagroup('thumbnail'),
+                    MediaPicker::make('gallery')
+                        ->label('Galerie')
+                        ->multiple()
+                        ->mediagroup('gallery'),
+                ])
+                ->collapsible(),
+        ]);
     }
 
     /**

@@ -6,7 +6,7 @@ namespace Mde\StorefrontCms\Filament\Forms\Components;
 
 use Filament\Forms\Components\Field;
 use Illuminate\Database\Eloquent\Model;
-use Mde\StorefrontCms\Concerns\HasMediaAttachments;
+use Illuminate\Support\Facades\DB;
 
 class MediaPicker extends Field
 {
@@ -22,16 +22,19 @@ class MediaPicker extends Field
 
         $this->dehydrated(false);
 
-        // Hydrate from the model's media attachments on load.
         $this->afterStateHydrated(function (MediaPicker $component, ?Model $record): void {
-            if (! $record || ! in_array(HasMediaAttachments::class, class_uses_recursive($record::class), true)) {
+            if (! $record || ! $record->exists) {
                 $component->state($component->isMultiple() ? [] : null);
 
                 return;
             }
 
-            $ids = $record->mediaAttachments($component->getMediagroup())
-                ->pluck('media.id')
+            $ids = DB::table('mde_mediables')
+                ->where('mediable_type', $record::class)
+                ->where('mediable_id', $record->getKey())
+                ->where('mediagroup', $component->getMediagroup())
+                ->orderBy('position')
+                ->pluck('media_id')
                 ->map(fn ($id) => (int) $id)
                 ->values()
                 ->all();
@@ -39,9 +42,8 @@ class MediaPicker extends Field
             $component->state($component->isMultiple() ? $ids : ($ids[0] ?? null));
         });
 
-        // Persist selection after the parent record is saved.
         $this->saveRelationshipsUsing(function (MediaPicker $component, ?Model $record, $state): void {
-            if (! $record || ! in_array(HasMediaAttachments::class, class_uses_recursive($record::class), true)) {
+            if (! $record || ! $record->exists) {
                 return;
             }
 
@@ -49,7 +51,24 @@ class MediaPicker extends Field
                 ? array_values(array_filter(array_map('intval', (array) $state)))
                 : ($state ? [(int) $state] : []);
 
-            $record->syncMediaAttachments($ids, $component->getMediagroup());
+            DB::table('mde_mediables')
+                ->where('mediable_type', $record::class)
+                ->where('mediable_id', $record->getKey())
+                ->where('mediagroup', $component->getMediagroup())
+                ->delete();
+
+            $now = now();
+            foreach ($ids as $position => $mediaId) {
+                DB::table('mde_mediables')->insertOrIgnore([
+                    'media_id' => $mediaId,
+                    'mediable_type' => $record::class,
+                    'mediable_id' => $record->getKey(),
+                    'mediagroup' => $component->getMediagroup(),
+                    'position' => $position,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
         });
     }
 
