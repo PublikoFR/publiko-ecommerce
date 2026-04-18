@@ -1,6 +1,6 @@
-# Plan de migration — Publiko AI Importer → `packages/mde/ai-importer`
+# Plan de migration — Publiko AI Importer → `packages/pko/ai-importer`
 
-Document d'architecture pour le portage du module PrestaShop 8 **Publiko AI Importer** vers un package Laravel 11 + Lunar 1.x + Filament 3 intégré au back-office MDE.
+Document d'architecture pour le portage du module PrestaShop 8 **Publiko AI Importer** vers un package Laravel 11 + Lunar 1.x + Filament 3 intégré au back-office.
 
 Branche de travail : `ai-importer`.
 
@@ -13,7 +13,7 @@ Porter le système d'import produits modulaire PrestaShop (parsing Excel multi-f
 - **Feature parity** avec le module PS (43 types d'actions, LLM, agrégation 1-N, conditions, cron resumable)
 - **Perf** : fichiers de plusieurs milliers de lignes, UI tableaux paginés server-side
 - **Stack-native** : Laravel Queues (pas de cron custom), Filament Resources (pas de DataTables), Eloquent (pas de Db::getInstance)
-- **Extension propre** : Filament Plugin dans `packages/mde/ai-importer/`, aucune modif `vendor/`, aucune Resource Lunar custom pour les entités déjà couvertes
+- **Extension propre** : Filament Plugin dans `packages/pko/ai-importer/`, aucune modif `vendor/`, aucune Resource Lunar custom pour les entités déjà couvertes
 
 ---
 
@@ -22,10 +22,10 @@ Porter le système d'import produits modulaire PrestaShop (parsing Excel multi-f
 ### 2.1 Package
 
 ```
-packages/mde/ai-importer/
+packages/pko/ai-importer/
 ├── composer.json
 ├── config/ai-importer.php
-├── database/migrations/        ← 5 tables mde_ai_importer_*
+├── database/migrations/        ← 5 tables pko_ai_importer_*
 └── src/
     ├── AiImporterServiceProvider.php
     ├── Actions/                ← pipeline polymorphe
@@ -56,7 +56,7 @@ packages/mde/ai-importer/
 
 ### 2.2 Enregistrement
 
-- Namespace PSR-4 ajouté dans `composer.json` racine : `"Mde\\AiImporter\\": "packages/mde/ai-importer/src/"`
+- Namespace PSR-4 ajouté dans `composer.json` racine : `"Pko\\AiImporter\\": "packages/pko/ai-importer/src/"`
 - `AiImporterServiceProvider` discovery auto (extra.laravel.providers dans composer du package)
 - `AiImporterPlugin` déclaré dans `AppServiceProvider::register()` via `->plugin(AiImporterPlugin::make())`
 
@@ -68,9 +68,9 @@ Nouveau groupe Filament **« Imports »** (avant Configuration), visible uniquem
 
 ## 3. Modèle de données
 
-5 tables préfixe `mde_ai_importer_`. Mapping depuis les 5 tables `pko_*` du module PS.
+5 tables préfixe `pko_ai_importer_`. Mapping depuis les 5 tables `pko_*` du module PS.
 
-### 3.1 `mde_ai_importer_configs`
+### 3.1 `pko_ai_importer_configs`
 
 Configurations de mapping par fournisseur.
 
@@ -83,7 +83,7 @@ Configurations de mapping par fournisseur.
 | `config_data` | json | Schéma complet : `primary_sheet`, `join_key`, `sheets{}`, `mapping{}` |
 | `timestamps` | | |
 
-### 3.2 `mde_ai_importer_llm_configs`
+### 3.2 `pko_ai_importer_llm_configs`
 
 Clés API + modèles LLM.
 
@@ -101,7 +101,7 @@ Clés API + modèles LLM.
 
 Index : `provider`, `is_default`.
 
-### 3.3 `mde_ai_importer_jobs`
+### 3.3 `pko_ai_importer_jobs`
 
 Un job = un upload = un cycle complet parse + import.
 
@@ -141,7 +141,7 @@ Un job = un upload = un cycle complet parse + import.
 
 Index : `status`, `import_status`, `scheduled_at`, `config_id`.
 
-### 3.4 `mde_ai_importer_staging`
+### 3.4 `pko_ai_importer_staging`
 
 Une ligne parsée, prête à import.
 
@@ -160,7 +160,7 @@ Une ligne parsée, prête à import.
 
 Index : `(import_job_id, status)`, `(import_job_id, row_number)`, `lunar_product_id`.
 
-### 3.5 `mde_ai_importer_logs`
+### 3.5 `pko_ai_importer_logs`
 
 Logs structurés par job.
 
@@ -216,7 +216,7 @@ Appliquer la **Proposition D** du document `SIMPLIFICATION.md` du module PS :
 ### 4.2 Contract
 
 ```php
-namespace Mde\AiImporter\Actions;
+namespace Pko\AiImporter\Actions;
 
 abstract class Action
 {
@@ -252,7 +252,7 @@ Mapping colonnes PS → clés Lunar à fournir séparément (table de correspond
 Strategy pattern, aligné sur PS. Manager Laravel :
 
 ```php
-namespace Mde\AiImporter\Llm;
+namespace Pko\AiImporter\Llm;
 
 interface LlmProviderInterface
 {
@@ -375,7 +375,7 @@ Patterns validés sur TreeManager (500+ nœuds) réutilisés pour la preview sta
 Dépendance du package sur `mde/catalog-features` pour les caractéristiques filtrables. Après création/update produit :
 
 ```php
-use Mde\CatalogFeatures\Facades\Features;
+use Pko\CatalogFeatures\Facades\Features;
 
 Features::syncByHandles($product, [
     'marque'       => ['somfy'],

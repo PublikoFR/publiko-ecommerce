@@ -6,13 +6,13 @@ namespace Tests\Feature\AiImporter;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Mde\AiImporter\Enums\JobStatus;
-use Mde\AiImporter\Enums\StagingStatus;
-use Mde\AiImporter\Jobs\ParseFileToStagingJob;
-use Mde\AiImporter\Models\ImporterConfig;
-use Mde\AiImporter\Models\ImportJob;
-use Mde\AiImporter\Services\ActionPipeline;
-use Mde\AiImporter\Services\SpreadsheetParser;
+use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Enums\StagingStatus;
+use Pko\AiImporter\Jobs\ParseFileToStagingJob;
+use Pko\AiImporter\Models\ImporterConfig;
+use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Services\ActionPipeline;
+use Pko\AiImporter\Services\SpreadsheetParser;
 use Tests\TestCase;
 
 class ParseFileToStagingJobTest extends TestCase

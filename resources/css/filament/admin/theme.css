@@ -5,7 +5,7 @@
 @config 'tailwind.config.js';
 
 /* ==========================================================================
-   MDE Admin — Thème Filament back-office
+   Admin — Thème Filament back-office
    Les modules sont importés en tête de fichier (contrainte CSS @import).
    Chaque module vit dans ./modules/<module>.css et cible un écran précis.
    ========================================================================== */

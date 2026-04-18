@@ -5,7 +5,7 @@ EXEC_ROOT=$(DC) exec app
 .PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions
 
 help:
-	@echo "MDE Distribution — Back-office Laravel + Lunar + Filament"
+	@echo "Back-office Laravel + Lunar + Filament"
 	@echo ""
 	@echo "Usage :"
 	@echo "  make install     Première installation (build + up + composer + migrate + lunar + shield + seed)"
@@ -18,7 +18,7 @@ help:
 	@echo "  make composer    Lancer composer : make composer CMD='dump-autoload'"
 	@echo "  make migrate     Exécuter les migrations"
 	@echo "  make fresh       migrate:fresh --seed (reset DB complet)"
-	@echo "  make seed        Exécuter les seeders MDE"
+	@echo "  make seed        Exécuter les seeders"
 	@echo "  make test        Lancer la suite PHPUnit"
 	@echo "  make lint        Laravel Pint (PSR-12)"
 	@echo "  make logs        Suivre les logs des conteneurs"

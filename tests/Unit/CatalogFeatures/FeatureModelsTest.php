@@ -8,8 +8,8 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Lunar\Models\Collection as LunarCollection;
-use Mde\CatalogFeatures\Models\FeatureFamily;
-use Mde\CatalogFeatures\Models\FeatureValue;
+use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureValue;
 use Tests\TestCase;
 
 class FeatureModelsTest extends TestCase
@@ -49,11 +49,11 @@ class FeatureModelsTest extends TestCase
             'name' => 'Intérieur',
         ]);
 
-        $this->assertDatabaseHas('mde_feature_values', ['id' => $value->id]);
+        $this->assertDatabaseHas('pko_feature_values', ['id' => $value->id]);
 
         $family->delete();
 
-        $this->assertDatabaseMissing('mde_feature_values', ['id' => $value->id]);
+        $this->assertDatabaseMissing('pko_feature_values', ['id' => $value->id]);
     }
 
     public function test_value_handle_must_be_unique_per_family(): void

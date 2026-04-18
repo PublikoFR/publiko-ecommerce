@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\AiImporter\Services;
 
-use Mde\AiImporter\Actions\ExecutionContext;
-use Mde\AiImporter\Models\ImportJob;
-use Mde\AiImporter\Services\ActionPipeline;
 use PHPUnit\Framework\TestCase;
+use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Services\ActionPipeline;
 
 class ActionPipelineTest extends TestCase
 {

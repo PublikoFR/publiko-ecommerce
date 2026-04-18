@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\AiImporter\Actions;
 
-use Mde\AiImporter\Actions\Action;
-use Mde\AiImporter\Actions\ExecutionContext;
-use Mde\AiImporter\Models\ImportJob;
 use PHPUnit\Framework\TestCase;
+use Pko\AiImporter\Actions\Action;
+use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Models\ImportJob;
 
 /**
  * Pure unit tests for the 17 action types — no DB, no container.

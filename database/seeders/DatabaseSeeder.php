@@ -6,7 +6,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
-use Mde\Loyalty\Database\Seeders\DefaultTiersSeeder;
+use Pko\Loyalty\Database\Seeders\DefaultTiersSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,23 +15,24 @@ class DatabaseSeeder extends Seeder
         Model::unguard();
 
         $this->call([
-            MdeAdminUserSeeder::class,
-            MdeCurrencySeeder::class,
-            MdeChannelSeeder::class,
-            MdeLanguageSeeder::class,
-            MdeCountrySeeder::class,
-            MdeTaxSeeder::class,
-            MdeShippingSeeder::class,
-            MdeCustomerGroupSeeder::class,
-            MdeBrandSeeder::class,
-            MdeCollectionSeeder::class,
-            MdeProductTypeSeeder::class,
-            MdeProductSeeder::class,
-            MdeCustomerSeeder::class,
-            MdeOrderSeeder::class,
+            PkoAdminUserSeeder::class,
+            PkoCurrencySeeder::class,
+            PkoChannelSeeder::class,
+            PkoLanguageSeeder::class,
+            PkoCountrySeeder::class,
+            PkoTaxSeeder::class,
+            PkoShippingSeeder::class,
+            PkoCustomerGroupSeeder::class,
+            PkoBrandSeeder::class,
+            PkoCollectionSeeder::class,
+            PkoProductTypeSeeder::class,
+            PkoProductSeeder::class,
+            PkoCustomerSeeder::class,
+            PkoOrderSeeder::class,
             DefaultTiersSeeder::class,
-            MdeStorefrontCmsSeeder::class,
-            MdeStoreSeeder::class,
+            PkoStorefrontCmsSeeder::class,
+            PkoStoreSeeder::class,
+            PkoMediaLibrarySeeder::class,
         ]);
 
         Model::reguard();

@@ -33,8 +33,8 @@ use Lunar\FieldTypes\Text as LunarText;
 use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\CollectionGroup;
-use Mde\CatalogFeatures\Models\FeatureFamily;
-use Mde\CatalogFeatures\Models\FeatureValue;
+use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureValue;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TreeManager extends BasePage implements HasActions, HasForms

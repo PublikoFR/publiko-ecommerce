@@ -11,10 +11,10 @@ use Lunar\Models\Price;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
-use Mde\AiImporter\Enums\StagingStatus;
-use Mde\AiImporter\Models\ImportJob;
-use Mde\AiImporter\Models\StagingRecord;
-use Mde\AiImporter\Services\LunarProductWriter;
+use Pko\AiImporter\Enums\StagingStatus;
+use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\StagingRecord;
+use Pko\AiImporter\Services\LunarProductWriter;
 use Tests\TestCase;
 
 class LunarProductWriterTest extends TestCase

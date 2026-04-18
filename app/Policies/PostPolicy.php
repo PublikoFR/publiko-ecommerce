@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\StorefrontCms\Models\Post;
+use Pko\StorefrontCms\Models\Post;
 
 class PostPolicy
 {

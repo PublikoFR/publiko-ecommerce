@@ -9,13 +9,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
-use Mde\Loyalty\Models\CustomerPoints;
-use Mde\Loyalty\Models\GiftHistory;
-use Mde\Loyalty\Models\LoyaltyTier;
-use Mde\Loyalty\Models\PointsHistory;
-use Mde\Loyalty\Models\Setting;
-use Mde\Loyalty\Notifications\TierUnlockedAdmin;
-use Mde\Loyalty\Services\LoyaltyManager;
+use Pko\Loyalty\Models\CustomerPoints;
+use Pko\Loyalty\Models\GiftHistory;
+use Pko\Loyalty\Models\LoyaltyTier;
+use Pko\Loyalty\Models\PointsHistory;
+use Pko\Loyalty\Models\Setting;
+use Pko\Loyalty\Notifications\TierUnlockedAdmin;
+use Pko\Loyalty\Services\LoyaltyManager;
 use Tests\TestCase;
 
 class LoyaltyManagerTest extends TestCase
@@ -26,7 +26,7 @@ class LoyaltyManagerTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-        config()->set('mde-loyalty.admin_email', 'admin@mde.test');
+        config()->set('loyalty.admin_email', 'admin@mde.test');
     }
 
     public function test_points_ratio_falls_back_when_zero(): void
@@ -43,11 +43,11 @@ class LoyaltyManagerTest extends TestCase
 
         app(LoyaltyManager::class)->awardForOrder($order);
 
-        $this->assertDatabaseHas('mde_loyalty_points_history', [
+        $this->assertDatabaseHas('pko_loyalty_points_history', [
             'order_id' => $order->id,
             'points_earned' => 100,
         ]);
-        $this->assertDatabaseHas('mde_loyalty_customer_points', [
+        $this->assertDatabaseHas('pko_loyalty_customer_points', [
             'customer_id' => $customer->id,
             'total_points' => 100,
         ]);
@@ -82,7 +82,7 @@ class LoyaltyManagerTest extends TestCase
 
         app(LoyaltyManager::class)->awardForOrder($order);
 
-        $this->assertDatabaseHas('mde_loyalty_gift_history', [
+        $this->assertDatabaseHas('pko_loyalty_gift_history', [
             'customer_id' => $customer->id,
             'tier_id' => $tier->id,
         ]);

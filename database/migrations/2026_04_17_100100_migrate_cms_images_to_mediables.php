@@ -7,10 +7,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Mde\StorefrontCms\Models\HomeOffer;
-use Mde\StorefrontCms\Models\HomeSlide;
-use Mde\StorefrontCms\Models\HomeTile;
-use Mde\StorefrontCms\Models\Post;
+use Pko\StorefrontCms\Models\HomeOffer;
+use Pko\StorefrontCms\Models\HomeSlide;
+use Pko\StorefrontCms\Models\HomeTile;
+use Pko\StorefrontCms\Models\Post;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 return new class extends Migration
@@ -19,10 +19,10 @@ return new class extends Migration
     {
         // Map: [table => [urlColumn, modelClass, mediagroup]]
         $targets = [
-            'mde_posts' => ['cover_url', Post::class, 'cover'],
-            'mde_home_slides' => ['image_url', HomeSlide::class, 'image'],
-            'mde_home_tiles' => ['image_url', HomeTile::class, 'image'],
-            'mde_home_offers' => ['image_url', HomeOffer::class, 'image'],
+            'pko_posts' => ['cover_url', Post::class, 'cover'],
+            'pko_home_slides' => ['image_url', HomeSlide::class, 'image'],
+            'pko_home_tiles' => ['image_url', HomeTile::class, 'image'],
+            'pko_home_offers' => ['image_url', HomeOffer::class, 'image'],
         ];
 
         foreach ($targets as $table => [$col, $modelClass, $group]) {
@@ -37,7 +37,7 @@ return new class extends Migration
                 $media = $this->findMediaByUrl($url);
 
                 if ($media === null) {
-                    Log::info('[mde_mediables] No media match for URL', [
+                    Log::info('[pko_mediables] No media match for URL', [
                         'table' => $table,
                         'id' => $row->id,
                         'url' => $url,
@@ -46,7 +46,7 @@ return new class extends Migration
                     continue;
                 }
 
-                DB::table('mde_mediables')->insertOrIgnore([
+                DB::table('pko_mediables')->insertOrIgnore([
                     'media_id' => $media->id,
                     'mediable_type' => $modelClass,
                     'mediable_id' => $row->id,
@@ -72,10 +72,10 @@ return new class extends Migration
     {
         // Restore columns (empty) — content is lost.
         $cols = [
-            'mde_posts' => 'cover_url',
-            'mde_home_slides' => 'image_url',
-            'mde_home_tiles' => 'image_url',
-            'mde_home_offers' => 'image_url',
+            'pko_posts' => 'cover_url',
+            'pko_home_slides' => 'image_url',
+            'pko_home_tiles' => 'image_url',
+            'pko_home_offers' => 'image_url',
         ];
         foreach ($cols as $table => $col) {
             if (Schema::hasTable($table) && ! Schema::hasColumn($table, $col)) {
@@ -86,7 +86,7 @@ return new class extends Migration
         }
 
         // Purge our rows for the migrated models (best-effort).
-        DB::table('mde_mediables')->whereIn('mediable_type', [
+        DB::table('pko_mediables')->whereIn('mediable_type', [
             Post::class, HomeSlide::class, HomeTile::class, HomeOffer::class,
         ])->delete();
     }

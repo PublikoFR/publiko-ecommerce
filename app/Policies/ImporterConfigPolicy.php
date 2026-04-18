@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\AiImporter\Models\ImporterConfig;
+use Pko\AiImporter\Models\ImporterConfig;
 
 class ImporterConfigPolicy
 {

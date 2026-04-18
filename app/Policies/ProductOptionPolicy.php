@@ -15,7 +15,7 @@ class ProductOptionPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_mde::product::option');
+        return $staff->can('view_any_pko::product::option');
     }
 
     /**
@@ -23,7 +23,7 @@ class ProductOptionPolicy
      */
     public function view(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('view_mde::product::option');
+        return $staff->can('view_pko::product::option');
     }
 
     /**
@@ -31,7 +31,7 @@ class ProductOptionPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_mde::product::option');
+        return $staff->can('create_pko::product::option');
     }
 
     /**
@@ -39,7 +39,7 @@ class ProductOptionPolicy
      */
     public function update(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('update_mde::product::option');
+        return $staff->can('update_pko::product::option');
     }
 
     /**
@@ -47,7 +47,7 @@ class ProductOptionPolicy
      */
     public function delete(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('delete_mde::product::option');
+        return $staff->can('delete_pko::product::option');
     }
 
     /**
@@ -55,7 +55,7 @@ class ProductOptionPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_mde::product::option');
+        return $staff->can('delete_any_pko::product::option');
     }
 
     /**
@@ -63,7 +63,7 @@ class ProductOptionPolicy
      */
     public function forceDelete(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('force_delete_mde::product::option');
+        return $staff->can('force_delete_pko::product::option');
     }
 
     /**
@@ -71,7 +71,7 @@ class ProductOptionPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_mde::product::option');
+        return $staff->can('force_delete_any_pko::product::option');
     }
 
     /**
@@ -79,7 +79,7 @@ class ProductOptionPolicy
      */
     public function restore(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('restore_mde::product::option');
+        return $staff->can('restore_pko::product::option');
     }
 
     /**
@@ -87,7 +87,7 @@ class ProductOptionPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_mde::product::option');
+        return $staff->can('restore_any_pko::product::option');
     }
 
     /**
@@ -95,7 +95,7 @@ class ProductOptionPolicy
      */
     public function replicate(Staff $staff, ProductOption $productOption): bool
     {
-        return $staff->can('replicate_mde::product::option');
+        return $staff->can('replicate_pko::product::option');
     }
 
     /**
@@ -103,6 +103,6 @@ class ProductOptionPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_mde::product::option');
+        return $staff->can('reorder_pko::product::option');
     }
 }

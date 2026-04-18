@@ -15,7 +15,7 @@ class AttributeGroupPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_mde::attribute::group');
+        return $staff->can('view_any_pko::attribute::group');
     }
 
     /**
@@ -23,7 +23,7 @@ class AttributeGroupPolicy
      */
     public function view(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('view_mde::attribute::group');
+        return $staff->can('view_pko::attribute::group');
     }
 
     /**
@@ -31,7 +31,7 @@ class AttributeGroupPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_mde::attribute::group');
+        return $staff->can('create_pko::attribute::group');
     }
 
     /**
@@ -39,7 +39,7 @@ class AttributeGroupPolicy
      */
     public function update(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('update_mde::attribute::group');
+        return $staff->can('update_pko::attribute::group');
     }
 
     /**
@@ -47,7 +47,7 @@ class AttributeGroupPolicy
      */
     public function delete(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('delete_mde::attribute::group');
+        return $staff->can('delete_pko::attribute::group');
     }
 
     /**
@@ -55,7 +55,7 @@ class AttributeGroupPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_mde::attribute::group');
+        return $staff->can('delete_any_pko::attribute::group');
     }
 
     /**
@@ -63,7 +63,7 @@ class AttributeGroupPolicy
      */
     public function forceDelete(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('force_delete_mde::attribute::group');
+        return $staff->can('force_delete_pko::attribute::group');
     }
 
     /**
@@ -71,7 +71,7 @@ class AttributeGroupPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_mde::attribute::group');
+        return $staff->can('force_delete_any_pko::attribute::group');
     }
 
     /**
@@ -79,7 +79,7 @@ class AttributeGroupPolicy
      */
     public function restore(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('restore_mde::attribute::group');
+        return $staff->can('restore_pko::attribute::group');
     }
 
     /**
@@ -87,7 +87,7 @@ class AttributeGroupPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_mde::attribute::group');
+        return $staff->can('restore_any_pko::attribute::group');
     }
 
     /**
@@ -95,7 +95,7 @@ class AttributeGroupPolicy
      */
     public function replicate(Staff $staff, AttributeGroup $attributeGroup): bool
     {
-        return $staff->can('replicate_mde::attribute::group');
+        return $staff->can('replicate_pko::attribute::group');
     }
 
     /**
@@ -103,6 +103,6 @@ class AttributeGroupPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_mde::attribute::group');
+        return $staff->can('reorder_pko::attribute::group');
     }
 }

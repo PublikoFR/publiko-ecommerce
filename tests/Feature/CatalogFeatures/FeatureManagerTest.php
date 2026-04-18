@@ -9,12 +9,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\Product;
-use Mde\CatalogFeatures\Events\FeatureValueAttached;
-use Mde\CatalogFeatures\Events\FeatureValueDetached;
-use Mde\CatalogFeatures\Events\ProductFeaturesSynced;
-use Mde\CatalogFeatures\Facades\Features;
-use Mde\CatalogFeatures\Models\FeatureFamily;
-use Mde\CatalogFeatures\Models\FeatureValue;
+use Pko\CatalogFeatures\Events\FeatureValueAttached;
+use Pko\CatalogFeatures\Events\FeatureValueDetached;
+use Pko\CatalogFeatures\Events\ProductFeaturesSynced;
+use Pko\CatalogFeatures\Facades\Features;
+use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureValue;
 use Tests\TestCase;
 
 class FeatureManagerTest extends TestCase
@@ -35,7 +35,7 @@ class FeatureManagerTest extends TestCase
 
         Features::attach($product, $value);
 
-        $this->assertDatabaseHas('mde_feature_value_product', [
+        $this->assertDatabaseHas('pko_feature_value_product', [
             'product_id' => $product->id,
             'feature_value_id' => $value->id,
         ]);
@@ -55,7 +55,7 @@ class FeatureManagerTest extends TestCase
 
         Features::detach($product, $value);
 
-        $this->assertDatabaseMissing('mde_feature_value_product', [
+        $this->assertDatabaseMissing('pko_feature_value_product', [
             'product_id' => $product->id,
             'feature_value_id' => $value->id,
         ]);
@@ -103,7 +103,7 @@ class FeatureManagerTest extends TestCase
             'applications' => ['interieur'],
         ]);
 
-        $ids = $product->featureValues()->pluck('mde_feature_values.id')->all();
+        $ids = $product->featureValues()->pluck('pko_feature_values.id')->all();
         $this->assertContains($bosch->id, $ids, 'Brand attachment must survive an apps-only sync.');
         $this->assertContains($interieur->id, $ids);
     }

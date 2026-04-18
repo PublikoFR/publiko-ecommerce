@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'MDE Distribution — Distributeur pro du bâtiment')</title>
-    <meta name="description" content="@yield('description', 'MDE Distribution — distributeur professionnel de matériaux, portails, volets, automatismes et domotique pour les pros du bâtiment.')">
+    <title>@yield('title', brand_name().(brand_tagline() ? ' — '.brand_tagline() : ''))</title>
+    <meta name="description" content="@yield('description', brand_meta_description())">
 
     <link rel="icon" href="{{ asset('favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">

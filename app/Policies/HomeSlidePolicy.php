@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\StorefrontCms\Models\HomeSlide;
+use Pko\StorefrontCms\Models\HomeSlide;
 
 class HomeSlidePolicy
 {

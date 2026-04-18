@@ -1,8 +1,8 @@
-# CLAUDE.md — Instructions MDE Distribution
+# CLAUDE.md — Instructions projet
 
 ## Contexte projet
 
-Back-office **Laravel 11 + Lunar 1.x + Filament 3** remplaçant PrestaShop 8 pour **MDE Distribution** (distributeur B2B matériaux de construction, domotique, portails, volets, automatismes). Ce fichier contient uniquement les **instructions**. Toute la documentation technique (stack, choix, architecture, packages, shipping, paiements, gotchas Lunar…) vit dans `docs/`.
+Back-office **Laravel 11 + Lunar 1.x + Filament 3** e-commerce B2B (domaine configurable via Back-office → Storefront → Paramètres → Identité). Ce fichier contient uniquement les **instructions**. Toute la documentation technique (stack, choix, architecture, packages, shipping, paiements, gotchas Lunar…) vit dans `docs/`.
 
 **Ne consulte `docs/` que dans deux cas** :
 1. Quand tu prépares un **Plan Mode** ou un plan d'implémentation pour une demande non triviale
@@ -19,7 +19,7 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 | Fichier | Rôle |
 |---|---|
 | `docs/technical-choices.md` | **Référence maître** : stack, mécanismes d'extension Lunar, paiements, shipping, RBAC, points d'attention Lunar, tests, arborescence, décisions tranchées |
-| `cahier-des-charges-mde-laravel.md` (racine) | Cahier des charges contractuel MDE |
+| `cahier-des-charges.md` (racine) | Cahier des charges contractuel |
 | `CLAUDE.md` (ce fichier) | Instructions comportementales pour toi uniquement — jamais de choix techniques ici |
 
 ### Règle de maintenance documentaire — OBLIGATOIRE
@@ -30,7 +30,7 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 - Une nouvelle dépendance Composer ou NPM
 - Une nouvelle variable d'environnement
 - Une nouvelle table ou migration structurante
-- Un nouveau package MDE sous `packages/mde/*`
+- Un nouveau package interne sous `packages/pko/*`
 - Une nouvelle règle de codage ou de workflow
 - Un nouveau driver (paiement, shipping, search, etc.)
 - L'installation ou la configuration d'un MCP server
@@ -78,14 +78,31 @@ Deux serveurs MCP sont configurés dans `.mcp.json` à la racine du projet :
 
 ## 3. Règles techniques non-négociables
 
+### 3.0 Réutilisabilité & branding — NON-NÉGOCIABLE
+
+Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique**. Aucun nom de marque, aucune référence au client final, aucune donnée métier spécifique ne doit être codée en dur. La seule marque qui peut apparaître dans le code (dossiers, namespaces, noms de packages, handles techniques) est **`publiko` / `pko`** — **jamais dans l'UI utilisateur**.
+
+**Règles** :
+
+1. **Nom de la boutique, logo, tagline, meta description, contact, réseaux sociaux, USPs, bannières, etc.** → **toujours** lus depuis `Pko\StorefrontCms\Models\Setting` (table `pko_storefront_settings`), éditables depuis la page Filament **Storefront → Paramètres**. Aucun `echo 'Nom Boutique'` dans une vue Blade ni dans un `$title`, `$description`, `brandName()`, etc.
+2. **Helpers disponibles** (auto-loadés via `composer.json` → `autoload.files`) : `brand_name()`, `brand_tagline()`, `brand_meta_description()`. Fallback automatique vers `config('app.name')` si le Setting est vide.
+3. **Packages custom** : tous sous `packages/pko/*`, namespace racine `Pko\*`. Préfixe `pko` ou `publiko` autorisé dans le **code** (dossier, namespace, nom de package Composer, handle technique, alias Livewire, permission Shield, préfixe de table DB, classe). **Interdit** dans tout ce qui est rendu à l'utilisateur final (label Filament, titre de page, meta, e-mail, notification, view, string traduisible).
+4. **Données de seed** : les seeders peuvent contenir de la demo-data avec n'importe quel nom (c'est juste de la data remplaçable par `make fresh`). Ce n'est pas un test de branding.
+5. **Variables d'environnement** : noms neutres (`SHIPPER_NAME`, `ADMIN_EMAIL`, `CONTACT_PHONE`, `LOYALTY_RATIO`…), **jamais** préfixées par un nom de client. Défauts vides ou génériques.
+6. **Fichiers de config** (`packages/pko/*/config/*.php`) : noms neutres (`storefront.php`, `loyalty.php`, `chronopost.php`…), **pas** de préfixe marque dans la clé (`config('storefront.contact')`, pas `config('pko-storefront.contact')` ni `config('mde-storefront.contact')`).
+7. **Préfixes de tables DB** : toujours `pko_` pour les tables custom (jamais un nom de client). Jamais modifier les tables Lunar.
+8. **Avant chaque commit** : vérifier qu'aucun nom de client/marque ne s'est glissé en dur. Utiliser le MCP JetBrains (`search_in_files_by_regex`) ou `grep` avec un pattern `\b<nom-client>\b` (case-insensitive) sur tout sauf `vendor/`, `node_modules/`, `database/seeders/`, `.env`, `cahier-des-charges*.md` et docs client externes.
+
+### 3.1 Règles techniques
+
 1. **Jamais modifier `vendor/`** — aucun patch, aucune exception. Toute personnalisation passe par les mécanismes d'extension documentés dans `docs/technical-choices.md`.
 2. **`declare(strict_types=1);`** en tête de chaque fichier PHP que tu crées ou touches.
 3. **PSR-12** — lance `make lint` avant chaque commit. Si rouge → corrige avant de committer.
-4. **Migrations MDE** : préfixe de table `mde_`, dans `database/migrations/` (ou `packages/mde/<module>/database/migrations/` si spécifique à un module packagé).
-5. **Modules métier** : dans `packages/mde/*`, enregistrés comme Filament Plugin, **jamais** en modifiant le core Lunar ni les resources Lunar Admin.
+4. **Migrations custom** : préfixe de table `pko_`, dans `database/migrations/` (ou `packages/pko/<module>/database/migrations/` si spécifique à un module packagé).
+5. **Modules métier** : dans `packages/pko/*`, enregistrés comme Filament Plugin, **jamais** en modifiant le core Lunar ni les resources Lunar Admin.
 6. **Prix en cents** — toujours des entiers. `19900` = 199,00 €. Jamais de float pour les montants.
 7. **`attribute_data` Lunar** — toujours une collection de `Lunar\FieldTypes\*` (`Text`, `TranslatedText`, `Number`, `Dropdown`…), jamais de strings bruts.
-8. **Laravel Cashier interdit** pour encaisser une commande Lunar. Réservé à d'éventuels abonnements MDE dédiés.
+8. **Laravel Cashier interdit** pour encaisser une commande Lunar. Réservé à d'éventuels abonnements dédiés.
 9. **Resources Filament custom interdites en phase 1** pour les entités déjà couvertes par Lunar Admin (produits, variantes, collections, prix, commandes, clients, taxes, promos, livraison, marques, tags, canaux, devises, staff). Étendre via `LunarPanel::extensions()` / `ResourceExtension` à la place.
 10. **Policies Shield** — régénérées automatiquement par `make install`. Ne pas éditer à la main, sauf override explicite documenté dans `docs/`.
 11. **Service Docker** = `app` (pas `laravel.test`, pas `sail`). Stack custom Traefik + phpMyAdmin.
@@ -136,8 +153,10 @@ Toute commande PHP/Artisan/Composer doit passer par Make (ou `docker compose exe
 
 ## 6. Interdictions dures (rappel synthèse)
 
+- **Coder en dur un nom de client / de marque** dans l'UI utilisateur (vue, label, titre, meta, notif, e-mail) — passer par `brand_name()` / `Setting::get('brand.*')`
+- Préfixer un fichier / une classe / une env var / une clé de config avec un nom de client (seul `pko` / `publiko` est autorisé, et uniquement dans le code, jamais dans l'UI)
 - Modifier `vendor/` — **jamais**
-- Modifier les migrations Lunar publiées — créer une migration MDE dédiée qui ajoute les colonnes via `Schema::table()`
+- Modifier les migrations Lunar publiées — créer une migration custom dédiée qui ajoute les colonnes via `Schema::table()`
 - Toucher `config/lunar/*.php` sans raison forte (facilite les mises à jour)
 - Créer une Filament Resource pour une entité déjà couverte par Lunar
 - Utiliser Cashier pour encaisser

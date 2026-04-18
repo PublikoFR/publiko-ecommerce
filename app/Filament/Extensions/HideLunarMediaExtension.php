@@ -13,12 +13,12 @@ use Lunar\Admin\Filament\Resources\CollectionResource\Pages\ManageCollectionMedi
 use Lunar\Admin\Filament\Resources\ProductResource\Pages\ManageProductMedia;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Admin\Support\RelationManagers\MediaRelationManager;
-use Mde\StorefrontCms\Filament\Forms\Components\MediaPicker;
+use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
 
 /**
  * Hide Lunar's native Spatie MediaLibrary UI on Product/Collection/Brand resources.
  *
- * The unified `mde_mediables` system (HasMediaAttachments trait + MediaPicker field)
+ * The unified `pko_mediables` system (HasMediaAttachments trait + MediaPicker field)
  * replaces the Lunar-native media handling. We do not touch vendor/, we only filter
  * pages/sub-navigation/relations/table-columns via Lunar's extension hooks.
  */
@@ -74,7 +74,7 @@ class HideLunarMediaExtension extends ResourceExtension
 
     /**
      * Inject the unified MediaPicker (thumbnail single + gallery multi) at the end
-     * of the record edit form. Data persists to `mde_mediables` pivot directly —
+     * of the record edit form. Data persists to `pko_mediables` pivot directly —
      * no trait required on the underlying Lunar model.
      */
     public function extendForm(Form $form): Form
@@ -82,7 +82,7 @@ class HideLunarMediaExtension extends ResourceExtension
         return $form->schema([
             ...$form->getComponents(),
             Section::make('Médias')
-                ->description('Image principale et galerie — système MDE unifié.')
+                ->description('Image principale et galerie.')
                 ->schema([
                     MediaPicker::make('thumbnail')
                         ->label('Image principale')

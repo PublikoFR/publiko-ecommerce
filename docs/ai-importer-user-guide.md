@@ -1,6 +1,6 @@
-# AI Importer — guide staff MDE
+# AI Importer — guide staff back-office
 
-Ce document s'adresse aux équipes **back-office MDE** qui gèrent l'import de catalogues fournisseurs. Il décrit **comment** utiliser le module AI Importer au quotidien, pas comment il est construit (voir `docs/technical-choices.md` et `docs/ai-importer-migration-plan.md` pour la partie développeur).
+Ce document s'adresse aux équipes **back-office** qui gèrent l'import de catalogues fournisseurs. Il décrit **comment** utiliser le module AI Importer au quotidien, pas comment il est construit (voir `docs/technical-choices.md` et `docs/ai-importer-migration-plan.md` pour la partie développeur).
 
 Accès : admin → **Imports**.
 
@@ -71,7 +71,7 @@ Chaque action lit la valeur courante (ou certaines colonnes du row source), reto
 | **Validation** | `validate_ean13` | Retourne la chaîne si checksum EAN valide, sinon vide |
 | **Relation 1-N** | `multiline_aggregate` | Lit une feuille secondaire, agrège selon `method` (concat/count/first/last/json_array) |
 | **IA** | `llm_transform` | Prompt + colonnes → réponse Claude/OpenAI |
-| **Caractéristiques MDE** | `feature_build` | Construit le hash `{family_handle: [value_handle]}` attendu par le writer. Les features atterrissent dans `mde_feature_values` (pas dans `attribute_data` Lunar) |
+| **Caractéristiques catalogue** | `feature_build` | Construit le hash `{family_handle: [value_handle]}` attendu par le writer. Les features atterrissent dans `pko_feature_values` (pas dans `attribute_data` Lunar) |
 
 ### Exemple de pipeline price HT → TTC
 
@@ -179,7 +179,7 @@ Exemple de pipeline :
 
 - Clé staging `videos` : array d'URLs YouTube/Vimeo.
 - Les URLs sont stockées pour l'instant dans `Product.attribute_data.videos` sous forme de chaîne CSV.
-- Une table MDE dédiée (titre, thumbnail custom, ordre, provider) est prévue pour une phase ultérieure — le format actuel est volontairement minimal.
+- Une table custom dédiée (titre, thumbnail custom, ordre, provider) est prévue pour une phase ultérieure — le format actuel est volontairement minimal.
 
 ---
 

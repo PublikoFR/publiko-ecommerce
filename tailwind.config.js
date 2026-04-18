@@ -13,8 +13,8 @@ export default {
         './resources/**/*.vue',
         './app/Livewire/**/*.php',
         './app/View/Components/**/*.php',
-        './packages/mde/*/src/**/*.php',
-        './packages/mde/*/resources/views/**/*.blade.php',
+        './packages/pko/*/src/**/*.php',
+        './packages/pko/*/resources/views/**/*.blade.php',
     ],
     theme: {
         extend: {

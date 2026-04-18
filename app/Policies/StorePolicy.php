@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\StoreLocator\Models\Store;
+use Pko\StoreLocator\Models\Store;
 
 class StorePolicy
 {

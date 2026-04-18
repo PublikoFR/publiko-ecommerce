@@ -7,8 +7,8 @@ export default {
         './app/Filament/**/*.php',
         './resources/views/filament/**/*.blade.php',
         './vendor/filament/**/*.blade.php',
-        './packages/mde/*/src/**/*.php',
-        './packages/mde/*/resources/views/**/*.blade.php',
+        './packages/pko/*/src/**/*.php',
+        './packages/pko/*/resources/views/**/*.blade.php',
         './resources/css/filament/admin/**/*.css',
     ],
 };

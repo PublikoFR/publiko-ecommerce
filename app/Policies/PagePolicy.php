@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\StorefrontCms\Models\Page;
+use Pko\StorefrontCms\Models\Page;
 
 class PagePolicy
 {
