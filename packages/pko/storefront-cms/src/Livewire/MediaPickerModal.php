@@ -60,6 +60,7 @@ class MediaPickerModal extends Component
         $this->selected = [];
         $this->statePath = '';
         $this->pendingUpload = null;
+        $this->dispatch('media-picker-closed');
     }
 
     public function selectFolder(?int $id): void

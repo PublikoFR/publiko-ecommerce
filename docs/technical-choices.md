@@ -669,6 +669,20 @@ Les clés inconnues du writer sont **ignorées silencieusement** — le config a
 
 ---
 
+## 8.bis Page d'édition produit unifiée
+
+Voir `docs/product-edit-unified-page.md`. En résumé :
+
+- Subclasse `Lunar\Admin\Filament\Resources\ProductResource` via le pattern `swapLunarResources()` déjà en place — **pas** de Filament Resource custom (cohérent avec la règle §3.1.9 du `CLAUDE.md`).
+- Sous-navigation Lunar masquée (`getDefaultSubNavigation() => []`).
+- Page Livewire unique (`EditProductUnified`) avec état plat + mini Filament Form embarqué uniquement pour le `MediaPicker` (Pko).
+- Persistance : transaction unique — attributs, prix (y compris paliers B2B natifs Lunar via `min_quantity`), variantes, collections, tags (job Lunar `SyncTags`), features (CatalogFeatures), associations (cross-sell).
+- Caractéristiques techniques : source = `pko_feature_families` / `pko_feature_values` (package CatalogFeatures), pas `attribute_data` Lunar.
+- Historique : `spatie/laravel-activitylog` (déjà actif sur les modèles Lunar via trait `LogsActivity`).
+- Pas d'autosave : save explicite uniquement. Indicateur visuel basé sur `$isDirty` Livewire.
+
+---
+
 ## 9. Arborescence clé
 
 ```

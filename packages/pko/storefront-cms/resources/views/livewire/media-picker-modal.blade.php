@@ -1,9 +1,12 @@
-<div>
+<div
+    x-data="{}"
+    x-on:media-picker-opened.window="document.body.style.overflow = 'hidden'"
+    x-on:media-picker-closed.window="document.body.style.overflow = ''"
+    x-on:media-picked.window="document.body.style.overflow = ''"
+>
     @if ($open)
         <div
             x-data="mdeMediaPicker()"
-            x-init="$nextTick(() => document.body.style.overflow = 'hidden')"
-            x-on:remove.once="document.body.style.overflow = ''"
             x-on:keydown.escape.window="$wire.closeModal()"
             class="mpicker-backdrop"
         >

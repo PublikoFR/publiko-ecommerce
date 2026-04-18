@@ -11,11 +11,13 @@ use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\PkoAttributeGroupResource;
 use App\Filament\Resources\PkoCollectionGroupResource;
 use App\Filament\Resources\PkoProductOptionResource;
+use App\Filament\Resources\PkoProductResource;
 use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
@@ -85,7 +87,7 @@ class AppServiceProvider extends ServiceProvider
         })->register();
 
         LunarPanel::extensions([
-            ProductResource::class => [
+            PkoProductResource::class => [
                 ProductFeaturesExtension::class,
                 HideLunarMediaExtension::class,
             ],
@@ -114,6 +116,11 @@ class AppServiceProvider extends ServiceProvider
                 app(PkoProductUrlGenerator::class)->regenerate($variant->product);
             }
         });
+
+        Blade::anonymousComponentPath(
+            resource_path('views/filament/resources/pko-product/partials'),
+            'pko-product'
+        );
     }
 
     /**
@@ -123,6 +130,7 @@ class AppServiceProvider extends ServiceProvider
     private function swapLunarResources(): void
     {
         $swaps = [
+            ProductResource::class => PkoProductResource::class,
             ProductTypeResource::class => PkoProductTypeResource::class,
             ProductOptionResource::class => PkoProductOptionResource::class,
             AttributeGroupResource::class => PkoAttributeGroupResource::class,
