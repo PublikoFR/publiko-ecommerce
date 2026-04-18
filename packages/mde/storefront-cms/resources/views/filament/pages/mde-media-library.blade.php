@@ -335,6 +335,32 @@
                         </form>
 
                         <div class="pt-4 border-t border-gray-200 dark:border-white/10">
+                            <h3 class="font-bold text-sm text-gray-900 dark:text-white mb-3 m-0">Utilisé par</h3>
+                            @if (empty($this->usages))
+                                <p class="text-xs text-gray-500 dark:text-gray-400 italic">Aucune utilisation. Ce média peut être supprimé sans impact.</p>
+                            @else
+                                <ul class="list-none p-0 m-0 flex flex-col gap-1.5">
+                                    @foreach ($this->usages as $usage)
+                                        <li class="flex items-start justify-between gap-3 bg-gray-50 dark:bg-white/5 px-3 py-2 rounded">
+                                            <div class="flex-1 min-w-0">
+                                                <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                                    {{ $usage['label'] }}
+                                                    <span class="normal-case tracking-normal text-gray-400">· {{ $usage['mediagroup'] }}</span>
+                                                </div>
+                                                <div class="text-xs text-gray-900 dark:text-gray-100 font-medium truncate">{{ $usage['title'] }}</div>
+                                            </div>
+                                            @if ($usage['url'])
+                                                <a href="{{ $usage['url'] }}" target="_blank" class="shrink-0 text-xs text-primary-600 hover:underline font-semibold">
+                                                    Ouvrir ↗
+                                                </a>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-200 dark:border-white/10">
                             <h3 class="font-bold text-sm text-gray-900 dark:text-white mb-3 m-0">Tailles générées</h3>
                             @if (empty($this->conversionsList))
                                 <p class="text-xs text-gray-500 dark:text-gray-400 italic">Aucune conversion. Le cron d'auto-redimensionnement créera les variantes selon les tailles configurées.</p>

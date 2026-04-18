@@ -1,6 +1,6 @@
 <?php
 
-use Lunar\Generators\UrlGenerator;
+use App\Generators\MdeProductUrlGenerator;
 
 return [
 
@@ -24,6 +24,6 @@ return [
     | ships with Lunar, which by default will use the name attribute.
     |
     */
-    'generator' => UrlGenerator::class,
+    'generator' => MdeProductUrlGenerator::class,
 
 ];

@@ -18,6 +18,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Cache;
+use Mde\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Mde\StorefrontCms\Filament\Resources\HomeSlideResource\Pages;
 use Mde\StorefrontCms\Models\HomeSlide;
 
@@ -40,7 +41,7 @@ class HomeSlideResource extends Resource
                 TextInput::make('title')->label('Titre')->required()->maxLength(200),
                 TextInput::make('subtitle')->label('Sous-titre')->maxLength(255),
             ]),
-            TextInput::make('image_url')->label('URL image (1920x500 recommandé)')->url()->maxLength(500),
+            MediaPicker::make('image')->label('Image (1920x500 recommandé)')->mediagroup('image'),
             Grid::make(2)->schema([
                 TextInput::make('cta_label')->label('Libellé CTA')->maxLength(60),
                 TextInput::make('cta_url')->label('URL CTA')->maxLength(500),
@@ -65,7 +66,8 @@ class HomeSlideResource extends Resource
             ->reorderable('position')
             ->columns([
                 TextColumn::make('position')->label('#')->sortable(),
-                ImageColumn::make('image_url')->label('Visuel')->circular(false)->height(40),
+                ImageColumn::make('image')->label('Visuel')->circular(false)->height(40)
+                    ->getStateUsing(fn (HomeSlide $record) => $record->firstMediaUrl('image')),
                 TextColumn::make('title')->label('Titre')->searchable()->limit(40),
                 TextColumn::make('cta_label')->label('CTA')->limit(20),
                 IconColumn::make('is_active')->label('Actif')->boolean(),

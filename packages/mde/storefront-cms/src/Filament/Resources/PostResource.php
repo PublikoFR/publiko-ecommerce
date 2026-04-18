@@ -19,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Mde\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Mde\StorefrontCms\Filament\Resources\PostResource\Pages;
 use Mde\StorefrontCms\Models\Post;
 
@@ -46,7 +47,7 @@ class PostResource extends Resource
                     ->afterStateUpdated(fn ($state, $set, $get) => $get('slug') ? null : $set('slug', Str::slug((string) $state))),
                 TextInput::make('slug')->label('Slug')->required()->unique(ignoreRecord: true)->maxLength(200),
             ]),
-            TextInput::make('cover_url')->label('URL image de couverture')->url()->maxLength(500),
+            MediaPicker::make('cover')->label('Image de couverture')->mediagroup('cover'),
             Textarea::make('excerpt')->label('Extrait')->rows(2)->maxLength(500),
             RichEditor::make('body')->label('Contenu')->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList', 'h2', 'h3', 'blockquote'])->columnSpanFull(),
             Grid::make(2)->schema([
@@ -61,7 +62,8 @@ class PostResource extends Resource
         return $table
             ->defaultSort('published_at', 'desc')
             ->columns([
-                ImageColumn::make('cover_url')->label('')->height(36),
+                ImageColumn::make('cover')->label('')->height(36)
+                    ->getStateUsing(fn (Post $record) => $record->firstMediaUrl('cover')),
                 TextColumn::make('title')->label('Titre')->searchable()->limit(50),
                 TextColumn::make('status')->label('Statut')->badge()->color(fn ($state) => $state === 'published' ? 'success' : 'gray'),
                 TextColumn::make('published_at')->label('Publié le')->dateTime('d/m/Y H:i')->sortable(),
