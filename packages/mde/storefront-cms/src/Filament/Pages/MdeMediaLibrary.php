@@ -7,10 +7,27 @@ namespace Mde\StorefrontCms\Filament\Pages;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
+use Lunar\Admin\Filament\Resources\BrandResource;
+use Lunar\Admin\Filament\Resources\CollectionResource;
+use Lunar\Admin\Filament\Resources\ProductResource;
+use Lunar\Models\Brand;
+use Lunar\Models\Collection;
+use Lunar\Models\Product;
+use Mde\StorefrontCms\Filament\Resources\HomeOfferResource;
+use Mde\StorefrontCms\Filament\Resources\HomeSlideResource;
+use Mde\StorefrontCms\Filament\Resources\HomeTileResource;
+use Mde\StorefrontCms\Filament\Resources\PageResource;
+use Mde\StorefrontCms\Filament\Resources\PostResource;
+use Mde\StorefrontCms\Models\HomeOffer;
+use Mde\StorefrontCms\Models\HomeSlide;
+use Mde\StorefrontCms\Models\HomeTile;
+use Mde\StorefrontCms\Models\Post;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use TomatoPHP\FilamentMediaManager\Models\Folder;
 
@@ -411,6 +428,127 @@ class MdeMediaLibrary extends Page
         }
 
         $media->file_name = $newFileName;
+    }
+
+    /**
+     * List entities that reference the selected media via `mde_mediables`.
+     *
+     * @return array<int, array{label:string, title:string, url:?string, mediagroup:string}>
+     */
+    public function getUsagesProperty(): array
+    {
+        $media = $this->selectedMedia;
+        if ($media === null) {
+            return [];
+        }
+
+        $registry = $this->getMediableRegistry();
+
+        $rows = DB::table('mde_mediables')
+            ->where('media_id', $media->id)
+            ->orderBy('mediable_type')
+            ->orderBy('mediable_id')
+            ->get();
+
+        $usages = [];
+
+        foreach ($rows as $row) {
+            $type = (string) $row->mediable_type;
+            $config = $registry[$type] ?? null;
+
+            if ($config === null) {
+                $usages[] = [
+                    'label' => class_basename($type),
+                    'title' => '#'.$row->mediable_id,
+                    'url' => null,
+                    'mediagroup' => (string) $row->mediagroup,
+                ];
+
+                continue;
+            }
+
+            /** @var Model|null $record */
+            $record = $type::query()->find($row->mediable_id);
+
+            if ($record === null) {
+                continue;
+            }
+
+            $titleResolver = $config['title'];
+            $title = is_callable($titleResolver)
+                ? (string) ($titleResolver($record) ?: '#'.$record->getKey())
+                : (string) ($record->{$titleResolver} ?? '#'.$record->getKey());
+
+            $url = null;
+            $resourceClass = $config['resource'] ?? null;
+            if ($resourceClass && class_exists($resourceClass) && method_exists($resourceClass, 'getUrl')) {
+                try {
+                    $url = $resourceClass::getUrl('edit', ['record' => $record]);
+                } catch (\Throwable) {
+                    $url = null;
+                }
+            }
+
+            $usages[] = [
+                'label' => $config['label'],
+                'title' => $title,
+                'url' => $url,
+                'mediagroup' => (string) $row->mediagroup,
+            ];
+        }
+
+        return $usages;
+    }
+
+    /**
+     * Map of known mediable_type → display config.
+     *
+     * @return array<class-string, array{label:string, title:string|callable, resource:?class-string}>
+     */
+    protected function getMediableRegistry(): array
+    {
+        return [
+            Product::class => [
+                'label' => 'Produit',
+                'title' => fn (Model $r) => $r->translateAttribute('name'),
+                'resource' => ProductResource::class,
+            ],
+            Collection::class => [
+                'label' => 'Collection',
+                'title' => fn (Model $r) => $r->translateAttribute('name'),
+                'resource' => CollectionResource::class,
+            ],
+            Brand::class => [
+                'label' => 'Marque',
+                'title' => 'name',
+                'resource' => BrandResource::class,
+            ],
+            Post::class => [
+                'label' => 'Actualité',
+                'title' => 'title',
+                'resource' => PostResource::class,
+            ],
+            \Mde\StorefrontCms\Models\Page::class => [
+                'label' => 'Page CMS',
+                'title' => 'title',
+                'resource' => PageResource::class,
+            ],
+            HomeSlide::class => [
+                'label' => 'Slide accueil',
+                'title' => 'title',
+                'resource' => HomeSlideResource::class,
+            ],
+            HomeTile::class => [
+                'label' => 'Tuile accueil',
+                'title' => 'title',
+                'resource' => HomeTileResource::class,
+            ],
+            HomeOffer::class => [
+                'label' => 'Offre du moment',
+                'title' => 'title',
+                'resource' => HomeOfferResource::class,
+            ],
+        ];
     }
 
     public function getConversionsListProperty(): array
