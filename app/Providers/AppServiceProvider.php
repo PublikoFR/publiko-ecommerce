@@ -8,8 +8,11 @@ use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\MdeAttributeGroupResource;
+use App\Filament\Resources\MdeBrandResource;
 use App\Filament\Resources\MdeCollectionGroupResource;
+use App\Filament\Resources\MdeCollectionResource;
 use App\Filament\Resources\MdeProductOptionResource;
+use App\Filament\Resources\MdeProductResource;
 use App\Filament\Resources\MdeProductTypeResource;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
@@ -17,7 +20,9 @@ use Filament\Panel;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
+use Lunar\Admin\Filament\Resources\BrandResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
+use Lunar\Admin\Filament\Resources\CollectionResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
@@ -80,7 +85,8 @@ class AppServiceProvider extends ServiceProvider
         })->register();
 
         LunarPanel::extensions([
-            ProductResource::class => [
+            // Register under MDE subclass (post-swap, hooks dispatch with static::class).
+            MdeProductResource::class => [
                 ProductFeaturesExtension::class,
             ],
             CustomerResource::class => [
@@ -108,6 +114,9 @@ class AppServiceProvider extends ServiceProvider
             ProductOptionResource::class => MdeProductOptionResource::class,
             AttributeGroupResource::class => MdeAttributeGroupResource::class,
             CollectionGroupResource::class => MdeCollectionGroupResource::class,
+            ProductResource::class => MdeProductResource::class,
+            CollectionResource::class => MdeCollectionResource::class,
+            BrandResource::class => MdeBrandResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

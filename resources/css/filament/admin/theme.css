@@ -1,5 +1,6 @@
 @import '/vendor/filament/filament/resources/css/theme.css';
 @import './modules/media-library.css';
+@import './modules/media-picker.css';
 
 @config 'tailwind.config.js';
 

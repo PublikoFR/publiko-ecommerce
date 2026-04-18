@@ -6,6 +6,8 @@ namespace Mde\StorefrontCms\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 use Mde\StorefrontCms\Filament\Pages\MdeMediaLibrary;
 use Mde\StorefrontCms\Filament\Resources\HomeOfferResource;
 use Mde\StorefrontCms\Filament\Resources\HomeSlideResource;
@@ -34,7 +36,11 @@ class StorefrontCmsPlugin implements Plugin
             ])
             ->pages([
                 MdeMediaLibrary::class,
-            ]);
+            ])
+            ->renderHook(
+                'panels::body.end',
+                fn (): HtmlString => new HtmlString(Blade::render('<livewire:mde-media-picker-modal />')),
+            );
     }
 
     public function boot(Panel $panel): void {}

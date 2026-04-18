@@ -12,6 +12,7 @@ use Mde\StorefrontCms\Livewire\HomeHero;
 use Mde\StorefrontCms\Livewire\HomeOffers;
 use Mde\StorefrontCms\Livewire\HomePosts;
 use Mde\StorefrontCms\Livewire\HomeTiles;
+use Mde\StorefrontCms\Livewire\MediaPickerModal;
 use Mde\StorefrontCms\Models\Setting;
 
 class StorefrontCmsServiceProvider extends ServiceProvider
@@ -29,6 +30,7 @@ class StorefrontCmsServiceProvider extends ServiceProvider
         Livewire::component('storefront-cms.home-offers', HomeOffers::class);
         Livewire::component('storefront-cms.home-posts', HomePosts::class);
         Livewire::component('storefront-cms.home-featured', HomeFeaturedProducts::class);
+        Livewire::component('mde-media-picker-modal', MediaPickerModal::class);
     }
 
     /**

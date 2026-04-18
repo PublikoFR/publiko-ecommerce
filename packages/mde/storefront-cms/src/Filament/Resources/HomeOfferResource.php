@@ -16,6 +16,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Mde\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Mde\StorefrontCms\Filament\Resources\HomeOfferResource\Pages;
 use Mde\StorefrontCms\Models\HomeOffer;
 
@@ -38,7 +39,7 @@ class HomeOfferResource extends Resource
                 TextInput::make('title')->label('Titre')->required()->maxLength(120),
                 TextInput::make('subtitle')->label('Sous-titre')->maxLength(200),
             ]),
-            TextInput::make('image_url')->label('URL image')->url()->maxLength(500),
+            MediaPicker::make('image')->label('Image')->mediagroup('image'),
             Grid::make(3)->schema([
                 TextInput::make('badge')->label('Badge (ex: -25%)')->maxLength(40),
                 TextInput::make('cta_label')->label('Libellé CTA')->maxLength(40),
@@ -59,7 +60,8 @@ class HomeOfferResource extends Resource
             ->reorderable('position')
             ->columns([
                 TextColumn::make('position')->label('#'),
-                ImageColumn::make('image_url')->label('Image')->height(40),
+                ImageColumn::make('image')->label('Image')->height(40)
+                    ->getStateUsing(fn (HomeOffer $record) => $record->firstMediaUrl('image')),
                 TextColumn::make('title')->label('Titre')->searchable(),
                 TextColumn::make('badge')->label('Badge')->badge(),
                 TextColumn::make('ends_at')->label('Fin')->dateTime('d/m/Y'),
