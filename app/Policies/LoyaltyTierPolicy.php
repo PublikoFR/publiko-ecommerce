@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\Loyalty\Models\LoyaltyTier;
+use Pko\Loyalty\Models\LoyaltyTier;
 
 class LoyaltyTierPolicy
 {

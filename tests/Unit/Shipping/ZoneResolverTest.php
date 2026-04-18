@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use Mde\ShippingCommon\Support\ZoneResolver;
 use PHPUnit\Framework\TestCase;
+use Pko\ShippingCommon\Support\ZoneResolver;
 
 class ZoneResolverTest extends TestCase
 {

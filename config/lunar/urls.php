@@ -1,6 +1,6 @@
 <?php
 
-use App\Generators\MdeProductUrlGenerator;
+use App\Generators\PkoProductUrlGenerator;
 
 return [
 
@@ -24,6 +24,6 @@ return [
     | ships with Lunar, which by default will use the name attribute.
     |
     */
-    'generator' => MdeProductUrlGenerator::class,
+    'generator' => PkoProductUrlGenerator::class,
 
 ];

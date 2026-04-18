@@ -15,7 +15,7 @@ class CollectionGroupPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_mde::collection::group');
+        return $staff->can('view_any_pko::collection::group');
     }
 
     /**
@@ -23,7 +23,7 @@ class CollectionGroupPolicy
      */
     public function view(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('view_mde::collection::group');
+        return $staff->can('view_pko::collection::group');
     }
 
     /**
@@ -31,7 +31,7 @@ class CollectionGroupPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_mde::collection::group');
+        return $staff->can('create_pko::collection::group');
     }
 
     /**
@@ -39,7 +39,7 @@ class CollectionGroupPolicy
      */
     public function update(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('update_mde::collection::group');
+        return $staff->can('update_pko::collection::group');
     }
 
     /**
@@ -47,7 +47,7 @@ class CollectionGroupPolicy
      */
     public function delete(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('delete_mde::collection::group');
+        return $staff->can('delete_pko::collection::group');
     }
 
     /**
@@ -55,7 +55,7 @@ class CollectionGroupPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_mde::collection::group');
+        return $staff->can('delete_any_pko::collection::group');
     }
 
     /**
@@ -63,7 +63,7 @@ class CollectionGroupPolicy
      */
     public function forceDelete(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('force_delete_mde::collection::group');
+        return $staff->can('force_delete_pko::collection::group');
     }
 
     /**
@@ -71,7 +71,7 @@ class CollectionGroupPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_mde::collection::group');
+        return $staff->can('force_delete_any_pko::collection::group');
     }
 
     /**
@@ -79,7 +79,7 @@ class CollectionGroupPolicy
      */
     public function restore(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('restore_mde::collection::group');
+        return $staff->can('restore_pko::collection::group');
     }
 
     /**
@@ -87,7 +87,7 @@ class CollectionGroupPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_mde::collection::group');
+        return $staff->can('restore_any_pko::collection::group');
     }
 
     /**
@@ -95,7 +95,7 @@ class CollectionGroupPolicy
      */
     public function replicate(Staff $staff, CollectionGroup $collectionGroup): bool
     {
-        return $staff->can('replicate_mde::collection::group');
+        return $staff->can('replicate_pko::collection::group');
     }
 
     /**
@@ -103,6 +103,6 @@ class CollectionGroupPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_mde::collection::group');
+        return $staff->can('reorder_pko::collection::group');
     }
 }

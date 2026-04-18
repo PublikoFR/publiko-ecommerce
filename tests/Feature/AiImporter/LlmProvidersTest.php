@@ -6,9 +6,9 @@ namespace Tests\Feature\AiImporter;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
-use Mde\AiImporter\Enums\LlmProviderName;
-use Mde\AiImporter\Llm\LlmManager;
-use Mde\AiImporter\Models\LlmConfig;
+use Pko\AiImporter\Enums\LlmProviderName;
+use Pko\AiImporter\Llm\LlmManager;
+use Pko\AiImporter\Models\LlmConfig;
 use Tests\TestCase;
 
 class LlmProvidersTest extends TestCase
@@ -98,7 +98,7 @@ class LlmProvidersTest extends TestCase
         ]);
 
         // Read the RAW column value (not via the cast).
-        $raw = (string) \DB::table('mde_ai_importer_llm_configs')->where('id', $config->id)->value('api_key');
+        $raw = (string) \DB::table('pko_ai_importer_llm_configs')->where('id', $config->id)->value('api_key');
         $this->assertNotSame('my-secret-key', $raw);
         $this->assertStringStartsWith('eyJ', $raw); // Laravel encrypted payloads start with eyJ (base64 JSON)
 

@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\Loyalty\Models\GiftHistory;
+use Pko\Loyalty\Models\GiftHistory;
 
 class GiftHistoryPolicy
 {

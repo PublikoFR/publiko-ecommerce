@@ -1,10 +1,10 @@
-# MDE Distribution — Back-office e-commerce
+# Back-office e-commerce Laravel + Lunar
 
-Back-office Laravel 11 + Lunar 1.x + Filament 3 remplaçant PrestaShop 8 pour MDE Distribution (distributeur B2B portails, volets, motorisations, matériaux de construction et domotique).
+Back-office e-commerce B2B basé sur **Laravel 11 + Lunar 1.x + Filament 3**, livré avec des modules métier réutilisables (shipping Chronopost/Colissimo, features catalogue, fidélité, authentification client pro, CMS storefront, importeur IA, store locator, listes d'achat, quick order).
 
-**Périmètre phase 1 : back-office uniquement.** Front-office, paiement, emails et modules métier MDE (FAB-DIS, SIRET, pricing B2B, enrichissement IA) sont planifiés en phase 2.
+Le branding (nom de la boutique, accroche, description SEO, logo) est entièrement paramétrable via le back-office (**Storefront → Paramètres → Identité**). Aucune marque n'est codée en dur.
 
-Cahier des charges complet : [`cahier-des-charges-mde-laravel.md`](./cahier-des-charges-mde-laravel.md).
+Cahier des charges : [`cahier-des-charges.md`](./cahier-des-charges.md).
 Guide de contribution : [`CLAUDE.md`](./CLAUDE.md).
 
 ## Stack
@@ -38,25 +38,15 @@ make install
 
 La commande `make install` exécute :
 
-1. `docker compose up -d --build` (construction de l'image applicative + démarrage)
+1. `docker compose up -d --build`
 2. `composer install` dans le conteneur `app`
 3. Correction des permissions `storage/` et `bootstrap/cache/`
 4. `php artisan key:generate --force`
 5. `php artisan migrate --graceful --force`
-6. `php artisan lunar:install` (création du premier staff + seed Lunar de base)
+6. `php artisan lunar:install`
 7. `php artisan shield:install admin --no-interaction`
 8. `php artisan shield:generate --all --panel=admin --no-interaction`
-9. `php artisan db:seed --force` (seeders MDE : 50 produits, 3+ collections, 2 groupes clients, 10 commandes)
-
-> ℹ️ Lors de `lunar:install`, l'installeur demande les identifiants du premier staff admin en interactif. Proposition dev : `admin@mde-distribution.fr` / `password`.
-
-## Accès
-
-- Back-office : <http://mde-laravel.localhost/admin>
-- phpMyAdmin : <http://pma.mde-laravel.localhost>
-- Mailpit : <http://mailpit.localhost> (service partagé)
-- MySQL : accessible via phpMyAdmin ou via `make shell` (user `mde` / password `mde_password`, root `root_password`)
-- Redis : interne au réseau `backend`
+9. `php artisan db:seed --force` (seeders de démo : 50 produits, 3+ collections, 2 groupes clients, 10 commandes)
 
 ## Commandes utiles
 
@@ -66,7 +56,7 @@ make down        # arrêter
 make shell       # bash dans le conteneur app (user sail)
 make migrate     # migrations
 make fresh       # migrate:fresh --seed (reset DB complet)
-make seed        # seeders MDE uniquement
+make seed        # seeders uniquement
 make test        # PHPUnit
 make lint        # Laravel Pint (PSR-12)
 make logs        # suivre les logs
@@ -82,19 +72,19 @@ make composer CMD='dump-autoload'
 app/
 ├── Models/User.php                    # trait LunarUser
 ├── Providers/AppServiceProvider.php   # configuration LunarPanel + Shield
-└── Admin/Filament/Extensions/         # ResourceExtensions MDE (phase 2+)
+└── Filament/Extensions/               # ResourceExtensions
 
 config/
 ├── lunar/*.php                        # configs Lunar publiées
 └── filament-shield.php
 
 database/
-├── migrations/                        # Lunar + spatie/permission
-└── seeders/Mde*Seeder.php             # 10 seeders thématiques MDE
+├── migrations/
+└── seeders/                           # seeders de démo
 
-packages/mde/                          # futurs modules métier (phase 2)
+packages/pko/                          # modules métier (namespace interne Pko\)
 
-cahier-des-charges-mde-laravel.md      # spec contractuelle
+cahier-des-charges.md                  # spec contractuelle
 CLAUDE.md                              # guide Claude Code / conventions
 ```
 
@@ -103,7 +93,7 @@ CLAUDE.md                              # guide Claude Code / conventions
 1. **Jamais** modifier `vendor/lunarphp/*`
 2. Personnalisation niveau 1 : `LunarPanel::panel()` dans `AppServiceProvider`
 3. Personnalisation niveau 2 : `LunarPanel::extensions([Resource::class => Extension::class])`
-4. Personnalisation niveau 3 : Filament Plugin dans `packages/mde/*`
+4. Personnalisation niveau 3 : Filament Plugin dans `packages/pko/*`
 
 Détails dans [`CLAUDE.md`](./CLAUDE.md).
 
@@ -112,12 +102,3 @@ Détails dans [`CLAUDE.md`](./CLAUDE.md).
 ```bash
 make test
 ```
-
-Suite minimale fournie :
-
-- `tests/Feature/AdminPanelAccessTest.php`
-- `tests/Feature/SeedersTest.php` — garantit 50 produits, ≥3 collections, 2 groupes clients, 10 commandes
-
-## Licence
-
-Usage interne MDE Distribution — propriété Publiko.

@@ -1,19 +1,19 @@
 <?php
 
 use App\Providers\AppServiceProvider;
-use Mde\Account\AccountServiceProvider;
-use Mde\AiImporter\AiImporterServiceProvider;
-use Mde\CatalogFeatures\CatalogFeaturesServiceProvider;
-use Mde\CustomerAuth\CustomerAuthServiceProvider;
-use Mde\Loyalty\LoyaltyServiceProvider;
-use Mde\PurchaseLists\PurchaseListsServiceProvider;
-use Mde\QuickOrder\QuickOrderServiceProvider;
-use Mde\ShippingChronopost\ShippingChronopostServiceProvider;
-use Mde\ShippingColissimo\ShippingColissimoServiceProvider;
-use Mde\ShippingCommon\ShippingCommonServiceProvider;
-use Mde\Storefront\StorefrontServiceProvider;
-use Mde\StorefrontCms\StorefrontCmsServiceProvider;
-use Mde\StoreLocator\StoreLocatorServiceProvider;
+use Pko\Account\AccountServiceProvider;
+use Pko\AiImporter\AiImporterServiceProvider;
+use Pko\CatalogFeatures\CatalogFeaturesServiceProvider;
+use Pko\CustomerAuth\CustomerAuthServiceProvider;
+use Pko\Loyalty\LoyaltyServiceProvider;
+use Pko\PurchaseLists\PurchaseListsServiceProvider;
+use Pko\QuickOrder\QuickOrderServiceProvider;
+use Pko\ShippingChronopost\ShippingChronopostServiceProvider;
+use Pko\ShippingColissimo\ShippingColissimoServiceProvider;
+use Pko\ShippingCommon\ShippingCommonServiceProvider;
+use Pko\Storefront\StorefrontServiceProvider;
+use Pko\StorefrontCms\StorefrontCmsServiceProvider;
+use Pko\StoreLocator\StoreLocatorServiceProvider;
 
 return [
     AppServiceProvider::class,

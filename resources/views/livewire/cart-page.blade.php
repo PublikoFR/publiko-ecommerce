@@ -55,7 +55,7 @@
                             </div>
                         @endif
                         <x-ui.button variant="primary" size="lg" href="/checkout" class="w-full justify-center mt-6">Passer la commande →</x-ui.button>
-                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(config('mde-storefront.shipping.free_threshold_cents', 12500) / 100, 0, ',', ' ') }} € HT</p>
+                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(config('storefront.shipping.free_threshold_cents', 12500) / 100, 0, ',', ' ') }} € HT</p>
                     </x-ui.card>
                 </aside>
             </div>

@@ -14,8 +14,8 @@ use Livewire\WithPagination;
 use Lunar\Models\Brand;
 use Lunar\Models\Collection as CollectionModel;
 use Lunar\Models\Product;
-use Mde\CatalogFeatures\Facades\Features;
-use Mde\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Facades\Features;
+use Pko\CatalogFeatures\Models\FeatureFamily;
 
 class CollectionPage extends Component
 {

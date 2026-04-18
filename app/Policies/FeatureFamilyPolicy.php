@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureFamily;
 
 class FeatureFamilyPolicy
 {

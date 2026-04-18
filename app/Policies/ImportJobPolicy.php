@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportJob;
 
 class ImportJobPolicy
 {

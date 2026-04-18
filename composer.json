@@ -30,24 +30,27 @@
         "phpunit/phpunit": "^11.0.1"
     },
     "autoload": {
+        "files": [
+            "packages/pko/storefront-cms/src/helpers.php"
+        ],
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "Mde\\ShippingCommon\\": "packages/mde/shipping-common/src/",
-            "Mde\\ShippingChronopost\\": "packages/mde/shipping-chronopost/src/",
-            "Mde\\ShippingColissimo\\": "packages/mde/shipping-colissimo/src/",
-            "Mde\\CatalogFeatures\\": "packages/mde/catalog-features/src/",
-            "Mde\\AiImporter\\": "packages/mde/ai-importer/src/",
-            "Mde\\Loyalty\\": "packages/mde/loyalty/src/",
-            "Mde\\Loyalty\\Database\\Seeders\\": "packages/mde/loyalty/database/seeders/",
-            "Mde\\Storefront\\": "packages/mde/storefront/src/",
-            "Mde\\CustomerAuth\\": "packages/mde/customer-auth/src/",
-            "Mde\\Account\\": "packages/mde/account/src/",
-            "Mde\\PurchaseLists\\": "packages/mde/purchase-lists/src/",
-            "Mde\\QuickOrder\\": "packages/mde/quick-order/src/",
-            "Mde\\StorefrontCms\\": "packages/mde/storefront-cms/src/",
-            "Mde\\StoreLocator\\": "packages/mde/store-locator/src/"
+            "Pko\\ShippingCommon\\": "packages/pko/shipping-common/src/",
+            "Pko\\ShippingChronopost\\": "packages/pko/shipping-chronopost/src/",
+            "Pko\\ShippingColissimo\\": "packages/pko/shipping-colissimo/src/",
+            "Pko\\CatalogFeatures\\": "packages/pko/catalog-features/src/",
+            "Pko\\AiImporter\\": "packages/pko/ai-importer/src/",
+            "Pko\\Loyalty\\": "packages/pko/loyalty/src/",
+            "Pko\\Loyalty\\Database\\Seeders\\": "packages/pko/loyalty/database/seeders/",
+            "Pko\\Storefront\\": "packages/pko/storefront/src/",
+            "Pko\\CustomerAuth\\": "packages/pko/customer-auth/src/",
+            "Pko\\Account\\": "packages/pko/account/src/",
+            "Pko\\PurchaseLists\\": "packages/pko/purchase-lists/src/",
+            "Pko\\QuickOrder\\": "packages/pko/quick-order/src/",
+            "Pko\\StorefrontCms\\": "packages/pko/storefront-cms/src/",
+            "Pko\\StoreLocator\\": "packages/pko/store-locator/src/"
         }
     },
     "autoload-dev": {

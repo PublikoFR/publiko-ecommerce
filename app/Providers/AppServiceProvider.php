@@ -8,11 +8,11 @@ use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
-use App\Filament\Resources\MdeAttributeGroupResource;
-use App\Filament\Resources\MdeCollectionGroupResource;
-use App\Filament\Resources\MdeProductOptionResource;
-use App\Filament\Resources\MdeProductTypeResource;
-use App\Generators\MdeProductUrlGenerator;
+use App\Filament\Resources\PkoAttributeGroupResource;
+use App\Filament\Resources\PkoCollectionGroupResource;
+use App\Filament\Resources\PkoProductOptionResource;
+use App\Filament\Resources\PkoProductTypeResource;
+use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
@@ -30,18 +30,18 @@ use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
-use Mde\AiImporter\Filament\AiImporterPlugin;
-use Mde\CatalogFeatures\Filament\CatalogFeaturesPlugin;
-use Mde\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
-use Mde\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
-use Mde\Loyalty\Filament\LoyaltyPlugin;
-use Mde\ShippingChronopost\Filament\ChronopostPlugin;
-use Mde\ShippingColissimo\Filament\ColissimoPlugin;
-use Mde\ShippingCommon\Filament\ShippingCommonPlugin;
-use Mde\StorefrontCms\Filament\MediaManagerShimPlugin;
-use Mde\StorefrontCms\Filament\Pages\StorefrontSettings;
-use Mde\StorefrontCms\Filament\StorefrontCmsPlugin;
-use Mde\StoreLocator\Filament\StoreLocatorPlugin;
+use Pko\AiImporter\Filament\AiImporterPlugin;
+use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
+use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
+use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
+use Pko\Loyalty\Filament\LoyaltyPlugin;
+use Pko\ShippingChronopost\Filament\ChronopostPlugin;
+use Pko\ShippingColissimo\Filament\ColissimoPlugin;
+use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
+use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
+use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
+use Pko\StorefrontCms\Filament\StorefrontCmsPlugin;
+use Pko\StoreLocator\Filament\StoreLocatorPlugin;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,7 +53,7 @@ class AppServiceProvider extends ServiceProvider
             return $panel
                 ->spa(false)
                 ->path('admin')
-                ->brandName('MDE Distribution')
+                ->brandName(brand_name())
                 ->viteTheme('resources/css/filament/admin/theme.css')
                 ->navigationGroups([
                     'Catalogue',
@@ -108,25 +108,25 @@ class AppServiceProvider extends ServiceProvider
     {
         // Regenerate product URL slug when variants change — MPN is only
         // available after variant creation so Lunar's native post-create hook
-        // runs too early. See App\Generators\MdeProductUrlGenerator::regenerate.
+        // runs too early. See App\Generators\PkoProductUrlGenerator::regenerate.
         ProductVariant::saved(function (ProductVariant $variant): void {
             if ($variant->product) {
-                app(MdeProductUrlGenerator::class)->regenerate($variant->product);
+                app(PkoProductUrlGenerator::class)->regenerate($variant->product);
             }
         });
     }
 
     /**
-     * Swap 4 Lunar resources with MDE subclasses that override navigation placement.
+     * Swap 4 Lunar resources with our subclasses that override navigation placement.
      * Must run BEFORE LunarPanel::panel()->register() reads the static $resources array.
      */
     private function swapLunarResources(): void
     {
         $swaps = [
-            ProductTypeResource::class => MdeProductTypeResource::class,
-            ProductOptionResource::class => MdeProductOptionResource::class,
-            AttributeGroupResource::class => MdeAttributeGroupResource::class,
-            CollectionGroupResource::class => MdeCollectionGroupResource::class,
+            ProductTypeResource::class => PkoProductTypeResource::class,
+            ProductOptionResource::class => PkoProductOptionResource::class,
+            AttributeGroupResource::class => PkoAttributeGroupResource::class,
+            CollectionGroupResource::class => PkoCollectionGroupResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

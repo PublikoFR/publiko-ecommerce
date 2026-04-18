@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Models\CarrierShipment;
 
 class CarrierShipmentPolicy
 {

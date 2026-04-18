@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use Mde\ShippingChronopost\Services\ChronopostClient;
-use Mde\ShippingCommon\Dto\QuoteRequest;
 use PHPUnit\Framework\TestCase;
+use Pko\ShippingChronopost\Services\ChronopostClient;
+use Pko\ShippingCommon\Dto\QuoteRequest;
 
 class ChronopostQuoteTest extends TestCase
 {

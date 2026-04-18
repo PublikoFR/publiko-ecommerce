@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
-use Mde\ShippingColissimo\Services\ColissimoClient;
-use Mde\ShippingCommon\Dto\QuoteRequest;
 use PHPUnit\Framework\TestCase;
+use Pko\ShippingColissimo\Services\ColissimoClient;
+use Pko\ShippingCommon\Dto\QuoteRequest;
 
 class ColissimoQuoteTest extends TestCase
 {

@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Mde\StorefrontCms\Models\HomeTile;
+use Pko\StorefrontCms\Models\HomeTile;
 
 class HomeTilePolicy
 {
