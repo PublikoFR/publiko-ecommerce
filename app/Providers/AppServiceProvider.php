@@ -12,6 +12,7 @@ use App\Filament\Resources\MdeAttributeGroupResource;
 use App\Filament\Resources\MdeCollectionGroupResource;
 use App\Filament\Resources\MdeProductOptionResource;
 use App\Filament\Resources\MdeProductTypeResource;
+use App\Generators\MdeProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
@@ -27,6 +28,7 @@ use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
+use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Mde\AiImporter\Filament\AiImporterPlugin;
 use Mde\CatalogFeatures\Filament\CatalogFeaturesPlugin;
@@ -104,7 +106,14 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Regenerate product URL slug when variants change — MPN is only
+        // available after variant creation so Lunar's native post-create hook
+        // runs too early. See App\Generators\MdeProductUrlGenerator::regenerate.
+        ProductVariant::saved(function (ProductVariant $variant): void {
+            if ($variant->product) {
+                app(MdeProductUrlGenerator::class)->regenerate($variant->product);
+            }
+        });
     }
 
     /**

@@ -277,6 +277,28 @@ Le staff admin est une table séparée (`lunar_staff`). **Ne pas confondre** ave
 
 `kalnoy/nestedset` est épinglé à **`6.0.7`**. Les versions ultérieures utilisent `whenBooted()` qui n'existe pas en Laravel 11.
 
+### 7.5 Slugs produits — `MdeProductUrlGenerator`
+
+**Format** : `{brand-slug}-{name-slug}-{mpn-slug}` (ex : `somfy-boitier-axroll-1822143`).
+
+- **brand** : `$product->brand?->name` (nullable)
+- **name** : `$product->translateAttribute('name')` (champ i18n Lunar)
+- **mpn** : `$product->variants()->first()->mpn` (Manufacturer Part Number) — **uniquement si 1 seule variante**. Produits multi-variantes (sur-mesure menuiseries/portes) → fallback `brand-name` + suffixe numérique auto en cas de collision.
+
+**Mapping références Lunar ↔ MDE** :
+
+| Colonne Lunar (`product_variants`) | Sens métier MDE |
+|---|---|
+| `mpn` | Référence fabricant (utilisée dans le slug) |
+| `sku` | Référence interne MDE |
+| `ean` | Code EAN |
+
+**Timing de génération** : Lunar appelle le generator sur l'event `Product::created`, avant que les variants existent. MPN pas encore connu à ce moment. Solution : `MdeProductUrlGenerator::regenerate()` re-calcule le slug et crée une nouvelle URL `default=true` si différent de l'actuel. Déclenché sur `ProductVariant::saved` via un observer dans `AppServiceProvider::boot()`.
+
+**Historique SEO** : Lunar auto-démote l'ancienne URL en `default=false`. L'ancien slug reste actif et résout le même produit (pas de 404, pas de redirect explicite). Utile si le nom ou le MPN change après import.
+
+**Config** : `config/lunar/urls.php` → `'generator' => App\Generators\MdeProductUrlGenerator::class`.
+
 ---
 
 ## 7.bis Catalogue — caractéristiques filtrables
