@@ -10,33 +10,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    @stack('head')
 </head>
-<body class="min-h-screen bg-neutral-50 font-sans antialiased text-neutral-900">
-    <div class="min-h-screen flex flex-col">
-        <header class="border-b border-neutral-200 bg-white">
-            <div class="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between">
-                <a href="/" class="flex items-center">
-                    <x-layout.logo class="h-9 w-auto" />
-                </a>
-                <div class="text-sm text-neutral-500">
-                    <a href="/" class="hover:text-primary-600 transition">← Retour au site</a>
-                </div>
-            </div>
-        </header>
+<body class="min-h-screen flex flex-col bg-neutral-50 text-neutral-900 font-sans antialiased">
+    <x-layout.header />
 
-        <main class="flex-1 flex items-center justify-center py-12 px-4">
-            <div class="w-full max-w-md">
-                @if (session('status'))
-                    <div class="mb-6"><x-ui.alert variant="success">{{ session('status') }}</x-ui.alert></div>
-                @endif
-                {{ $slot }}
-            </div>
-        </main>
+    <main class="flex-1 flex items-center justify-center py-12 px-4">
+        <div class="w-full max-w-md">
+            @if (session('status'))
+                <div class="mb-6"><x-ui.alert variant="success">{{ session('status') }}</x-ui.alert></div>
+            @endif
+            {{ $slot }}
+        </div>
+    </main>
 
-        <footer class="py-6 text-center text-xs text-neutral-500">
-            © {{ now()->year }} MDE Distribution — accès réservé aux professionnels.
-        </footer>
-    </div>
+    <x-layout.footer />
+
+    @auth
+        @livewire('storefront.cart-drawer')
+    @endauth
+
     @livewireScripts
+    @stack('scripts')
 </body>
 </html>

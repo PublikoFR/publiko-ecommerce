@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Filament\Extensions\DisableBrokenChartsExtension;
+use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\MdeAttributeGroupResource;
-use App\Filament\Resources\MdeBrandResource;
 use App\Filament\Resources\MdeCollectionGroupResource;
-use App\Filament\Resources\MdeCollectionResource;
 use App\Filament\Resources\MdeProductOptionResource;
-use App\Filament\Resources\MdeProductResource;
 use App\Filament\Resources\MdeProductTypeResource;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Navigation\NavigationGroup;
@@ -85,9 +83,15 @@ class AppServiceProvider extends ServiceProvider
         })->register();
 
         LunarPanel::extensions([
-            // Register under MDE subclass (post-swap, hooks dispatch with static::class).
-            MdeProductResource::class => [
+            ProductResource::class => [
                 ProductFeaturesExtension::class,
+                HideLunarMediaExtension::class,
+            ],
+            CollectionResource::class => [
+                HideLunarMediaExtension::class,
+            ],
+            BrandResource::class => [
+                HideLunarMediaExtension::class,
             ],
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
@@ -114,9 +118,6 @@ class AppServiceProvider extends ServiceProvider
             ProductOptionResource::class => MdeProductOptionResource::class,
             AttributeGroupResource::class => MdeAttributeGroupResource::class,
             CollectionGroupResource::class => MdeCollectionGroupResource::class,
-            ProductResource::class => MdeProductResource::class,
-            CollectionResource::class => MdeCollectionResource::class,
-            BrandResource::class => MdeBrandResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

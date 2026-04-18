@@ -1180,15 +1180,20 @@ Composant Livewire `Mde\StorefrontCms\Livewire\MediaPickerModal`, enregistré :
 
 Fonctionnalités : sidebar dossiers (réutilise `TomatoPHP\FilamentMediaManager\Models\Folder`), grille médias avec case à cocher (single = un seul, multi = plusieurs), recherche, upload dropzone WP-style via `$wire.upload()`. Après confirmation : dispatch `media-picked` avec `{ statePath, ids, medias }` (url + alt + fileName de chaque média), consommé par les champs `MediaPicker` correspondants.
 
-### Bascule Lunar (reflection swap)
+### Bascule Lunar — via `ResourceExtension` (pas de subclass)
 
-3 subclasses dans `app/Filament/Resources/Mde{Product,Collection,Brand}Resource.php` qui héritent de leur homologue Lunar et :
-- Retirent l'entrée `'media'` de `getDefaultPages()`
-- Retirent `Manage{X}Media` de `getDefaultSubNavigation()`
-- Retirent `MediaRelationManager` de `getDefaultRelations()` (Product uniquement)
-- `MdeBrandResource::getDefaultTable()` retire aussi la colonne `SpatieMediaLibraryImageColumn`
+**Pourquoi pas de subclass ?** Les Page classes Lunar (`EditProduct`, `ManageProductX`, etc.) codent en dur `protected static string $resource = ProductResource::class;`. Une subclass `MdeProductResource` ne serait donc pas interrogée par ces pages lors du rendu de la sub-navigation → tabs cassés ou routes manquantes.
 
-Enregistrement : `AppServiceProvider::swapLunarResources()` ajoute les 3 swaps à la liste existante (cf. §13). Extensions Lunar (`ProductFeaturesExtension`) re-clés sous `MdeProductResource::class` car `LunarPanel::callHook()` utilise `static::class` du caller.
+**Solution retenue** : `app/Filament/Extensions/HideLunarMediaExtension.php` (étend `ResourceExtension`) implémente 4 hooks déclenchés via `LunarPanelManager::callHook()` :
+
+- `extendPages(array $pages)` → `unset($pages['media'])` → la route `/media` n'est pas enregistrée
+- `extendSubNavigation(array $pages)` → retire `Manage{Product,Collection,Brand}Media::class`
+- `getRelations(array $managers)` → retire `MediaRelationManager::class`
+- `extendTable(Table $table)` → filtre toute `SpatieMediaLibraryImageColumn` (utile pour la liste Brand)
+
+Enregistré dans `AppServiceProvider::register()` sous trois clés (`ProductResource`, `CollectionResource`, `BrandResource`) — ces hooks se déclenchent car `ExtendsPages` / `ExtendsSubnavigation` / etc. appellent `callStaticLunarHook()` avec `static::class` = la resource Lunar d'origine.
+
+Aucune subclass MDE créée pour Product/Collection/Brand. Aucune ligne dans `swapLunarResources()`. Les URLs restent identiques à Lunar (`/admin/products`, etc.).
 
 ### Modèles CMS migrés
 
