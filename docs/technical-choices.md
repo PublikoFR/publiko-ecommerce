@@ -538,7 +538,67 @@ Clé : `ai-core.llm.*` (timeout, retries, backoff, critical HTTP codes). Publiab
 ### Consommateurs
 
 - `pko/ai-importer` : utilise `forConfig()` via `LlmTransformAction`.
+- `pko/ai-filament` : utilise `LlmManager::forConfig()` pour les boutons "Générer avec l'IA".
 - `LlmConfigResource` Filament reste dans `pko/ai-importer` (dépendance Filament tenue hors du core).
+
+---
+
+## 7.septies AI Filament — actions Filament réutilisables pour l'IA
+
+Package `packages/pko/ai-filament/` (namespace `Pko\AiFilament\`), ServiceProvider : `AiFilamentServiceProvider` (sans migrations ni config).
+
+### Rôle
+
+Expose des actions Filament prêtes à l'emploi qui appellent `pko/ai-core`. Dépend de `filament/forms` + `pko/ai-core`. Réutilisable sur n'importe quel champ de formulaire Filament.
+
+### `GenerateAiAction`
+
+**API générique réutilisable `forField()`** — crée un bouton "Générer avec l'IA" pour n'importe quel champ Filament :
+
+```php
+GenerateAiAction::forField(
+    targetField: 'seoTitle',              // clé du champ form
+    prompt: 'Génère un meta title SEO…',  // prompt envoyé au LLM
+    contextProperties: ['productName'],   // props Livewire injectées en contexte
+    emptyCheckProperty: null,             // défaut : targetField
+    llmConfigName: null,                  // null = LlmConfig::default()
+    htmlMode: false,                      // true = toggle Aperçu/Code ; false = textarea brut
+    label: 'Générer avec l\'IA',
+    icon: 'heroicon-o-sparkles',
+    modalHeading: 'Aperçu — Contenu généré par l\'IA',
+    successTitle: 'Contenu généré',
+    using: fn (Action $a) => $a->color('primary'),  // customizer optionnel (color, size, tooltip…)
+): array  // 2 actions → passer à ->hintActions()
+```
+
+**Preset `descriptionActions()`** : appel pré-configuré de `forField()` pour la description produit HTML (inputs `productName/sku/shortDesc`, mode HTML).
+
+### UX universelle (non-négociable)
+
+- **Champ cible vide** → direct-replace sans modal
+- **Champ cible non-vide** → modal preview
+  - En `htmlMode: true` : toggle Aperçu/Code, aperçu rendu via `prose` avec scroll interne `max-height:60vh` (style inline pour contourner JIT Tailwind)
+  - Bouton submit aligné à droite (`modalFooterActionsAlignment(Alignment::End)`)
+  - Modal large (`5xl`)
+- Fences markdown ```html… stripées côté serveur avant affichage
+
+### Détection d'emptiness
+
+Le `->visible()` lit `$livewire->{$emptyCheckProperty}` (propriété Livewire publique de la page) **et non** l'état Filament. TipTap stocke sa state interne en JSON ProseMirror (array) ; seule la prop Livewire brute est une string fiable. Par défaut `$emptyCheckProperty = $targetField` → fonctionne tant que la page Livewire déclare une prop publique du même nom.
+
+### Injection de contexte
+
+Chaque nom listé dans `contextProperties` est lu sur `$livewire->{$property}` et transmis au LLM via `LlmManager::forConfig()->transform($prompt, $inputs)`. Les providers (Claude/OpenAI) sérialisent les inputs en JSON à la suite du prompt.
+
+### Permission Shield
+
+`generate_ai_content` (guard `staff`) — créée et assignée à `super_admin` via `AiPermissionsSeeder`. Vérifiée dans `->visible()` de chaque action.
+
+### Intégration phase 1
+
+`EditProductUnified::descriptionForm()` — `TiptapEditor::make('longDesc')->hintActions(GenerateAiAction::descriptionActions())`.
+
+Pour ajouter un bouton ailleurs : utiliser `forField()` directement, ou créer un preset dédié dans la classe `GenerateAiAction` si le cas d'usage est récurrent.
 
 ---
 

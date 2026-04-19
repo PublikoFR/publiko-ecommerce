@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             PkoStorefrontCmsSeeder::class,
             PkoStoreSeeder::class,
             PkoMediaLibrarySeeder::class,
+            AiPermissionsSeeder::class,
         ]);
 
         Model::reguard();

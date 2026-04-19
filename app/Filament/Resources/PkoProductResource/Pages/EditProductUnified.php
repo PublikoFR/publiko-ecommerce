@@ -26,6 +26,7 @@ use Lunar\Models\Price;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
+use Pko\AiFilament\Actions\GenerateAiAction;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Services\FeatureManager;
 use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
@@ -271,6 +272,7 @@ class EditProductUnified extends Page implements HasForms
                         'bullet-list', 'ordered-list', 'blockquote', 'hr', '|',
                         'link', 'source',
                     ])
+                    ->hintActions(GenerateAiAction::descriptionActions())
                     ->output(TiptapOutput::Html),
             ])
             ->statePath('descriptionData');

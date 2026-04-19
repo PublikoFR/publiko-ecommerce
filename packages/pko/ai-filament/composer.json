@@ -1,0 +1,13 @@
+{
+    "name": "pko/ai-filament",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "filament/filament": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\AiFilament\\": "src/"
+        }
+    }
+}

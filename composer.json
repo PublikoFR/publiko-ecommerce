@@ -43,6 +43,7 @@
             "Pko\\ShippingColissimo\\": "packages/pko/shipping-colissimo/src/",
             "Pko\\CatalogFeatures\\": "packages/pko/catalog-features/src/",
             "Pko\\AiCore\\": "packages/pko/ai-core/src/",
+            "Pko\\AiFilament\\": "packages/pko/ai-filament/src/",
             "Pko\\AiImporter\\": "packages/pko/ai-importer/src/",
             "Pko\\Loyalty\\": "packages/pko/loyalty/src/",
             "Pko\\Loyalty\\Database\\Seeders\\": "packages/pko/loyalty/database/seeders/",
