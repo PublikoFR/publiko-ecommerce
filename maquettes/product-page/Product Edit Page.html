@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Lunar — Modifier le produit</title>
+<link rel="stylesheet" href="styles.css">
+<script>
+  // Tweak defaults (host may rewrite this JSON on disk)
+  window.__TWEAKS = /*EDITMODE-BEGIN*/{
+    "layout": "two-col"
+  }/*EDITMODE-END*/;
+</script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="sections.jsx"></script>
+<script type="text/babel" src="layouts.jsx"></script>
+
+<script type="text/babel">
+const INITIAL = {
+  title: "Portail coulissant aluminium RAL 7016",
+  sku: "PCA-7016-240",
+  ean: "3760123456789",
+  shortDesc: "Portail coulissant motorisable en aluminium thermolaqué RAL 7016. Structure monobloc renforcée, livré prêt à poser avec rail inox.",
+  longDesc: "<p>Le <strong>portail coulissant PCA-7016</strong> est conçu pour les accès professionnels et résidentiels haut de gamme. Son profil aluminium 80 mm offre une rigidité exceptionnelle sur les grandes largeurs jusqu'à 6 mètres sans pilier intermédiaire.</p><p>Compatible avec l'ensemble des motorisations 24V du marché, il se pose sur un rail inox encastré ou en applique.</p><ul><li>Garantie 10 ans sur la structure</li><li>Finition laquage qualité QUALICOAT classe 2</li><li>Livraison sur palette avec sangles de manutention</li></ul>",
+  price: "984,52",
+  comparePrice: "1181,42",
+  cost: "612,00",
+  tax: "TVA 20%",
+  stock: 12,
+  lowStock: 3,
+  safetyStock: 1,
+  trackStock: true,
+  allowBackorder: true,
+  weight: "68,5",
+  status: "published",
+  visible: true,
+  featured: true,
+  publishAt: "2026-04-12T11:28",
+  seoTitle: "Portail coulissant aluminium RAL 7016 — sur-mesure | Lunar",
+  seoDesc: "Portail coulissant aluminium thermolaqué RAL 7016 gris anthracite. Jusqu'à 6m sans pilier. Motorisable, livraison 2-3 semaines, garantie 10 ans.",
+  slug: "portail-coulissant-aluminium-ral-7016",
+  canonical: "",
+};
+
+const App = () => {
+  const [state, setState] = React.useState(INITIAL);
+  const [tweaksVisible, setTweaksVisible] = React.useState(false);
+  const [layout, setLayoutState] = React.useState(window.__TWEAKS.layout || 'two-col');
+  const [saved, setSaved] = React.useState(true);
+
+  const set = (k, v) => { setState(s => ({ ...s, [k]: v })); setSaved(false); };
+
+  const setLayout = (v) => {
+    setLayoutState(v);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { layout: v } }, '*');
+  };
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === '__activate_edit_mode') setTweaksVisible(true);
+      if (e.data.type === '__deactivate_edit_mode') setTweaksVisible(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  // Fake autosave
+  React.useEffect(() => {
+    if (saved) return;
+    const t = setTimeout(() => setSaved(true), 1200);
+    return () => clearTimeout(t);
+  }, [saved]);
+
+  const LayoutComponent =
+    layout === 'tabbed' ? LayoutTabbed :
+    layout === 'three-col' ? LayoutThreeCol :
+    LayoutTwoCol;
+
+  return (
+    <div className="app">
+      <Sidebar/>
+      <div className="main">
+        <Topbar/>
+        <div className="content">
+          <Breadcrumb items={[
+            { label: 'Produits', href: '#' },
+            { label: 'Portail coulissant aluminium RAL 7016' },
+          ]}/>
+          <div className="page-head">
+            <div>
+              <h1>Portail coulissant aluminium RAL 7016</h1>
+              <div className="subtitle">
+                <span className="mono">{state.sku}</span>
+                <span style={{ margin: '0 8px' }}>·</span>
+                <span>Modifié il y a 12 min par Olivier M.</span>
+              </div>
+            </div>
+            <div className="head-actions">
+              <button className="btn btn-secondary"><Icon name="eye" size={13}/>Aperçu</button>
+              <button className="btn btn-secondary"><Icon name="copy" size={13}/>Dupliquer</button>
+              <button className="btn btn-secondary"><Icon name="more" size={13}/></button>
+              <span style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch', margin: '0 4px' }}/>
+              <button className="btn btn-primary">Enregistrer</button>
+            </div>
+          </div>
+
+          <LayoutComponent state={state} set={set}/>
+
+          <div className="sticky-actions">
+            <div className="left">
+              {saved ? (
+                <span className="saved"><Icon name="check" size={13}/>Toutes les modifications sont enregistrées</span>
+              ) : (
+                <span>Enregistrement…</span>
+              )}
+              <span>·</span>
+              <span>Layout actif : <strong style={{ color: '#374151' }}>
+                {layout === 'two-col' ? '2 colonnes (principal + sidebar)' :
+                 layout === 'tabbed' ? '1 colonne, 3 onglets' :
+                 '3 colonnes denses'}
+              </strong></span>
+            </div>
+            <button className="btn btn-secondary">Annuler</button>
+            <button className="btn btn-secondary">Enregistrer comme brouillon</button>
+            <button className="btn btn-primary">Enregistrer et publier</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tweaks panel */}
+      <div className={`tweaks ${tweaksVisible ? 'visible' : ''}`}>
+        <div className="tweaks-head">
+          <strong>Tweaks</strong>
+          <button className="btn btn-ghost" style={{ padding: 4 }} onClick={() => setTweaksVisible(false)}>
+            <Icon name="x" size={13}/>
+          </button>
+        </div>
+        <div className="tweaks-body">
+          <div>
+            <label>Layout</label>
+            <div className="opts">
+              <button className={layout === 'two-col' ? 'on' : ''} onClick={() => setLayout('two-col')}>
+                2 colonnes — principal + sidebar contextuelle
+              </button>
+              <button className={layout === 'tabbed' ? 'on' : ''} onClick={() => setLayout('tabbed')}>
+                1 colonne — 3 onglets (Général / Contenu / Stock)
+              </button>
+              <button className={layout === 'three-col' ? 'on' : ''} onClick={() => setLayout('three-col')}>
+                3 colonnes denses — power user
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

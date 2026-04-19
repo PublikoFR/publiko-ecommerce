@@ -1,0 +1,75 @@
+@layer components {
+    /* ---------------- Tiptap editor (awcodes/filament-tiptap-editor) ---------------- */
+
+    /* Hauteur minimale de la zone d'écriture */
+    .tiptap-wrapper .tiptap,
+    .tiptap-wrapper .ProseMirror {
+        min-height: 240px;
+    }
+
+    /* Poignée de redimensionnement en bas-droite du wrapper scrollable :
+       navigateur ajoute automatiquement le coin à cause de `resize: vertical` + overflow. */
+    .tiptap-prosemirror-wrapper {
+        resize: vertical;
+        max-height: none !important;
+        min-height: 280px;
+    }
+
+    /* Textarea HTML brut (mode source custom) même hauteur que le mode visuel */
+    .tiptap-code-textarea {
+        min-height: 240px;
+    }
+
+    /* Supprime les bordures "box" par défaut sur chaque bouton outil (reset agressif du thème
+       tiptap-editor qui applique un ring-1 trop visible). Hover/focus restent discrets. */
+    .tiptap-toolbar .tiptap-tool {
+        box-shadow: none !important;
+        border: 0 !important;
+        background-color: transparent;
+        padding: 0.375rem;
+        line-height: 1;
+        color: rgb(75 85 99);
+    }
+
+    .dark .tiptap-toolbar .tiptap-tool {
+        color: rgb(209 213 219);
+    }
+
+    .tiptap-toolbar .tiptap-tool:hover,
+    .tiptap-toolbar .tiptap-tool:focus-visible {
+        background-color: rgb(243 244 246);
+        color: rgb(17 24 39);
+    }
+
+    .dark .tiptap-toolbar .tiptap-tool:hover,
+    .dark .tiptap-toolbar .tiptap-tool:focus-visible {
+        background-color: rgb(255 255 255 / 0.05);
+        color: rgb(255 255 255);
+    }
+
+    /* Bouton actif (gras/italique enclenché) : fond coloré accent */
+    .tiptap-toolbar .tiptap-tool.\!bg-gray-500\/30,
+    .tiptap-toolbar .tiptap-tool[class*='!bg-gray-500/30'] {
+        background-color: rgb(var(--primary-500) / 0.15) !important;
+        color: rgb(var(--primary-600)) !important;
+    }
+
+    /* Dividers plus discrets entre groupes */
+    .tiptap-toolbar {
+        border-color: rgb(229 231 235) !important;
+        background-color: rgb(249 250 251) !important;
+    }
+
+    .dark .tiptap-toolbar {
+        border-color: rgb(255 255 255 / 0.1) !important;
+        background-color: rgb(17 24 39) !important;
+    }
+
+    .tiptap-toolbar > div {
+        border-color: rgb(229 231 235) !important;
+    }
+
+    .dark .tiptap-toolbar > div {
+        border-color: rgb(255 255 255 / 0.1) !important;
+    }
+}
