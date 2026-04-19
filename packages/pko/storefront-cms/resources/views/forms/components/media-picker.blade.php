@@ -5,6 +5,7 @@
     $state = $getState();
     $isMultiple = $isMultiple();
     $mediagroup = $getMediagroup();
+    $folderSlug = $getFolderSlug();
 
     $ids = $isMultiple
         ? array_values(array_filter(array_map('intval', (array) $state)))
@@ -18,6 +19,7 @@
         'statePath' => $statePath,
         'multiple' => $isMultiple,
         'mediagroup' => $mediagroup,
+        'folder' => $folderSlug,
         'initialIds' => $ids,
     ];
 @endphp
@@ -32,6 +34,7 @@
             statePath: @js($statePath),
             multiple: @js($isMultiple),
             mediagroup: @js($mediagroup),
+            folder: @js($folderSlug),
             selected: [],
 
             init() {
@@ -57,6 +60,7 @@
                     multiple: this.multiple,
                     preselected: this.selected.map(m => m.id),
                     mediagroup: this.mediagroup,
+                    folder: this.folder,
                 });
             },
 

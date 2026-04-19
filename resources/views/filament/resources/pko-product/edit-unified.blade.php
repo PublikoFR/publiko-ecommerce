@@ -30,6 +30,7 @@
                         multiple: false,
                         preselected: [],
                         mediagroup: 'product',
+                        folder: 'products',
                     });
                 },
                 _insertTiptapImage(media) {

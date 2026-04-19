@@ -95,7 +95,7 @@ Package `awcodes/filament-tiptap-editor` branché dans la page unifiée via un s
 Profil custom :
 - `->maxContentWidth('full')` — évite le centrage 5xl par défaut (grosse marge intérieure indésirable).
 - Tools : heading, listes (puces/ordonnées/check), blockquote, hr, bold/italic/underline/strike/sup/sub, color/highlight, align-*, link, oembed, table, code, code-block, source (HTML brut natif).
-- Outil `media` natif retiré (uploadait hors médiathèque) — remplacé par un bouton custom au-dessus de l'éditeur qui ouvre notre `MediaPickerModal`.
+- Outil `media` natif retiré (uploadait hors médiathèque) — remplacé par un bouton custom au-dessus de l'éditeur qui ouvre notre `PkoMediaLibrary (mode picker)`.
 
 Vues publiées dans `resources/views/vendor/filament-tiptap-editor/` :
 - `components/tools/heading.blade.php` — H1/H5/H6 masqués (H1 réservé au titre produit/SEO).
@@ -110,7 +110,7 @@ Traçabilité images description ↔ produit :
 - Au save, `syncDescriptionImages()` parse le HTML, matche `<img src>` par `file_name` Spatie, et synchronise `pko_mediables` avec `mediagroup='product-description'`.
 - Ajout ou retrait d'une image dans la description → `pko_mediables` mis à jour dans la foulée.
 
-Import via URL dans `MediaPickerModal` :
+Import via URL dans `PkoMediaLibrary (mode picker)` :
 - Panneau « Importer via URL » dans la toolbar de la modale (toggle Alpine).
 - Serveur : download HTTP (timeout 15s), sniff binaire (JPEG/PNG/GIF/WebP/SVG) si l'extension est absente, création d'un `Media` Spatie dans le dossier courant, auto-sélection.
 - Côté produit : plus qu'un seul bouton « Insérer une image (médiathèque ou URL) » — la modale couvre les deux flux.

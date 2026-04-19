@@ -39,7 +39,15 @@ class StorefrontCmsPlugin implements Plugin
             ])
             ->renderHook(
                 'panels::body.end',
-                fn (): HtmlString => new HtmlString(Blade::render('<livewire:pko-media-picker-modal />')),
+                function (): HtmlString {
+                    // Sur la page Médiathèque, le composant est déjà monté par le shell Filament :
+                    // on évite la double-instance (état dupliqué, URL conflicts).
+                    if (request()->routeIs('filament.*.pages.mediatheque')) {
+                        return new HtmlString('');
+                    }
+
+                    return new HtmlString(Blade::render('<livewire:pko-media-library />'));
+                },
             );
     }
 
