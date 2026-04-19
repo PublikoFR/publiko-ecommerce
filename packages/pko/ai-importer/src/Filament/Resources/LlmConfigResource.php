@@ -9,9 +9,9 @@ use Filament\Forms\Form;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Lunar\Admin\Support\Resources\BaseResource;
-use Pko\AiImporter\Enums\LlmProviderName;
+use Pko\AiCore\Enums\LlmProviderName;
+use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource\Pages;
-use Pko\AiImporter\Models\LlmConfig;
 
 class LlmConfigResource extends BaseResource
 {
@@ -39,21 +39,25 @@ class LlmConfigResource extends BaseResource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Select::make('model')
+                ->label('Modèle')
+                ->required()
+                ->native(false)
+                ->searchable()
+                ->options(LlmProviderName::groupedModels())
+                ->placeholder('Sélectionnez un modèle')
+                ->live()
+                ->afterStateUpdated(function (Forms\Set $set, ?string $state): void {
+                    $provider = $state ? LlmProviderName::providerForModel($state) : null;
+                    $set('provider', $provider?->value);
+                    if ($state && $provider) {
+                        $set('name', $provider->models()[$state]);
+                    }
+                }),
+            Forms\Components\Hidden::make('provider'),
             Forms\Components\TextInput::make('name')
                 ->label('Nom')
                 ->required()
-                ->maxLength(64),
-            Forms\Components\Select::make('provider')
-                ->label('Provider')
-                ->options(collect(LlmProviderName::cases())
-                    ->mapWithKeys(fn (LlmProviderName $p) => [$p->value => $p->label()])
-                    ->toArray())
-                ->required()
-                ->native(false),
-            Forms\Components\TextInput::make('model')
-                ->label('Modèle')
-                ->required()
-                ->placeholder('claude-sonnet-4-6 / gpt-4o')
                 ->maxLength(64),
             Forms\Components\TextInput::make('api_key')
                 ->label('Clé API')

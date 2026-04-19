@@ -1,0 +1,23 @@
+{
+    "name": "pko/ai-core",
+    "description": "AI Core — providers LLM universels (Claude, OpenAI) utilisables par tous les modules du back-office.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\AiCore\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\AiCore\\AiCoreServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

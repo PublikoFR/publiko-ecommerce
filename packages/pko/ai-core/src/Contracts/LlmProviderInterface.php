@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pko\AiImporter\Contracts;
+namespace Pko\AiCore\Contracts;
 
 interface LlmProviderInterface
 {

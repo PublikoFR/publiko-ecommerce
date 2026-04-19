@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Pko\AiImporter\Actions\Types;
 
+use Pko\AiCore\Llm\LlmManager;
+use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
-use Pko\AiImporter\Llm\LlmManager;
-use Pko\AiImporter\Models\LlmConfig;
 
 /**
  * LLM-powered column transform.

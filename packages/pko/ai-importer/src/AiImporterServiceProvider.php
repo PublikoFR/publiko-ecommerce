@@ -9,7 +9,6 @@ use Pko\AiImporter\Actions\ActionRegistry;
 use Pko\AiImporter\Console\ImportPsConfigCommand;
 use Pko\AiImporter\Console\PreviewConfigCommand;
 use Pko\AiImporter\Console\RunScheduledImportsCommand;
-use Pko\AiImporter\Llm\LlmManager;
 use Pko\AiImporter\Services\ActionPipeline;
 
 class AiImporterServiceProvider extends ServiceProvider
@@ -18,7 +17,6 @@ class AiImporterServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/ai-importer.php', 'ai-importer');
 
-        $this->app->singleton(LlmManager::class, fn () => new LlmManager);
         $this->app->singleton(ActionPipeline::class, fn () => new ActionPipeline);
     }
 
