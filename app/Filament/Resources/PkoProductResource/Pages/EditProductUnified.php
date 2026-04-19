@@ -30,6 +30,7 @@ use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Services\FeatureManager;
 use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Page d'édition produit unifiée 2 colonnes.
@@ -263,14 +264,13 @@ class EditProductUnified extends Page implements HasForms
                 TiptapEditor::make('longDesc')
                     ->label('')
                     ->maxContentWidth('full')
+                    ->disableFloatingMenus()
                     ->tools([
                         'heading',
                         'bold', 'italic', 'underline', '|',
                         'bullet-list', 'ordered-list', 'blockquote', 'hr', '|',
                         'link', 'source',
                     ])
-                    ->disableFloatingMenus()
-                    ->disableBubbleMenus()
                     ->output(TiptapOutput::Html),
             ])
             ->statePath('descriptionData');
@@ -516,6 +516,9 @@ class EditProductUnified extends Page implements HasForms
         $this->mediaForm->getState();
         $this->mediaForm->saveRelationships();
 
+        // Associations images de description ↔ produit (pko_mediables, mediagroup = 'product-description').
+        $this->syncDescriptionImages($this->record, $longDesc);
+
         // Refresh la prop Livewire pour que le Blade reflète la valeur sauvée.
         $this->longDesc = $longDesc;
 
@@ -715,6 +718,66 @@ class EditProductUnified extends Page implements HasForms
                 ]));
             }
         }
+    }
+
+    /**
+     * Associe les images insérées dans la description avec le produit via `pko_mediables`
+     * en utilisant le mediagroup `product-description`. Chaque sauvegarde remplace
+     * intégralement le set pour ce groupe (images ajoutées ou retirées de la description).
+     */
+    private function syncDescriptionImages(Product $product, string $html): void
+    {
+        $ids = [];
+        if (trim($html) !== '') {
+            $pattern = '/<img[^>]+src=[\'"]([^\'"]+)[\'"][^>]*>/i';
+            if (preg_match_all($pattern, $html, $matches)) {
+                $srcs = array_unique($matches[1] ?? []);
+
+                if (! empty($srcs)) {
+                    // Sélection par fichier (plus robuste qu'une comparaison d'URL complète).
+                    $fileNames = array_filter(array_map(
+                        fn (string $src) => pathinfo(parse_url($src, PHP_URL_PATH) ?? '', PATHINFO_BASENAME) ?: null,
+                        $srcs
+                    ));
+
+                    if (! empty($fileNames)) {
+                        $ids = Media::query()
+                            ->whereIn('file_name', $fileNames)
+                            ->pluck('id')
+                            ->map(fn ($v) => (int) $v)
+                            ->all();
+                    }
+                }
+            }
+        }
+
+        $group = 'product-description';
+        $type = $product::class;
+
+        DB::table('pko_mediables')
+            ->where('mediable_type', $type)
+            ->where('mediable_id', $product->id)
+            ->where('mediagroup', $group)
+            ->delete();
+
+        if (empty($ids)) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+        foreach (array_values(array_unique($ids)) as $position => $mediaId) {
+            $rows[] = [
+                'media_id' => $mediaId,
+                'mediable_type' => $type,
+                'mediable_id' => $product->id,
+                'mediagroup' => $group,
+                'position' => $position,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+        DB::table('pko_mediables')->insertOrIgnore($rows);
     }
 
     /** @return array<int,int> */

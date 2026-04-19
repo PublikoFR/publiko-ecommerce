@@ -7,6 +7,14 @@
         min-height: 240px;
     }
 
+    /* Poignée de redimensionnement en bas-droite du wrapper scrollable :
+       navigateur ajoute automatiquement le coin à cause de `resize: vertical` + overflow. */
+    .tiptap-prosemirror-wrapper {
+        resize: vertical;
+        max-height: none !important;
+        min-height: 280px;
+    }
+
     /* Textarea HTML brut (mode source custom) même hauteur que le mode visuel */
     .tiptap-code-textarea {
         min-height: 240px;

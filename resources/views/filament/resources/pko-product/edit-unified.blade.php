@@ -32,19 +32,16 @@
                         mediagroup: 'product',
                     });
                 },
-                insertExternalImage() {
-                    const url = window.prompt('URL de l’image (https://…)');
-                    if (!url) return;
-                    const alt = window.prompt('Texte alternatif (accessibilité)', '') || '';
-                    this._insertTiptapImage({ url: url, alt: alt });
-                },
                 _insertTiptapImage(media) {
+                    // On passe l'ID du média en `id` — le package TipTap le reporte
+                    // sur l'attribut `data-id` de l'image. Base pour la traçabilité DB.
                     const evt = new CustomEvent('insert-content', {
                         bubble: true,
                         detail: {
                             statePath: this.editorStatePath,
                             type: 'media',
                             media: {
+                                id: media.id,
                                 url: media.url,
                                 src: media.url,
                                 alt: media.alt || '',
@@ -63,6 +60,7 @@
                     const media = (data.medias || [])[0];
                     if (!media) return;
                     window.pkoProductEditor._insertTiptapImage({
+                        id: media.id,
                         url: media.url,
                         alt: media.alt || '',
                     });
@@ -129,15 +127,7 @@
                             icon="heroicon-o-photo"
                             x-on:click="window.pkoProductEditor.insertFromMedia()"
                         >
-                            Insérer depuis la médiathèque
-                        </x-filament::button>
-                        <x-filament::button
-                            color="gray"
-                            size="sm"
-                            icon="heroicon-o-link"
-                            x-on:click="window.pkoProductEditor.insertExternalImage()"
-                        >
-                            Insérer via URL
+                            Insérer une image (médiathèque ou URL)
                         </x-filament::button>
                     </div>
 

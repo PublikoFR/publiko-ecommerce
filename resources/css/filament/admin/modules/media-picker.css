@@ -182,7 +182,7 @@
     .mpicker-box {
         position: relative;
         width: 100%;
-        max-width: 1100px;
+        max-width: 1400px;
         height: 85vh;
         display: flex;
         flex-direction: column;
@@ -301,6 +301,17 @@
         min-width: 0;
         padding: 1rem 1.25rem;
         overflow: hidden;
+    }
+
+    .mpicker-details {
+        width: 320px;
+        flex-shrink: 0;
+        border-left: 1px solid rgb(229 231 235);
+        padding: 1rem;
+        overflow-y: auto;
+    }
+    .dark .mpicker-details {
+        border-color: rgba(255 255 255 / 0.1);
     }
     .mpicker-toolbar {
         display: flex;

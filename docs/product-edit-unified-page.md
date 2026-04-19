@@ -88,6 +88,37 @@ Product::where('status', 'published')->where('featured', true)->limit(8)->get();
 
 Pas d'équivalent `visible` — le statut Lunar (`published` / `draft`) joue ce rôle.
 
+## Éditeur description longue — TipTap
+
+Package `awcodes/filament-tiptap-editor` branché dans la page unifiée via un second Filament Form (`descriptionForm`, statePath `descriptionData`).
+
+Profil custom :
+- `->maxContentWidth('full')` — évite le centrage 5xl par défaut (grosse marge intérieure indésirable).
+- Tools : heading, listes (puces/ordonnées/check), blockquote, hr, bold/italic/underline/strike/sup/sub, color/highlight, align-*, link, oembed, table, code, code-block, source (HTML brut natif).
+- Outil `media` natif retiré (uploadait hors médiathèque) — remplacé par un bouton custom au-dessus de l'éditeur qui ouvre notre `MediaPickerModal`.
+
+Vues publiées dans `resources/views/vendor/filament-tiptap-editor/` :
+- `components/tools/heading.blade.php` — H1/H5/H6 masqués (H1 réservé au titre produit/SEO).
+- `components/menus/image-bubble-menu.blade.php` — override : bulle sur image = bouton ⚙️ (popover réglages : **alt** + **max-width** en px/%/rem/em, posé via `style="max-width: X; height: auto;"` pour préserver le responsive) + 🗑 suppression.
+
+Module CSS `resources/css/filament/admin/modules/tiptap-editor.css` :
+- `min-height: 240px` + `resize: vertical` sur `.tiptap-prosemirror-wrapper` (poignée de redimensionnement native en bas-droite, max-h-[40rem] du package désactivé).
+- Reset des `ring-1` par défaut sur `.tiptap-tool` (rendait la toolbar hideuse). Hover doux, état actif `bg-primary-500/15`.
+
+Traçabilité images description ↔ produit :
+- Les images insérées aboutissent dans le HTML stocké en `attribute_data.description`.
+- Au save, `syncDescriptionImages()` parse le HTML, matche `<img src>` par `file_name` Spatie, et synchronise `pko_mediables` avec `mediagroup='product-description'`.
+- Ajout ou retrait d'une image dans la description → `pko_mediables` mis à jour dans la foulée.
+
+Import via URL dans `MediaPickerModal` :
+- Panneau « Importer via URL » dans la toolbar de la modale (toggle Alpine).
+- Serveur : download HTTP (timeout 15s), sniff binaire (JPEG/PNG/GIF/WebP/SVG) si l'extension est absente, création d'un `Media` Spatie dans le dossier courant, auto-sélection.
+- Côté produit : plus qu'un seul bouton « Insérer une image (médiathèque ou URL) » — la modale couvre les deux flux.
+
+Volet latéral détails dans la modale :
+- Au clic sur une tuile, volet droit ouvre avec preview + métadonnées (fichier, type, taille, date) + édition inline **nom de fichier / titre / alt** (`saveFocusedMeta()`).
+- Modale élargie à 1400px pour loger 3 colonnes (folders / grid / details).
+
 ## Dette connue / limitations phase 1
 
 - **Pas de WYSIWYG** — la description longue est un `<textarea>` simple (HTML brut accepté). À upgrade vers `Filament\Forms\Components\RichEditor` ou TipTap si besoin esthétique.

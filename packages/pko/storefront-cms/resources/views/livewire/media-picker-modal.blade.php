@@ -72,6 +72,47 @@
                                 <x-filament::icon icon="heroicon-o-arrow-up-tray" class="w-4 h-4" />
                                 Uploader
                             </label>
+                            <button
+                                type="button"
+                                x-on:click="urlImport = !urlImport"
+                                class="mpicker-upload-btn"
+                                :class="{ 'is-dragover': urlImport }"
+                            >
+                                <x-filament::icon icon="heroicon-o-link" class="w-4 h-4" />
+                                Importer via URL
+                            </button>
+                        </div>
+
+                        <div x-show="urlImport" x-cloak class="flex flex-wrap items-start gap-2 px-2 py-2 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5">
+                            <div class="flex-1 min-w-[240px]">
+                                <input
+                                    type="url"
+                                    wire:model="importUrl"
+                                    placeholder="https://exemple.com/image.jpg"
+                                    class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+                                />
+                            </div>
+                            <div class="flex-1 min-w-[180px]">
+                                <input
+                                    type="text"
+                                    wire:model="importName"
+                                    placeholder="Nom (optionnel)"
+                                    class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+                                />
+                            </div>
+                            <x-filament::button
+                                color="primary"
+                                size="sm"
+                                wire:click="importFromUrl"
+                                wire:loading.attr="disabled"
+                                wire:target="importFromUrl"
+                            >
+                                <span wire:loading.remove wire:target="importFromUrl">Importer</span>
+                                <span wire:loading wire:target="importFromUrl">Import…</span>
+                            </x-filament::button>
+                            @if ($importError)
+                                <p class="w-full text-xs text-danger-600">{{ $importError }}</p>
+                            @endif
                         </div>
 
                         @if ($currentFolderId === null)
@@ -137,6 +178,67 @@
                             </div>
                         @endif
                     </div>
+
+                    {{-- Volet latéral détails / édition — ouvre au clic sur une tuile --}}
+                    @if ($this->focusedMedia)
+                        @php $fm = $this->focusedMedia; @endphp
+                        <aside class="mpicker-details">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="mpicker-sidebar-title m-0">Détails</h3>
+                                <button type="button" wire:click="clearFocus" class="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-white">
+                                    <x-filament::icon icon="heroicon-o-x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            @if (str_starts_with((string) $fm->mime_type, 'image/'))
+                                <div class="bg-gray-100 dark:bg-white/5 rounded-lg overflow-hidden flex items-center justify-center p-2 mb-3" style="aspect-ratio:1/1;">
+                                    <img src="{{ $fm->getUrl() }}" alt="" class="max-w-full max-h-full object-contain" />
+                                </div>
+                            @else
+                                <div class="bg-gray-100 dark:bg-white/5 rounded-lg flex items-center justify-center p-6 mb-3">
+                                    <x-filament::icon icon="heroicon-o-document" class="w-12 h-12 text-gray-400" />
+                                </div>
+                            @endif
+
+                            <dl class="grid grid-cols-2 gap-2 text-[11px] text-gray-600 dark:text-gray-400 mb-3">
+                                <div class="bg-gray-50 dark:bg-white/5 rounded p-2">
+                                    <dt class="font-semibold uppercase tracking-wider" style="font-size:0.6rem;">Fichier</dt>
+                                    <dd class="text-gray-900 dark:text-gray-100 break-all m-0">{{ $fm->file_name }}</dd>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-white/5 rounded p-2">
+                                    <dt class="font-semibold uppercase tracking-wider" style="font-size:0.6rem;">Type</dt>
+                                    <dd class="text-gray-900 dark:text-gray-100 m-0">{{ $fm->mime_type }}</dd>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-white/5 rounded p-2">
+                                    <dt class="font-semibold uppercase tracking-wider" style="font-size:0.6rem;">Taille</dt>
+                                    <dd class="text-gray-900 dark:text-gray-100 m-0">{{ number_format($fm->size / 1024, 1) }} Ko</dd>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-white/5 rounded p-2">
+                                    <dt class="font-semibold uppercase tracking-wider" style="font-size:0.6rem;">Uploadé</dt>
+                                    <dd class="text-gray-900 dark:text-gray-100 m-0">{{ $fm->created_at?->format('d/m/Y') }}</dd>
+                                </div>
+                            </dl>
+
+                            <div class="flex flex-col gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Nom du fichier <span class="text-gray-400">(sans extension)</span></label>
+                                    <input type="text" wire:model="editName" class="w-full text-xs border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-950 text-gray-900 dark:text-white font-mono" />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Titre</label>
+                                    <input type="text" wire:model="editTitle" class="w-full text-xs border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-950 text-gray-900 dark:text-white" />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Alt <span class="text-gray-400">(accessibilité/SEO)</span></label>
+                                    <textarea wire:model="editAlt" rows="3" class="w-full text-xs border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-950 text-gray-900 dark:text-white"></textarea>
+                                </div>
+                                <x-filament::button size="sm" wire:click="saveFocusedMeta" wire:loading.attr="disabled" wire:target="saveFocusedMeta">
+                                    <span wire:loading.remove wire:target="saveFocusedMeta">Enregistrer les méta</span>
+                                    <span wire:loading wire:target="saveFocusedMeta">Enregistrement…</span>
+                                </x-filament::button>
+                            </div>
+                        </aside>
+                    @endif
                 </div>
 
                 <footer class="mpicker-footer">
@@ -167,6 +269,7 @@
         window.mdeMediaPicker = function () {
             return {
                 dragover: false,
+                urlImport: false,
                 pending: [],
                 handleFiles(fileList) {
                     const files = Array.from(fileList || []);
