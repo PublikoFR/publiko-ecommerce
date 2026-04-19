@@ -10,6 +10,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use FilamentTiptapEditor\Enums\TiptapOutput;
+use FilamentTiptapEditor\TiptapEditor;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -99,8 +101,6 @@ class EditProductUnified extends Page implements HasForms
     // ------- Statut & visibilité
     public string $status = 'draft';
 
-    public bool $visible = true;
-
     public bool $featured = false;
 
     public ?string $publishAt = null;
@@ -170,6 +170,7 @@ class EditProductUnified extends Page implements HasForms
         $this->seoDesc = $this->readAttr($attrs, 'meta_description');
 
         $this->status = (string) ($product->status ?? 'draft');
+        $this->featured = (bool) ($product->featured ?? false);
         $this->brandId = $product->brand_id;
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
         $this->tagInputs = $product->tags->pluck('value')->all();
@@ -227,11 +228,23 @@ class EditProductUnified extends Page implements HasForms
             ->map(fn ($v) => (int) $v)
             ->all();
 
-        // Filament form pour MediaPicker uniquement.
-        $this->form->fill();
+        // Filament forms : MediaPicker (médias) + RichEditor (description longue).
+        $this->mediaForm->fill();
+        $this->descriptionForm->fill([
+            'longDesc' => $this->longDesc,
+        ]);
     }
 
-    public function form(Form $form): Form
+    public array $mediaData = [];
+
+    public array $descriptionData = [];
+
+    protected function getForms(): array
+    {
+        return ['mediaForm', 'descriptionForm'];
+    }
+
+    public function mediaForm(Form $form): Form
     {
         return $form
             ->schema([
@@ -243,11 +256,35 @@ class EditProductUnified extends Page implements HasForms
             ->statePath('mediaData');
     }
 
-    public array $mediaData = [];
+    public function descriptionForm(Form $form): Form
+    {
+        return $form
+            ->schema([
+                TiptapEditor::make('longDesc')
+                    ->label('')
+                    ->maxContentWidth('full')
+                    ->tools([
+                        'heading',
+                        'bold', 'italic', 'underline', '|',
+                        'bullet-list', 'ordered-list', 'blockquote', 'hr', '|',
+                        'link', 'source',
+                    ])
+                    ->disableFloatingMenus()
+                    ->disableBubbleMenus()
+                    ->output(TiptapOutput::Html),
+            ])
+            ->statePath('descriptionData');
+    }
 
     public function updated(string $property): void
     {
         if (in_array($property, ['isDirty', 'record', 'variantPage', 'collectionSearch', 'relatedSearch'], true)) {
+            return;
+        }
+
+        if (str_starts_with($property, 'mediaData') || str_starts_with($property, 'descriptionData')) {
+            $this->isDirty = true;
+
             return;
         }
         $this->isDirty = true;
@@ -425,19 +462,22 @@ class EditProductUnified extends Page implements HasForms
             'taxClassId' => ['required', 'integer'],
         ]);
 
-        DB::transaction(function (): void {
+        $longDesc = (string) ($this->descriptionForm->getState()['longDesc'] ?? $this->longDesc);
+
+        DB::transaction(function () use ($longDesc): void {
             $product = $this->record;
             $attrs = collect($product->attribute_data?->all() ?? []);
 
             $attrs = $this->writeAttr($attrs, 'name', $this->productName);
             $attrs = $this->writeAttr($attrs, 'short_description', $this->shortDesc);
-            $attrs = $this->writeAttr($attrs, 'description', $this->longDesc);
+            $attrs = $this->writeAttr($attrs, 'description', $longDesc);
             $attrs = $this->writeAttr($attrs, 'meta_title', $this->seoTitle);
             $attrs = $this->writeAttr($attrs, 'meta_description', $this->seoDesc);
 
             $product->attribute_data = $attrs;
             $product->brand_id = $this->brandId;
             $product->status = $this->status;
+            $product->featured = $this->featured;
             $product->save();
 
             $product->collections()->sync($this->collectionIds);
@@ -472,9 +512,12 @@ class EditProductUnified extends Page implements HasForms
             }
         });
 
-        // Médias (mini form Filament)
-        $this->form->getState();
-        $this->form->saveRelationships();
+        // Médias (mini form Filament) : persist pivots pko_mediables.
+        $this->mediaForm->getState();
+        $this->mediaForm->saveRelationships();
+
+        // Refresh la prop Livewire pour que le Blade reflète la valeur sauvée.
+        $this->longDesc = $longDesc;
 
         $this->isDirty = false;
 

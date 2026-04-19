@@ -78,6 +78,16 @@ Lien `route('product.view', ['slug' => $defaultUrl->slug])` si la route est rés
 | `#d97706` warning | `text-warning-600` |
 | `#dc2626` danger | `text-danger-600` |
 
+## Colonne `featured` sur `lunar_products`
+
+Ajoutée via migration custom (`Schema::table`) — flag booléen indexé, default `false`. Permet au storefront de pull un bloc "produits phares" en page d'accueil indépendamment de la taxonomie :
+
+```php
+Product::where('status', 'published')->where('featured', true)->limit(8)->get();
+```
+
+Pas d'équivalent `visible` — le statut Lunar (`published` / `draft`) joue ce rôle.
+
 ## Dette connue / limitations phase 1
 
 - **Pas de WYSIWYG** — la description longue est un `<textarea>` simple (HTML brut accepté). À upgrade vers `Filament\Forms\Components\RichEditor` ou TipTap si besoin esthétique.

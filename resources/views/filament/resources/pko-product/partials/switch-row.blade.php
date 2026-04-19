@@ -9,18 +9,14 @@
     </div>
     <button
         type="button"
-        wire:click="$set('{{ $model }}', {{ '!' . '$wire.' . $model }} )"
-        @class([
-            'relative inline-flex shrink-0 h-5 w-9 rounded-full transition-colors',
-            'bg-primary-600' => true,
-        ])
-        x-data="{}"
-        x-bind:class="$wire.{{ $model }} ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'"
-        @click="$wire.{{ $model }} = !$wire.{{ $model }}"
+        x-data
+        x-on:click.prevent="$wire.set(@js($model), ! $wire.get(@js($model)))"
+        x-bind:class="$wire.get(@js($model)) ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'"
+        class="relative inline-flex shrink-0 h-5 w-9 rounded-full transition-colors"
     >
         <span
             class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-            x-bind:class="$wire.{{ $model }} ? 'translate-x-4' : 'translate-x-0'"
+            x-bind:class="$wire.get(@js($model)) ? 'translate-x-4' : 'translate-x-0'"
         ></span>
     </button>
 </label>

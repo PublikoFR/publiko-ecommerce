@@ -21,6 +21,53 @@
                     }
                 });
             })();
+
+            window.pkoProductEditor = window.pkoProductEditor || {
+                editorStatePath: 'descriptionData.longDesc',
+                insertFromMedia() {
+                    window.Livewire.dispatch('open-media-picker-modal', {
+                        statePath: '__pko_product_tiptap',
+                        multiple: false,
+                        preselected: [],
+                        mediagroup: 'product',
+                    });
+                },
+                insertExternalImage() {
+                    const url = window.prompt('URL de l’image (https://…)');
+                    if (!url) return;
+                    const alt = window.prompt('Texte alternatif (accessibilité)', '') || '';
+                    this._insertTiptapImage({ url: url, alt: alt });
+                },
+                _insertTiptapImage(media) {
+                    const evt = new CustomEvent('insert-content', {
+                        bubble: true,
+                        detail: {
+                            statePath: this.editorStatePath,
+                            type: 'media',
+                            media: {
+                                url: media.url,
+                                src: media.url,
+                                alt: media.alt || '',
+                                title: media.alt || '',
+                            },
+                        },
+                    });
+                    window.dispatchEvent(evt);
+                },
+            };
+            if (!window.__pkoProductEditorBound) {
+                window.__pkoProductEditorBound = true;
+                window.addEventListener('media-picked', (e) => {
+                    const data = (e.detail && (e.detail[0] ?? e.detail)) || {};
+                    if (data.statePath !== '__pko_product_tiptap') return;
+                    const media = (data.medias || [])[0];
+                    if (!media) return;
+                    window.pkoProductEditor._insertTiptapImage({
+                        url: media.url,
+                        alt: media.alt || '',
+                    });
+                });
+            }
         </script>
     @endassets
     <form
@@ -67,17 +114,35 @@
 
             {{-- 2. Médias --}}
             <x-pko-product::card title="Médias" icon="heroicon-o-photo">
-                {{ $this->form }}
+                {{ $this->mediaForm }}
             </x-pko-product::card>
 
             {{-- 3. Description longue --}}
             <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
-                <textarea
-                    wire:model.blur="longDesc"
-                    rows="8"
-                    class="w-full text-[13.5px] leading-[1.6] border border-gray-300 dark:border-white/10 rounded px-3 py-2 bg-white dark:bg-gray-900 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
-                    placeholder="Description détaillée du produit (HTML autorisé)…"
-                ></textarea>
+                <div class="space-y-2">
+                    {{-- Actions custom : médiathèque + URL externe. Le bouton HTML brut est le tool
+                         natif `source` intégré dans la toolbar TipTap (icône </> en fin de ligne). --}}
+                    <div class="flex gap-2 flex-wrap">
+                        <x-filament::button
+                            color="gray"
+                            size="sm"
+                            icon="heroicon-o-photo"
+                            x-on:click="window.pkoProductEditor.insertFromMedia()"
+                        >
+                            Insérer depuis la médiathèque
+                        </x-filament::button>
+                        <x-filament::button
+                            color="gray"
+                            size="sm"
+                            icon="heroicon-o-link"
+                            x-on:click="window.pkoProductEditor.insertExternalImage()"
+                        >
+                            Insérer via URL
+                        </x-filament::button>
+                    </div>
+
+                    {{ $this->descriptionForm }}
+                </div>
             </x-pko-product::card>
 
             {{-- 4. Caractéristiques techniques (CatalogFeatures) --}}
@@ -332,8 +397,7 @@
                         <option value="scheduled">Programmé</option>
                         <option value="archived">Archivé</option>
                     </select>
-                    <x-pko-product::switch-row label="Visible sur la boutique" model="visible" />
-                    <x-pko-product::switch-row label="Mis en avant" model="featured" />
+                    <x-pko-product::switch-row label="Mis en avant" description="Apparaît en page d'accueil (bloc produits phares)." model="featured" />
                     @if ($status === 'scheduled')
                         <div class="mt-2">
                             <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Date de publication</label>
