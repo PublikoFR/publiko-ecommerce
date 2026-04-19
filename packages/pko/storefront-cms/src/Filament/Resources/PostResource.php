@@ -51,7 +51,7 @@ class PostResource extends Resource
                     ->afterStateUpdated(fn ($state, $set, $get) => $get('slug') ? null : $set('slug', Str::slug((string) $state))),
                 TextInput::make('slug')->label('Slug')->required()->unique(ignoreRecord: true)->maxLength(200),
             ]),
-            MediaPicker::make('cover')->label('Image de couverture')->mediagroup('cover'),
+            MediaPicker::make('cover')->label('Image de couverture')->mediagroup('cover')->folder('blog'),
             Textarea::make('excerpt')->label('Extrait')->rows(2)->maxLength(500),
             RichEditor::make('body')->label('Contenu')->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList', 'h2', 'h3', 'blockquote'])->columnSpanFull(),
             Grid::make(2)->schema([

@@ -852,11 +852,11 @@ Packages écartés : `awcodes/filament-curator` (incompatible Spatie), `outerweb
 
 ### Médiathèque custom — `PkoMediaLibrary` (route `admin/mediatheque`)
 
-La page Filament par défaut de `tomatophp/filament-media-manager` est conservée en backend (modèle `Folder`, tables) mais **remplacée par une page custom** `Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary` pour l'UI (layout WP-style, multi-sélection, lightbox, slide-over édition).
+La page Filament par défaut de `tomatophp/filament-media-manager` est conservée en backend (modèle `Folder`, tables) mais **remplacée par une page custom** `Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary` (coquille fine qui monte le composant Livewire unifié `pko-media-library` — voir §Composant unifié `PkoMediaLibrary`). Layout WP-style, multi-sélection, lightbox, slide-over édition.
 
 **Uploader optimiste WP-style** :
 - Dropzone HTML custom (pas de FilePond) : `<label>` + `<input type="file" multiple>` + drag/drop natif
-- Tuiles "en cours" injectées dans la grid via Alpine (`x-data="mlibUploader()"`) avec preview locale (`URL.createObjectURL`) et spinner SVG circulaire basé sur l'event `progress` de Livewire
+- Tuiles "en cours" injectées dans la grid via Alpine (`x-data="pkoMediaLibraryUploader()"`) avec preview locale (`URL.createObjectURL`) et spinner SVG circulaire basé sur l'event `progress` de Livewire
 - Persistance : `$wire.upload('pendingUpload', file, finishCb, errorCb, progressCb)` → property `$pendingUpload` (trait `Livewire\WithFileUploads`) → méthode `persistPendingUpload(string $originalName)` qui fait `$folder->addMedia()->toMediaCollection()`
 - Sécurité suppression dossier : `deleteFolder()` compte les médias (`model_type=Folder, model_id=$id`) et refuse si > 0
 - Multi-sélection : property `$selectedMediaIds[]`, actions `bulkDeleteMedias()` / `confirmBulkMove()` (update `model_id` + `collection_name`, fichiers physiques inchangés car le path Spatie est basé sur l'id)
@@ -1198,23 +1198,38 @@ Pivot Eloquent : `Pko\StorefrontCms\Models\Mediable` (MorphPivot sur `pko_mediab
 
 API :
 ```php
-MediaPicker::make('cover')->mediagroup('cover');                // single
-MediaPicker::make('gallery')->multiple()->mediagroup('gallery'); // multi
+MediaPicker::make('cover')->mediagroup('cover');                           // single
+MediaPicker::make('gallery')->multiple()->mediagroup('gallery');           // multi
+MediaPicker::make('cover')->mediagroup('cover')->folder('blog');           // ouvre sur un dossier précis
 ```
+
+`->folder(string $slug)` : optionnel. Pré-ouvre la modale picker sur le dossier dont `collection = $slug` (court-circuite le défaut). Ignoré côté mode page.
 
 - Vide : bouton « + Choisir une image ».
 - Rempli : miniature (single) ou grille (multi) avec boutons Retirer / Ajouter / Remplacer.
 - Clic → `Livewire.dispatch('open-media-picker-modal', { statePath, multiple, preselected, mediagroup })`.
 - `dehydrated(false)` : l'état n'est pas écrit sur le modèle. La persistance passe par `saveRelationshipsUsing()` qui appelle `syncMediaAttachments()` après save du record parent.
 
-### Modal globale `MediaPickerModal`
+### Composant unifié `PkoMediaLibrary`
 
-Composant Livewire `Pko\StorefrontCms\Livewire\MediaPickerModal`, enregistré :
+Composant Livewire unique `Pko\StorefrontCms\Livewire\PkoMediaLibrary` (alias `pko-media-library`) qui couvre les **deux** usages :
 
-- sous l'alias `pko-media-picker-modal` dans `StorefrontCmsServiceProvider`
-- rendu une seule fois par panel Filament via `->renderHook('panels::body.end', ...)` dans `StorefrontCmsPlugin::register()`
+- **Mode page** (`pickerMode === null`) : rendu par la Filament Page coquille `Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary` (route `/admin/mediatheque`). Browse, upload dropzone, import URL, CRUD dossiers, bulk select/move/delete, drawer slide-over d'édition avec usages + conversions.
+- **Mode picker modale** (`pickerMode === 'single' | 'multiple'`) : monté globalement via `->renderHook('panels::body.end', ...)` dans `StorefrontCmsPlugin::register()` sur toutes les pages admin **sauf** `/admin/mediatheque` (évite la double-instance). Activé par l'event `open-media-picker-modal { statePath, multiple, preselected, mediagroup }`.
 
-Fonctionnalités : sidebar dossiers (réutilise `TomatoPHP\FilamentMediaManager\Models\Folder`), grille médias avec case à cocher (single = un seul, multi = plusieurs), recherche, upload dropzone WP-style via `$wire.upload()`. Après confirmation : dispatch `media-picked` avec `{ statePath, ids, medias }` (url + alt + fileName de chaque média), consommé par les champs `MediaPicker` correspondants.
+Vue racine `resources/views/livewire/pko-media-library.blade.php` qui branche sur 3 partials réutilisables dans `resources/views/partials/media-library/` :
+`folders-sidebar.blade.php`, `grid.blade.php`, `details-drawer.blade.php` (modes `mpicker` inline vs `mlib` slide-over).
+
+**Contrat d'events (inchangé)** :
+- Entrée : `open-media-picker-modal` avec payload `{ statePath, multiple, preselected, mediagroup, folder? }` (le `folder` optionnel est un slug `collection` qui force l'ouverture sur un dossier donné).
+- Sortie : `media-picked` avec payload `{ statePath, ids, medias: [{id, url, alt, fileName}] }`, consommé par le champ `MediaPicker` et la toolbar image TipTap de l'édition produit.
+- Sortie : `media-picker-closed` (optionnel, consommé par l'overlay scroll-lock).
+
+**Props publiques standardisées** : `selectedMediaIds: int[]` (cases cochées bulk OU sélection picker), `selectedMediaId: ?int` (cible du drawer d'édition), `currentFolderId: ?int`.
+
+Factory JS unifiée : `window.pkoMediaLibraryUploader()` (anciennement `window.mdeMediaPicker` / `window.mlibUploader`).
+
+**Dossier par défaut** : setting `media.default_folder_id` (clé de `pko_storefront_settings`, valeur = ID du dossier). Sélectionné automatiquement à l'ouverture (page comme modale) et épinglé en tête de la sidebar des dossiers. Tant que le setting n'est pas posé, fallback sur le dossier dont `collection = 'products'`. En mode page, une étoile au survol de chaque dossier (`setDefaultFolder(int $id)`) permet de changer le choix.
 
 ### Bascule Lunar — via `ResourceExtension` (pas de subclass)
 

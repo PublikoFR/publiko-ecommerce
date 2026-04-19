@@ -16,6 +16,9 @@ class MediaPicker extends Field
 
     protected string $mediagroup = 'default';
 
+    /** Slug `collection` du dossier à ouvrir au clic (sinon : dossier par défaut du composant). */
+    protected ?string $folderSlug = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -94,6 +97,18 @@ class MediaPicker extends Field
     public function getMediagroup(): string
     {
         return $this->mediagroup;
+    }
+
+    public function folder(?string $slug): static
+    {
+        $this->folderSlug = $slug;
+
+        return $this;
+    }
+
+    public function getFolderSlug(): ?string
+    {
+        return $this->folderSlug;
     }
 
     /**

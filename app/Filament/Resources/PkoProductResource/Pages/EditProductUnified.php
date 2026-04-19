@@ -251,7 +251,8 @@ class EditProductUnified extends Page implements HasForms
             ->schema([
                 MediaPicker::make('mediaIds')
                     ->multiple()
-                    ->mediagroup('product'),
+                    ->mediagroup('product')
+                    ->folder('products'),
             ])
             ->model($this->record ?? null)
             ->statePath('mediaData');

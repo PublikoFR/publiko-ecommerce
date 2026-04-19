@@ -12,7 +12,7 @@ use Pko\StorefrontCms\Livewire\HomeHero;
 use Pko\StorefrontCms\Livewire\HomeOffers;
 use Pko\StorefrontCms\Livewire\HomePosts;
 use Pko\StorefrontCms\Livewire\HomeTiles;
-use Pko\StorefrontCms\Livewire\MediaPickerModal;
+use Pko\StorefrontCms\Livewire\PkoMediaLibrary;
 use Pko\StorefrontCms\Models\Setting;
 
 class StorefrontCmsServiceProvider extends ServiceProvider
@@ -30,7 +30,7 @@ class StorefrontCmsServiceProvider extends ServiceProvider
         Livewire::component('storefront-cms.home-offers', HomeOffers::class);
         Livewire::component('storefront-cms.home-posts', HomePosts::class);
         Livewire::component('storefront-cms.home-featured', HomeFeaturedProducts::class);
-        Livewire::component('pko-media-picker-modal', MediaPickerModal::class);
+        Livewire::component('pko-media-library', PkoMediaLibrary::class);
     }
 
     /**

@@ -86,11 +86,13 @@ class HideLunarMediaExtension extends ResourceExtension
                 ->schema([
                     MediaPicker::make('thumbnail')
                         ->label('Image principale')
-                        ->mediagroup('thumbnail'),
+                        ->mediagroup('thumbnail')
+                        ->folder('products'),
                     MediaPicker::make('gallery')
                         ->label('Galerie')
                         ->multiple()
-                        ->mediagroup('gallery'),
+                        ->mediagroup('gallery')
+                        ->folder('products'),
                 ])
                 ->collapsible(),
         ]);
