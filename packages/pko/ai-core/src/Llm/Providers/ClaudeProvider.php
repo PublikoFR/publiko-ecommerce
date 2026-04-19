@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Pko\AiImporter\Llm\Providers;
+namespace Pko\AiCore\Llm\Providers;
 
 use Illuminate\Support\Facades\Http;
-use Pko\AiImporter\Contracts\LlmProviderInterface;
-use Pko\AiImporter\Models\LlmConfig;
+use Pko\AiCore\Contracts\LlmProviderInterface;
 
 final class ClaudeProvider implements LlmProviderInterface
 {
@@ -14,27 +13,31 @@ final class ClaudeProvider implements LlmProviderInterface
 
     private const API_VERSION = '2023-06-01';
 
-    public function __construct(private readonly LlmConfig $config) {}
+    public function __construct(
+        private readonly string $apiKey,
+        private readonly string $model,
+        private readonly array $options = [],
+    ) {}
 
     public function transform(string $prompt, array $inputs = [], array $options = []): string
     {
         $body = [
-            'model' => $this->config->model,
-            'max_tokens' => $options['max_tokens'] ?? (int) (($this->config->options['max_tokens'] ?? null) ?? 1024),
+            'model' => $this->model,
+            'max_tokens' => $options['max_tokens'] ?? (int) (($this->options['max_tokens'] ?? null) ?? 1024),
             'messages' => [
                 ['role' => 'user', 'content' => $this->assembleMessage($prompt, $inputs)],
             ],
         ];
 
-        $response = Http::timeout((int) config('ai-importer.llm.http_timeout', 60))
+        $response = Http::timeout((int) config('ai-core.llm.http_timeout', 60))
             ->withHeaders([
-                'x-api-key' => $this->config->api_key,
+                'x-api-key' => $this->apiKey,
                 'anthropic-version' => self::API_VERSION,
                 'content-type' => 'application/json',
             ])
             ->retry(
-                (int) config('ai-importer.llm.retries', 3),
-                fn (int $attempt): int => config('ai-importer.llm.retry_backoff_ms', [2000, 5000, 10000])[$attempt - 1] ?? 10000,
+                (int) config('ai-core.llm.retries', 3),
+                fn (int $attempt): int => config('ai-core.llm.retry_backoff_ms', [2000, 5000, 10000])[$attempt - 1] ?? 10000,
                 fn (\Throwable $e, $req) => ! $this->isCriticalHttpError($e),
                 throw: false,
             )
@@ -70,6 +73,6 @@ final class ClaudeProvider implements LlmProviderInterface
     {
         $code = method_exists($e, 'getCode') ? (int) $e->getCode() : 0;
 
-        return in_array($code, (array) config('ai-importer.llm.critical_status_codes', [401, 402, 403]), true);
+        return in_array($code, (array) config('ai-core.llm.critical_status_codes', [401, 402, 403]), true);
     }
 }

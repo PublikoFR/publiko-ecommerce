@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Pko\AiImporter\Models;
+namespace Pko\AiCore\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
-use Pko\AiImporter\Enums\LlmProviderName;
+use Pko\AiCore\Enums\LlmProviderName;
 
 /**
  * @property int $id
@@ -20,7 +20,7 @@ use Pko\AiImporter\Enums\LlmProviderName;
  */
 class LlmConfig extends Model
 {
-    protected $table = 'pko_ai_importer_llm_configs';
+    protected $table = 'pko_llm_configs';
 
     protected $guarded = [];
 

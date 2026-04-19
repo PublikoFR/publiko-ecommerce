@@ -4,7 +4,7 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Pko\AiImporter\Models\LlmConfig;
+use Pko\AiCore\Models\LlmConfig;
 
 class LlmConfigPolicy
 {

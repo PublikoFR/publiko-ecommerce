@@ -2,6 +2,7 @@
 
 use App\Providers\AppServiceProvider;
 use Pko\Account\AccountServiceProvider;
+use Pko\AiCore\AiCoreServiceProvider;
 use Pko\AiImporter\AiImporterServiceProvider;
 use Pko\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Pko\CustomerAuth\CustomerAuthServiceProvider;
@@ -22,6 +23,7 @@ return [
     ShippingCommonServiceProvider::class,
     ShippingChronopostServiceProvider::class,
     ShippingColissimoServiceProvider::class,
+    AiCoreServiceProvider::class,
     AiImporterServiceProvider::class,
     StorefrontServiceProvider::class,
     CustomerAuthServiceProvider::class,
