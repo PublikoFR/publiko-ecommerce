@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Pko\StorefrontCms\Http\Controllers\BrandController;
 use Pko\StorefrontCms\Http\Controllers\NewsletterController;
 use Pko\StorefrontCms\Http\Controllers\PostController;
 
 Route::middleware('web')->group(function (): void {
     // Newsletter (legacy, inchangé)
     Route::post('/newsletter', [NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
+
+    // Brand public page (contenu gérable via page-builder)
+    Route::get('/marque/{slug}', [BrandController::class, 'show'])->name('brand.view');
 
     // Redirects 301 des anciennes URLs vers /{postTypeSegment}/{slug}
     Route::get('/actualites/{slug}', [PostController::class, 'legacyArticleRedirect']);
