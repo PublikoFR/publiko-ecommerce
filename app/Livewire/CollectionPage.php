@@ -6,6 +6,7 @@ namespace App\Livewire;
 
 use App\Traits\FetchesUrls;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
@@ -82,34 +83,57 @@ class CollectionPage extends Component
         return $this->url->element;
     }
 
-    /** @return array<int, int> flat selected value ids */
-    public function getSelectedValueIdsProperty(): array
+    /** @return array<int> flat selected brand ids */
+    private function selectedBrandIds(): array
     {
-        $ids = [];
-        foreach ($this->selected as $family => $values) {
-            foreach (array_keys($values) as $valueId) {
-                $ids[] = (int) $valueId;
+        return array_values(array_map('intval', array_keys(array_filter($this->selectedBrands))));
+    }
+
+    /**
+     * Query de base : produits de la collection, sans aucun filtre feature/brand.
+     *
+     * @return Builder<Product>
+     */
+    private function baseQuery(): Builder
+    {
+        return Product::query()
+            ->whereHas('collections', fn ($q) => $q->where('lunar_collections.id', $this->collection->id));
+    }
+
+    /**
+     * Applique le filtre feature AND-logic sur une query produit.
+     */
+    private function applyFeatureFilters(Builder $query, ?int $excludeFamilyId = null): Builder
+    {
+        foreach ($this->selected as $familyId => $values) {
+            if ($excludeFamilyId !== null && (int) $familyId === $excludeFamilyId) {
+                continue;
             }
+            $valueIds = array_values(array_filter(array_map('intval', array_keys(array_filter($values)))));
+            if ($valueIds === []) {
+                continue;
+            }
+            $expected = count($valueIds);
+            $query->whereIn('lunar_products.id', function ($sub) use ($valueIds, $expected): void {
+                $sub->from('pko_feature_value_product')
+                    ->select('product_id')
+                    ->whereIn('feature_value_id', $valueIds)
+                    ->groupBy('product_id')
+                    ->havingRaw('COUNT(DISTINCT feature_value_id) = ?', [$expected]);
+            });
         }
 
-        return array_values(array_unique($ids));
+        return $query;
     }
 
     public function getProductsProperty(): LengthAwarePaginator
     {
-        $collection = $this->collection;
-
-        $query = Product::query()
-            ->whereHas('collections', fn ($q) => $q->where('lunar_collections.id', $collection->id))
+        $query = $this->baseQuery()
             ->with(['thumbnail', 'brand', 'defaultUrl', 'variants.basePrices']);
 
-        $values = $this->selectedValueIds;
-        if ($values !== []) {
-            $filteredIds = Features::productsWith($values)->pluck('products.id');
-            $query->whereIn('products.id', $filteredIds);
-        }
+        $this->applyFeatureFilters($query);
 
-        $brandIds = array_keys(array_filter($this->selectedBrands));
+        $brandIds = $this->selectedBrandIds();
         if ($brandIds !== []) {
             $query->whereIn('brand_id', $brandIds);
         }
@@ -125,20 +149,33 @@ class CollectionPage extends Component
     /** @return Collection<int, FeatureFamily> */
     public function getFamiliesProperty(): Collection
     {
+        // Baseline counts (toutes familles visibles sur le scope collection)
         $collection = $this->collection;
-        $counts = Features::countsFor($collection);
-        $familyIds = array_keys($counts);
-        if ($familyIds === []) {
+        $familyIdsInCollection = array_keys(Features::countsFor($collection));
+        if ($familyIdsInCollection === []) {
             return collect();
+        }
+
+        // Pour chaque famille, recount en excluant SES propres filtres (pattern PrestaShop).
+        // Base query inclut les filtres brand actifs.
+        $baseForFeatures = $this->baseQuery();
+        $brandIds = $this->selectedBrandIds();
+        if ($brandIds !== []) {
+            $baseForFeatures->whereIn('brand_id', $brandIds);
         }
 
         return FeatureFamily::query()
             ->with('values')
-            ->whereIn('id', $familyIds)
+            ->whereIn('id', $familyIdsInCollection)
             ->orderBy('position')
             ->get()
-            ->map(function (FeatureFamily $family) use ($counts) {
-                $family->value_counts = $counts[$family->id] ?? [];
+            ->map(function (FeatureFamily $family) use ($baseForFeatures) {
+                $counts = Features::countsForContext(
+                    (clone $baseForFeatures),
+                    $this->selected,
+                    (int) $family->id,
+                );
+                $family->value_counts = $counts;
 
                 return $family;
             });
@@ -147,13 +184,25 @@ class CollectionPage extends Component
     /** @return Collection<int, object> */
     public function getBrandsProperty(): Collection
     {
-        $collection = $this->collection;
+        // Base pour le recount brands : collection + filtres features appliqués
+        $baseForBrands = $this->baseQuery();
+        $this->applyFeatureFilters($baseForBrands);
+
+        $counts = Features::brandCountsForContext($baseForBrands);
+
+        if ($counts === []) {
+            return collect();
+        }
 
         return Brand::query()
-            ->whereHas('products', fn ($q) => $q->whereHas('collections', fn ($c) => $c->where('lunar_collections.id', $collection->id)))
-            ->withCount(['products' => fn ($q) => $q->whereHas('collections', fn ($c) => $c->where('lunar_collections.id', $collection->id))])
+            ->whereIn('id', array_keys($counts))
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function (Brand $brand) use ($counts) {
+                $brand->products_count = $counts[$brand->id] ?? 0;
+
+                return $brand;
+            });
     }
 
     public function render(): View
