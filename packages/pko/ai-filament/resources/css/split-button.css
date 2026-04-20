@@ -1,0 +1,31 @@
+/* "Split button" look for GenerateAiAction hint actions :
+   the two outlined buttons (sparkles + pencil) appear merged as a single
+   control with a shared border and a single vertical separator between them. */
+
+/* Replace Filament's inset ring with an explicit per-side border so the
+   start button has NO right border and the end button's left border becomes
+   the single 1px separator (same thickness as the external border). */
+.pko-ai-split-btn {
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    border: 1px solid rgb(209 213 219) !important; /* gray-300 */
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+}
+
+.dark .pko-ai-split-btn {
+    border-color: rgb(75 85 99) !important; /* gray-600 */
+}
+
+.pko-ai-split-btn--start {
+    border-right-width: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.pko-ai-split-btn--end {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    margin-left: -0.75rem !important; /* cancel gap-x-3 — end's left border sits flush against start */
+}

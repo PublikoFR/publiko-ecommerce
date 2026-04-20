@@ -28,6 +28,7 @@ use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Pko\AiFilament\Actions\GenerateAiAction;
 use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
 use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Spatie\Activitylog\Models\Activity;
@@ -264,14 +265,16 @@ class EditProductUnified extends Page implements HasForms
         return $form
             ->schema([
                 TiptapEditor::make('longDesc')
-                    ->label('')
+                    ->label('Description longue')
+                    ->hiddenLabel()
                     ->maxContentWidth('full')
                     ->disableFloatingMenus()
                     ->tools([
                         'heading',
                         'bold', 'italic', 'underline', '|',
                         'bullet-list', 'ordered-list', 'blockquote', 'hr', '|',
-                        'link', 'source',
+                        'link', 'source', '|',
+                        ['button' => 'pko-tiptap.insert-media'],
                     ])
                     ->hintActions(GenerateAiAction::descriptionActions())
                     ->output(TiptapOutput::Html),
@@ -291,6 +294,73 @@ class EditProductUnified extends Page implements HasForms
             return;
         }
         $this->isDirty = true;
+    }
+
+    // ------- Computed AI context
+    //
+    // Re-évalués à chaque render Livewire : dès que l'utilisateur change la
+    // marque, les collections ou une caractéristique, le prompt envoyé au
+    // LLM reflète automatiquement les nouvelles valeurs.
+
+    public function getBrandContextProperty(): string
+    {
+        if ($this->brandId === null) {
+            return '';
+        }
+
+        return (string) (Brand::query()->whereKey($this->brandId)->value('name') ?? '');
+    }
+
+    public function getCollectionsContextProperty(): string
+    {
+        if ($this->collectionIds === []) {
+            return '';
+        }
+
+        return LunarCollection::query()
+            ->whereIn('id', $this->collectionIds)
+            ->get()
+            ->map(fn (LunarCollection $c): string => (string) $c->translateAttribute('name'))
+            ->filter(fn (string $name): bool => $name !== '')
+            ->implode(', ');
+    }
+
+    public function getFeaturesContextProperty(): string
+    {
+        if ($this->featureValues === []) {
+            return '';
+        }
+
+        $valueIds = collect($this->featureValues)
+            ->flatMap(fn ($v): array => is_array($v) ? $v : [$v])
+            ->map(fn ($v): int => (int) $v)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($valueIds === []) {
+            return '';
+        }
+
+        $values = FeatureValue::query()
+            ->with('family')
+            ->whereIn('id', $valueIds)
+            ->get();
+
+        return $values
+            ->groupBy(fn (FeatureValue $fv): int => (int) $fv->family->id)
+            ->map(function (Collection $group): string {
+                /** @var FeatureValue $first */
+                $first = $group->first();
+                $familyName = (string) $first->family->name;
+                $valueNames = $group->map(fn (FeatureValue $fv): string => (string) $fv->name)
+                    ->filter(fn (string $n): bool => $n !== '')
+                    ->implode(', ');
+
+                return $familyName.' : '.$valueNames;
+            })
+            ->implode("\n");
     }
 
     // ------- Computed SEO

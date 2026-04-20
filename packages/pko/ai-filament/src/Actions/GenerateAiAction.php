@@ -6,8 +6,11 @@ namespace Pko\AiFilament\Actions;
 
 use Closure;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions\Action as FormAction;
+use Filament\Forms\Components\Actions as FormActions;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
@@ -17,14 +20,18 @@ use Filament\Support\Enums\Alignment;
 use Illuminate\Support\HtmlString;
 use Pko\AiCore\Llm\LlmManager;
 use Pko\AiCore\Models\LlmConfig;
+use Pko\AiFilament\Forms\ContextParametersTable;
 
 final class GenerateAiAction
 {
     /**
      * Generic factory for "Generate with AI" hintActions on any Filament field.
      *
-     * Returns 2 hintActions : direct replace when target is empty, modal preview
-     * when target has content. The caller passes them to `->hintActions([...])`.
+     * Returns 3 hintActions passed to `->hintActions([...])` :
+     *   - direct : visible when target is empty, replaces the target on click.
+     *   - preview : visible when target has content, opens a preview modal.
+     *   - editPrompt : always visible (pencil), opens a modal where the user
+     *     can edit the prompt before regenerating and applying.
      *
      * @param  string  $targetField  Form state key to write the AI result into.
      *                               Used with `$set($targetField, $result)`.
@@ -90,12 +97,22 @@ final class GenerateAiAction
             modalHeading: $modalHeading,
         );
 
+        $editPrompt = self::buildEditPromptAction(
+            targetField: $targetField,
+            prompt: $prompt,
+            contextProperties: $contextProperties,
+            llmConfigName: $llmConfigName,
+            htmlMode: $htmlMode,
+            modalHeading: $modalHeading,
+        );
+
         if ($using !== null) {
             $direct = $using($direct) ?? $direct;
             $preview = $using($preview) ?? $preview;
+            $editPrompt = $using($editPrompt) ?? $editPrompt;
         }
 
-        return [$direct, $preview];
+        return [$direct, $preview, $editPrompt];
     }
 
     /**
@@ -113,7 +130,14 @@ final class GenerateAiAction
                 .'Langue : français. Axé bénéfices client, ton professionnel. '
                 .'Retourne uniquement le HTML brut, sans balises <html>, <head>, <body>, '
                 .'et sans bloc de code markdown (pas de ```html ni de ```).',
-            contextProperties: ['productName', 'sku', 'shortDesc'],
+            contextProperties: [
+                'productName',
+                'sku',
+                'shortDesc',
+                'brandContext',
+                'collectionsContext',
+                'featuresContext',
+            ],
             llmConfigName: $llmConfigName,
             htmlMode: true,
             modalHeading: 'Aperçu — Description générée par l\'IA',
@@ -138,6 +162,9 @@ final class GenerateAiAction
             ->label($label)
             ->icon($icon)
             ->color('gray')
+            ->button()
+            ->outlined()
+            ->extraAttributes(['class' => 'pko-ai-split-btn pko-ai-split-btn--start'])
             ->visible(fn ($livewire): bool => empty(strip_tags((string) ($livewire->{$emptyCheckProperty} ?? '')))
                 && (auth()->user()?->can('generate_ai_content') ?? false)
             )
@@ -168,6 +195,9 @@ final class GenerateAiAction
     ): Action {
         return Action::make('generateAi_'.$targetField.'_preview')
             ->label($label)
+            ->button()
+            ->outlined()
+            ->extraAttributes(['class' => 'pko-ai-split-btn pko-ai-split-btn--start'])
             ->icon($icon)
             ->color('gray')
             ->visible(fn ($livewire): bool => ! empty(strip_tags((string) ($livewire->{$emptyCheckProperty} ?? '')))
@@ -193,6 +223,103 @@ final class GenerateAiAction
             ->modalFooterActionsAlignment(Alignment::End)
             ->action(function (array $data, Set $set) use ($targetField): void {
                 $set($targetField, $data['generatedContent']);
+            });
+    }
+
+    /**
+     * Pencil action : always visible, opens a modal where the user can edit
+     * the prompt, regenerate on demand, then preview + apply the result.
+     *
+     * @param  array<string>  $contextProperties
+     */
+    private static function buildEditPromptAction(
+        string $targetField,
+        string $prompt,
+        array $contextProperties,
+        ?string $llmConfigName,
+        bool $htmlMode,
+        string $modalHeading,
+    ): Action {
+        return Action::make('generateAi_'.$targetField.'_editPrompt')
+            ->label('Modifier le prompt')
+            ->hiddenLabel()
+            ->tooltip('Modifier le prompt')
+            ->icon('heroicon-o-pencil-square')
+            ->color('gray')
+            ->button()
+            ->outlined()
+            ->extraAttributes(['class' => 'pko-ai-split-btn pko-ai-split-btn--end'])
+            ->visible(fn (): bool => auth()->user()?->can('generate_ai_content') ?? false)
+            ->fillForm(fn (): array => [
+                'customPrompt' => $prompt,
+                'llmConfigId' => self::resolveDefaultConfigId($llmConfigName),
+                'enabledContext' => array_fill_keys($contextProperties, true),
+                'generatedContent' => '',
+                'codeMode' => false,
+            ])
+            ->form([
+                Select::make('llmConfigId')
+                    ->label('Modèle LLM')
+                    ->options(fn (): array => LlmConfig::query()
+                        ->where('active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->required()
+                    ->native(false),
+                Textarea::make('customPrompt')
+                    ->label('Prompt envoyé au LLM')
+                    ->helperText('Modifie ou enrichis le prompt pour ajouter du contexte supplémentaire que l\'IA ne peut pas déduire de la page.')
+                    ->rows(8)
+                    ->required(),
+                ContextParametersTable::make('enabledContext')
+                    ->label('Paramètres de la page transmis au prompt')
+                    ->helperText('Décoche les lignes à exclure du contexte envoyé au LLM.')
+                    ->rows(self::labelContextOptions($contextProperties))
+                    ->visible(count($contextProperties) > 0),
+                FormActions::make([
+                    FormAction::make('regenerate')
+                        ->label('Générer avec l\'IA')
+                        ->icon('heroicon-o-sparkles')
+                        ->color('primary')
+                        ->action(function (Component $component, Get $get, Set $set) use ($contextProperties): void {
+                            try {
+                                $enabledMap = (array) $get('enabledContext');
+                                $selectedProps = array_values(array_filter(
+                                    $contextProperties,
+                                    fn (string $property): bool => (bool) ($enabledMap[$property] ?? false),
+                                ));
+                                $config = LlmConfig::query()
+                                    ->where('id', (int) $get('llmConfigId'))
+                                    ->where('active', true)
+                                    ->firstOrFail();
+                                $inputs = [];
+                                foreach ($selectedProps as $property) {
+                                    $inputs[$property] = (string) ($component->getLivewire()->{$property} ?? '');
+                                }
+                                $result = app(LlmManager::class)->forConfig($config)
+                                    ->transform((string) $get('customPrompt'), $inputs);
+                                $set('generatedContent', self::stripCodeFences($result));
+                                Notification::make()->success()->title('Contenu généré — vérifiez l\'aperçu')->send();
+                            } catch (\Throwable $e) {
+                                Notification::make()->danger()->title('Erreur LLM')->body($e->getMessage())->send();
+                            }
+                        }),
+                ]),
+                ...self::previewFormSchema($htmlMode),
+            ])
+            ->modalHeading($modalHeading)
+            ->modalSubmitActionLabel('Appliquer')
+            ->modalWidth('5xl')
+            ->modalFooterActionsAlignment(Alignment::End)
+            ->action(function (array $data, Set $set) use ($targetField): void {
+                $content = (string) ($data['generatedContent'] ?? '');
+                if (trim($content) === '') {
+                    Notification::make()->warning()->title('Aucun contenu à appliquer')->body('Cliquez d\'abord sur « Générer avec l\'IA ».')->send();
+
+                    return;
+                }
+                $set($targetField, $content);
             });
     }
 
@@ -258,6 +385,37 @@ final class GenerateAiAction
         $result = app(LlmManager::class)->forConfig($config)->transform($prompt, $inputs);
 
         return self::stripCodeFences($result);
+    }
+
+    private static function resolveDefaultConfigId(?string $llmConfigName): ?int
+    {
+        if ($llmConfigName !== null) {
+            return LlmConfig::query()
+                ->where('name', $llmConfigName)
+                ->where('active', true)
+                ->value('id');
+        }
+
+        return LlmConfig::query()
+            ->where('is_default', true)
+            ->where('active', true)
+            ->value('id');
+    }
+
+    /**
+     * Humanize context property names for the checkbox list (camelCase → "Camel Case").
+     *
+     * @param  array<string>  $contextProperties
+     * @return array<string, string>
+     */
+    private static function labelContextOptions(array $contextProperties): array
+    {
+        $out = [];
+        foreach ($contextProperties as $property) {
+            $out[$property] = ucfirst(trim((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $property)));
+        }
+
+        return $out;
     }
 
     private static function stripCodeFences(string $result): string
