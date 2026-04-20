@@ -105,6 +105,22 @@ class PageBuilder extends Component implements HasActions, HasForms
         $this->isDirty = true;
     }
 
+    /**
+     * Insert une section à une position donnée (drag&drop depuis la palette).
+     * $paletteType = 'section-1col' | 'section-2col' | 'section-3col'
+     */
+    public function insertSection(int $index, string $paletteType): void
+    {
+        $layout = match ($paletteType) {
+            'section-2col' => PageBuilderManager::LAYOUT_2COL,
+            'section-3col' => PageBuilderManager::LAYOUT_3COL,
+            default => PageBuilderManager::LAYOUT_1COL,
+        };
+        $index = max(0, min(count($this->sections), $index));
+        array_splice($this->sections, $index, 0, [PageBuilderManager::newSection($layout)]);
+        $this->isDirty = true;
+    }
+
     public function removeSection(int $index): void
     {
         if (! isset($this->sections[$index])) {
@@ -187,6 +203,26 @@ class PageBuilder extends Component implements HasActions, HasForms
             return;
         }
         $this->sections[$sectionIndex]['columns'][$columnIndex]['blocks'][] = $block;
+        $this->isDirty = true;
+    }
+
+    /**
+     * Insert un bloc à une position donnée d'une colonne (drag&drop).
+     * $paletteType = 'text' | 'image' | 'code'
+     */
+    public function insertBlock(int $sectionIndex, int $columnIndex, int $blockIndex, string $paletteType): void
+    {
+        if (! isset($this->sections[$sectionIndex]['columns'][$columnIndex])) {
+            return;
+        }
+        $block = PageBuilderManager::newBlock($paletteType);
+        if ($block === null) {
+            return;
+        }
+        $blocks = $this->sections[$sectionIndex]['columns'][$columnIndex]['blocks'];
+        $blockIndex = max(0, min(count($blocks), $blockIndex));
+        array_splice($blocks, $blockIndex, 0, [$block]);
+        $this->sections[$sectionIndex]['columns'][$columnIndex]['blocks'] = $blocks;
         $this->isDirty = true;
     }
 
