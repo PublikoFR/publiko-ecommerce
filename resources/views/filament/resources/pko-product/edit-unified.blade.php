@@ -118,22 +118,7 @@
 
             {{-- 3. Description longue --}}
             <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
-                <div class="space-y-2">
-                    {{-- Actions custom : médiathèque + URL externe. Le bouton HTML brut est le tool
-                         natif `source` intégré dans la toolbar TipTap (icône </> en fin de ligne). --}}
-                    <div class="flex gap-2 flex-wrap">
-                        <x-filament::button
-                            color="gray"
-                            size="sm"
-                            icon="heroicon-o-photo"
-                            x-on:click="window.pkoProductEditor.insertFromMedia()"
-                        >
-                            Insérer une image (médiathèque ou URL)
-                        </x-filament::button>
-                    </div>
-
-                    {{ $this->descriptionForm }}
-                </div>
+                {{ $this->descriptionForm }}
             </x-pko-product::card>
 
             {{-- 4. Caractéristiques techniques (CatalogFeatures) --}}

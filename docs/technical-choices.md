@@ -568,18 +568,26 @@ GenerateAiAction::forField(
     modalHeading: 'Aperçu — Contenu généré par l\'IA',
     successTitle: 'Contenu généré',
     using: fn (Action $a) => $a->color('primary'),  // customizer optionnel (color, size, tooltip…)
-): array  // 2 actions → passer à ->hintActions()
+): array  // 3 actions → passer à ->hintActions()
 ```
 
 **Preset `descriptionActions()`** : appel pré-configuré de `forField()` pour la description produit HTML (inputs `productName/sku/shortDesc`, mode HTML).
 
 ### UX universelle (non-négociable)
 
-- **Champ cible vide** → direct-replace sans modal
-- **Champ cible non-vide** → modal preview
+- **Champ cible vide** → direct-replace sans modal (icône sparkles)
+- **Champ cible non-vide** → modal preview (icône sparkles)
   - En `htmlMode: true` : toggle Aperçu/Code, aperçu rendu via `prose` avec scroll interne `max-height:60vh` (style inline pour contourner JIT Tailwind)
   - Bouton submit aligné à droite (`modalFooterActionsAlignment(Alignment::End)`)
   - Modal large (`5xl`)
+- **Bouton crayon (toujours visible)** → modal d'édition avec :
+  - Select **Modèle LLM** (peuplé depuis `LlmConfig::where('active', true)`, défaut = `LlmConfig::default()` ou `$llmConfigName`)
+  - CheckboxList **Paramètres de la page transmis au prompt** (labels humanisés depuis `$contextProperties`, tous cochés par défaut — seuls les cochés sont injectés dans les inputs du LLM)
+  - Textarea **Prompt** (pré-rempli avec le prompt par défaut)
+  - Bouton "Générer avec l'IA" → appelle le LLM avec le config + le prompt + les paramètres sélectionnés
+  - Preview + "Appliquer"
+  - Tooltip "Modifier le prompt".
+- **Rendu "split button"** : les 3 actions sont rendues comme un seul bouton scindé en deux via `extraAttributes` + CSS `packages/pko/ai-filament/resources/css/split-button.css` (enregistrée par `AiFilamentServiceProvider` via `FilamentAsset::register()`). Alignement à droite obtenu en déclarant un label réel sur le champ cible puis en appliquant `->hiddenLabel()` (déclenche le `justify-end` natif du field-wrapper Filament).
 - Fences markdown ```html… stripées côté serveur avant affichage
 
 ### Détection d'emptiness
