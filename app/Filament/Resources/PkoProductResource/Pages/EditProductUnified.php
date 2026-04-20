@@ -30,6 +30,9 @@ use Pko\AiFilament\Actions\GenerateAiAction;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
+use Pko\ProductDocuments\Models\DocumentCategory;
+use Pko\ProductDocuments\Models\ProductDocument;
+use Pko\ProductDocuments\Services\ProductDocumentManager;
 use Pko\ProductVideos\Models\ProductVideo;
 use Pko\ProductVideos\Services\ProductVideoManager;
 use Pko\ProductVideos\Services\VideoUrlResolver;
@@ -129,6 +132,10 @@ class EditProductUnified extends Page implements HasForms
     // ------- Vidéos produit (pko/product-videos)
     /** @var array<int, array{id:?int,url:string,title:string,provider:?string,thumbnail:?string}> */
     public array $videos = [];
+
+    // ------- Documents téléchargeables (pko/product-documents)
+    /** @var array<int, array{id:?int,media_id:?int,media_name:string,category_id:?int,sort_order:int}> */
+    public array $documents = [];
 
     // ------- SEO
     public string $seoTitle = '';
@@ -242,6 +249,19 @@ class EditProductUnified extends Page implements HasForms
             ->sortBy('sort_order')
             ->values()
             ->map(fn (ProductVideo $v): array => $this->hydrateVideoRow($v))
+            ->all();
+
+        $this->documents = ProductDocument::with('media')
+            ->where('product_id', $product->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (ProductDocument $d): array => [
+                'id' => (int) $d->id,
+                'media_id' => (int) $d->media_id,
+                'media_name' => $d->media?->name ?: $d->media?->file_name ?? '',
+                'category_id' => $d->category_id ? (int) $d->category_id : null,
+                'sort_order' => (int) $d->sort_order,
+            ])
             ->all();
 
         // Filament forms : MediaPicker (médias) + RichEditor (description longue).
@@ -640,6 +660,101 @@ class EditProductUnified extends Page implements HasForms
         ];
     }
 
+    // ------- Documents téléchargeables
+
+    /**
+     * @param  array<int, array{id:int,name:string}>  $items  médias retournés par la modale
+     */
+    public function addDocumentsFromMedia(array $items): void
+    {
+        $existingMediaIds = array_column($this->documents, 'media_id');
+
+        foreach ($items as $item) {
+            $mediaId = (int) ($item['id'] ?? 0);
+            if ($mediaId === 0 || in_array($mediaId, $existingMediaIds, true)) {
+                continue;
+            }
+            $this->documents[] = [
+                'id' => null,
+                'media_id' => $mediaId,
+                'media_name' => (string) ($item['name'] ?? ''),
+                'category_id' => null,
+                'sort_order' => 0,
+            ];
+            $existingMediaIds[] = $mediaId;
+        }
+        $this->isDirty = true;
+    }
+
+    public function removeDocumentRow(int $index): void
+    {
+        if (! isset($this->documents[$index])) {
+            return;
+        }
+        unset($this->documents[$index]);
+        $this->documents = array_values($this->documents);
+        $this->isDirty = true;
+    }
+
+    public function documentPicked(int $index, int $mediaId, string $mediaName): void
+    {
+        if (! isset($this->documents[$index])) {
+            return;
+        }
+        $this->documents[$index]['media_id'] = $mediaId;
+        $this->documents[$index]['media_name'] = $mediaName;
+        $this->isDirty = true;
+    }
+
+    /**
+     * @param  array<int, int|string>  $idsInOrder  id persistés ou "new-{index}" pour les nouvelles lignes
+     */
+    public function reorderDocuments(array $idsInOrder): void
+    {
+        $byId = [];
+        $byNewIndex = [];
+        foreach ($this->documents as $i => $row) {
+            if (! empty($row['id'])) {
+                $byId[(int) $row['id']] = $row;
+            } else {
+                $byNewIndex['new-'.$i] = $row;
+            }
+        }
+
+        $reordered = [];
+        foreach ($idsInOrder as $token) {
+            if (is_numeric($token) && isset($byId[(int) $token])) {
+                $reordered[] = $byId[(int) $token];
+            } elseif (is_string($token) && isset($byNewIndex[$token])) {
+                $reordered[] = $byNewIndex[$token];
+            }
+        }
+
+        if (count($reordered) === count($this->documents)) {
+            $this->documents = $reordered;
+            $this->isDirty = true;
+        }
+    }
+
+    public function getDocumentCategoriesProperty(): Collection
+    {
+        return DocumentCategory::orderBy('sort_order')->get();
+    }
+
+    private function persistDocuments(Product $product): void
+    {
+        $rows = collect($this->documents)
+            ->filter(fn (array $r) => (int) ($r['media_id'] ?? 0) > 0)
+            ->map(fn (array $r) => [
+                'media_id' => (int) $r['media_id'],
+                'category_id' => $r['category_id'] ? (int) $r['category_id'] : null,
+            ])
+            ->values()
+            ->all();
+
+        app(ProductDocumentManager::class)->sync($product, $rows);
+    }
+
     // ------- Save
     public function save(): void
     {
@@ -709,6 +824,9 @@ class EditProductUnified extends Page implements HasForms
 
         // Vidéos produit : diff + sync + reorder, dans la même transaction implicite du contexte page.
         $this->persistVideos($this->record);
+
+        // Documents téléchargeables : diff + sync + reorder.
+        $this->persistDocuments($this->record);
 
         // Refresh la prop Livewire pour que le Blade reflète la valeur sauvée.
         $this->longDesc = $longDesc;

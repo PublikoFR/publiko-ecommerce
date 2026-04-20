@@ -151,7 +151,58 @@
                 </x-pko-product::card>
             </div>
 
-            {{-- 3. Description longue --}}
+            {{-- 3. Documents téléchargeables --}}
+            <x-pko-product::card title="Documents téléchargeables" icon="heroicon-o-paper-clip">
+                {{-- x-data écoute media-picked pour le statePath 'document-add-new' --}}
+                <div
+                    x-data="{
+                        init() {
+                            Livewire.on('media-picked', (payload) => {
+                                const data = Array.isArray(payload) ? payload[0] : payload;
+                                if (!data || data.statePath !== 'document-add-new') return;
+                                if (!data.medias || !data.medias.length) return;
+                                const items = data.medias.map(m => ({
+                                    id: m.id,
+                                    name: m.fileName ?? ''
+                                }));
+                                $wire.addDocumentsFromMedia(items);
+                            });
+                        }
+                    }"
+                    class="space-y-3"
+                >
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Choisissez des fichiers depuis la médiathèque, puis assignez une catégorie à chaque document. Glissez-déposez pour réordonner.
+                    </p>
+
+                    @if (count($this->documents) === 0)
+                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                            Aucun document pour l'instant.
+                        </div>
+                    @else
+                        <div x-data x-sortable="reorderDocuments" data-handle=".pko-doc-handle" class="space-y-2">
+                            @foreach ($this->documents as $index => $document)
+                                <x-product-documents::admin.document-row
+                                    :index="$index"
+                                    :document="$document"
+                                    :categories="$this->documentCategories"
+                                />
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <button
+                        type="button"
+                        @click="Livewire.dispatch('open-media-picker-modal', { statePath: 'document-add-new', multiple: true })"
+                        class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
+                        Ajouter depuis la médiathèque
+                    </button>
+                </div>
+            </x-pko-product::card>
+
+            {{-- 4. Description longue --}}
             <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
                 {{ $this->descriptionForm }}
             </x-pko-product::card>

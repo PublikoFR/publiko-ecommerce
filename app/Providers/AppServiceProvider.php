@@ -37,6 +37,7 @@ use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
+use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\ShippingChronopost\Filament\ChronopostPlugin;
 use Pko\ShippingColissimo\Filament\ColissimoPlugin;
 use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
@@ -79,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(ChronopostPlugin::make())
                 ->plugin(ColissimoPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
+                ->plugin(ProductDocumentsPlugin::make())
                 ->plugin(AiImporterPlugin::make())
                 ->plugin(LoyaltyPlugin::make())
                 ->plugin(StorefrontCmsPlugin::make())

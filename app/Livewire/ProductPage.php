@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
+use Pko\ProductDocuments\Models\ProductDocument;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductPage extends Component
@@ -108,6 +109,22 @@ class ProductPage extends Component
         }
 
         return $this->images->first();
+    }
+
+    /**
+     * Documents téléchargeables groupés par catégorie — réservés aux clients connectés.
+     */
+    public function getDocumentsProperty(): Collection
+    {
+        if (! auth('customers')->check()) {
+            return collect();
+        }
+
+        return ProductDocument::with(['media', 'category'])
+            ->where('product_id', $this->product->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy(fn (ProductDocument $d): string => $d->category?->label ?? 'Documents');
     }
 
     public function render(): View
