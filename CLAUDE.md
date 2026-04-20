@@ -132,6 +132,8 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 
 5. **Propose toujours un commit** à l'utilisateur après un développement fonctionnel terminé — mais ne commit jamais sans son accord explicite.
 
+6. **Branche git** : si la branche courante est `main`, créer une branche `feat/<slug>` (ou `fix/<slug>`) **avant la première édition de fichier**. Si on est déjà sur une branche feature, continuer sans en créer une nouvelle.
+
 ---
 
 ## 5. Commandes Make essentielles
