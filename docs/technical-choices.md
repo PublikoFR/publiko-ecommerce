@@ -1471,17 +1471,24 @@ Toutes les mutations UI et imports IA passent par `normalize()` : defaults appli
 
 ### Éditeur admin — Livewire `pko-page-builder`
 
-Composant Livewire (`Pko\PageBuilder\Livewire\PageBuilder`) monté dans une vue custom substituant `EditPage` et `EditPost` (`protected static string $view = 'page-builder::filament.edit-with-builder'`). Props : `modelClass` + `recordId`. Interactions :
+Composant Livewire (`Pko\PageBuilder\Livewire\PageBuilder`) monté dans une vue custom substituant `EditPage` et `EditPost` (`protected static string $view = 'page-builder::filament.edit-with-builder'` + `getMaxContentWidth(): MaxWidth::Full` pour gagner la pleine largeur). Props : `modelClass` + `recordId`. Le RichEditor `body` legacy a été retiré des forms Page + Post (colonne DB conservée en fallback renderer seulement).
 
-- **Sections** : add/remove, layout switch (1/2/3col), drag&drop via Alpine directive `x-sortable` (SortableJS CDN, même implé que `pko/product-videos`)
-- **Padding / margin / couleurs** : inputs HTML natifs (`<input type="number">`, `<input type="color">`), binding via `wire:change` + méthodes dédiées
+**Layout** : palette sticky à gauche (200px) + éditeur pleine largeur à droite. Aperçu déporté dans un **slide-over** à droite déclenché par le bouton "Aperçu" (Alpine `x-data="{ previewOpen: false }"` + `x-teleport="body"` pour sortir du conteneur scrollable Filament, ESC ou clic backdrop pour fermer).
+
+**Interactions** :
+
+- **Palette drag&drop** via 3 directives Alpine (`x-pb-palette`, `x-pb-drop`, `x-pb-sortable`) configurées sur SortableJS avec un même `group: 'pko-page-builder'`.
+  - `x-pb-palette` : `pull: 'clone', put: false, sort: false` sur la palette
+  - `x-pb-drop` : `put: true, sort: false` avec `data-drop-type="sections|blocks"` + (pour blocks) `data-section-index`, `data-column-index`. Sur `onAdd`, lit `evt.item.dataset.paletteType`, remove le clone DOM immédiatement, puis appelle `insertSection(index, type)` ou `insertBlock(s, c, b, type)` sur le Livewire component
+  - `x-pb-sortable` : reorder via poignée dédiée (handle `.pko-section-handle`), appelle `reorderSections(ids)`
+- **Sections** : layout switch (1/2/3col), add/remove, styling inline (padding/margin en px, `<input type="color">` natif pour background/text)
 - **Bloc texte** : Filament Action `editText` avec form `TiptapEditor::make('html')` (réutilise le tiptap déjà configuré), ouvre une modal 5xl
-- **Bloc image** : bouton dispatch `open-media-picker-modal` (événement partagé avec l'éditeur produit), listener `#[On('media-picked')]` range le media_id + url + alt dans le block en attente (`$pickingImageBlockId`)
+- **Bloc image** : `openImagePicker($blockId)` dispatche `open-media-picker-modal` (événement partagé avec l'éditeur produit) avec `statePath: 'pko-page-builder-image'` pour disambiguer. Listener `#[On('media-picked')] onMediaPicked(string $statePath, array $ids, array $medias)` — **signature avec params nommés individuels** (Livewire 3 binde chaque key du dispatch à un param, pas un `array $payload` global)
 - **Bloc code** : select langage (allowlist 10 langues) + textarea monospace, binding direct via `wire:change`
 
-### Preview live
+### Preview
 
-Colonne droite de l'éditeur rend `<x-page-builder::render :content="$this->tree" />` — **exactement le même Blade component** que la vue publique. Re-render automatique à chaque interaction Livewire. Pas de templating séparé admin/front → zéro drift.
+Slide-over à droite (déclenché par bouton) rend `<x-page-builder::render :content="$this->tree" />` — **exactement le même Blade component** que la vue publique. Re-render automatique à chaque interaction Livewire. Pas de templating séparé admin/front → zéro drift. Volontairement **pas en permanence** à l'écran pour laisser l'éditeur respirer en pleine largeur.
 
 ### Rendu public — `<x-page-builder::render>`
 
@@ -1506,6 +1513,7 @@ Colonne droite de l'éditeur rend `<x-page-builder::render :content="$this->tree
 - **Pas de révisions / drafts séparés** — le record stocke le contenu courant uniquement. Le `status` existant (`draft` / `published`) reste honoré par le storefront.
 - **Pas de multi-langue** — Lunar a son i18n natif pour les produits, le CMS n'est pas branché dessus v1.
 - **Pas d'inline WYSIWYG** — toute édition se fait dans le panneau gauche + modal TipTap, pas de clic-direct-sur-le-rendu à la GrapesJS (volontaire : gain de simplicité et de robustesse).
+- **Pas de cross-column block move** — un bloc peut être supprimé puis recréé dans une autre colonne, mais pas déplacé par drag. Possible v2.
 
 ### Intégration IA (à venir)
 
