@@ -18,6 +18,7 @@ use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\CatalogFeatures\Facades\Features;
+use Pko\ProductVideos\Services\ProductVideoManager;
 
 /**
  * Writes a single `StagingRecord` into the Lunar data model.
@@ -46,9 +47,9 @@ use Pko\CatalogFeatures\Facades\Features;
  *                           collection `config('lunar.media.collection')`. Idempotent via
  *                           `custom_properties.source_url`. First URL flagged `primary=true`
  *                           (becomes thumbnail).
- *  - `videos`               array|CSV of YouTube/Vimeo URLs — stashed on
- *                           `attribute_data.videos` (comma-joined string). Dedicated custom
- *                           table planned for later phase (richer per-video metadata).
+ *  - `videos`               array|CSV of YouTube/Vimeo/Dailymotion/MP4 URLs — routed through
+ *                           `pko/product-videos` (ProductVideoManager::sync). Idempotent : URL
+ *                           déjà attachée au produit = skip, URL non reconnue = counted as error.
  *
  * Anything the writer doesn't recognise is ignored.
  *
@@ -162,12 +163,10 @@ final class LunarProductWriter
         }
 
         if (! empty($data['videos'])) {
-            $videos = $this->imagePipeline->stashVideoUrls($data['videos']);
-            if ($videos !== []) {
-                $fields = collect($product->attribute_data?->all() ?? []);
-                $fields = $fields->put('videos', new Text(implode(',', $videos)));
-                $product->update(['attribute_data' => $fields]);
-            }
+            $videoUrls = is_string($data['videos'])
+                ? array_map('trim', explode(',', $data['videos']))
+                : (array) $data['videos'];
+            app(ProductVideoManager::class)->sync($product, $videoUrls);
         }
 
         $record->update([

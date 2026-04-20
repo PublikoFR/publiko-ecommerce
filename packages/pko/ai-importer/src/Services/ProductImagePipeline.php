@@ -16,10 +16,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * re-download already present images. The first URL of the list is flagged
  * `primary=true` (that's the flag Lunar uses to pick the thumbnail).
  *
- * Videos (YouTube / Vimeo) — v1 only stores the raw URLs on
- * `Product::attribute_data['videos']` as a plain array. A dedicated custom
- * table will come later if we need richer per-video metadata (title,
- * thumbnail override, sort order, provider-specific options).
+ * Videos are handled by `pko/product-videos` (ProductVideoManager), invoked
+ * directly from LunarProductWriter — they no longer go through this class.
  */
 final class ProductImagePipeline
 {
@@ -69,15 +67,6 @@ final class ProductImagePipeline
         }
 
         return compact('added', 'skipped', 'errors');
-    }
-
-    /**
-     * @param  array<int, string>|string|null  $videos
-     * @return array<int, string> urls stored on Product::attribute_data['videos']
-     */
-    public function stashVideoUrls(mixed $videos): array
-    {
-        return $this->normaliseUrls($videos);
     }
 
     /**
