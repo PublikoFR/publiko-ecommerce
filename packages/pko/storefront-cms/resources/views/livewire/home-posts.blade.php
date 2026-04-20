@@ -2,7 +2,7 @@
     @if ($posts->isNotEmpty())
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             @foreach ($posts as $post)
-                <a href="{{ route('posts.show', $post->slug) }}" class="group block bg-white border border-neutral-200 rounded-lg overflow-hidden hover:shadow-md transition">
+                <a href="{{ url('/'.($post->postType?->url_segment ?? 'article').'/'.$post->slug) }}" class="group block bg-white border border-neutral-200 rounded-lg overflow-hidden hover:shadow-md transition">
                     @if ($post->cover_url)
                         <div class="aspect-[16/9] bg-neutral-100">
                             <img src="{{ $post->cover_url }}" alt="{{ $post->title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />

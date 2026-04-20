@@ -61,7 +61,7 @@ return new class extends Migration
         $pageTypeId = (int) DB::table('pko_post_types')->where('handle', 'page')->value('id');
 
         // --- 2. ALTER pko_posts : ajout colonnes ---
-        Schema::table('pko_posts', function (Blueprint $table) use ($articleTypeId): void {
+        Schema::table('pko_posts', function (Blueprint $table): void {
             $table->foreignId('post_type_id')
                 ->after('id')
                 ->nullable()

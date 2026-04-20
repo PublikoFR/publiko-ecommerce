@@ -6,20 +6,52 @@ namespace Pko\StorefrontCms\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use Pko\StorefrontCms\Concerns\HasMediaAttachments;
 
+/**
+ * @property int $id
+ * @property int $post_type_id
+ * @property string $slug
+ * @property string $title
+ * @property ?string $cover_url
+ * @property ?string $excerpt
+ * @property ?string $body
+ * @property ?array $content
+ * @property ?string $seo_title
+ * @property ?string $seo_description
+ * @property string $status
+ * @property ?Carbon $published_at
+ */
 class Post extends Model
 {
     use HasMediaAttachments;
 
     protected $table = 'pko_posts';
 
-    protected $fillable = ['slug', 'title', 'excerpt', 'body', 'content', 'status', 'published_at'];
+    protected $fillable = [
+        'post_type_id',
+        'slug',
+        'title',
+        'excerpt',
+        'body',
+        'content',
+        'seo_title',
+        'seo_description',
+        'status',
+        'published_at',
+    ];
 
     protected $casts = [
         'published_at' => 'datetime',
         'content' => 'array',
     ];
+
+    public function postType(): BelongsTo
+    {
+        return $this->belongsTo(PostType::class);
+    }
 
     public function getRouteKeyName(): string
     {
@@ -36,5 +68,10 @@ class Post extends Model
         return $q->where('status', 'published')
             ->where(fn ($q2) => $q2->whereNull('published_at')->orWhere('published_at', '<=', now()))
             ->orderByDesc('published_at');
+    }
+
+    public function scopeOfType(Builder $q, string $handle): Builder
+    {
+        return $q->whereHas('postType', fn ($qt) => $qt->where('handle', $handle));
     }
 }
