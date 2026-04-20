@@ -13,7 +13,11 @@ class Page extends Model
 
     protected $table = 'pko_pages';
 
-    protected $fillable = ['slug', 'title', 'body', 'status'];
+    protected $fillable = ['slug', 'title', 'body', 'content', 'status'];
+
+    protected $casts = [
+        'content' => 'array',
+    ];
 
     public function getRouteKeyName(): string
     {

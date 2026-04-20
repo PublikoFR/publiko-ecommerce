@@ -1,0 +1,22 @@
+{
+    "name": "pko/page-builder",
+    "description": "Mini page-builder JSON (sections + colonnes + blocs text/image/code) pour Pages et Posts CMS — réutilisable, AI-friendly.",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "livewire/livewire": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\PageBuilder\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\PageBuilder\\PageBuilderServiceProvider"
+            ]
+        }
+    }
+}

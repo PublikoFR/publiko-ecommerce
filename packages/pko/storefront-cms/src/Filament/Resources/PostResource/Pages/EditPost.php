@@ -13,6 +13,8 @@ class EditPost extends EditRecord
 {
     protected static string $resource = PostResource::class;
 
+    protected static string $view = 'page-builder::filament.edit-with-builder';
+
     protected function getHeaderActions(): array
     {
         return [DeleteAction::make()];

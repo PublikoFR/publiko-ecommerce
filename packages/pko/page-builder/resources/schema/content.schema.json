@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://publiko.fr/schemas/page-builder/content.schema.json",
+  "title": "pko/page-builder content tree",
+  "description": "Arborescence JSON stockée dans la colonne `content` des tables pko_pages et pko_posts. Représente une page composée de sections, chaque section contenant 1 à 3 colonnes, chaque colonne contenant une liste de blocs (text, image, code).",
+  "type": "object",
+  "required": ["sections"],
+  "additionalProperties": false,
+  "properties": {
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/section" }
+    }
+  },
+  "definitions": {
+    "section": {
+      "type": "object",
+      "required": ["id", "layout", "columns"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "layout": { "enum": ["1col", "2col", "3col"] },
+        "padding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "t": { "type": "integer", "minimum": 0, "maximum": 400 },
+            "r": { "type": "integer", "minimum": 0, "maximum": 400 },
+            "b": { "type": "integer", "minimum": 0, "maximum": 400 },
+            "l": { "type": "integer", "minimum": 0, "maximum": 400 }
+          }
+        },
+        "margin": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "t": { "type": "integer", "minimum": 0, "maximum": 400 },
+            "b": { "type": "integer", "minimum": 0, "maximum": 400 }
+          }
+        },
+        "background_color": { "type": ["string", "null"], "pattern": "^#[0-9a-fA-F]{6}$" },
+        "text_color": { "type": ["string", "null"], "pattern": "^#[0-9a-fA-F]{6}$" },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "$ref": "#/definitions/column" }
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "required": ["blocks"],
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/block" }
+        }
+      }
+    },
+    "block": {
+      "oneOf": [
+        { "$ref": "#/definitions/blockText" },
+        { "$ref": "#/definitions/blockImage" },
+        { "$ref": "#/definitions/blockCode" }
+      ]
+    },
+    "blockText": {
+      "type": "object",
+      "required": ["id", "type", "html"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "text" },
+        "html": { "type": "string" }
+      }
+    },
+    "blockImage": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "image" },
+        "media_id": { "type": ["integer", "null"] },
+        "url": { "type": ["string", "null"] },
+        "alt": { "type": "string" }
+      }
+    },
+    "blockCode": {
+      "type": "object",
+      "required": ["id", "type", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "code" },
+        "language": {
+          "enum": ["plain", "php", "js", "ts", "html", "css", "bash", "json", "sql", "yaml"]
+        },
+        "content": { "type": "string" }
+      }
+    }
+  }
+}

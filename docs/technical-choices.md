@@ -1421,6 +1421,100 @@ Drag&drop via Alpine directive `x-sortable` (JS `packages/pko/product-videos/res
 - **Pas de vidéos par variant** — rattachement produit-level uniquement ; si besoin plus tard, ajouter `variant_id nullable`.
 - **oEmbed Vimeo uniquement** — un unique appel à `vimeo.com/api/oembed.json` lors de l'ajout d'une URL Vimeo (seul provider sans pattern CDN déterministe). Résultat persistant en DB (`thumbnail_url`), failure silencieuse si timeout/4xx/5xx. Pas d'autre fetch réseau pour les titres ou autres métadonnées.
 
+## 13.quinquies Page builder — `pko/page-builder`
+
+Package `packages/pko/page-builder/` (namespace `Pko\PageBuilder\`), `PageBuilderServiceProvider`. Mini-builder JSON pour les pages CMS (`Pko\StorefrontCms\Models\Page`) et les articles (`Post`), pensé pour édition par des non-devs **et** pour la génération IA (JSON schema documenté).
+
+### Schéma JSON canonique
+
+```json
+{
+  "sections": [
+    {
+      "id": "sec_xxxx",
+      "layout": "1col" | "2col" | "3col",
+      "padding": {"t":0,"r":0,"b":0,"l":0},
+      "margin":  {"t":0,"b":0},
+      "background_color": "#rrggbb" | null,
+      "text_color": "#rrggbb" | null,
+      "columns": [
+        {
+          "blocks": [
+            { "id": "blk_...", "type": "text", "html": "<p>…</p>" },
+            { "id": "blk_...", "type": "image", "media_id": 42, "url": null, "alt": "…" },
+            { "id": "blk_...", "type": "code", "language": "php", "content": "…" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+JSON Schema draft-07 officiel : `packages/pko/page-builder/resources/schema/content.schema.json`. Référence cible pour les prompts IA (« Génère-moi une page blog conforme à ce schema »).
+
+### Stockage
+
+Colonne **`content` JSON nullable** ajoutée sur `pko_pages` et `pko_posts` (migration `2026_04_20_120001`). La colonne `body` (longText HTML legacy) reste pour le fallback : le renderer l'affiche en brut si `content` est null. Un cast `'content' => 'array'` sur les modèles `Page` et `Post`.
+
+### API publique — `PageBuilderManager`
+
+```php
+PageBuilderManager::normalize(?array $content): array                 // canonicalise, jamais ne throw
+PageBuilderManager::newSection(string $layout = '1col'): array        // section vide normalisée
+PageBuilderManager::newBlock(string $type): ?array                    // bloc vide, null si type inconnu
+PageBuilderManager::allowedLayouts(): array                           // ['1col','2col','3col']
+PageBuilderManager::columnsForLayout(string $layout): int             // 1|2|3
+```
+
+Toutes les mutations UI et imports IA passent par `normalize()` : defaults appliqués, valeurs hors bornes clampées (padding/margin 0-400), couleurs forcées `#rrggbb`, types de blocs inconnus droppés.
+
+### Éditeur admin — Livewire `pko-page-builder`
+
+Composant Livewire (`Pko\PageBuilder\Livewire\PageBuilder`) monté dans une vue custom substituant `EditPage` et `EditPost` (`protected static string $view = 'page-builder::filament.edit-with-builder'`). Props : `modelClass` + `recordId`. Interactions :
+
+- **Sections** : add/remove, layout switch (1/2/3col), drag&drop via Alpine directive `x-sortable` (SortableJS CDN, même implé que `pko/product-videos`)
+- **Padding / margin / couleurs** : inputs HTML natifs (`<input type="number">`, `<input type="color">`), binding via `wire:change` + méthodes dédiées
+- **Bloc texte** : Filament Action `editText` avec form `TiptapEditor::make('html')` (réutilise le tiptap déjà configuré), ouvre une modal 5xl
+- **Bloc image** : bouton dispatch `open-media-picker-modal` (événement partagé avec l'éditeur produit), listener `#[On('media-picked')]` range le media_id + url + alt dans le block en attente (`$pickingImageBlockId`)
+- **Bloc code** : select langage (allowlist 10 langues) + textarea monospace, binding direct via `wire:change`
+
+### Preview live
+
+Colonne droite de l'éditeur rend `<x-page-builder::render :content="$this->tree" />` — **exactement le même Blade component** que la vue publique. Re-render automatique à chaque interaction Livewire. Pas de templating séparé admin/front → zéro drift.
+
+### Rendu public — `<x-page-builder::render>`
+
+```blade
+<x-page-builder::render :content="$page->content" fallback="{{ $page->body }}" />
+```
+
+- `content` nullable : si array normalisable → rendu block-builder, sinon fallback HTML brut
+- Blocs image : lookup `Spatie\MediaLibrary\MediaCollections\Models\Media::find(media_id)`, fallback sur `url` brute si fourni par l'import
+- Blocs code : `<pre class="language-{X}">` prêt pour Prism.js en post-hook
+- Layout responsive : `grid-cols-1 md:grid-cols-{N}` sur le wrapper colonnes
+
+### Permission Shield
+
+`manage_cms_pages` (guard `staff`) — créée par `CmsPermissionsSeeder`, assignée à `super_admin`. Attachée au Livewire pour futurs gatings spécifiques (ex: séparer page vs post).
+
+### Rejets v1 documentés
+
+- **Pas de templates / sections réutilisables** — chaque page repart d'un builder vide (pas de bibliothèque de sections pré-faites). Possible phase 2.
+- **Pas de largeur de colonne asymétrique** (1/3-2/3, 2/3-1/3) — que 1col / 2col égal / 3col égal.
+- **Pas de styling par-bloc** — padding/margin/couleurs uniquement au niveau section.
+- **Pas de révisions / drafts séparés** — le record stocke le contenu courant uniquement. Le `status` existant (`draft` / `published`) reste honoré par le storefront.
+- **Pas de multi-langue** — Lunar a son i18n natif pour les produits, le CMS n'est pas branché dessus v1.
+- **Pas d'inline WYSIWYG** — toute édition se fait dans le panneau gauche + modal TipTap, pas de clic-direct-sur-le-rendu à la GrapesJS (volontaire : gain de simplicité et de robustesse).
+
+### Intégration IA (à venir)
+
+Le JSON Schema canonical peut être embarqué dans un prompt :
+
+> Tu es un rédacteur. Retourne **uniquement** un JSON conforme à ce schema : `<contenu content.schema.json>`. Sujet : {…}.
+
+La sortie peut être persistée telle quelle via `$page->content = PageBuilderManager::normalize($jsonIaDecoded)`, sans UI. Utile pour auto-générer des landing pages ou articles depuis un brief utilisateur.
+
 ## 14. Documentation externe
 
 - [Lunar](https://docs.lunarphp.com) — **servie aussi via le MCP `lunar-docs`**
