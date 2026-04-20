@@ -27,33 +27,34 @@
         </svg>
     </button>
 
-    @if ($thumb)
-        <img src="{{ $thumb }}" alt="" class="h-14 w-24 flex-none rounded border border-gray-200 object-cover dark:border-white/10" />
-    @else
-        <div class="flex h-14 w-24 flex-none items-center justify-center rounded border border-dashed border-gray-300 text-xs text-gray-400 dark:border-white/10">
-            {{ $providerLabel ?? '—' }}
-        </div>
-    @endif
+    <div class="flex w-24 flex-none flex-col items-center gap-1">
+        @if ($thumb)
+            <img src="{{ $thumb }}" alt="" class="h-14 w-24 rounded border border-gray-200 object-cover dark:border-white/10" />
+        @else
+            <div class="flex h-14 w-24 items-center justify-center rounded border border-dashed border-gray-300 text-xs text-gray-400 dark:border-white/10">
+                —
+            </div>
+        @endif
+
+        @if ($providerLabel)
+            <span class="inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+                {{ $providerLabel }}
+            </span>
+        @elseif ($url !== '')
+            <span class="inline-flex items-center rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+                Non supportée
+            </span>
+        @endif
+    </div>
 
     <div class="flex flex-1 flex-col gap-2 min-w-0">
-        <div class="flex items-center gap-2">
-            <input
-                type="url"
-                wire:model.blur="videos.{{ $index }}.url"
-                wire:change="detectVideoProvider({{ $index }})"
-                placeholder="https://www.youtube.com/watch?v=…"
-                class="flex-1 text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900"
-            />
-            @if ($providerLabel)
-                <span class="inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
-                    {{ $providerLabel }}
-                </span>
-            @elseif ($url !== '')
-                <span class="inline-flex items-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
-                    URL non supportée
-                </span>
-            @endif
-        </div>
+        <input
+            type="url"
+            wire:model.blur="videos.{{ $index }}.url"
+            wire:change="detectVideoProvider({{ $index }})"
+            placeholder="https://www.youtube.com/watch?v=…"
+            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900"
+        />
         <input
             type="text"
             wire:model.blur="videos.{{ $index }}.title"

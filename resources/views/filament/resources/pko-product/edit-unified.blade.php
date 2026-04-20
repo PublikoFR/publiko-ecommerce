@@ -111,44 +111,45 @@
                 </div>
             </x-pko-product::card>
 
-            {{-- 2. Médias --}}
-            <x-pko-product::card title="Médias" icon="heroicon-o-photo">
-                {{ $this->mediaForm }}
-            </x-pko-product::card>
+            {{-- 2. Médias + Vidéos côte à côte (desktop) / empilés (mobile) --}}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <x-pko-product::card title="Médias" icon="heroicon-o-photo">
+                    {{ $this->mediaForm }}
+                </x-pko-product::card>
 
-            {{-- 2b. Vidéos (pko/product-videos) --}}
-            <x-pko-product::card title="Vidéos" icon="heroicon-o-video-camera">
-                <div class="space-y-3">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Collez une URL YouTube, Vimeo, Dailymotion ou un lien <code>.mp4</code>. Le provider est détecté automatiquement. Glissez-déposez pour réordonner.
-                    </p>
+                <x-pko-product::card title="Vidéos" icon="heroicon-o-video-camera">
+                    <div class="space-y-3">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Collez une URL YouTube, Vimeo, Dailymotion ou un lien <code>.mp4</code>. Le provider est détecté automatiquement. Glissez-déposez pour réordonner.
+                        </p>
 
-                    @if (count($this->videos) === 0)
-                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-                            Aucune vidéo pour l'instant.
-                        </div>
-                    @else
-                        <div x-data x-sortable="reorderVideos" data-handle=".pko-video-handle" class="space-y-2">
-                            @foreach ($this->videos as $index => $video)
-                                <x-product-videos::admin.video-row
-                                    :index="$index"
-                                    :video="$video"
-                                    :providers="$this->videoProviders"
-                                />
-                            @endforeach
-                        </div>
-                    @endif
+                        @if (count($this->videos) === 0)
+                            <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                                Aucune vidéo pour l'instant.
+                            </div>
+                        @else
+                            <div x-data x-sortable="reorderVideos" data-handle=".pko-video-handle" class="space-y-2">
+                                @foreach ($this->videos as $index => $video)
+                                    <x-product-videos::admin.video-row
+                                        :index="$index"
+                                        :video="$video"
+                                        :providers="$this->videoProviders"
+                                    />
+                                @endforeach
+                            </div>
+                        @endif
 
-                    <button
-                        type="button"
-                        wire:click="addVideoRow"
-                        class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
-                        Ajouter une vidéo
-                    </button>
-                </div>
-            </x-pko-product::card>
+                        <button
+                            type="button"
+                            wire:click="addVideoRow"
+                            class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
+                            Ajouter une vidéo
+                        </button>
+                    </div>
+                </x-pko-product::card>
+            </div>
 
             {{-- 3. Description longue --}}
             <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
