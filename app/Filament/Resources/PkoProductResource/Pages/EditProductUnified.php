@@ -576,7 +576,9 @@ class EditProductUnified extends Page implements HasForms
         }
         $info = app(VideoUrlResolver::class)->tryResolve($url);
         $this->videos[$index]['provider'] = $info?->provider->value;
-        $this->videos[$index]['thumbnail'] = $info?->thumbnailUrl;
+        // resolveThumbnail fetches oEmbed for providers without a deterministic
+        // thumbnail URL pattern (Vimeo). Silent failure returns null.
+        $this->videos[$index]['thumbnail'] = app(ProductVideoManager::class)->resolveThumbnail($url);
         $this->isDirty = true;
     }
 
@@ -612,14 +614,19 @@ class EditProductUnified extends Page implements HasForms
 
     private function hydrateVideoRow(ProductVideo $video): array
     {
-        $info = app(VideoUrlResolver::class)->tryResolve($video->url);
+        // thumbnail_url peut être persisté (Vimeo via oEmbed) ou déductible de
+        // l'URL (YouTube, Dailymotion). Fallback silencieux sur le resolver.
+        $thumb = $video->thumbnail_url;
+        if ($thumb === null || $thumb === '') {
+            $thumb = app(VideoUrlResolver::class)->tryResolve($video->url)?->thumbnailUrl;
+        }
 
         return [
             'id' => (int) $video->id,
             'url' => (string) $video->url,
             'title' => (string) ($video->title ?? ''),
             'provider' => $video->provider->value,
-            'thumbnail' => $info?->thumbnailUrl,
+            'thumbnail' => $thumb,
         ];
     }
 
@@ -947,8 +954,16 @@ class EditProductUnified extends Page implements HasForms
             $id = (int) ($row['id'] ?? 0);
             if ($id > 0 && $existing->has($id)) {
                 $video = $existing[$id];
+                $updates = [];
                 if (($video->title ?? null) !== $title) {
-                    $video->update(['title' => $title]);
+                    $updates['title'] = $title;
+                }
+                if (($video->thumbnail_url ?? null) === null
+                    && ($row['thumbnail'] ?? null) !== null) {
+                    $updates['thumbnail_url'] = $row['thumbnail'];
+                }
+                if ($updates !== []) {
+                    $video->update($updates);
                 }
                 $orderedIds[] = $id;
 

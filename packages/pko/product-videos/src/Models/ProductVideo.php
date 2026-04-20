@@ -15,6 +15,7 @@ use Pko\ProductVideos\Enums\VideoProvider;
  * @property string $url
  * @property VideoProvider $provider
  * @property ?string $provider_video_id
+ * @property ?string $thumbnail_url
  * @property ?string $title
  * @property int $sort_order
  */

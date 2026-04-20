@@ -19,6 +19,7 @@ final class ProductVideoManager
 {
     public function __construct(
         private readonly VideoUrlResolver $resolver,
+        private readonly OembedClient $oembed,
     ) {}
 
     public function exists(Product $product, string $url): bool
@@ -55,14 +56,32 @@ final class ProductVideoManager
             ->where('product_id', $product->id)
             ->max('sort_order');
 
+        $thumbnail = $info->thumbnailUrl ?? $this->oembed->fetchThumbnail($info);
+
         return ProductVideo::query()->create([
             'product_id' => $product->id,
             'url' => trim($url),
             'provider' => $info->provider,
             'provider_video_id' => $info->videoId,
+            'thumbnail_url' => $thumbnail,
             'title' => $title,
             'sort_order' => $nextSortOrder + 1,
         ]);
+    }
+
+    /**
+     * Resolve the thumbnail URL for a given video URL without persisting
+     * anything. Use from the admin UI to show a preview on blur. Returns
+     * null on unsupported URLs or oEmbed failures.
+     */
+    public function resolveThumbnail(string $url): ?string
+    {
+        $info = $this->resolver->tryResolve($url);
+        if ($info === null) {
+            return null;
+        }
+
+        return $info->thumbnailUrl ?? $this->oembed->fetchThumbnail($info);
     }
 
     /**

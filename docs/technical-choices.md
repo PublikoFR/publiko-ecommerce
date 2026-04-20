@@ -1361,15 +1361,15 @@ Package `packages/pko/product-videos/` (namespace `Pko\ProductVideos\`), `Produc
 | Provider | Détection (regex) | Embed URL |
 |---|---|---|
 | YouTube | `watch?v=`, `embed/`, `shorts/`, `youtu.be` | `https://www.youtube.com/embed/{id}` |
-| Vimeo | `vimeo.com/{id}`, `player.vimeo.com/video/{id}` | `https://player.vimeo.com/video/{id}` |
+| Vimeo | `vimeo.com/{id}`, `player.vimeo.com/video/{id}` | `https://player.vimeo.com/video/{id}` (thumbnail récupérée via oEmbed à l'ajout) |
 | Dailymotion | `dailymotion.com/video/{id}`, `dai.ly/{id}` | `https://www.dailymotion.com/embed/video/{id}` |
 | MP4 | URL path se terminant par `.mp4` (query autorisée) | URL brute, lue via `<video controls>` |
 
-Tout autre format → `UnsupportedVideoUrlException`. Détection centralisée dans `VideoUrlResolver` ; aucun appel réseau (thumbnails YouTube/Dailymotion déduites de l'ID seul).
+Tout autre format → `UnsupportedVideoUrlException`. Détection centralisée dans `VideoUrlResolver` ; thumbnails YouTube/Dailymotion déduites de l'ID seul, Vimeo récupérée via `OembedClient` (1 GET `vimeo.com/api/oembed.json`, timeout 3s, failure silencieuse).
 
 ### Table `pko_product_videos`
 
-`id, product_id FK cascade, url text, provider string, provider_video_id nullable, title nullable, sort_order int, timestamps`
+`id, product_id FK cascade, url text, provider string, provider_video_id nullable, thumbnail_url text nullable, title nullable, sort_order int, timestamps`
 Index `(product_id, sort_order)`. Pas d'index UNIQUE (`url` est TEXT) — unicité garantie côté app via `ProductVideoManager::addIfNotExists()`.
 
 ### API publique — `ProductVideoManager`
@@ -1419,7 +1419,7 @@ Drag&drop via Alpine directive `x-sortable` (JS `packages/pko/product-videos/res
 
 - **Pas de colonne `aspect_ratio`** — tous les embeds en 16:9, décision validée pour v1 (cohérence visuelle > flexibilité éditoriale).
 - **Pas de vidéos par variant** — rattachement produit-level uniquement ; si besoin plus tard, ajouter `variant_id nullable`.
-- **Pas d'appel oEmbed / API** — pas de fetch de titre ou thumbnail via le réseau. Tout dérivé de l'URL. Les thumbnails Vimeo et MP4 restent `null` ; les cas YouTube / Dailymotion exploitent les patterns CDN publics de ces providers.
+- **oEmbed Vimeo uniquement** — un unique appel à `vimeo.com/api/oembed.json` lors de l'ajout d'une URL Vimeo (seul provider sans pattern CDN déterministe). Résultat persistant en DB (`thumbnail_url`), failure silencieuse si timeout/4xx/5xx. Pas d'autre fetch réseau pour les titres ou autres métadonnées.
 
 ## 14. Documentation externe
 

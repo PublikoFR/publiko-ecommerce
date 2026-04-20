@@ -6,6 +6,7 @@ namespace Tests\Feature\ProductVideos;
 
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Lunar\Models\Product;
 use Pko\ProductVideos\Enums\VideoProvider;
 use Pko\ProductVideos\Models\ProductVideo;
@@ -93,6 +94,34 @@ class ProductVideoManagerTest extends TestCase
         $this->assertSame(1, (int) $c->refresh()->sort_order);
         $this->assertSame(2, (int) $a->refresh()->sort_order);
         $this->assertSame(3, (int) $b->refresh()->sort_order);
+    }
+
+    public function test_add_persists_vimeo_thumbnail_via_oembed(): void
+    {
+        Http::fake([
+            'vimeo.com/api/oembed.json*' => Http::response([
+                'thumbnail_url' => 'https://i.vimeocdn.com/video/abc.jpg',
+            ]),
+        ]);
+        $product = Product::first();
+
+        $video = $this->manager->add($product, 'https://vimeo.com/524933864');
+
+        $this->assertSame('https://i.vimeocdn.com/video/abc.jpg', $video->thumbnail_url);
+    }
+
+    public function test_add_persists_youtube_thumbnail_from_pattern(): void
+    {
+        Http::fake(); // fail loud if an oEmbed call sneaks in
+        $product = Product::first();
+
+        $video = $this->manager->add($product, 'https://youtu.be/dQw4w9WgXcQ');
+
+        $this->assertSame(
+            'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+            $video->thumbnail_url,
+        );
+        Http::assertNothingSent();
     }
 
     public function test_delete_removes_the_row(): void
