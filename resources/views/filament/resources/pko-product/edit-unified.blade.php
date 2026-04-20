@@ -72,7 +72,7 @@
     <form
         wire:submit.prevent="save"
         data-pko-product-edit
-        class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 pb-28"
+        class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 pb-28 min-h-[calc(100dvh-6rem)]"
     >
 
         {{-- ============================================================ --}}
