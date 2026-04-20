@@ -765,6 +765,24 @@ Les clés inconnues du writer sont **ignorées silencieusement** — le config a
 
 ---
 
+## 8.ter Liste produits admin — colonnes personnalisées
+
+`PkoProductResource::getTableColumns()` remplace la liste Lunar native par : **Image · Marque · Nom · Prix · Réf. · Stock · Catégorie principale**. Statut et Type de produit supprimés.
+
+### Colonnes custom
+
+- **Image** (`pko_thumbnail`) — premier media attaché via `pko_mediables` (`mediagroup='product'`, `position=0`). URL Spatie originale (pas de conversion `small` car les médias appartiennent à la médiathèque, pas à Lunar Product). Placeholder SVG inline (40×40) pour les produits sans image.
+- **Prix** — base price du 1er variant (`customer_group_id = null`, `min_quantity ≤ 1`), formaté via `$price->price->formatted()`.
+- **Catégorie principale** — 1ère collection attachée (`$product->collections->first()->translateAttribute('name')`).
+
+### Gotcha Lunar — sous-classe ListProducts obligatoire
+
+`Lunar\Admin\Filament\Resources\ProductResource\Pages\ListProducts` a `protected static string $resource = ProductResource::class` **hardcodé**. Le swap de resource au niveau panel (`swapLunarResources()`) ne suffit pas : Filament instancie la page et appelle `ProductResource::getTableColumns()` via ce `$resource`, **pas** `PkoProductResource::getTableColumns()`.
+
+**Solution** : créer `PkoListProducts extends ListProducts` avec `$resource = PkoProductResource::class`, l'enregistrer via `getDefaultPages()['index']`. Late-static-binding résout ensuite les méthodes overridées correctement.
+
+Ce pattern s'applique à toute personnalisation de list/view/manage pages Lunar : la sous-classe de Resource seule ne suffit pas, il faut aussi sous-classer la page qui déclare `$resource` en dur.
+
 ## 8.bis Page d'édition produit unifiée
 
 Voir `docs/product-edit-unified-page.md`. En résumé :
