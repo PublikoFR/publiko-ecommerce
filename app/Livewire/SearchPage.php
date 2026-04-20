@@ -85,15 +85,13 @@ class SearchPage extends Component
         if ($term !== '' && strlen($term) >= 2) {
             $like = '%'.addcslashes($term, '%_').'%';
             $q->where(function ($qq) use ($like): void {
-                $qq->whereExists(function ($sub) use ($like): void {
-                    $sub->from('lunar_product_translations as t')
-                        ->whereColumn('t.product_id', 'lunar_products.id')
-                        ->where('t.name', 'like', $like);
-                })->orWhereHas('variants', function ($v) use ($like): void {
-                    $v->where('sku', 'like', $like)
-                        ->orWhere('ean', 'like', $like)
-                        ->orWhere('mpn', 'like', $like);
-                });
+                // Nom du produit : stocké dans attribute_data (JSON) — extraction via JSON_EXTRACT MySQL 8.
+                $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name")) LIKE ?', [$like])
+                    ->orWhereHas('variants', function ($v) use ($like): void {
+                        $v->where('sku', 'like', $like)
+                            ->orWhere('ean', 'like', $like)
+                            ->orWhere('mpn', 'like', $like);
+                    });
             });
         }
 
