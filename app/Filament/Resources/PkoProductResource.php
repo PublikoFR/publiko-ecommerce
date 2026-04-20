@@ -8,6 +8,9 @@ use App\Filament\Resources\PkoProductResource\Pages\EditProductUnified;
 use App\Filament\Resources\PkoProductResource\Pages\PkoListProducts;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
@@ -108,5 +111,43 @@ class PkoProductResource extends ProductResource
             });
 
         return [$thumbnail, $brand, $name, $price, $sku, $stock, $mainCategory];
+    }
+
+    // ------- Global search (barre recherche admin en haut) -------
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        // Lunar-only par défaut : variants.sku + tags.value. On ajoute ean, mpn, brand.name.
+        return [
+            'variants.sku',
+            'variants.ean',
+            'variants.mpn',
+            'brand.name',
+            'tags.value',
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['variants', 'brand']);
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string|Htmlable
+    {
+        return $record->translateAttribute('name') ?: '#'.$record->id;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Marque' => $record->brand?->name ?? '—',
+            'Réf.' => $record->variants->first()?->sku ?? '—',
+            'Stock' => (string) ($record->variants->first()?->stock ?? 0),
+        ];
+    }
+
+    public static function getGlobalSearchResultUrl(Model $record): string
+    {
+        return static::getUrl('edit', ['record' => $record]);
     }
 }
