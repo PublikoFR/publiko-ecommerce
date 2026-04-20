@@ -8,6 +8,7 @@ use Pko\AiImporter\AiImporterServiceProvider;
 use Pko\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Pko\CustomerAuth\CustomerAuthServiceProvider;
 use Pko\Loyalty\LoyaltyServiceProvider;
+use Pko\PageBuilder\PageBuilderServiceProvider;
 use Pko\ProductVideos\ProductVideosServiceProvider;
 use Pko\PurchaseLists\PurchaseListsServiceProvider;
 use Pko\QuickOrder\QuickOrderServiceProvider;
@@ -29,6 +30,7 @@ return [
     AiFilamentServiceProvider::class,
     AiImporterServiceProvider::class,
     ProductVideosServiceProvider::class,
+    PageBuilderServiceProvider::class,
     StorefrontServiceProvider::class,
     CustomerAuthServiceProvider::class,
     AccountServiceProvider::class,

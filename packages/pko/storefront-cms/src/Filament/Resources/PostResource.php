@@ -6,7 +6,6 @@ namespace Pko\StorefrontCms\Filament\Resources;
 
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -53,7 +52,6 @@ class PostResource extends Resource
             ]),
             MediaPicker::make('cover')->label('Image de couverture')->mediagroup('cover')->folder('blog'),
             Textarea::make('excerpt')->label('Extrait')->rows(2)->maxLength(500),
-            RichEditor::make('body')->label('Contenu')->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList', 'h2', 'h3', 'blockquote'])->columnSpanFull(),
             Grid::make(2)->schema([
                 Select::make('status')->label('Statut')->options(['draft' => 'Brouillon', 'published' => 'Publié'])->default('draft')->required(),
                 DateTimePicker::make('published_at')->label('Date de publication')->default(now()),

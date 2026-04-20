@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             PkoMediaLibrarySeeder::class,
             AiPermissionsSeeder::class,
             ProductVideosPermissionsSeeder::class,
+            CmsPermissionsSeeder::class,
         ]);
 
         Model::reguard();

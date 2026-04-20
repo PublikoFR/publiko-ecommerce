@@ -14,9 +14,12 @@ class Post extends Model
 
     protected $table = 'pko_posts';
 
-    protected $fillable = ['slug', 'title', 'excerpt', 'body', 'status', 'published_at'];
+    protected $fillable = ['slug', 'title', 'excerpt', 'body', 'content', 'status', 'published_at'];
 
-    protected $casts = ['published_at' => 'datetime'];
+    protected $casts = [
+        'published_at' => 'datetime',
+        'content' => 'array',
+    ];
 
     public function getRouteKeyName(): string
     {

@@ -1,0 +1,1 @@
+<pre class="pko-pb-block pko-pb-block--code language-{{ $block['language'] }} overflow-x-auto rounded bg-gray-900 text-gray-100 p-4 text-sm"><code class="language-{{ $block['language'] }}">{{ $block['content'] }}</code></pre>

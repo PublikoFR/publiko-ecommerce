@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Pko\StorefrontCms\Filament\Resources;
 
 use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -46,7 +45,6 @@ class PageResource extends Resource
                     ->afterStateUpdated(fn ($state, $set, $get) => $get('slug') ? null : $set('slug', Str::slug((string) $state))),
                 TextInput::make('slug')->label('Slug')->required()->unique(ignoreRecord: true)->maxLength(200),
             ]),
-            RichEditor::make('body')->label('Contenu')->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList', 'h2', 'h3', 'blockquote'])->columnSpanFull(),
             Select::make('status')->label('Statut')->options(['draft' => 'Brouillon', 'published' => 'Publié'])->default('published')->required(),
         ]);
     }
