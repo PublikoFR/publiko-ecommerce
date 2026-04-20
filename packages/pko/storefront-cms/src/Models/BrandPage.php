@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Lunar\Models\Brand;
@@ -16,6 +19,7 @@ use Lunar\Models\Brand;
  * @property ?string $seo_title
  * @property ?string $seo_description
  */
+#[ApiResource(operations: [new GetCollection, new Get])]
 class BrandPage extends Model
 {
     protected $table = 'pko_brand_pages';

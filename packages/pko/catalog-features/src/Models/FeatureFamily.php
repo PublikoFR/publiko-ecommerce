@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Pko\CatalogFeatures\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -18,6 +21,7 @@ use Lunar\Models\Collection as LunarCollection;
  * @property bool $multi_value
  * @property bool $searchable
  */
+#[ApiResource(operations: [new GetCollection, new Get])]
 class FeatureFamily extends Model
 {
     protected $table = 'pko_feature_families';

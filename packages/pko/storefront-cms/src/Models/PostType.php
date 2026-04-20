@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -16,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $icon
  * @property int $sort_order
  */
+#[ApiResource(operations: [new GetCollection, new Get])]
 class PostType extends Model
 {
     protected $table = 'pko_post_types';

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +27,7 @@ use Pko\StorefrontCms\Concerns\HasMediaAttachments;
  * @property string $status
  * @property ?Carbon $published_at
  */
+#[ApiResource(operations: [new GetCollection, new Get])]
 class Post extends Model
 {
     use HasMediaAttachments;

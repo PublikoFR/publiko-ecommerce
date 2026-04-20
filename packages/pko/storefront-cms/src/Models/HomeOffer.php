@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Pko\StorefrontCms\Concerns\HasMediaAttachments;
 
+#[ApiResource(operations: [new GetCollection, new Get])]
 class HomeOffer extends Model
 {
     use HasMediaAttachments;
