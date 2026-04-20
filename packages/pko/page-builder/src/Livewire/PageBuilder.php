@@ -335,17 +335,33 @@ class PageBuilder extends Component implements HasActions, HasForms
     public function openImagePicker(string $blockId): void
     {
         $this->pickingImageBlockId = $blockId;
-        $this->dispatch('open-media-picker-modal', statePath: 'pko-page-builder-image', multiple: false);
+        // mediagroup + folder sont des paramètres attendus par PkoMediaLibrary::openModal
+        // (defaults 'default' / null). On laisse le picker fall-backer sur son dossier
+        // par défaut configuré.
+        $this->dispatch(
+            'open-media-picker-modal',
+            statePath: 'pko-page-builder-image',
+            multiple: false,
+            preselected: [],
+            mediagroup: 'page-builder',
+            folder: null,
+        );
     }
 
+    /**
+     * Livewire 3 injecte les params nommés dispatchés par `PkoMediaLibrary::confirm()` :
+     *   dispatch('media-picked', statePath: ..., ids: [...], medias: [...])
+     *
+     * @param  array<int, int>  $ids
+     * @param  array<int, array{id:int,url:string,alt:string,fileName:string}>  $medias
+     */
     #[On('media-picked')]
-    public function onMediaPicked(array $payload = [], ?string $statePath = null): void
+    public function onMediaPicked(string $statePath = '', array $ids = [], array $medias = []): void
     {
         if ($statePath !== 'pko-page-builder-image' || $this->pickingImageBlockId === null) {
             return;
         }
-        $medias = $payload['medias'] ?? $payload;
-        $first = is_array($medias) ? ($medias[0] ?? null) : null;
+        $first = $medias[0] ?? null;
         if (! is_array($first)) {
             $this->pickingImageBlockId = null;
 
