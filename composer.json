@@ -45,6 +45,7 @@
             "Pko\\AiCore\\": "packages/pko/ai-core/src/",
             "Pko\\AiFilament\\": "packages/pko/ai-filament/src/",
             "Pko\\AiImporter\\": "packages/pko/ai-importer/src/",
+            "Pko\\ProductVideos\\": "packages/pko/product-videos/src/",
             "Pko\\Loyalty\\": "packages/pko/loyalty/src/",
             "Pko\\Loyalty\\Database\\Seeders\\": "packages/pko/loyalty/database/seeders/",
             "Pko\\Storefront\\": "packages/pko/storefront/src/",

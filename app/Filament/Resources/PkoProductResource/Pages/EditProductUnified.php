@@ -30,6 +30,9 @@ use Pko\AiFilament\Actions\GenerateAiAction;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
+use Pko\ProductVideos\Models\ProductVideo;
+use Pko\ProductVideos\Services\ProductVideoManager;
+use Pko\ProductVideos\Services\VideoUrlResolver;
 use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -122,6 +125,10 @@ class EditProductUnified extends Page implements HasForms
     // ------- Features (CatalogFeatures)
     /** @var array<int,int|array<int,int>> */
     public array $featureValues = [];
+
+    // ------- Vidéos produit (pko/product-videos)
+    /** @var array<int, array{id:?int,url:string,title:string,provider:?string,thumbnail:?string}> */
+    public array $videos = [];
 
     // ------- SEO
     public string $seoTitle = '';
@@ -229,6 +236,12 @@ class EditProductUnified extends Page implements HasForms
             ->pluck('product_target_id')
             ->filter()
             ->map(fn ($v) => (int) $v)
+            ->all();
+
+        $this->videos = $product->videos
+            ->sortBy('sort_order')
+            ->values()
+            ->map(fn (ProductVideo $v): array => $this->hydrateVideoRow($v))
             ->all();
 
         // Filament forms : MediaPicker (médias) + RichEditor (description longue).
@@ -525,6 +538,101 @@ class EditProductUnified extends Page implements HasForms
             ) !== false);
     }
 
+    // ------- Videos
+    public function addVideoRow(): void
+    {
+        $this->videos[] = [
+            'id' => null,
+            'url' => '',
+            'title' => '',
+            'provider' => null,
+            'thumbnail' => null,
+        ];
+        $this->isDirty = true;
+    }
+
+    public function removeVideoRow(int $index): void
+    {
+        if (! isset($this->videos[$index])) {
+            return;
+        }
+        unset($this->videos[$index]);
+        $this->videos = array_values($this->videos);
+        $this->isDirty = true;
+    }
+
+    public function detectVideoProvider(int $index): void
+    {
+        if (! isset($this->videos[$index])) {
+            return;
+        }
+        $row = $this->videos[$index];
+        $url = trim((string) ($row['url'] ?? ''));
+        if ($url === '') {
+            $this->videos[$index]['provider'] = null;
+            $this->videos[$index]['thumbnail'] = null;
+
+            return;
+        }
+        $info = app(VideoUrlResolver::class)->tryResolve($url);
+        $this->videos[$index]['provider'] = $info?->provider->value;
+        $this->videos[$index]['thumbnail'] = $info?->thumbnailUrl;
+        $this->isDirty = true;
+    }
+
+    /**
+     * @param  array<int, int|string>  $idsInOrder  id persistés ou "new-{index}" pour les nouvelles lignes
+     */
+    public function reorderVideos(array $idsInOrder): void
+    {
+        $byId = [];
+        $byNewIndex = [];
+        foreach ($this->videos as $i => $row) {
+            if (! empty($row['id'])) {
+                $byId[(int) $row['id']] = $row;
+            } else {
+                $byNewIndex['new-'.$i] = $row;
+            }
+        }
+
+        $reordered = [];
+        foreach ($idsInOrder as $token) {
+            if (is_numeric($token) && isset($byId[(int) $token])) {
+                $reordered[] = $byId[(int) $token];
+            } elseif (is_string($token) && isset($byNewIndex[$token])) {
+                $reordered[] = $byNewIndex[$token];
+            }
+        }
+
+        if (count($reordered) === count($this->videos)) {
+            $this->videos = $reordered;
+            $this->isDirty = true;
+        }
+    }
+
+    private function hydrateVideoRow(ProductVideo $video): array
+    {
+        $info = app(VideoUrlResolver::class)->tryResolve($video->url);
+
+        return [
+            'id' => (int) $video->id,
+            'url' => (string) $video->url,
+            'title' => (string) ($video->title ?? ''),
+            'provider' => $video->provider->value,
+            'thumbnail' => $info?->thumbnailUrl,
+        ];
+    }
+
+    public function getVideoProvidersProperty(): array
+    {
+        return [
+            'youtube' => 'YouTube',
+            'vimeo' => 'Vimeo',
+            'dailymotion' => 'Dailymotion',
+            'mp4' => 'MP4',
+        ];
+    }
+
     // ------- Save
     public function save(): void
     {
@@ -591,6 +699,9 @@ class EditProductUnified extends Page implements HasForms
 
         // Associations images de description ↔ produit (pko_mediables, mediagroup = 'product-description').
         $this->syncDescriptionImages($this->record, $longDesc);
+
+        // Vidéos produit : diff + sync + reorder, dans la même transaction implicite du contexte page.
+        $this->persistVideos($this->record);
 
         // Refresh la prop Livewire pour que le Blade reflète la valeur sauvée.
         $this->longDesc = $longDesc;
@@ -790,6 +901,69 @@ class EditProductUnified extends Page implements HasForms
                     'priceable_id' => $variant->id,
                 ]));
             }
+        }
+    }
+
+    /**
+     * Réconcilie la liste des vidéos produit :
+     *   - suppression des lignes existantes retirées de l'UI
+     *   - ajout (via ProductVideoManager::add) des nouvelles URLs non déjà attachées
+     *   - update du titre pour les lignes existantes
+     *   - reorder selon l'ordre courant de $this->videos
+     */
+    private function persistVideos(Product $product): void
+    {
+        $manager = app(ProductVideoManager::class);
+
+        $existing = ProductVideo::query()
+            ->where('product_id', $product->id)
+            ->get()
+            ->keyBy('id');
+
+        $keptIds = [];
+        foreach ($this->videos as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0 && $existing->has($id)) {
+                $keptIds[] = $id;
+            }
+        }
+
+        // 1. Suppression des lignes retirées de l'UI
+        foreach ($existing as $video) {
+            if (! in_array((int) $video->id, $keptIds, true)) {
+                $manager->delete($video);
+            }
+        }
+
+        // 2. Add + update title + construction de la liste ordonnée
+        $orderedIds = [];
+        foreach ($this->videos as $row) {
+            $url = trim((string) ($row['url'] ?? ''));
+            $title = ($row['title'] ?? '') !== '' ? (string) $row['title'] : null;
+            if ($url === '') {
+                continue;
+            }
+
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0 && $existing->has($id)) {
+                $video = $existing[$id];
+                if (($video->title ?? null) !== $title) {
+                    $video->update(['title' => $title]);
+                }
+                $orderedIds[] = $id;
+
+                continue;
+            }
+
+            $created = $manager->addIfNotExists($product, $url, $title);
+            if ($created !== null) {
+                $orderedIds[] = (int) $created->id;
+            }
+        }
+
+        // 3. Reorder final
+        if ($orderedIds !== []) {
+            $manager->reorder($product, $orderedIds);
         }
     }
 
