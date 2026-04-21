@@ -8,7 +8,7 @@ Back-office **Laravel 11 + Lunar 1.x + Filament 3** e-commerce B2B (domaine conf
 1. Quand tu prépares un **Plan Mode** ou un plan d'implémentation pour une demande non triviale
 2. Quand tu travailles sur une **grosse feature** (plusieurs fichiers, plusieurs packages, ou impact architectural)
 
-Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne charge pas** `docs/technical-choices.md` — réponds ou code directement à partir du contexte de la conversation et du code du projet. La règle de **mise à jour** de la doc au commit (§1) s'applique toujours, elle.
+Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne charge pas** les `docs/` — réponds ou code directement à partir du contexte de la conversation et du code du projet. La règle de **mise à jour** de la doc au commit (§1) s'applique toujours, elle. Pour la navigation : `docs/README.md` liste l'ensemble des fichiers thématiques.
 
 ---
 
@@ -18,13 +18,19 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 
 | Fichier | Rôle |
 |---|---|
-| `docs/technical-choices.md` | **Référence maître** : stack, mécanismes d'extension Lunar, paiements, shipping, RBAC, points d'attention Lunar, tests, arborescence, décisions tranchées |
+| `docs/README.md` | **Index** de la documentation technique (TOC de tous les fichiers thématiques) |
+| `docs/architecture.md` | Stack, Docker, extension Lunar, gotchas, arborescence, à éviter |
+| `docs/packages-architecture.md` | Path repositories composer + foundation media-core + checklist nouveau package |
+| `docs/admin.md` | Navigation Filament, édition produit unifiée, liste, global search |
+| `docs/workflow.md` | Tests, Git, MCP servers, RBAC |
+| `docs/payments.md`, `docs/shipping.md` | Paiements Stripe, drivers shipping |
+| `docs/packages/<pkg>.md` | **Un fichier par package PKO** (catalog-features, media-core, page-builder, storefront-cms, api-platform, loyalty, ai-*, etc.) |
 | `cahier-des-charges.md` (racine) | Cahier des charges contractuel |
 | `CLAUDE.md` (ce fichier) | Instructions comportementales pour toi uniquement — jamais de choix techniques ici |
 
 ### Règle de maintenance documentaire — OBLIGATOIRE
 
-**Avant chaque commit**, si ton changement introduit **l'un** des éléments suivants, tu **DOIS** mettre à jour `docs/technical-choices.md` (ou créer un nouveau fichier thématique dans `docs/` si le sujet mérite son propre document) **dans le même commit** :
+**Avant chaque commit**, si ton changement introduit **l'un** des éléments suivants, tu **DOIS** mettre à jour le fichier `docs/` concerné (ou créer un nouveau fichier thématique dans `docs/` ou `docs/packages/` si le sujet mérite son propre document) **dans le même commit** :
 
 - Une nouvelle décision technique ou un arbitrage non trivial
 - Une nouvelle dépendance Composer ou NPM
@@ -37,6 +43,8 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 - Le rejet documenté d'une alternative technique (pourquoi pas X)
 
 La doc est partie intégrante du deliverable. Un commit qui introduit une décision sans mettre à jour la doc est considéré incomplet.
+
+**Règle d'atomicité** : ne pas créer de fichier fourre-tout. Un nouveau package PKO → nouveau `docs/packages/<pkg>.md`. Une décision transverse → enrichir le fichier thématique existant (`architecture.md`, `workflow.md`, etc.). Pas de "misc.md" ou "choices.md" monolithique.
 
 ### Mise à jour de la mémoire brain² (Obsidian)
 
@@ -95,7 +103,7 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 
 ### 3.1 Règles techniques
 
-1. **Jamais modifier `vendor/`** — aucun patch, aucune exception. Toute personnalisation passe par les mécanismes d'extension documentés dans `docs/technical-choices.md`.
+1. **Jamais modifier `vendor/`** — aucun patch, aucune exception. Toute personnalisation passe par les mécanismes d'extension documentés dans `docs/architecture.md`.
 2. **`declare(strict_types=1);`** en tête de chaque fichier PHP que tu crées ou touches.
 3. **PSR-12** — lance `make lint` avant chaque commit. Si rouge → corrige avant de committer.
 4. **Migrations custom** : préfixe de table `pko_`, dans `database/migrations/` (ou `packages/pko/<module>/database/migrations/` si spécifique à un module packagé).
@@ -176,7 +184,7 @@ S'applique aux Resources swappées via `$resources` reflection dans `AppServiceP
 1. **Avant de committer** :
    - `make test` doit être vert
    - `make lint` doit être vert
-   - `docs/technical-choices.md` mis à jour si le commit introduit une décision/dépendance/env var/table/règle (voir §1)
+   - Le fichier `docs/` concerné mis à jour si le commit introduit une décision/dépendance/env var/table/règle (voir §1)
 
 2. **Conventional Commits obligatoires** : `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `perf:`, `build:`.
 

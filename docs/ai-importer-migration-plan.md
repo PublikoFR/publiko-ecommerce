@@ -6,7 +6,7 @@ Branche de travail : `ai-importer`.
 
 ---
 
-## 1. Objectif
+## Objectif
 
 Porter le système d'import produits modulaire PrestaShop (parsing Excel multi-feuilles → pipeline d'actions chaînées → staging → validation → import Lunar) avec :
 
@@ -17,7 +17,7 @@ Porter le système d'import produits modulaire PrestaShop (parsing Excel multi-f
 
 ---
 
-## 2. Architecture cible
+## Architecture cible
 
 ### 2.1 Package
 
@@ -66,7 +66,7 @@ Nouveau groupe Filament **« Imports »** (avant Configuration), visible uniquem
 
 ---
 
-## 3. Modèle de données
+## Modèle de données
 
 5 tables préfixe `pko_ai_importer_`. Mapping depuis les 5 tables `pko_*` du module PS.
 
@@ -178,7 +178,7 @@ Index : `import_job_id`, `(import_job_id, level)`, `(import_job_id, row_number)`
 
 ---
 
-## 4. Pipeline d'actions (polymorphe)
+## Pipeline d'actions (polymorphe)
 
 ### 4.1 Simplification (17 actions, pas 43)
 
@@ -247,7 +247,7 @@ Mapping colonnes PS → clés Lunar à fournir séparément (table de correspond
 
 ---
 
-## 5. LLM providers
+## LLM providers
 
 Strategy pattern, aligné sur PS. Manager Laravel :
 
@@ -276,7 +276,7 @@ Codes critiques (401/402/403) → lève `LlmCriticalException` qui arrête le jo
 
 ---
 
-## 6. Workflow d'import
+## Workflow d'import
 
 ### 6.1 Étape 1 — Upload & config
 
@@ -357,7 +357,7 @@ Bouton action Filament « Rollback » sur un job `imported` :
 
 ---
 
-## 7. Perf — patterns TreeManager réutilisés
+## Perf — patterns TreeManager réutilisés
 
 Patterns validés sur TreeManager (500+ nœuds) réutilisés pour la preview staging (10 000+ rows) :
 
@@ -370,7 +370,7 @@ Patterns validés sur TreeManager (500+ nœuds) réutilisés pour la preview sta
 
 ---
 
-## 8. Extension catalog-features
+## Extension catalog-features
 
 Dépendance du package sur `mde/catalog-features` pour les caractéristiques filtrables. Après création/update produit :
 
@@ -388,7 +388,7 @@ La règle `syncByHandles` ne touche **que** les familles listées — les caract
 
 ---
 
-## 9. Sécurité
+## Sécurité
 
 - `declare(strict_types=1);` partout
 - Clé API LLM **chiffrée** via cast Eloquent `encrypted`
@@ -398,7 +398,7 @@ La règle `syncByHandles` ne touche **que** les familles listées — les caract
 
 ---
 
-## 10. Phases & état
+## Phases & état
 
 | Phase | Périmètre | État |
 |---|---|---|
@@ -420,7 +420,7 @@ La règle `syncByHandles` ne touche **que** les familles listées — les caract
 
 ---
 
-## 11. Questions ouvertes
+## Questions ouvertes
 
 1. Tables natives Lunar écrites : validée la règle de ne **jamais** écrire en dehors de `Product`/`ProductVariant`/`Price`/`Collection`/`Brand`/`TaxClass` (pas de SQL raw) ?
 2. Stockage fichiers : disque `local` par défaut. Bascule S3 envisagée en phase 6 ?
