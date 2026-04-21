@@ -10,6 +10,9 @@ use Pko\ShippingCommon\Dto\QuoteRequest;
 use Pko\ShippingCommon\Dto\QuoteResponse;
 use Pko\ShippingCommon\Dto\ShipmentRequest;
 use Pko\ShippingCommon\Dto\ShipmentResponse;
+use Pko\ShippingCommon\Pricing\LivePricingResolver;
+use Pko\ShippingCommon\Pricing\PricingMode;
+use Pko\ShippingCommon\Pricing\PricingModeResolver;
 use RuntimeException;
 use Throwable;
 
@@ -20,6 +23,9 @@ class ChronopostClient implements CarrierClient
      */
     public function __construct(
         private readonly array $config,
+        private readonly ?LivePricingResolver $livePricing = null,
+        private readonly ?PricingModeResolver $modes = null,
+        private readonly ?QuickCostSoapClient $liveClient = null,
     ) {}
 
     public function carrierCode(): string
@@ -32,12 +38,50 @@ class ChronopostClient implements CarrierClient
      */
     public function quote(QuoteRequest $request): array
     {
-        $grid = $this->config['grid'] ?? [];
         $maxWeight = (float) ($this->config['max_weight_kg'] ?? 30);
-
         if ($request->weightKg > $maxWeight) {
             return [];
         }
+
+        // Route via LivePricingResolver when available (production), otherwise
+        // fall back to the historical grid lookup on $this->config (unit tests).
+        if ($this->livePricing !== null && $this->modes !== null && $this->liveClient !== null) {
+            $mode = $this->modes->getFor('chronopost');
+            if ($mode !== PricingMode::GRID) {
+                $depZip = (string) ($this->config['shipper']['zip'] ?? '');
+
+                return $this->livePricing->resolveLive(
+                    carrier: 'chronopost',
+                    request: $request,
+                    livePricer: function (string $service, float $weightKg, string $dep, string $arr) {
+                        $resp = $this->liveClient->quickCost($service, $weightKg, $dep, $arr);
+
+                        return new QuoteResponse(
+                            serviceCode: $resp->serviceCode,
+                            serviceLabel: $this->serviceLabel($resp->serviceCode),
+                            priceCents: $resp->priceCentsTTC,
+                            currencyCode: $resp->currency,
+                        );
+                    },
+                    depZip: $depZip,
+                );
+            }
+
+            return $this->livePricing->resolveFromGrid('chronopost', $request);
+        }
+
+        return $this->quoteFromConfigArray($request);
+    }
+
+    /**
+     * Legacy grid lookup using the $config array (used by unit tests that build
+     * the Client without the resolver stack).
+     *
+     * @return list<QuoteResponse>
+     */
+    private function quoteFromConfigArray(QuoteRequest $request): array
+    {
+        $grid = $this->config['grid'] ?? [];
 
         $priceCents = null;
         foreach ($grid as $bracket) {
@@ -71,6 +115,13 @@ class ChronopostClient implements CarrierClient
         }
 
         return $quotes;
+    }
+
+    private function serviceLabel(string $code): string
+    {
+        $services = $this->config['services'] ?? [];
+
+        return (string) ($services[$code]['label'] ?? $code);
     }
 
     public function createShipment(ShipmentRequest $request): ShipmentResponse

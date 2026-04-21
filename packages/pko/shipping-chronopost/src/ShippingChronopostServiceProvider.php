@@ -9,8 +9,11 @@ use Lunar\Base\ShippingModifiers;
 use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
 use Pko\ShippingChronopost\Modifiers\ChronopostModifier;
 use Pko\ShippingChronopost\Services\ChronopostClient;
+use Pko\ShippingChronopost\Services\QuickCostSoapClient;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
+use Pko\ShippingCommon\Pricing\LivePricingResolver;
+use Pko\ShippingCommon\Pricing\PricingModeResolver;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
 use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
 use Throwable;
@@ -21,8 +24,21 @@ class ShippingChronopostServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/chronopost.php', 'chronopost');
 
+        $this->app->singleton(QuickCostSoapClient::class, function () {
+            return new QuickCostSoapClient([
+                'account' => secret('chronopost.account') ?? config('chronopost.credentials.account'),
+                'password' => secret('chronopost.password') ?? config('chronopost.credentials.password'),
+                'sub_account' => secret('chronopost.sub_account') ?? config('chronopost.credentials.sub_account'),
+            ]);
+        });
+
         $this->app->singleton('pko.shipping.carrier.chronopost', function ($app) {
-            return new ChronopostClient($this->buildClientConfig($app));
+            return new ChronopostClient(
+                config: $this->buildClientConfig($app),
+                livePricing: $app->make(LivePricingResolver::class),
+                modes: $app->make(PricingModeResolver::class),
+                liveClient: $app->make(QuickCostSoapClient::class),
+            );
         });
 
         $this->app->bind(ChronopostClient::class, fn () => $this->app->make('pko.shipping.carrier.chronopost'));
@@ -47,6 +63,7 @@ class ShippingChronopostServiceProvider extends ServiceProvider
                 configPageClass: ChronopostConfig::class,
                 navigationSort: 20,
                 meta: ['max_weight_kg' => 30],
+                supportsLive: true,
             ));
         });
     }

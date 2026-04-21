@@ -73,6 +73,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'shipping-quickcost' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/shipping-quickcost.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

@@ -20,5 +20,6 @@ final class CarrierDefinition
         public readonly ?string $configPageClass = null,
         public readonly int $navigationSort = 20,
         public readonly array $meta = [],
+        public readonly bool $supportsLive = false,
     ) {}
 }

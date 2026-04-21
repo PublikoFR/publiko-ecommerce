@@ -93,7 +93,29 @@ Depuis avril 2026 :
 - **Tables `pko_carrier_services` et `pko_carrier_grids`** — data migration initiale (`2026_04_21_110100_seed_initial_carrier_data`) sème Chronopost (5 paliers, 3 services) et Colissimo (4 paliers, 2 services) depuis les anciennes valeurs config.
 - **Ajouter un nouveau transporteur** : cf. [packages/transporters.md](packages/transporters.md) — ~80 lignes au total.
 
-### 5.5 Hors scope shipping
+### 5.5 Tarification live Chronopost (2026-04)
+
+Revirement de la décision initiale « grilles statiques uniquement » (§5.2) : **3 modes au choix** par transporteur, togglés depuis l'admin Filament :
+
+| Mode | Source du prix | Fallback |
+|---|---|---|
+| `grid` (défaut) | `pko_carrier_grids` en DB | — |
+| `live_with_fallback` | API live + cache Redis 24 h | Grille si API KO |
+| `live_only` | API live + cache Redis 24 h | Transporteur retiré du checkout si API KO |
+
+**Architecture** :
+- `Pko\ShippingChronopost\Services\QuickCostSoapClient` — client SOAP pur sur `QuickcostServiceWS` (impl nous-même, le SDK `ladromelaboratoire/chronopostws` a un stub vide).
+- `Pko\ShippingCommon\Pricing\LivePricingResolver` — orchestrateur (cache 24 h, lock anti-herd, fallback, log).
+- `Pko\ShippingCommon\Pricing\PricingModeResolver` — lit/écrit `shipping.{carrier}.pricing_mode` dans `pko_storefront_settings`.
+- Canal log `shipping-quickcost` (daily, 30 j) — `storage/logs/shipping-quickcost.log`.
+
+**Colissimo** reste en mode `grid` uniquement (pas d'API tarifaire publique). Bouton **Charger les tarifs publics 2026** dans la page Config via `Pko\ShippingColissimo\Data\PublicTariffs2026`.
+
+**Pourquoi ce choix** : cache agressif → 99% cache-hit à latence nulle ; fallback grille → jamais de checkout cassé ; prix frais à 24 h près via l'API. Meilleur compromis perf/fraîcheur/robustesse.
+
+Voir [packages/transporters.md](packages/transporters.md) pour les détails d'implémentation.
+
+### 5.6 Hors scope shipping
 
 - Points relais (`BPR` Colissimo, `Chrono Relais`)
 - Tracking webhook (polling ou push transporteur)

@@ -95,6 +95,46 @@ Depuis la page Filament Config d'un transporteur :
 
 À la soumission (`AbstractCarrierConfigPage::save()`), les services et paliers sont réécrits (delete + insert) dans une transaction, puis le cache des repositories est flushé.
 
+## Modes de tarification
+
+Chaque transporteur peut fonctionner selon 3 modes, togglés par l'admin depuis sa page Config (uniquement si le transporteur a `CarrierDefinition::$supportsLive = true`) :
+
+| Mode | Source du prix | Latence checkout | Robustesse |
+|---|---|---|---|
+| `grid` (défaut) | Table `pko_carrier_grids` | ~0 ms | Toujours disponible |
+| `live_with_fallback` | API live avec cache Redis 24 h + fallback grille | ~0 ms (cache hit) / ~500 ms (miss) | Jamais de checkout cassé : fallback grille si API down |
+| `live_only` | API live avec cache Redis 24 h, **pas** de fallback | ~0 ms / ~500 ms | Si API down → le transporteur disparaît du checkout (les autres continuent) |
+
+### Support par transporteur
+
+| Transporteur | Supporte live ? | Raison |
+|---|---|---|
+| Chronopost | ✅ | API SOAP `QuickcostServiceWS` (WSDL public, credentials contrat) |
+| Colissimo | ❌ | La Poste n'expose **aucune** API tarifaire publique pour Colissimo. Grille DB uniquement. |
+
+### Cache live
+
+- Clé : `pko.shipping.{carrier}.quickcost.{service}.{depZip}.{arrZipPrefix}.{weightBucket}` (weight arrondi au kg sup).
+- TTL : 24 h.
+- Tag Redis : `pko.shipping.{carrier}` → permet un flush ciblé par transporteur.
+- Bouton **Vider le cache tarifs live** dans la page Config (actions header).
+- Lock `Cache::lock` pour éviter le thundering herd lors d'un cache miss concurrent.
+
+### Logging
+
+Canal dédié `shipping-quickcost` (`config/logging.php` → daily, 30 jours de rétention, `storage/logs/shipping-quickcost.log`). Logue :
+- `info` : cache miss + durée de l'appel SOAP.
+- `warning` : échec de l'appel live (message, exception class).
+- `info` : résumé quote lorsqu'au moins un service a échoué.
+
+## Presets publics
+
+Chaque package transporteur peut bundler les tarifs publics de l'année dans `packages/pko/shipping-{carrier}/src/Data/PublicTariffs{YEAR}.php`.
+
+**Exemple Colissimo** : `Pko\ShippingColissimo\Data\PublicTariffs2026` contient les paliers et services de la grille publique La Poste. Un bouton **Charger les tarifs publics 2026** dans `ColissimoConfig` remplace services + grille en 1 clic (transaction + flush cache).
+
+**Maintenance annuelle** : créer `PublicTariffs2027.php`, mettre à jour la classe référencée dans `ColissimoConfig::getHeaderActions()`.
+
 ## Décisions
 
 | Question | Choix | Raison |

@@ -9,6 +9,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -23,6 +24,9 @@ use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Models\CarrierGridBracket;
 use Pko\ShippingCommon\Models\CarrierService;
+use Pko\ShippingCommon\Pricing\LivePricingResolver;
+use Pko\ShippingCommon\Pricing\PricingMode;
+use Pko\ShippingCommon\Pricing\PricingModeResolver;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
 use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
 use Throwable;
@@ -84,6 +88,7 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
             [
                 'services' => app(CarrierServiceRepository::class)->allFor($this->carrierCode()),
                 'grid' => app(CarrierGridRepository::class)->forCarrier($this->carrierCode()),
+                'pricing_mode' => app(PricingModeResolver::class)->getFor($this->carrierCode())->value,
             ],
         ));
     }
@@ -92,13 +97,36 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
     {
         $def = $this->carrierDefinition();
 
+        $pricingSection = $def->supportsLive
+            ? Section::make('Mode de tarification')
+                ->description('Choisir comment les tarifs sont calculés au checkout. Le mode live requiert des credentials contractuels valides.')
+                ->schema([
+                    ToggleButtons::make('pricing_mode')
+                        ->label(null)
+                        ->options([
+                            PricingMode::GRID->value => PricingMode::GRID->label(),
+                            PricingMode::LIVE_WITH_FALLBACK->value => PricingMode::LIVE_WITH_FALLBACK->label(),
+                            PricingMode::LIVE_ONLY->value => PricingMode::LIVE_ONLY->label(),
+                        ])
+                        ->icons([
+                            PricingMode::GRID->value => 'heroicon-o-table-cells',
+                            PricingMode::LIVE_WITH_FALLBACK->value => 'heroicon-o-bolt',
+                            PricingMode::LIVE_ONLY->value => 'heroicon-o-rocket-launch',
+                        ])
+                        ->inline()
+                        ->required()
+                        ->helperText('Grille = rapide et toujours dispo. Live+fallback = prix frais avec repli grille si API down. Live strict = prix frais uniquement, pas de tarif si API down.'),
+                ])
+            : null;
+
         return $form
-            ->schema([
+            ->schema(array_values(array_filter([
                 SecretsFormSchema::make(
                     $this->carrierCode(),
                     $def->credentialLabels,
                     heading: "Credentials {$def->displayName}",
                 ),
+                $pricingSection,
 
                 Section::make('Services activés')
                     ->description('Activer/désactiver les services que ce transporteur proposera au checkout.')
@@ -132,7 +160,7 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
                             ->orderColumn('sort')
                             ->addActionLabel('Ajouter un palier'),
                     ]),
-            ])
+            ])))
             ->statePath('data');
     }
 
@@ -142,6 +170,14 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
         $carrier = $this->carrierCode();
 
         SecretsFormSchema::save($carrier, $state);
+
+        if ($this->carrierDefinition()->supportsLive && isset($state['pricing_mode'])) {
+            $mode = PricingMode::tryFrom((string) $state['pricing_mode']) ?? PricingMode::GRID;
+            app(PricingModeResolver::class)->setFor($carrier, $mode);
+            if ($mode === PricingMode::GRID) {
+                app(LivePricingResolver::class)->flushCache($carrier);
+            }
+        }
 
         DB::transaction(function () use ($carrier, $state): void {
             CarrierService::query()->where('carrier_code', $carrier)->delete();
@@ -232,39 +268,58 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('testCredentials')
-                ->label('Tester les credentials')
-                ->icon('heroicon-o-bolt')
-                ->color('primary')
-                ->disabled(fn (): bool => ! $this->isConfigured())
-                ->action(function (): void {
-                    try {
-                        /** @var CarrierClient $client */
-                        $client = app($this->carrierDefinition()->clientServiceId);
+        $actions = [];
 
-                        if ($client->testCredentials()) {
-                            Notification::make()
-                                ->success()
-                                ->title('Credentials valides')
-                                ->body("Les identifiants {$this->carrierDefinition()->displayName} sont présents.")
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->danger()
-                                ->title('Credentials manquants')
-                                ->body('Renseignez les credentials via le formulaire (.env ou base de données).')
-                                ->send();
-                        }
-                    } catch (Throwable $e) {
+        if ($this->carrierDefinition()->supportsLive) {
+            $actions[] = Action::make('flushLiveCache')
+                ->label('Vider le cache tarifs live')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalDescription('Les prochains checkout déclencheront à nouveau un appel API pour chaque poids/zone.')
+                ->action(function (): void {
+                    app(LivePricingResolver::class)->flushCache($this->carrierCode());
+
+                    Notification::make()
+                        ->success()
+                        ->title('Cache tarifs vidé')
+                        ->send();
+                });
+        }
+
+        $actions[] = Action::make('testCredentials')
+            ->label('Tester les credentials')
+            ->icon('heroicon-o-bolt')
+            ->color('primary')
+            ->disabled(fn (): bool => ! $this->isConfigured())
+            ->action(function (): void {
+                try {
+                    /** @var CarrierClient $client */
+                    $client = app($this->carrierDefinition()->clientServiceId);
+
+                    if ($client->testCredentials()) {
+                        Notification::make()
+                            ->success()
+                            ->title('Credentials valides')
+                            ->body("Les identifiants {$this->carrierDefinition()->displayName} sont présents.")
+                            ->send();
+                    } else {
                         Notification::make()
                             ->danger()
-                            ->title('Erreur')
-                            ->body($e->getMessage())
-                            ->persistent()
+                            ->title('Credentials manquants')
+                            ->body('Renseignez les credentials via le formulaire (.env ou base de données).')
                             ->send();
                     }
-                }),
-        ];
+                } catch (Throwable $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Erreur')
+                        ->body($e->getMessage())
+                        ->persistent()
+                        ->send();
+                }
+            });
+
+        return $actions;
     }
 }
