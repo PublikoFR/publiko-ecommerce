@@ -25,6 +25,7 @@ help:
 	@echo "  make ps          Statut des conteneurs"
 	@echo "  make lunar       Relancer lunar:install"
 	@echo "  make shield      Générer les policies Shield (--all)"
+	@echo "  make shield-sync Shield generate + super-admin regrant + caches clear (apres ajout Resource/Page/Cluster)"
 	@echo "  make permissions Corriger les permissions storage + bootstrap/cache"
 	@echo ""
 	@echo "URLs :"
@@ -96,6 +97,15 @@ lunar:
 
 shield:
 	$(EXEC) php artisan shield:generate --all --panel=admin
+
+# Sync complet apres ajout d'une Resource / Page / Cluster Filament :
+# regenere les policies Shield + re-attribue toutes les permissions au super-admin
+# + purge les caches (route/view/config) pour que Filament re-decouvre la nav.
+# A lancer systematiquement apres creation d'un nouvel element de navigation.
+shield-sync:
+	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
+	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
+	$(EXEC) php artisan optimize:clear
 
 permissions:
 	$(EXEC_ROOT) chown -R sail:sail storage bootstrap/cache

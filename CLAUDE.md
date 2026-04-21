@@ -115,6 +115,17 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 10. **Policies Shield** — régénérées automatiquement par `make install`. Ne pas éditer à la main, sauf override explicite documenté dans `docs/`.
 11. **Service Docker** = `app` (pas `laravel.test`, pas `sail`). Stack custom Traefik + phpMyAdmin.
 
+12. **Après toute création d'une Filament Resource / Page / Cluster** → lancer impérativement **`make shield-sync`** avant de considérer le travail terminé. Sans ça :
+    - Les nouvelles entités n'apparaissent pas dans la sidebar (policies Shield absentes → `canAccess()` bloque).
+    - Les items attachés à un cluster ne remontent pas dans son sub-nav.
+    - Les caches Filament de routes/views ne sont pas purgés.
+
+    `make shield-sync` = `shield:generate --all` + `shield:super-admin --user=1` + `optimize:clear`. Idempotent, safe à re-lancer.
+
+    **Règle connexe pour les Clusters** : après création d'un `Cluster` dans `packages/pko/*/src/Filament/Clusters/`, vérifier que `$panel->discoverClusters(in: ..., for: ...)` dans `app/Providers/AppServiceProvider.php` pointe bien sur le bon dossier. Sinon le cluster n'est pas découvert du tout (route/admin/{slug} invisible).
+
+    **Règle connexe pour un swap par réflexion de Resource Lunar (pattern `PkoXResource` + `SwapXResourcesPlugin`)** : en plus de remplacer dans `$panel->resources`, populer `$panel->clusteredComponents[$cluster][]` si la Resource déclare `$cluster`. Sinon elle apparaît bien en route mais pas dans la sub-nav du cluster. Cf. `Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin` pour l'implémentation de référence.
+
 ### 3.2 Création d'un nouveau package PKO — NON-NÉGOCIABLE
 
 Tous les modules custom vivent sous `packages/pko/<feature>/` et sont installés via **path repositories** composer. **Ne jamais** ajouter d'entrée PSR-4 dans le `composer.json` racine ni de provider dans `bootstrap/providers.php` — tout passe par l'auto-discovery du package lui-même.
