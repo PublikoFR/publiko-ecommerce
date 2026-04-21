@@ -43,6 +43,7 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 
 - [loyalty.md](packages/loyalty.md) — fidélité B2B
 - [api-platform.md](packages/api-platform.md) — API Platform 4.3 (lecture seule, auth staff)
+- [admin-nav.md](packages/admin-nav.md) — réorganisation menu Filament + raccourcis Pilotage + on-page tabs
 
 ## Guides utilisateur et plans existants
 

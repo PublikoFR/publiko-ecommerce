@@ -29,6 +29,7 @@
         "mews/purifier": "^3.4",
         "phpoffice/phpspreadsheet": "^3.0",
         "pko/lunar-account": "@dev",
+        "pko/lunar-admin-nav": "@dev",
         "pko/lunar-ai-core": "@dev",
         "pko/lunar-ai-filament": "@dev",
         "pko/lunar-ai-importer": "@dev",

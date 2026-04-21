@@ -15,7 +15,6 @@ use App\Filament\Resources\PkoProductResource;
 use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -32,6 +31,7 @@ use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
+use Pko\AdminNav\Filament\AdminNavPlugin;
 use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
@@ -59,17 +59,6 @@ class AppServiceProvider extends ServiceProvider
                 ->path('admin')
                 ->brandName(brand_name())
                 ->viteTheme('resources/css/filament/admin/theme.css')
-                ->navigationGroups([
-                    'Catalogue',
-                    NavigationGroup::make('Paramètres catalogue')->collapsed(),
-                    'Storefront',
-                    'Commandes',
-                    'Clients',
-                    'Marketing',
-                    'Expédition',
-                    'Imports',
-                    'Configuration',
-                ])
                 ->pages([
                     StripeConfig::class,
                     TreeManager::class,
@@ -86,7 +75,8 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(LoyaltyPlugin::make())
                 ->plugin(StorefrontCmsPlugin::make())
                 ->plugin(StoreLocatorPlugin::make())
-                ->plugin(MediaManagerShimPlugin::make());
+                ->plugin(MediaManagerShimPlugin::make())
+                ->plugin(AdminNavPlugin::make());
         })->register();
 
         LunarPanel::extensions([

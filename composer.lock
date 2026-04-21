@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "598fe64192daf4cb58e6e8c03e826394",
+    "content-hash": "6bba1de2914b8bb12bde649449b1600c",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -7323,7 +7323,7 @@
         },
         {
             "name": "pko/lunar-account",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/account",
@@ -7358,8 +7358,54 @@
             }
         },
         {
+            "name": "pko/lunar-admin-nav",
+            "version": "dev-feat/admin-nav-reorg",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/lunar-admin-nav",
+                "reference": "99ffe76641f9ec17388eb1e2ebf89ddb5d586707"
+            },
+            "require": {
+                "bezhansalleh/filament-shield": "^3.9",
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/lunar": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-ai-importer": "@dev",
+                "pko/lunar-catalog-features": "@dev",
+                "pko/lunar-loyalty": "@dev",
+                "pko/lunar-product-documents": "@dev",
+                "pko/lunar-shipping-chronopost": "@dev",
+                "pko/lunar-shipping-colissimo": "@dev",
+                "pko/lunar-shipping-common": "@dev",
+                "pko/lunar-store-locator": "@dev",
+                "pko/lunar-storefront-cms": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\AdminNav\\AdminNavServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\AdminNav\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Réorganisation du menu Filament admin (groupes, sous-groupes, raccourcis Pilotage, on-page tabs Fidélité et Page d'accueil).",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "pko/lunar-ai-core",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-core",
@@ -7393,7 +7439,7 @@
         },
         {
             "name": "pko/lunar-ai-filament",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-filament",
@@ -7429,7 +7475,7 @@
         },
         {
             "name": "pko/lunar-ai-importer",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-importer",
@@ -7469,7 +7515,7 @@
         },
         {
             "name": "pko/lunar-catalog-features",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/catalog-features",
@@ -7505,7 +7551,7 @@
         },
         {
             "name": "pko/lunar-customer-auth",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/customer-auth",
@@ -7541,7 +7587,7 @@
         },
         {
             "name": "pko/lunar-loyalty",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/loyalty",
@@ -7578,7 +7624,7 @@
         },
         {
             "name": "pko/lunar-media-core",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
@@ -7615,7 +7661,7 @@
         },
         {
             "name": "pko/lunar-page-builder",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/page-builder",
@@ -7652,7 +7698,7 @@
         },
         {
             "name": "pko/lunar-product-documents",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-documents",
@@ -7689,7 +7735,7 @@
         },
         {
             "name": "pko/lunar-product-videos",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-videos",
@@ -7725,7 +7771,7 @@
         },
         {
             "name": "pko/lunar-purchase-lists",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/purchase-lists",
@@ -7761,7 +7807,7 @@
         },
         {
             "name": "pko/lunar-quick-order",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/quick-order",
@@ -7797,7 +7843,7 @@
         },
         {
             "name": "pko/lunar-shipping-chronopost",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-chronopost",
@@ -7834,7 +7880,7 @@
         },
         {
             "name": "pko/lunar-shipping-colissimo",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-colissimo",
@@ -7871,7 +7917,7 @@
         },
         {
             "name": "pko/lunar-shipping-common",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-common",
@@ -7907,7 +7953,7 @@
         },
         {
             "name": "pko/lunar-store-locator",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/store-locator",
@@ -7943,7 +7989,7 @@
         },
         {
             "name": "pko/lunar-storefront",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront",
@@ -7979,7 +8025,7 @@
         },
         {
             "name": "pko/lunar-storefront-cms",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/admin-nav-reorg",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront-cms",
@@ -17286,6 +17332,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "pko/lunar-account": 20,
+        "pko/lunar-admin-nav": 20,
         "pko/lunar-ai-core": 20,
         "pko/lunar-ai-filament": 20,
         "pko/lunar-ai-importer": 20,

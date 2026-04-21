@@ -1,6 +1,6 @@
 # Architecture packages — path repositories OSS-ready
 
-Comment sont organisés les 19 packages PKO sous `packages/pko/*`, la foundation `pko/lunar-media-core`, et la checklist pour créer un nouveau package.
+Comment sont organisés les 20 packages PKO sous `packages/pko/*`, la foundation `pko/lunar-media-core`, et la checklist pour créer un nouveau package.
 
 ## Architecture packages OSS-ready — path repositories
 
@@ -13,7 +13,7 @@ Tous les modules custom `packages/pko/*` sont des packages composer-installables
 - `bootstrap/providers.php` ne contient plus que `AppServiceProvider` — tous les providers PKO sont auto-découverts.
 - Pas d'entrée Pko\* dans `autoload.psr-4` du root composer.json — chaque package gère son propre autoload.
 
-Résultat : `composer update` crée 19 symlinks `vendor/pko/lunar-<x>` → `packages/pko/<x>`. Laravel 11 package discovery enregistre les providers sans intervention.
+Résultat : `composer update` crée 20 symlinks `vendor/pko/lunar-<x>` → `packages/pko/<x>`. Laravel 11 package discovery enregistre les providers sans intervention.
 
 ### Foundation `pko/lunar-media-core`
 
