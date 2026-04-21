@@ -4,41 +4,102 @@
 @endphp
 
 @if ($current)
-    <aside
-        x-data
-        class="pko-side-nav fixed right-0 top-16 bottom-0 z-20 hidden w-64 overflow-y-auto border-l border-gray-200 bg-white px-4 py-6 dark:border-white/10 dark:bg-gray-950 lg:block"
-    >
+    <style>
+        .pko-side-nav {
+            position: fixed;
+            top: 4rem;
+            right: 0;
+            bottom: 0;
+            width: 16rem;
+            overflow-y: auto;
+            border-left: 1px solid rgb(229 231 235);
+            background-color: rgb(255 255 255);
+            padding: 1.5rem 1rem;
+            z-index: 20;
+        }
+        .dark .pko-side-nav {
+            border-color: rgb(255 255 255 / 0.1);
+            background-color: rgb(9 9 11);
+        }
+        @media (max-width: 1023px) {
+            .pko-side-nav { display: none; }
+        }
+        @media (min-width: 1024px) {
+            body:has(.pko-side-nav) .fi-main,
+            body:has(.pko-side-nav) .fi-topbar {
+                padding-right: 16rem;
+            }
+        }
+        .pko-side-nav__heading {
+            margin-bottom: 0.75rem;
+            padding: 0 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: rgb(107 114 128);
+        }
+        .dark .pko-side-nav__heading { color: rgb(156 163 175); }
+        .pko-side-nav__list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .pko-side-nav__link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgb(55 65 81);
+            text-decoration: none;
+            transition: background-color 0.15s;
+        }
+        .pko-side-nav__link:hover {
+            background-color: rgb(243 244 246);
+        }
+        .pko-side-nav__link.is-active {
+            background-color: rgb(243 244 246);
+            color: rgb(37 99 235);
+        }
+        .dark .pko-side-nav__link { color: rgb(229 231 235); }
+        .dark .pko-side-nav__link:hover,
+        .dark .pko-side-nav__link.is-active {
+            background-color: rgb(255 255 255 / 0.05);
+        }
+        .dark .pko-side-nav__link.is-active { color: rgb(96 165 250); }
+        .pko-side-nav__icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+        .pko-side-nav__icon--inactive { color: rgb(156 163 175); }
+        .pko-side-nav__icon--active { color: rgb(37 99 235); }
+        .dark .pko-side-nav__icon--active { color: rgb(96 165 250); }
+        .pko-side-nav__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    </style>
+
+    <aside class="pko-side-nav">
         @if ($current['heading'])
-            <h3 class="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {{ $current['heading'] }}
-            </h3>
+            <h3 class="pko-side-nav__heading">{{ $current['heading'] }}</h3>
         @endif
 
-        <ul class="flex flex-col gap-y-1">
+        <ul class="pko-side-nav__list">
             @foreach ($current['items'] as $item)
-                @php
-                    $active = $item->isActive();
-                @endphp
+                @php $active = $item->isActive(); @endphp
                 <li>
                     <a
                         href="{{ $item->getUrl() }}"
-                        @class([
-                            'flex items-center gap-x-3 rounded-lg px-2 py-2 text-sm font-medium transition',
-                            'bg-gray-100 text-primary-600 dark:bg-white/5 dark:text-primary-400' => $active,
-                            'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5' => ! $active,
-                        ])
+                        class="pko-side-nav__link {{ $active ? 'is-active' : '' }}"
                     >
                         @if ($icon = $item->getIcon())
                             <x-filament::icon
                                 :icon="$icon"
-                                @class([
-                                    'h-5 w-5',
-                                    'text-primary-600 dark:text-primary-400' => $active,
-                                    'text-gray-400 dark:text-gray-500' => ! $active,
-                                ])
+                                class="pko-side-nav__icon {{ $active ? 'pko-side-nav__icon--active' : 'pko-side-nav__icon--inactive' }}"
                             />
                         @endif
-                        <span class="flex-1 truncate">{{ $item->getLabel() }}</span>
+                        <span class="pko-side-nav__label">{{ $item->getLabel() }}</span>
                         @if ($badge = $item->getBadge())
                             <x-filament::badge :color="$item->getBadgeColor()">{{ $badge }}</x-filament::badge>
                         @endif
@@ -47,12 +108,4 @@
             @endforeach
         </ul>
     </aside>
-
-    <style>
-        @media (min-width: 1024px) {
-            body:has(.pko-side-nav) .fi-main {
-                padding-right: 16rem;
-            }
-        }
-    </style>
 @endif
