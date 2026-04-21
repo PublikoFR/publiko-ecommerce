@@ -38,9 +38,9 @@ use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
-use Pko\ShippingChronopost\Filament\ChronopostPlugin;
-use Pko\ShippingColissimo\Filament\ColissimoPlugin;
-use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
+use Pko\Secrets\Facades\Secrets;
+use Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin;
+use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
@@ -52,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->swapLunarResources();
+        $this->registerSecretModules();
 
         LunarPanel::panel(function (Panel $panel): Panel {
             return $panel
@@ -66,7 +67,6 @@ class AppServiceProvider extends ServiceProvider
                     'Commandes',
                     'Clients',
                     'Marketing',
-                    'Expédition',
                     'Imports',
                     'Configuration',
                 ])
@@ -75,11 +75,14 @@ class AppServiceProvider extends ServiceProvider
                     TreeManager::class,
                     StorefrontSettings::class,
                 ])
+                ->discoverClusters(
+                    in: base_path('packages/pko/shipping-common/src/Filament/Clusters'),
+                    for: 'Pko\\ShippingCommon\\Filament\\Clusters',
+                )
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
-                ->plugin(ShippingCommonPlugin::make())
-                ->plugin(ChronopostPlugin::make())
-                ->plugin(ColissimoPlugin::make())
+                ->plugin(SwapLunarShippingResourcesPlugin::make())
+                ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())
                 ->plugin(AiImporterPlugin::make())
@@ -124,6 +127,69 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(
             resource_path('views/filament/resources/pko-product/partials'),
             'pko-product'
+        );
+    }
+
+    /**
+     * Declare secret keys for each module so they can be toggled between .env and DB
+     * storage from the admin UI. Registered at register() so the helper secret() is
+     * usable during bootstrap of other providers.
+     */
+    private function registerSecretModules(): void
+    {
+        Secrets::register(
+            'stripe',
+            keys: [
+                'public_key' => 'STRIPE_KEY',
+                'secret' => 'STRIPE_SECRET',
+                'webhook_lunar' => 'STRIPE_WEBHOOK_SECRET_LUNAR',
+            ],
+            defaultSource: 'env',
+            label: 'Stripe',
+            configMap: [
+                'public_key' => 'services.stripe.public_key',
+                'secret' => 'services.stripe.key',
+                'webhook_lunar' => 'services.stripe.webhooks.lunar',
+            ],
+        );
+
+        Secrets::register(
+            'chronopost',
+            keys: [
+                'account' => 'CHRONOPOST_ACCOUNT',
+                'password' => 'CHRONOPOST_PASSWORD',
+                'sub_account' => 'CHRONOPOST_SUB_ACCOUNT',
+            ],
+            defaultSource: 'env',
+            label: 'Chronopost',
+            configMap: [
+                'account' => 'chronopost.credentials.account',
+                'password' => 'chronopost.credentials.password',
+                'sub_account' => 'chronopost.credentials.sub_account',
+            ],
+        );
+
+        Secrets::register(
+            'colissimo',
+            keys: [
+                'contract_number' => 'COLISSIMO_CONTRACT',
+                'password' => 'COLISSIMO_PASSWORD',
+            ],
+            defaultSource: 'env',
+            label: 'Colissimo',
+            configMap: [
+                'contract_number' => 'colissimo.credentials.contract_number',
+                'password' => 'colissimo.credentials.password',
+            ],
+        );
+
+        Secrets::register(
+            'laposte',
+            keys: [
+                'api_key' => 'LAPOSTE_API_KEY',
+            ],
+            defaultSource: 'env',
+            label: 'La Poste — API Suivi',
         );
     }
 

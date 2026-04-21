@@ -15,7 +15,7 @@ class ShippingMethodPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_shipping::method');
+        return $staff->can('view_any_pko::shipping::method');
     }
 
     /**
@@ -23,7 +23,7 @@ class ShippingMethodPolicy
      */
     public function view(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('view_shipping::method');
+        return $staff->can('view_pko::shipping::method');
     }
 
     /**
@@ -31,7 +31,7 @@ class ShippingMethodPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_shipping::method');
+        return $staff->can('create_pko::shipping::method');
     }
 
     /**
@@ -39,7 +39,7 @@ class ShippingMethodPolicy
      */
     public function update(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('update_shipping::method');
+        return $staff->can('update_pko::shipping::method');
     }
 
     /**
@@ -47,7 +47,7 @@ class ShippingMethodPolicy
      */
     public function delete(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('delete_shipping::method');
+        return $staff->can('delete_pko::shipping::method');
     }
 
     /**
@@ -55,7 +55,7 @@ class ShippingMethodPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_shipping::method');
+        return $staff->can('delete_any_pko::shipping::method');
     }
 
     /**
@@ -63,7 +63,7 @@ class ShippingMethodPolicy
      */
     public function forceDelete(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('force_delete_shipping::method');
+        return $staff->can('force_delete_pko::shipping::method');
     }
 
     /**
@@ -71,7 +71,7 @@ class ShippingMethodPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_shipping::method');
+        return $staff->can('force_delete_any_pko::shipping::method');
     }
 
     /**
@@ -79,7 +79,7 @@ class ShippingMethodPolicy
      */
     public function restore(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('restore_shipping::method');
+        return $staff->can('restore_pko::shipping::method');
     }
 
     /**
@@ -87,7 +87,7 @@ class ShippingMethodPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_shipping::method');
+        return $staff->can('restore_any_pko::shipping::method');
     }
 
     /**
@@ -95,7 +95,7 @@ class ShippingMethodPolicy
      */
     public function replicate(Staff $staff, ShippingMethod $shippingMethod): bool
     {
-        return $staff->can('replicate_shipping::method');
+        return $staff->can('replicate_pko::shipping::method');
     }
 
     /**
@@ -103,6 +103,6 @@ class ShippingMethodPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_shipping::method');
+        return $staff->can('reorder_pko::shipping::method');
     }
 }

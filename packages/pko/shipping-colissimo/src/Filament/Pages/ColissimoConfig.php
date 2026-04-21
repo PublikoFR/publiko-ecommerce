@@ -6,134 +6,64 @@ namespace Pko\ShippingColissimo\Filament\Pages;
 
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Illuminate\Contracts\Support\Htmlable;
-use Lunar\Admin\Support\Pages\BasePage;
-use Pko\ShippingCommon\Contracts\CarrierClient;
-use Throwable;
+use Illuminate\Support\Facades\DB;
+use Pko\ShippingColissimo\Data\PublicTariffs2026;
+use Pko\ShippingCommon\Filament\Pages\AbstractCarrierConfigPage;
+use Pko\ShippingCommon\Models\CarrierGridBracket;
+use Pko\ShippingCommon\Models\CarrierService;
+use Pko\ShippingCommon\Repositories\CarrierGridRepository;
+use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
 
-class ColissimoConfig extends BasePage
+class ColissimoConfig extends AbstractCarrierConfigPage
 {
-    protected static ?string $navigationGroup = 'Configuration';
-
-    protected static ?string $navigationIcon = 'heroicon-o-truck';
-
-    public static function getNavigationLabel(): string
-    {
-        return __('pko-shipping-colissimo::admin.config.nav');
-    }
-
-    public function getTitle(): string|Htmlable
-    {
-        return __('pko-shipping-colissimo::admin.config.title');
-    }
-
-    protected static string $view = 'mde-shipping-colissimo::pages.colissimo-config';
+    protected static string $view = 'pko-shipping-common::pages.carrier-config';
 
     protected static ?int $navigationSort = 21;
 
-    public function getContractNumber(): ?string
+    protected function carrierCode(): string
     {
-        return config('colissimo.credentials.contract_number');
+        return 'colissimo';
     }
 
-    public function hasContractNumber(): bool
+    protected static function navigationLabel(): ?string
     {
-        return filled($this->getContractNumber());
-    }
-
-    public function hasPassword(): bool
-    {
-        return filled(config('colissimo.credentials.password'));
-    }
-
-    public function isConfigured(): bool
-    {
-        return $this->hasContractNumber() && $this->hasPassword();
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function getServices(): array
-    {
-        $services = [];
-        foreach ((array) config('colissimo.services', []) as $code => $service) {
-            $services[] = [
-                'code' => (string) $code,
-                'label' => (string) ($service['label'] ?? $code),
-                'enabled' => (bool) ($service['enabled'] ?? false),
-            ];
-        }
-
-        return $services;
-    }
-
-    /**
-     * @return array<int, array<string, int|float>>
-     */
-    public function getGrid(): array
-    {
-        return (array) config('colissimo.grid', []);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function getShipper(): array
-    {
-        return (array) config('colissimo.shipper', []);
-    }
-
-    public function getMaskedPassword(): string
-    {
-        $pass = (string) config('colissimo.credentials.password', '');
-        if ($pass === '') {
-            return '—';
-        }
-
-        return str_repeat('•', max(4, strlen($pass) - 2)).substr($pass, -2);
-    }
-
-    public function formatCents(int $cents): string
-    {
-        return number_format($cents / 100, 2, ',', ' ').' €';
+        return 'Colissimo';
     }
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('testCredentials')
-                ->label('Tester les credentials')
-                ->icon('heroicon-o-bolt')
-                ->color('primary')
-                ->disabled(fn (): bool => ! $this->isConfigured())
-                ->action(function (): void {
-                    try {
-                        /** @var CarrierClient $client */
-                        $client = app('pko.shipping.carrier.colissimo');
+        $actions = parent::getHeaderActions();
 
-                        if ($client->testCredentials()) {
-                            Notification::make()
-                                ->success()
-                                ->title('Credentials valides')
-                                ->body('Les identifiants Colissimo sont présents.')
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->danger()
-                                ->title('Credentials manquants')
-                                ->body('Renseignez COLISSIMO_CONTRACT et COLISSIMO_PASSWORD dans .env.')
-                                ->send();
-                        }
-                    } catch (Throwable $e) {
-                        Notification::make()
-                            ->danger()
-                            ->title('Erreur')
-                            ->body($e->getMessage())
-                            ->persistent()
-                            ->send();
+        $year = PublicTariffs2026::YEAR;
+        $actions[] = Action::make('loadPublicTariffs')
+            ->label("Charger les tarifs publics {$year}")
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('warning')
+            ->requiresConfirmation()
+            ->modalDescription("Remplace services + grille par la baseline publique La Poste {$year}. Les valeurs actuelles sont écrasées.")
+            ->action(function () use ($year): void {
+                DB::transaction(function (): void {
+                    CarrierService::query()->where('carrier_code', 'colissimo')->delete();
+                    foreach (PublicTariffs2026::SERVICES as $s) {
+                        CarrierService::create(array_merge($s, ['carrier_code' => 'colissimo']));
                     }
-                }),
-        ];
+
+                    CarrierGridBracket::query()->where('carrier_code', 'colissimo')->delete();
+                    foreach (PublicTariffs2026::GRID as $b) {
+                        CarrierGridBracket::create(array_merge($b, ['carrier_code' => 'colissimo']));
+                    }
+                });
+
+                app(CarrierServiceRepository::class)->flushCache('colissimo');
+                app(CarrierGridRepository::class)->flushCache('colissimo');
+
+                Notification::make()
+                    ->success()
+                    ->title("Tarifs publics {$year} chargés")
+                    ->body('Rechargez la page pour voir les nouvelles valeurs dans le formulaire.')
+                    ->send();
+            });
+
+        return $actions;
     }
 }

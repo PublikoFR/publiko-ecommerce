@@ -43,6 +43,8 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 
 - [loyalty.md](packages/loyalty.md) — fidélité B2B
 - [api-platform.md](packages/api-platform.md) — API Platform 4.3 (lecture seule, auth staff)
+- [secrets.md](packages/secrets.md) — gestion unifiée des credentials API (env ou base de données, par module)
+- [transporters.md](packages/transporters.md) — framework transporteurs (CarrierRegistry, abstractions, grilles/services en DB)
 
 ## Guides utilisateur et plans existants
 

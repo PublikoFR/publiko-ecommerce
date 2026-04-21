@@ -41,6 +41,7 @@
         "pko/lunar-product-videos": "@dev",
         "pko/lunar-purchase-lists": "@dev",
         "pko/lunar-quick-order": "@dev",
+        "pko/lunar-secrets": "@dev",
         "pko/lunar-shipping-chronopost": "@dev",
         "pko/lunar-shipping-colissimo": "@dev",
         "pko/lunar-shipping-common": "@dev",

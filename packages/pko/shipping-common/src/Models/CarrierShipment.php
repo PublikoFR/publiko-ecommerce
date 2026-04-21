@@ -17,6 +17,24 @@ class CarrierShipment extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const DELIVERY_UNKNOWN = 'unknown';
+
+    public const DELIVERY_IN_TRANSIT = 'in_transit';
+
+    public const DELIVERY_OUT_FOR_DELIVERY = 'out_for_delivery';
+
+    public const DELIVERY_DELIVERED = 'delivered';
+
+    public const DELIVERY_RETURNED = 'returned';
+
+    public const DELIVERY_FAILED = 'failed';
+
+    public const DELIVERY_TERMINAL_STATUSES = [
+        self::DELIVERY_DELIVERED,
+        self::DELIVERY_RETURNED,
+        self::DELIVERY_FAILED,
+    ];
+
     protected $table = 'pko_carrier_shipments';
 
     protected $guarded = [];
@@ -24,6 +42,10 @@ class CarrierShipment extends Model
     protected $casts = [
         'payload_sent' => AsArrayObject::class,
         'response_received' => AsArrayObject::class,
+        'tracking_events' => AsArrayObject::class,
+        'delivery_status_updated_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'notified_customer_at' => 'datetime',
     ];
 
     public function order(): BelongsTo

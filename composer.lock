@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "598fe64192daf4cb58e6e8c03e826394",
+    "content-hash": "4e254b543422d1ec2ed1ef30b9306230",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -7323,7 +7323,7 @@
         },
         {
             "name": "pko/lunar-account",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/account",
@@ -7359,7 +7359,7 @@
         },
         {
             "name": "pko/lunar-ai-core",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-core",
@@ -7393,7 +7393,7 @@
         },
         {
             "name": "pko/lunar-ai-filament",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-filament",
@@ -7429,7 +7429,7 @@
         },
         {
             "name": "pko/lunar-ai-importer",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-importer",
@@ -7469,7 +7469,7 @@
         },
         {
             "name": "pko/lunar-catalog-features",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/catalog-features",
@@ -7505,7 +7505,7 @@
         },
         {
             "name": "pko/lunar-customer-auth",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/customer-auth",
@@ -7541,7 +7541,7 @@
         },
         {
             "name": "pko/lunar-loyalty",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/loyalty",
@@ -7578,7 +7578,7 @@
         },
         {
             "name": "pko/lunar-media-core",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
@@ -7615,7 +7615,7 @@
         },
         {
             "name": "pko/lunar-page-builder",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/page-builder",
@@ -7652,7 +7652,7 @@
         },
         {
             "name": "pko/lunar-product-documents",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-documents",
@@ -7689,7 +7689,7 @@
         },
         {
             "name": "pko/lunar-product-videos",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-videos",
@@ -7725,7 +7725,7 @@
         },
         {
             "name": "pko/lunar-purchase-lists",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/purchase-lists",
@@ -7761,7 +7761,7 @@
         },
         {
             "name": "pko/lunar-quick-order",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/quick-order",
@@ -7796,18 +7796,60 @@
             }
         },
         {
+            "name": "pko/lunar-secrets",
+            "version": "dev-feat/transporters-secrets",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/secrets",
+                "reference": "d7bd6147838380c954e85d5f555a2ee86a267d63"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "php": "^8.2",
+                "pko/lunar-storefront-cms": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\Secrets\\SecretsServiceProvider"
+                    ],
+                    "aliases": {
+                        "Secrets": "Pko\\Secrets\\Facades\\Secrets"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\Secrets\\": "src/"
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Gestion unifiée des credentials (env ou base de données) pour les modules PKO.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "pko/lunar-shipping-chronopost",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-chronopost",
-                "reference": "96c97e80f4f351076716e827fdf4023f9cb7db7d"
+                "reference": "e12d7ce41c09ff07ea62adc920bdc8c136b7f62d"
             },
             "require": {
                 "illuminate/support": "^11.0",
                 "ladromelaboratoire/chronopostws": "^0.0.13",
                 "lunarphp/core": "^1.0",
                 "php": "^8.2",
+                "pko/lunar-secrets": "@dev",
                 "pko/lunar-shipping-common": "@dev"
             },
             "type": "library",
@@ -7834,16 +7876,17 @@
         },
         {
             "name": "pko/lunar-shipping-colissimo",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-colissimo",
-                "reference": "ba2ecabdc7ef3531e5ac758ac04c3ed6f2f86362"
+                "reference": "49e8e7f6afa1e97615400638ea213bf83091266f"
             },
             "require": {
                 "illuminate/support": "^11.0",
                 "lunarphp/core": "^1.0",
                 "php": "^8.2",
+                "pko/lunar-secrets": "@dev",
                 "pko/lunar-shipping-common": "@dev",
                 "wsdltophp/package-colissimo-postage": "^3.0"
             },
@@ -7871,7 +7914,7 @@
         },
         {
             "name": "pko/lunar-shipping-common",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-common",
@@ -7907,7 +7950,7 @@
         },
         {
             "name": "pko/lunar-store-locator",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/store-locator",
@@ -7943,7 +7986,7 @@
         },
         {
             "name": "pko/lunar-storefront",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront",
@@ -7979,7 +8022,7 @@
         },
         {
             "name": "pko/lunar-storefront-cms",
-            "version": "dev-multi-package-refactor",
+            "version": "dev-feat/transporters-secrets",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront-cms",
@@ -17298,6 +17341,7 @@
         "pko/lunar-product-videos": 20,
         "pko/lunar-purchase-lists": 20,
         "pko/lunar-quick-order": 20,
+        "pko/lunar-secrets": 20,
         "pko/lunar-shipping-chronopost": 20,
         "pko/lunar-shipping-colissimo": 20,
         "pko/lunar-shipping-common": 20,

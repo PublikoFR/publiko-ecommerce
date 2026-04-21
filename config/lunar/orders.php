@@ -99,6 +99,14 @@ return [
             'favourite' => true,
         ],
 
+        'delivered' => [
+            'label' => 'Delivered',
+            'color' => '#16a34a',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => true,
+        ],
+
     ],
 
     /*
