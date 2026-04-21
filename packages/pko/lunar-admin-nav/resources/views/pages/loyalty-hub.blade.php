@@ -12,11 +12,11 @@
 
     <div class="mt-6">
         @if ($activeTab === 'tiers')
-            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyTiersTable::class, key: 'loyalty-tiers')
+            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyTiersTable::class, [], 'loyalty-tiers')
         @elseif ($activeTab === 'gifts')
-            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyGiftsTable::class, key: 'loyalty-gifts')
+            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyGiftsTable::class, [], 'loyalty-gifts')
         @elseif ($activeTab === 'points')
-            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyPointsTable::class, key: 'loyalty-points')
+            @livewire(\Pko\AdminNav\Filament\Widgets\LoyaltyPointsTable::class, [], 'loyalty-points')
         @elseif ($activeTab === 'settings')
             <x-filament-panels::form wire:submit="saveSettings">
                 {{ $this->settingsForm }}

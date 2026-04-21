@@ -12,11 +12,11 @@
 
     <div class="mt-6">
         @if ($activeTab === 'slides')
-            @livewire(\Pko\AdminNav\Filament\Widgets\HomeSlidesTable::class, key: 'home-slides')
+            @livewire(\Pko\AdminNav\Filament\Widgets\HomeSlidesTable::class, [], 'home-slides')
         @elseif ($activeTab === 'tiles')
-            @livewire(\Pko\AdminNav\Filament\Widgets\HomeTilesTable::class, key: 'home-tiles')
+            @livewire(\Pko\AdminNav\Filament\Widgets\HomeTilesTable::class, [], 'home-tiles')
         @elseif ($activeTab === 'offers')
-            @livewire(\Pko\AdminNav\Filament\Widgets\HomeOffersTable::class, key: 'home-offers')
+            @livewire(\Pko\AdminNav\Filament\Widgets\HomeOffersTable::class, [], 'home-offers')
         @endif
     </div>
 </x-filament-panels::page>
