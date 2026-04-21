@@ -27,16 +27,33 @@ Framework d'intégration de transporteurs pour Lunar, porté par `packages/pko/s
 | `pko_carrier_grids` | Paliers tarifaires `max_kg` / `price_cents` — **éditable en admin** |
 | `pko_secrets` | Credentials API chiffrés (via package `pko/lunar-secrets`) |
 
-## Navigation Filament
+## Navigation Filament — Cluster Expédition
 
-Groupe **« Expédition »** contient :
+Tout le périmètre "Expédition" est regroupé dans **un seul item** de navigation grâce à un **Filament Cluster** (`Pko\ShippingCommon\Filament\Clusters\Shipping`). À l'ouverture, Filament affiche les 6 entrées en **onglets horizontaux** en haut de la page (comme la page produit Lunar) :
 
-- `Envois transporteurs` (resource `CarrierShipmentResource`)
-- `Chronopost` (page `ChronopostConfig`)
-- `Colissimo` (page `ColissimoConfig`)
-- `[Nouveau transporteur]` (auto-découvert via `CarrierRegistry`)
+1. **Méthodes d'expédition** — Lunar `ShippingMethodResource` (subclassée `PkoShippingMethodResource` pour poser `$cluster`)
+2. **Zones d'expédition** — Lunar `ShippingZoneResource` (idem)
+3. **Listes d'exclusion d'expédition** — Lunar `ShippingExclusionListResource` (idem)
+4. **Envois Transporteurs** — `Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource`
+5. **Chronopost** — `Pko\ShippingChronopost\Filament\Pages\ChronopostConfig`
+6. **Colissimo** — `Pko\ShippingColissimo\Filament\Pages\ColissimoConfig`
 
-Un seul plugin Filament (`TransportersPlugin`) lit le `CarrierRegistry` et enregistre toutes les pages config.
+URLs : toutes préfixées `/admin/expedition/*`.
+
+### Swap des resources Lunar vers le cluster
+
+Les resources Lunar `vendor/lunarphp/table-rate-shipping` sont immuables. Solution (pattern §3.2 CLAUDE.md) :
+
+- **Subclasses** dans `app/Filament/Resources/PkoShipping{Method,Zone,ExclusionList}Resource.php` avec `$cluster = Shipping::class` + `getDefaultPages()` redéclaré pour que les pages pointent vers la Pko-variante.
+- **`SwapLunarShippingResourcesPlugin`** (chaîné après `ShippingPlugin::make()`) effectue par réflexion le remplacement `ShippingXResource::class → PkoShippingXResource::class` dans l'array `$panel->resources`.
+
+### Ajouter une nouvelle page / resource au cluster
+
+Déclarer `protected static ?string $cluster = Pko\ShippingCommon\Filament\Clusters\Shipping::class;` sur la Page ou la Resource. Elle apparaît automatiquement comme onglet.
+
+### Un seul plugin Filament auto-discover
+
+`TransportersPlugin` lit le `CarrierRegistry` et enregistre toutes les pages config des carriers en 1 ligne de code.
 
 ## Ajouter un nouveau transporteur
 

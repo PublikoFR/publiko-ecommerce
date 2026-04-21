@@ -9,6 +9,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Storage;
 use Lunar\Admin\Support\Resources\BaseResource;
+use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource\Pages;
 use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
 use Pko\ShippingCommon\Models\CarrierShipment;
@@ -16,6 +17,8 @@ use Pko\ShippingCommon\Models\CarrierShipment;
 class CarrierShipmentResource extends BaseResource
 {
     protected static ?string $model = CarrierShipment::class;
+
+    protected static ?string $cluster = Shipping::class;
 
     protected static ?int $navigationSort = 10;
 

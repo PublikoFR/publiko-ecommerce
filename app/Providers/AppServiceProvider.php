@@ -39,6 +39,7 @@ use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\Secrets\Facades\Secrets;
+use Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin;
 use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
@@ -66,7 +67,6 @@ class AppServiceProvider extends ServiceProvider
                     'Commandes',
                     'Clients',
                     'Marketing',
-                    'Expédition',
                     'Imports',
                     'Configuration',
                 ])
@@ -77,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
                 ])
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
+                ->plugin(SwapLunarShippingResourcesPlugin::make())
                 ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())
