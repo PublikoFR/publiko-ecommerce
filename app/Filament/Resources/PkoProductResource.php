@@ -117,14 +117,48 @@ class PkoProductResource extends ProductResource
 
     public static function getGloballySearchableAttributes(): array
     {
-        // Lunar-only par défaut : variants.sku + tags.value. On ajoute ean, mpn, brand.name.
+        // 'attribute_data.name' est traité comme clé JSON via applyGlobalSearchAttributeConstraint ci-dessous
+        // (Filament interpréterait sinon le "." comme une relation Eloquent, qui n'existe pas).
         return [
+            'attribute_data.name',
             'variants.sku',
             'variants.ean',
             'variants.mpn',
             'brand.name',
             'tags.value',
         ];
+    }
+
+    /**
+     * Intercepte `attribute_data.name` → recherche JSON via JSON_EXTRACT. Filament par défaut
+     * traiterait le "." comme une relation Eloquent (qui n'existe pas) → 0 résultat.
+     */
+    protected static function applyGlobalSearchAttributeConstraint(Builder $query, string $search, array $searchAttributes, bool &$isFirst): Builder
+    {
+        $jsonAttributes = [];
+        $normalAttributes = [];
+        foreach ($searchAttributes as $attr) {
+            if (str_starts_with($attr, 'attribute_data.')) {
+                $jsonAttributes[] = substr($attr, strlen('attribute_data.'));
+            } else {
+                $normalAttributes[] = $attr;
+            }
+        }
+
+        if ($normalAttributes !== []) {
+            parent::applyGlobalSearchAttributeConstraint($query, $search, $normalAttributes, $isFirst);
+        }
+
+        foreach ($jsonAttributes as $jsonKey) {
+            $whereClause = $isFirst ? 'where' : 'orWhere';
+            $query->{$whereClause.'Raw'}(
+                'LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, ?))) LIKE ?',
+                ['$."'.$jsonKey.'"', '%'.strtolower($search).'%'],
+            );
+            $isFirst = false;
+        }
+
+        return $query;
     }
 
     public static function getGlobalSearchEloquentQuery(): Builder
