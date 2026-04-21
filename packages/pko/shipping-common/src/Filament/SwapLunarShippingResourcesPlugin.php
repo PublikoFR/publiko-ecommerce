@@ -45,19 +45,32 @@ class SwapLunarShippingResourcesPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        $prop = (new ReflectionClass($panel))->getProperty('resources');
+        $reflection = new ReflectionClass($panel);
+
+        $resourcesProp = $reflection->getProperty('resources');
+        $clusteredProp = $reflection->getProperty('clusteredComponents');
 
         /** @var array<int|string, class-string> $resources */
-        $resources = $prop->getValue($panel);
+        $resources = $resourcesProp->getValue($panel);
+        /** @var array<class-string, array<int, class-string>> $clusteredComponents */
+        $clusteredComponents = $clusteredProp->getValue($panel);
 
         foreach (self::SWAPS as $original => $replacement) {
             $idx = array_search($original, $resources, true);
             if ($idx !== false) {
                 $resources[$idx] = $replacement;
             }
+
+            // Mirror what Panel::registerToCluster() would have done if the
+            // replacement had been registered via ->resources([...]).
+            $cluster = $replacement::getCluster();
+            if (! blank($cluster)) {
+                $clusteredComponents[$cluster][] = $replacement;
+            }
         }
 
-        $prop->setValue($panel, $resources);
+        $resourcesProp->setValue($panel, $resources);
+        $clusteredProp->setValue($panel, $clusteredComponents);
     }
 
     public function boot(Panel $panel): void
