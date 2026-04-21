@@ -15,4 +15,13 @@ class PkoTaxClassResource extends TaxClassResource
     protected static ?string $cluster = PkoTaxesCluster::class;
 
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+
+    public static function getDefaultPages(): array
+    {
+        return [
+            'index' => PkoTaxClassResource\Pages\PkoListTaxClasses::route('/'),
+            'create' => PkoTaxClassResource\Pages\PkoCreateTaxClass::route('/create'),
+            'edit' => PkoTaxClassResource\Pages\PkoEditTaxClass::route('/{record}/edit'),
+        ];
+    }
 }

@@ -15,4 +15,13 @@ class PkoTaxZoneResource extends TaxZoneResource
     protected static ?string $cluster = PkoTaxesCluster::class;
 
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+
+    public static function getDefaultPages(): array
+    {
+        return [
+            'index' => PkoTaxZoneResource\Pages\PkoListTaxZones::route('/'),
+            'create' => PkoTaxZoneResource\Pages\PkoCreateTaxZone::route('/create'),
+            'edit' => PkoTaxZoneResource\Pages\PkoEditTaxZone::route('/{record}/edit'),
+        ];
+    }
 }
