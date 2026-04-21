@@ -5,6 +5,15 @@
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/pko/*",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "require": {
         "php": "^8.2",
         "api-platform/laravel": "^4.3",
@@ -19,6 +28,25 @@
         "lunarphp/table-rate-shipping": "^1.3",
         "mews/purifier": "^3.4",
         "phpoffice/phpspreadsheet": "^3.0",
+        "pko/lunar-account": "@dev",
+        "pko/lunar-ai-core": "@dev",
+        "pko/lunar-ai-filament": "@dev",
+        "pko/lunar-ai-importer": "@dev",
+        "pko/lunar-catalog-features": "@dev",
+        "pko/lunar-customer-auth": "@dev",
+        "pko/lunar-loyalty": "@dev",
+        "pko/lunar-media-core": "@dev",
+        "pko/lunar-page-builder": "@dev",
+        "pko/lunar-product-documents": "@dev",
+        "pko/lunar-product-videos": "@dev",
+        "pko/lunar-purchase-lists": "@dev",
+        "pko/lunar-quick-order": "@dev",
+        "pko/lunar-shipping-chronopost": "@dev",
+        "pko/lunar-shipping-colissimo": "@dev",
+        "pko/lunar-shipping-common": "@dev",
+        "pko/lunar-store-locator": "@dev",
+        "pko/lunar-storefront": "@dev",
+        "pko/lunar-storefront-cms": "@dev",
         "tomatophp/filament-media-manager": "^1.1",
         "wsdltophp/package-colissimo-postage": "^3.0"
     },
@@ -33,33 +61,10 @@
         "phpunit/phpunit": "^11.0.1"
     },
     "autoload": {
-        "files": [
-            "packages/pko/storefront-cms/src/helpers.php"
-        ],
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/",
-            "Pko\\ShippingCommon\\": "packages/pko/shipping-common/src/",
-            "Pko\\ShippingChronopost\\": "packages/pko/shipping-chronopost/src/",
-            "Pko\\ShippingColissimo\\": "packages/pko/shipping-colissimo/src/",
-            "Pko\\CatalogFeatures\\": "packages/pko/catalog-features/src/",
-            "Pko\\AiCore\\": "packages/pko/ai-core/src/",
-            "Pko\\AiFilament\\": "packages/pko/ai-filament/src/",
-            "Pko\\AiImporter\\": "packages/pko/ai-importer/src/",
-            "Pko\\ProductVideos\\": "packages/pko/product-videos/src/",
-            "Pko\\ProductDocuments\\": "packages/pko/product-documents/src/",
-            "Pko\\LunarMediaCore\\": "packages/pko/lunar-media-core/src/",
-            "Pko\\PageBuilder\\": "packages/pko/page-builder/src/",
-            "Pko\\Loyalty\\": "packages/pko/loyalty/src/",
-            "Pko\\Loyalty\\Database\\Seeders\\": "packages/pko/loyalty/database/seeders/",
-            "Pko\\Storefront\\": "packages/pko/storefront/src/",
-            "Pko\\CustomerAuth\\": "packages/pko/customer-auth/src/",
-            "Pko\\Account\\": "packages/pko/account/src/",
-            "Pko\\PurchaseLists\\": "packages/pko/purchase-lists/src/",
-            "Pko\\QuickOrder\\": "packages/pko/quick-order/src/",
-            "Pko\\StorefrontCms\\": "packages/pko/storefront-cms/src/",
-            "Pko\\StoreLocator\\": "packages/pko/store-locator/src/"
+            "Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {
