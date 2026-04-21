@@ -6,11 +6,13 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PkoProductResource\Pages\EditProductUnified;
 use App\Filament\Resources\PkoProductResource\Pages\PkoListProducts;
+use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
@@ -183,5 +185,27 @@ class PkoProductResource extends ProductResource
     public static function getGlobalSearchResultUrl(Model $record): string
     {
         return static::getUrl('edit', ['record' => $record]);
+    }
+
+    public static function getGlobalSearchResultsLimit(): int
+    {
+        return 10;
+    }
+
+    /**
+     * Ajoute en tête des résultats un lien "Voir tous les résultats" qui ouvre
+     * la liste produits admin avec la recherche pré-appliquée.
+     */
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        $results = parent::getGlobalSearchResults($search);
+
+        $viewAll = new GlobalSearchResult(
+            title: '🔍 Voir tous les résultats pour « '.$search.' »',
+            url: static::getUrl('index', ['tableSearch' => $search]),
+            details: ['Action' => 'Ouvre la liste produits filtrée sur votre recherche'],
+        );
+
+        return collect([$viewAll])->merge($results);
     }
 }
