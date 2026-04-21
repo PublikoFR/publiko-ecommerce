@@ -22,6 +22,21 @@ class HomeTile extends Model
 
     protected $casts = ['is_active' => 'bool', 'position' => 'integer'];
 
+    /**
+     * Defense-in-depth : filtre active-only sur requêtes /api/*.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('pko_api_active_only', function (Builder $query): void {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            if (request()->is('api/*')) {
+                $query->where('is_active', true);
+            }
+        });
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         return $this->firstMediaUrl('image');

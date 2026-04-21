@@ -22,6 +22,24 @@ class HomeSlide extends Model
 
     protected $casts = ['is_active' => 'bool', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'position' => 'integer'];
 
+    /**
+     * Defense-in-depth : filtre active-only sur requêtes /api/* (cf. Post::booted).
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('pko_api_active_only', function (Builder $query): void {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            if (request()->is('api/*')) {
+                $now = now();
+                $query->where('is_active', true)
+                    ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
+                    ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now));
+            }
+        });
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         return $this->firstMediaUrl('image');

@@ -22,6 +22,22 @@ class HomeOffer extends Model
 
     protected $casts = ['is_active' => 'bool', 'ends_at' => 'datetime', 'position' => 'integer'];
 
+    /**
+     * Defense-in-depth : filtre active-only sur requêtes /api/*.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('pko_api_active_only', function (Builder $query): void {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            if (request()->is('api/*')) {
+                $query->where('is_active', true)
+                    ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
+            }
+        });
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         return $this->firstMediaUrl('image');

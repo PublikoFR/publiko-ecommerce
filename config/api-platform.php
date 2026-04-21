@@ -24,8 +24,11 @@ return [
 
     'routes' => [
         'domain' => null,
-        // Global middleware applied to every API Platform routes
-        // 'middleware' => [],
+        // Authentification staff Filament obligatoire sur toutes les routes /api/*.
+        // Évite l'exposition publique des ressources exposées via #[ApiResource].
+        // Pour rendre une ressource publique explicitement, définir `security: "..."`
+        // sur l'ApiResource et retirer le middleware global.
+        'middleware' => ['auth:staff'],
     ],
 
     'resources' => [

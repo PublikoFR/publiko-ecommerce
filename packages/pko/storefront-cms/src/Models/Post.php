@@ -52,6 +52,24 @@ class Post extends Model
         'content' => 'array',
     ];
 
+    /**
+     * Defense-in-depth : même si l'API est auth-gatée, on force le filtrage
+     * status=published+published_at<=now() sur toute requête /api/*.
+     * Évite la fuite de drafts/scheduled si le middleware auth change.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('pko_api_published_only', function (Builder $query): void {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            if (request()->is('api/*')) {
+                $query->where('status', 'published')
+                    ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()));
+            }
+        });
+    }
+
     public function postType(): BelongsTo
     {
         return $this->belongsTo(PostType::class);

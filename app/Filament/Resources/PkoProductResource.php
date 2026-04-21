@@ -112,7 +112,26 @@ class PkoProductResource extends ProductResource
                 return $collection?->translateAttribute('name') ?? '—';
             });
 
-        return [$thumbnail, $brand, $name, $price, $sku, $stock, $mainCategory];
+        $status = TextColumn::make('status')
+            ->label('Statut')
+            ->badge()
+            ->sortable()
+            ->toggleable()
+            ->getStateUsing(fn (Product $record) => $record->deleted_at ? 'deleted' : $record->status)
+            ->formatStateUsing(fn (string $state) => match ($state) {
+                'published' => 'Publié',
+                'draft' => 'Brouillon',
+                'deleted' => 'Supprimé',
+                default => ucfirst($state),
+            })
+            ->color(fn (string $state) => match ($state) {
+                'published' => 'success',
+                'draft' => 'warning',
+                'deleted' => 'danger',
+                default => 'gray',
+            });
+
+        return [$thumbnail, $brand, $name, $price, $sku, $stock, $mainCategory, $status];
     }
 
     // ------- Global search (barre recherche admin en haut) -------
