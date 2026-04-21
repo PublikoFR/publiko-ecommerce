@@ -16,6 +16,7 @@ use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
+use Lunar\Admin\Filament\Clusters\Taxes;
 use Lunar\Admin\Filament\Resources\ActivityResource;
 use Lunar\Admin\Filament\Resources\BrandResource;
 use Lunar\Admin\Filament\Resources\ChannelResource;
@@ -27,9 +28,6 @@ use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Filament\Resources\StaffResource;
 use Lunar\Admin\Filament\Resources\TagResource;
-use Lunar\Admin\Filament\Resources\TaxClassResource;
-use Lunar\Admin\Filament\Resources\TaxRateResource;
-use Lunar\Admin\Filament\Resources\TaxZoneResource;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
 use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
@@ -204,10 +202,10 @@ class Builder
         // naviguer entre les 6 pages à droite. Cf. ShippingSubNavigation::items().
         return [
             ...self::navItems(CurrencyResource::class, sort: 1),
-            ...self::navItems(TaxZoneResource::class, sort: 2),
-            ...self::navItems(TaxClassResource::class, sort: 3),
-            ...self::navItems(TaxRateResource::class, sort: 4),
-            ...self::navItems(StripeConfig::class, sort: 5),
+            // Cluster Lunar Taxes = 1 seule entrée menu, sub-nav on-page
+            // auto-générée (Zones / Classes / Taux).
+            ...self::navItems(Taxes::class, sort: 2),
+            ...self::navItems(StripeConfig::class, sort: 3),
         ];
     }
 
