@@ -1663,7 +1663,40 @@ Utilisé par :
 
 Laravel Boost MCP (déjà présent) couvre l'introspection DB live. Le bridge MCP dédié API Platform (config `mcp.enabled = true` dans api-platform.php) est disponible mais non exposé via une route dédiée en v4.3 — découverte via les endpoints JSON-LD standards.
 
-**Pas d'écriture** : v1 strictement lecture, aucun risque de mutation. Gating d'accès (produits / prix) non implémenté — à ajouter si l'API est ouverte à l'extérieur.
+**Pas d'écriture** : v1 strictement lecture, aucun risque de mutation.
+
+### Sécurité — middleware auth + global scopes defense-in-depth
+
+`config/api-platform.php` → `routes.middleware = ['auth:staff']`. Les routes `/api/*` exigent une session staff Filament. Pour exposer une resource publiquement, retirer le middleware et mettre `security: "..."` sur le `#[ApiResource]` concerné.
+
+**Global scopes anti-fuite** sur `Post`, `HomeSlide`, `HomeTile`, `HomeOffer` (tous modèles CMS temporels) :
+
+```php
+protected static function booted(): void
+{
+    static::addGlobalScope('pko_api_published_only', function (Builder $query): void {
+        if (app()->runningInConsole()) return;
+        if (request()->is('api/*')) {
+            $query->where('status', 'published')->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()));
+        }
+    });
+}
+```
+
+Raison : le provider par défaut d'API Platform n'applique PAS les scopes locaux (`scopePublished`, `scopeActive`). Sans ce garde, `GET /api/posts` leakerait drafts + scheduled posts. Le scope ne s'active QUE sur `/api/*` — zéro impact sur Filament admin.
+
+## 13.undecies Sécurité storefront — sanitization HTML via HTMLPurifier
+
+`mews/purifier:^3.4` installé. Profil `pko-content` dans `config/purifier.php` (allowlist : h1-h6, p, ul/ol/li, a[href|target|rel], img[src|alt], figure, table…). URI.AllowedSchemes = http/https/mailto/tel uniquement. Target=_blank + nofollow ajoutés automatiquement sur les liens externes.
+
+**Sinks sanitizés** :
+
+- `Pko\PageBuilder\Services\PageBuilderManager::sanitizeHtml()` — appelée au save dans `normalizeBlock()` pour les blocs `text` (champ `html`). Toute entrée TipTap admin passe par HTMLPurifier avant persist.
+- `Pko\PageBuilder\View\Components\Render::__construct()` — sanitize aussi le `$fallback` (legacy `$post->body`) au render. Couvre les données pré-sanitization.
+
+Test empirique : `'<p>Hi <script>alert(1)</script><img src=x onerror=alert(1)></p>'` → `'<p>Hi <img src="x" alt="x"></p>'`. Script + onerror strippés.
+
+**Threat model** : attaquant = staff éditeur de contenu (rôle FilamentShield de moindre privilège) ou super-admin compromis. Victime = tout visiteur storefront, y compris clients B2B authentifiés. Avant cette sanitization, stored XSS durable exploitable par n'importe quel éditeur de contenu pour hijacker les sessions shoppers et/ou pivoter vers l'admin.
 
 ## 14. Documentation externe
 
