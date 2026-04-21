@@ -23,7 +23,7 @@ use Pko\Secrets\Filament\Forms\SecretsFormSchema;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
-use Pko\ShippingCommon\Filament\Clusters\Shipping;
+use Pko\ShippingCommon\Filament\Clusters\Carriers;
 use Pko\ShippingCommon\Models\CarrierGridBracket;
 use Pko\ShippingCommon\Models\CarrierService;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
@@ -47,7 +47,7 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $cluster = Shipping::class;
+    protected static ?string $cluster = Carriers::class;
 
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 

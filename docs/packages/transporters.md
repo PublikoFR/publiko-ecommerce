@@ -27,18 +27,26 @@ Framework d'intégration de transporteurs pour Lunar, porté par `packages/pko/s
 | `pko_carrier_grids` | Paliers tarifaires `max_kg` / `price_cents` — **éditable en admin** |
 | `pko_secrets` | Credentials API chiffrés (via package `pko/lunar-secrets`) |
 
-## Navigation Filament — Cluster Expédition
+## Navigation Filament — 2 clusters Expédition + Transporteurs
 
-Tout le périmètre "Expédition" est regroupé dans **un seul item** de navigation grâce à un **Filament Cluster** (`Pko\ShippingCommon\Filament\Clusters\Shipping`). À l'ouverture, Filament affiche les 6 entrées en **onglets horizontaux** en haut de la page (comme la page produit Lunar) :
+Le périmètre est scindé en **2 clusters** (items de sidebar) via Filament Clusters. Chaque cluster affiche ses children en sub-nav à droite (`SubNavigationPosition::End`).
+
+### Cluster `Shipping` (label "Expédition", sort 55)
+
+URLs préfixées `/admin/expedition/*`. Contient les **opérations d'expédition** :
 
 1. **Méthodes d'expédition** — Lunar `ShippingMethodResource` (subclassée `PkoShippingMethodResource` pour poser `$cluster`)
 2. **Zones d'expédition** — Lunar `ShippingZoneResource` (idem)
 3. **Listes d'exclusion d'expédition** — Lunar `ShippingExclusionListResource` (idem)
 4. **Envois Transporteurs** — `Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource`
-5. **Chronopost** — `Pko\ShippingChronopost\Filament\Pages\ChronopostConfig`
-6. **Colissimo** — `Pko\ShippingColissimo\Filament\Pages\ColissimoConfig`
 
-URLs : toutes préfixées `/admin/expedition/*`.
+### Cluster `Carriers` (label "Transporteurs", sort 56)
+
+URLs préfixées `/admin/transporteurs/*`. Contient les **configurations par transporteur** :
+
+1. **Chronopost** — `Pko\ShippingChronopost\Filament\Pages\ChronopostConfig`
+2. **Colissimo** — `Pko\ShippingColissimo\Filament\Pages\ColissimoConfig`
+3. (futur transporteur DPD/UPS/… — via `AbstractCarrierConfigPage` qui hérite `$cluster = Carriers::class`)
 
 ### Swap des resources Lunar vers le cluster
 
