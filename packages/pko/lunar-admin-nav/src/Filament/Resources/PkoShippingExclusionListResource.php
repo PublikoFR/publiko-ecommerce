@@ -10,6 +10,8 @@ use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource\Pages\PkoLi
 
 class PkoShippingExclusionListResource extends ShippingExclusionListResource
 {
+    protected static ?string $slug = 'shipping-exclusion-lists';
+
     public static function getDefaultPages(): array
     {
         return [

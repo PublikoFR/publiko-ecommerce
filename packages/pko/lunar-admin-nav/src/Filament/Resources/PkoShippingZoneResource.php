@@ -12,6 +12,8 @@ use Pko\AdminNav\Filament\Resources\PkoShippingZoneResource\Pages\PkoListShippin
 
 class PkoShippingZoneResource extends ShippingZoneResource
 {
+    protected static ?string $slug = 'shipping-zones';
+
     public static function getDefaultPages(): array
     {
         return [

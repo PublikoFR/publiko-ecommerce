@@ -11,6 +11,8 @@ use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource\Pages\PkoListShipp
 
 class PkoShippingMethodResource extends ShippingMethodResource
 {
+    protected static ?string $slug = 'shipping-methods';
+
     public static function getDefaultPages(): array
     {
         return [
