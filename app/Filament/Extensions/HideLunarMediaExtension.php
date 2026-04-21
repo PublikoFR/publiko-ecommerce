@@ -13,7 +13,7 @@ use Lunar\Admin\Filament\Resources\CollectionResource\Pages\ManageCollectionMedi
 use Lunar\Admin\Filament\Resources\ProductResource\Pages\ManageProductMedia;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Admin\Support\RelationManagers\MediaRelationManager;
-use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
+use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 
 /**
  * Hide Lunar's native Spatie MediaLibrary UI on Product/Collection/Brand resources.

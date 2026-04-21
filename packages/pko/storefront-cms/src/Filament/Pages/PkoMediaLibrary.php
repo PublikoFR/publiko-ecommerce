@@ -11,6 +11,7 @@ use Filament\Support\Enums\MaxWidth;
  * Coquille Filament Page — la logique et le rendu vivent dans
  * le composant Livewire unifié `Pko\StorefrontCms\Livewire\PkoMediaLibrary`
  * (alias Livewire `pko-media-library`), partagé avec la modale picker.
+ * La vue elle-même est fournie par le package pko/lunar-media-core.
  */
 class PkoMediaLibrary extends Page
 {
@@ -26,7 +27,7 @@ class PkoMediaLibrary extends Page
 
     protected static ?string $slug = 'mediatheque';
 
-    protected static string $view = 'storefront-cms::filament.pages.media-library';
+    protected static string $view = 'media-core::filament.pages.media-library';
 
     public function getMaxContentWidth(): MaxWidth|string|null
     {

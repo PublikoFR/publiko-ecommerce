@@ -8,6 +8,7 @@ use Pko\AiImporter\AiImporterServiceProvider;
 use Pko\CatalogFeatures\CatalogFeaturesServiceProvider;
 use Pko\CustomerAuth\CustomerAuthServiceProvider;
 use Pko\Loyalty\LoyaltyServiceProvider;
+use Pko\LunarMediaCore\LunarMediaCoreServiceProvider;
 use Pko\PageBuilder\PageBuilderServiceProvider;
 use Pko\ProductDocuments\ProductDocumentsServiceProvider;
 use Pko\ProductVideos\ProductVideosServiceProvider;
@@ -30,6 +31,7 @@ return [
     AiCoreServiceProvider::class,
     AiFilamentServiceProvider::class,
     AiImporterServiceProvider::class,
+    LunarMediaCoreServiceProvider::class,
     ProductDocumentsServiceProvider::class,
     ProductVideosServiceProvider::class,
     PageBuilderServiceProvider::class,

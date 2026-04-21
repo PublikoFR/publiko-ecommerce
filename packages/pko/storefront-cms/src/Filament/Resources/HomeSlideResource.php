@@ -18,7 +18,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Cache;
-use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
+use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 use Pko\StorefrontCms\Filament\Resources\HomeSlideResource\Pages;
 use Pko\StorefrontCms\Models\HomeSlide;
 

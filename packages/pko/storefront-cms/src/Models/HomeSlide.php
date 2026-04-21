@@ -9,7 +9,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Pko\StorefrontCms\Concerns\HasMediaAttachments;
+use Pko\LunarMediaCore\Concerns\HasMediaAttachments;
 
 #[ApiResource(operations: [new GetCollection, new Get])]
 class HomeSlide extends Model

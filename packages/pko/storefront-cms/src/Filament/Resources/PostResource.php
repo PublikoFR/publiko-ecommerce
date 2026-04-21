@@ -18,7 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
+use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 use Pko\StorefrontCms\Filament\Resources\PostResource\Pages;
 use Pko\StorefrontCms\Models\Post;
 use Pko\StorefrontCms\Models\PostType;

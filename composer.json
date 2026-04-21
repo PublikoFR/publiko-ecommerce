@@ -49,6 +49,7 @@
             "Pko\\AiImporter\\": "packages/pko/ai-importer/src/",
             "Pko\\ProductVideos\\": "packages/pko/product-videos/src/",
             "Pko\\ProductDocuments\\": "packages/pko/product-documents/src/",
+            "Pko\\LunarMediaCore\\": "packages/pko/lunar-media-core/src/",
             "Pko\\PageBuilder\\": "packages/pko/page-builder/src/",
             "Pko\\Loyalty\\": "packages/pko/loyalty/src/",
             "Pko\\Loyalty\\Database\\Seeders\\": "packages/pko/loyalty/database/seeders/",

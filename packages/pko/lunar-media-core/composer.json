@@ -1,0 +1,27 @@
+{
+    "name": "pko/lunar-media-core",
+    "description": "Foundation média unifiée pour Lunar : table pivot pko_mediables + trait HasMediaAttachments + composant Filament MediaPicker.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "spatie/laravel-medialibrary": "^11.0",
+        "filament/filament": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\LunarMediaCore\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\LunarMediaCore\\LunarMediaCoreServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
