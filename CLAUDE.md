@@ -8,7 +8,7 @@ Back-office **Laravel 11 + Lunar 1.x + Filament 3** e-commerce B2B (domaine conf
 1. Quand tu prépares un **Plan Mode** ou un plan d'implémentation pour une demande non triviale
 2. Quand tu travailles sur une **grosse feature** (plusieurs fichiers, plusieurs packages, ou impact architectural)
 
-Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne charge pas** `docs/technical-choices.md` — réponds ou code directement à partir du contexte de la conversation et du code du projet. La règle de **mise à jour** de la doc au commit (§1) s'applique toujours, elle.
+Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne charge pas** les `docs/` — réponds ou code directement à partir du contexte de la conversation et du code du projet. La règle de **mise à jour** de la doc au commit (§1) s'applique toujours, elle. Pour la navigation : `docs/README.md` liste l'ensemble des fichiers thématiques.
 
 ---
 
@@ -18,13 +18,19 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 
 | Fichier | Rôle |
 |---|---|
-| `docs/technical-choices.md` | **Référence maître** : stack, mécanismes d'extension Lunar, paiements, shipping, RBAC, points d'attention Lunar, tests, arborescence, décisions tranchées |
+| `docs/README.md` | **Index** de la documentation technique (TOC de tous les fichiers thématiques) |
+| `docs/architecture.md` | Stack, Docker, extension Lunar, gotchas, arborescence, à éviter |
+| `docs/packages-architecture.md` | Path repositories composer + foundation media-core + checklist nouveau package |
+| `docs/admin.md` | Navigation Filament, édition produit unifiée, liste, global search |
+| `docs/workflow.md` | Tests, Git, MCP servers, RBAC |
+| `docs/payments.md`, `docs/shipping.md` | Paiements Stripe, drivers shipping |
+| `docs/packages/<pkg>.md` | **Un fichier par package PKO** (catalog-features, media-core, page-builder, storefront-cms, api-platform, loyalty, ai-*, etc.) |
 | `cahier-des-charges.md` (racine) | Cahier des charges contractuel |
 | `CLAUDE.md` (ce fichier) | Instructions comportementales pour toi uniquement — jamais de choix techniques ici |
 
 ### Règle de maintenance documentaire — OBLIGATOIRE
 
-**Avant chaque commit**, si ton changement introduit **l'un** des éléments suivants, tu **DOIS** mettre à jour `docs/technical-choices.md` (ou créer un nouveau fichier thématique dans `docs/` si le sujet mérite son propre document) **dans le même commit** :
+**Avant chaque commit**, si ton changement introduit **l'un** des éléments suivants, tu **DOIS** mettre à jour le fichier `docs/` concerné (ou créer un nouveau fichier thématique dans `docs/` ou `docs/packages/` si le sujet mérite son propre document) **dans le même commit** :
 
 - Une nouvelle décision technique ou un arbitrage non trivial
 - Une nouvelle dépendance Composer ou NPM
@@ -37,6 +43,8 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 - Le rejet documenté d'une alternative technique (pourquoi pas X)
 
 La doc est partie intégrante du deliverable. Un commit qui introduit une décision sans mettre à jour la doc est considéré incomplet.
+
+**Règle d'atomicité** : ne pas créer de fichier fourre-tout. Un nouveau package PKO → nouveau `docs/packages/<pkg>.md`. Une décision transverse → enrichir le fichier thématique existant (`architecture.md`, `workflow.md`, etc.). Pas de "misc.md" ou "choices.md" monolithique.
 
 ### Mise à jour de la mémoire brain² (Obsidian)
 
@@ -95,7 +103,7 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 
 ### 3.1 Règles techniques
 
-1. **Jamais modifier `vendor/`** — aucun patch, aucune exception. Toute personnalisation passe par les mécanismes d'extension documentés dans `docs/technical-choices.md`.
+1. **Jamais modifier `vendor/`** — aucun patch, aucune exception. Toute personnalisation passe par les mécanismes d'extension documentés dans `docs/architecture.md`.
 2. **`declare(strict_types=1);`** en tête de chaque fichier PHP que tu crées ou touches.
 3. **PSR-12** — lance `make lint` avant chaque commit. Si rouge → corrige avant de committer.
 4. **Migrations custom** : préfixe de table `pko_`, dans `database/migrations/` (ou `packages/pko/<module>/database/migrations/` si spécifique à un module packagé).
@@ -107,6 +115,68 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 10. **Policies Shield** — régénérées automatiquement par `make install`. Ne pas éditer à la main, sauf override explicite documenté dans `docs/`.
 11. **Service Docker** = `app` (pas `laravel.test`, pas `sail`). Stack custom Traefik + phpMyAdmin.
 
+### 3.2 Création d'un nouveau package PKO — NON-NÉGOCIABLE
+
+Tous les modules custom vivent sous `packages/pko/<feature>/` et sont installés via **path repositories** composer. **Ne jamais** ajouter d'entrée PSR-4 dans le `composer.json` racine ni de provider dans `bootstrap/providers.php` — tout passe par l'auto-discovery du package lui-même.
+
+#### Checklist obligatoire à la création
+
+1. **Nommage** :
+   - Dossier : `packages/pko/<feature-kebab>/` (ex: `packages/pko/my-feature/`)
+   - Namespace : `Pko\MyFeature\` (PascalCase)
+   - Composer : `pko/lunar-<feature-kebab>` dans `name` (ex: `pko/lunar-my-feature`)
+   - ServiceProvider : `Pko\MyFeature\MyFeatureServiceProvider`
+
+2. **Fichiers obligatoires** à la racine du package :
+   - `composer.json` avec `name`, `description`, `type: "library"`, `license: "proprietary"`, `require` (incluant toutes les cross-deps `pko/lunar-*` nécessaires), `autoload.psr-4`, et **impérativement** `extra.laravel.providers` pour auto-discovery
+   - `README.md` minimal : description 1-phrase + install + dépendances
+   - `src/<Feature>ServiceProvider.php` : provider qui `loadMigrationsFrom`, `loadViewsFrom`, `loadRoutesFrom`, `loadTranslationsFrom` selon le besoin
+
+3. **i18n minimal** : toute Filament Resource/Page avec `navigationLabel`/`modelLabel`/`pluralModelLabel` doit wrapper ces labels avec `__()` + fournir un fichier `lang/fr/admin.php` dans le package. Pattern :
+   ```php
+   public static function getNavigationLabel(): string
+   {
+       return __('pko-<feature>::admin.<resource>.nav');
+   }
+   ```
+   Le `ServiceProvider::boot()` doit appeler `loadTranslationsFrom(__DIR__.'/../lang', 'pko-<feature>')` et `publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/pko-<feature>')], 'pko-<feature>-lang')`.
+
+4. **Foundation média** : si le package stocke des fichiers (images, PDFs) attachés à un modèle, il doit déclarer `"pko/lunar-media-core": "@dev"` dans ses `require` et utiliser le trait `Pko\LunarMediaCore\Concerns\HasMediaAttachments` + le composant Filament `Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker`. **Jamais** recréer son propre pivot polymorphique.
+
+5. **Branding interdit** : aucun nom de client dans le nom de package, le namespace, les labels, les seeders (cf. §3.0). Seul le préfixe `pko`/`publiko` est autorisé dans le code.
+
+6. **Enregistrement root** : ajouter l'entrée `"pko/lunar-<feature>": "@dev"` dans `require` du `composer.json` racine. Le `repositories[type=path, url=packages/pko/*]` est déjà en place et découvrira automatiquement le nouveau dossier.
+
+7. **Ce qu'il ne faut PAS faire** :
+   - ❌ Ajouter le namespace dans `autoload.psr-4` du `composer.json` racine (tout est dans le composer.json du package)
+   - ❌ Ajouter le ServiceProvider dans `bootstrap/providers.php` (auto-discovery)
+   - ❌ Ajouter `autoload.files` dans le root pour les helpers du package (mettre `"files"` dans le `composer.json` du package)
+
+#### Swap de Resource Lunar — pattern obligatoire
+
+Si on subclass une Resource Lunar (ex: `PkoProductResource extends ProductResource`), **override obligatoire** de `getDefaultPages()` avec des sous-classes de pages qui redéclarent `$resource` vers la Pko-variante. Sinon Lunar's ListPage (qui hardcode `$resource = ProductResource::class`) génère des URLs edit/create vers une route inexistante après le swap → `RouteNotFoundException`.
+
+Pattern :
+```php
+// PkoProductTypeResource.php
+public static function getDefaultPages(): array
+{
+    return [
+        'index' => PkoListProductTypes::route('/'),
+        'create' => PkoCreateProductType::route('/create'),
+        'edit' => PkoEditProductType::route('/{record}/edit'),
+    ];
+}
+
+// PkoProductTypeResource/Pages/PkoListProductTypes.php
+class PkoListProductTypes extends \Lunar\Admin\...\ListProductTypes
+{
+    protected static string $resource = PkoProductTypeResource::class;
+}
+```
+
+S'applique aux Resources swappées via `$resources` reflection dans `AppServiceProvider::swapLunarResources()` (PkoProductResource, PkoProductTypeResource, PkoProductOptionResource, PkoAttributeGroupResource, PkoCollectionGroupResource).
+
 ---
 
 ## 4. Workflow de commit
@@ -114,7 +184,7 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 1. **Avant de committer** :
    - `make test` doit être vert
    - `make lint` doit être vert
-   - `docs/technical-choices.md` mis à jour si le commit introduit une décision/dépendance/env var/table/règle (voir §1)
+   - Le fichier `docs/` concerné mis à jour si le commit introduit une décision/dépendance/env var/table/règle (voir §1)
 
 2. **Conventional Commits obligatoires** : `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `perf:`, `build:`.
 
@@ -165,3 +235,7 @@ Toute commande PHP/Artisan/Composer doit passer par Make (ou `docker compose exe
 - Répondre de mémoire sur Laravel/Filament/Livewire/Lunar sans avoir interrogé les MCPs
 - Committer du code qui introduit une décision technique sans mettre à jour `docs/`
 - Mentionner Claude/Anthropic dans un commit
+- Ajouter un package PKO dans `composer.json` racine → `autoload.psr-4` (cf §3.2 : chaque package a son propre composer.json + path repository)
+- Enregistrer un provider PKO dans `bootstrap/providers.php` (auto-discovery obligatoire via `extra.laravel.providers`)
+- Créer un pivot polymorphique pour attacher des médias à un modèle — utiliser `pko/lunar-media-core` (trait `HasMediaAttachments` + table `pko_mediables`)
+- Subclasser une Resource Lunar sans override de `getDefaultPages()` avec sous-classes redéclarant `$resource` (cf §3.2 : bug pages Lunar avec `$resource` hardcodé)

@@ -1,0 +1,26 @@
+{
+    "name": "pko/lunar-account",
+    "description": "Espace client B2B : commandes, adresses, utilisateurs société.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "livewire/livewire": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\Account\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\Account\\AccountServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

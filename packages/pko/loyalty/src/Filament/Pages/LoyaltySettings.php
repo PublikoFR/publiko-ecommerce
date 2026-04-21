@@ -9,6 +9,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\Loyalty\Models\Setting;
 
@@ -20,9 +21,15 @@ class LoyaltySettings extends BasePage implements HasForms
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static ?string $navigationLabel = 'Configuration fidélité';
+    public static function getNavigationLabel(): string
+    {
+        return __('loyalty::admin.settings.nav');
+    }
 
-    protected static ?string $title = 'Configuration du programme de fidélité';
+    public function getTitle(): string|Htmlable
+    {
+        return __('loyalty::admin.settings.title');
+    }
 
     protected static ?int $navigationSort = 53;
 

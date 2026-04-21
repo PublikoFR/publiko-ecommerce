@@ -18,7 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
+use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 use Pko\StorefrontCms\Filament\Resources\PostResource\Pages;
 use Pko\StorefrontCms\Models\Post;
 use Pko\StorefrontCms\Models\PostType;
@@ -29,11 +29,20 @@ class PostResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Contenus';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.nav');
+    }
 
-    protected static ?string $modelLabel = 'contenu';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Contenus';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
 

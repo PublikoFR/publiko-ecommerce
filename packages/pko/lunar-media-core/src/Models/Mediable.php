@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pko\StorefrontCms\Models;
+namespace Pko\LunarMediaCore\Models;
 
 use Illuminate\Database\Eloquent\Relations\MorphPivot;
 

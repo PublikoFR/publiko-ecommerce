@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dc6811b695c03a1b639062873eaca510",
+    "content-hash": "598fe64192daf4cb58e6e8c03e826394",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -7320,6 +7320,704 @@
                 "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.2"
             },
             "time": "2026-01-25T14:56:51+00:00"
+        },
+        {
+            "name": "pko/lunar-account",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/account",
+                "reference": "73fa5b7d4708c9a1e5f23142824a84bc3876039e"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\Account\\AccountServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\Account\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Espace client B2B : commandes, adresses, utilisateurs société.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-ai-core",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/ai-core",
+                "reference": "3e3fe681c8b4be7d3367647aba86cf40620a5181"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\AiCore\\AiCoreServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\AiCore\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "AI Core — providers LLM universels (Claude, OpenAI) utilisables par tous les modules du back-office.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-ai-filament",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/ai-filament",
+                "reference": "70e8733041a90c8b62980f19994023f1f04fd080"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "php": "^8.2",
+                "pko/lunar-ai-core": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\AiFilament\\AiFilamentServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\AiFilament\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Actions Filament pour l'IA : factory GenerateAiAction réutilisable sur tout champ.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-ai-importer",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/ai-importer",
+                "reference": "05e2d9a5404bfa0129a708b47537cd1e33e73a8a"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/lunar": "^1.0",
+                "php": "^8.2",
+                "phpoffice/phpspreadsheet": "^2.0 || ^3.0",
+                "pko/lunar-ai-core": "@dev",
+                "pko/lunar-catalog-features": "@dev",
+                "pko/lunar-product-videos": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\AiImporter\\AiImporterServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\AiImporter\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Pipeline d'import produits Lunar via LLM : Excel multi-feuilles + actions chaînées + staging.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-catalog-features",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/catalog-features",
+                "reference": "e4a31b823bb6c1f52b753ea9682ca2300ed01f4b"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\CatalogFeatures\\CatalogFeaturesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\CatalogFeatures\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Caractéristiques produits filtrables (attributs structurés) pour Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-customer-auth",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/customer-auth",
+                "reference": "b47a79c79607759afbb22a0d3643c36e8f047674"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\CustomerAuth\\CustomerAuthServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\CustomerAuth\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Authentification B2B Lunar : inscription pro, vérification SIRET INSEE, gate prix.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-loyalty",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/loyalty",
+                "reference": "791d4f3532c6f3b9944acfb58225f17501f6d2e4"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\Loyalty\\LoyaltyServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\Loyalty\\": "src/",
+                    "Pko\\Loyalty\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Système de fidélité B2B pour Lunar (points, paliers, récompenses).",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-media-core",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/lunar-media-core",
+                "reference": "8898a0a35e6e597df103e7214d5b7d24d4620453"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "spatie/laravel-medialibrary": "^11.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\LunarMediaCore\\LunarMediaCoreServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\LunarMediaCore\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Foundation média unifiée pour Lunar : table pivot pko_mediables + trait HasMediaAttachments + composant Filament MediaPicker.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-page-builder",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/page-builder",
+                "reference": "5c2724382628b8a94c2ea01b88a388e59f0e89b1"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "mews/purifier": "^3.4",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\PageBuilder\\PageBuilderServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\PageBuilder\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Mini page-builder JSON (sections + colonnes + blocs text/image/code) universel, AI-friendly.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-product-documents",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/product-documents",
+                "reference": "5163f7a61e97d29c0dac22aa205a948b5bd2dea8"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-media-core": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\ProductDocuments\\ProductDocumentsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\ProductDocuments\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Documents téléchargeables avec catégories pour les fiches produit Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-product-videos",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/product-videos",
+                "reference": "d8cf1caa73ecce770af51bb1b1303b19ad36ed19"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\ProductVideos\\ProductVideosServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\ProductVideos\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Vidéos produit multi-provider (YouTube, Vimeo, Dailymotion, MP4) pour Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-purchase-lists",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/purchase-lists",
+                "reference": "24dd9e5c01cb354ae3247fdc56a69c2e153b4d94"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\PurchaseLists\\PurchaseListsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\PurchaseLists\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Listes d'achat récurrentes B2B pour Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-quick-order",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/quick-order",
+                "reference": "afaaff9f3fa304c8888b8348ae085f0ac15e0913"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\QuickOrder\\QuickOrderServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\QuickOrder\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Commande rapide B2B : saisie SKU + quantité en masse.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-shipping-chronopost",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/shipping-chronopost",
+                "reference": "96c97e80f4f351076716e827fdf4023f9cb7db7d"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "ladromelaboratoire/chronopostws": "^0.0.13",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-shipping-common": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\ShippingChronopost\\ShippingChronopostServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\ShippingChronopost\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Driver Chronopost (SOAP) pour Lunar : tarifs + étiquettes + tracking.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-shipping-colissimo",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/shipping-colissimo",
+                "reference": "ba2ecabdc7ef3531e5ac758ac04c3ed6f2f86362"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-shipping-common": "@dev",
+                "wsdltophp/package-colissimo-postage": "^3.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\ShippingColissimo\\ShippingColissimoServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\ShippingColissimo\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Driver Colissimo (SOAP) pour Lunar : tarifs + étiquettes + tracking.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-shipping-common",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/shipping-common",
+                "reference": "5425005abd03ff2a91e7def37cb6d0ed8da8ac6a"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\ShippingCommon\\ShippingCommonServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\ShippingCommon\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Abstractions communes aux transporteurs dynamiques Lunar (Chronopost, Colissimo, etc.).",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-store-locator",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/store-locator",
+                "reference": "ed56b2b842971d310a20e6215f9ef8a630303c99"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\StoreLocator\\StoreLocatorServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\StoreLocator\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Carte et annuaire des magasins physiques pour storefront Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-storefront",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/storefront",
+                "reference": "39884ccdff993dd02ec249aa963e6dc6b1ec40fd"
+            },
+            "require": {
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\Storefront\\StorefrontServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\Storefront\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Frontoffice B2B Lunar : pages produit/collection/recherche, add-to-cart, checkout.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "pko/lunar-storefront-cms",
+            "version": "dev-multi-package-refactor",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/storefront-cms",
+                "reference": "908de58c23d17922197cf7335394635f482d6b0f"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-media-core": "@dev",
+                "pko/lunar-page-builder": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\StorefrontCms\\StorefrontCmsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Pko\\StorefrontCms\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "CMS unifié multi-post-type + médiathèque admin + pages marque pour Lunar.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "pragmarx/google2fa",
@@ -16586,7 +17284,27 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "pko/lunar-account": 20,
+        "pko/lunar-ai-core": 20,
+        "pko/lunar-ai-filament": 20,
+        "pko/lunar-ai-importer": 20,
+        "pko/lunar-catalog-features": 20,
+        "pko/lunar-customer-auth": 20,
+        "pko/lunar-loyalty": 20,
+        "pko/lunar-media-core": 20,
+        "pko/lunar-page-builder": 20,
+        "pko/lunar-product-documents": 20,
+        "pko/lunar-product-videos": 20,
+        "pko/lunar-purchase-lists": 20,
+        "pko/lunar-quick-order": 20,
+        "pko/lunar-shipping-chronopost": 20,
+        "pko/lunar-shipping-colissimo": 20,
+        "pko/lunar-shipping-common": 20,
+        "pko/lunar-store-locator": 20,
+        "pko/lunar-storefront": 20,
+        "pko/lunar-storefront-cms": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

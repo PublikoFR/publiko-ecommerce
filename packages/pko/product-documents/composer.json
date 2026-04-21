@@ -1,11 +1,14 @@
 {
-    "name": "pko/product-documents",
+    "name": "pko/lunar-product-documents",
     "description": "Documents téléchargeables avec catégories pour les fiches produit Lunar.",
     "type": "library",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "lunarphp/core": "^1.0"
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0",
+        "pko/lunar-media-core": "@dev"
     },
     "autoload": {
         "psr-4": {

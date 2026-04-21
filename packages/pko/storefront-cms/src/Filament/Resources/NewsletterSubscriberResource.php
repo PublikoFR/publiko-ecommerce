@@ -18,11 +18,20 @@ class NewsletterSubscriberResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Abonnés newsletter';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.newsletter.nav');
+    }
 
-    protected static ?string $modelLabel = 'abonné newsletter';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.newsletter.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Abonnés newsletter';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.newsletter.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
 

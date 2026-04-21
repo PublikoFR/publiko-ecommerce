@@ -26,11 +26,20 @@ class StoreResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Magasins';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-store-locator::admin.store.nav');
+    }
 
-    protected static ?string $modelLabel = 'magasin';
+    public static function getModelLabel(): string
+    {
+        return __('pko-store-locator::admin.store.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Magasins';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-store-locator::admin.store.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-map-pin';
 

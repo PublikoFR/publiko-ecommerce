@@ -1,12 +1,12 @@
 # AI Importer — guide staff back-office
 
-Ce document s'adresse aux équipes **back-office** qui gèrent l'import de catalogues fournisseurs. Il décrit **comment** utiliser le module AI Importer au quotidien, pas comment il est construit (voir `docs/technical-choices.md` et `docs/ai-importer-migration-plan.md` pour la partie développeur).
+Ce document s'adresse aux équipes **back-office** qui gèrent l'import de catalogues fournisseurs. Il décrit **comment** utiliser le module AI Importer au quotidien, pas comment il est construit (voir `docs/` et `docs/ai-importer-migration-plan.md` pour la partie développeur).
 
 Accès : admin → **Imports**.
 
 ---
 
-## 1. Les 3 écrans
+## Les 3 écrans
 
 | Écran | URL | À quoi ça sert |
 |---|---|---|
@@ -16,7 +16,7 @@ Accès : admin → **Imports**.
 
 ---
 
-## 2. Créer une configuration fournisseur
+## Créer une configuration fournisseur
 
 Une **configuration** décrit comment lire un fichier Excel d'un fournisseur : quelles feuilles, quelles colonnes mapper vers quels champs Lunar, quelles transformations appliquer.
 
@@ -26,7 +26,7 @@ Une **configuration** décrit comment lire un fichier Excel d'un fournisseur : q
    - Indique **Feuille principale** (ex. `B01_COMMERCE`).
    - Ajoute les **Feuilles** secondaires si le fichier a des données 1-N (images, logistique…). Coche « Ligne 1 = en-têtes » si la première ligne contient les noms de colonnes.
    - Dans **Colonnes mappées**, ajoute une entrée par champ produit à produire. Chaque entrée a :
-     - **Clé de sortie** : un des mots-clés reconnus (`reference`, `name`, `price_cents`, `stock`, `ean`, `brand_name`, `collections`, `features`, `images`, `videos`…). La liste complète est dans `docs/technical-choices.md` §7.quinquies.9.
+     - **Clé de sortie** : un des mots-clés reconnus (`reference`, `name`, `price_cents`, `stock`, `ean`, `brand_name`, `collections`, `features`, `images`, `videos`…). La liste complète est dans `docs/packages/ai-importer.md`.
      - **Colonne source** : nom d'en-tête ou lettre (`M`, `AA`).
      - **Feuille** : nom de la feuille (sinon feuille principale).
      - **Pipeline d'actions** : suite de transformations appliquées à la valeur lue (ex. `math ×1.2` → `round 2` pour passer du HT au TTC arrondi).
@@ -45,7 +45,7 @@ Le format JSON est déjà compatible (pipeline `actions[]` v1). La commande lift
 
 ---
 
-## 3. Tester une config sans lancer d'import
+## Tester une config sans lancer d'import
 
 Avant de créer un vrai job sur 50 000 lignes, vérifie le mapping sur les 5 premières lignes :
 
@@ -57,7 +57,7 @@ La commande affiche un tableau des valeurs mappées. Utile pour valider qu'un `m
 
 ---
 
-## 4. Les 18 actions disponibles
+## Les 18 actions disponibles
 
 Chaque action lit la valeur courante (ou certaines colonnes du row source), retourne une nouvelle valeur, et passe à la suivante.
 
@@ -109,7 +109,7 @@ Les handles sortis (`somfy`, `residentiel`, `aluminium`…) doivent **exister au
 
 ---
 
-## 5. Lancer un import
+## Lancer un import
 
 1. *Imports → Nouveau* (un gros bouton "Nouvel import" en haut à droite de la liste).
 2. **Configuration** : choisir celle du fournisseur.
@@ -151,7 +151,7 @@ Les handles sortis (`somfy`, `residentiel`, `aluminium`…) doivent **exister au
 
 ---
 
-## 6. Les images et les vidéos
+## Les images et les vidéos
 
 ### Images
 
@@ -183,7 +183,7 @@ Exemple de pipeline :
 
 ---
 
-## 7. Les clés API LLM
+## Les clés API LLM
 
 - *Imports → Configurations LLM → Nouveau*.
 - **Provider** : Claude (Anthropic) ou OpenAI.
@@ -192,7 +192,7 @@ Exemple de pipeline :
 
 ---
 
-## 8. Rollback et snapshots
+## Rollback et snapshots
 
 À chaque import, un **snapshot JSON gzippé** est stocké dans `storage/app/ai-importer/backups/`. Il contient l'état *avant* import des produits touchés (+ leurs variants, prix, pivots collections).
 
@@ -202,7 +202,7 @@ Exemple de pipeline :
 
 ---
 
-## 9. Dépannage
+## Dépannage
 
 | Symptôme | Piste |
 |---|---|
@@ -216,7 +216,7 @@ Exemple de pipeline :
 
 ---
 
-## 10. Commandes utiles
+## Commandes utiles
 
 ```bash
 # Tester une config (dry-run)

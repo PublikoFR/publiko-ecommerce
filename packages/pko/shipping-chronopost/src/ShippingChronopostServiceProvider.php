@@ -25,6 +25,10 @@ class ShippingChronopostServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'mde-shipping-chronopost');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-chronopost');
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-chronopost'),
+        ], 'pko-shipping-chronopost-lang');
 
         /** @var ShippingModifiers $modifiers */
         $modifiers = $this->app->make(ShippingModifiers::class);

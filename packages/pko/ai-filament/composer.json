@@ -1,13 +1,26 @@
 {
-    "name": "pko/ai-filament",
+    "name": "pko/lunar-ai-filament",
+    "description": "Actions Filament pour l'IA : factory GenerateAiAction réutilisable sur tout champ.",
+    "type": "library",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "filament/filament": "^3.0"
+        "filament/filament": "^3.0",
+        "pko/lunar-ai-core": "@dev"
     },
     "autoload": {
         "psr-4": {
             "Pko\\AiFilament\\": "src/"
         }
-    }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\AiFilament\\AiFilamentServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

@@ -1,0 +1,26 @@
+{
+    "name": "pko/lunar-store-locator",
+    "description": "Carte et annuaire des magasins physiques pour storefront Lunar.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\StoreLocator\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\StoreLocator\\StoreLocatorServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

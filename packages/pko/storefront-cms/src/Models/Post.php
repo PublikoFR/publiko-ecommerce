@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
-use Pko\StorefrontCms\Concerns\HasMediaAttachments;
+use Pko\LunarMediaCore\Concerns\HasMediaAttachments;
 
 /**
  * @property int $id

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pko\StorefrontCms\Filament\Forms\Components;
+namespace Pko\LunarMediaCore\Filament\Forms\Components;
 
 use Filament\Forms\Components\Field;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class MediaPicker extends Field
 {
-    protected string $view = 'storefront-cms::forms.components.media-picker';
+    protected string $view = 'media-core::forms.components.media-picker';
 
     protected bool $multiple = false;
 

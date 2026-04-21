@@ -1,11 +1,14 @@
 {
-    "name": "pko/page-builder",
-    "description": "Mini page-builder JSON (sections + colonnes + blocs text/image/code) pour Pages et Posts CMS — réutilisable, AI-friendly.",
+    "name": "pko/lunar-page-builder",
+    "description": "Mini page-builder JSON (sections + colonnes + blocs text/image/code) universel, AI-friendly.",
     "type": "library",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "livewire/livewire": "^3.0"
+        "livewire/livewire": "^3.0",
+        "filament/filament": "^3.0",
+        "mews/purifier": "^3.4"
     },
     "autoload": {
         "psr-4": {

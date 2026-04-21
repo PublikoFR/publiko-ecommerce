@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Pko\StorefrontCms\Concerns;
+namespace Pko\LunarMediaCore\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Pko\StorefrontCms\Models\Mediable;
+use Pko\LunarMediaCore\Models\Mediable;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**

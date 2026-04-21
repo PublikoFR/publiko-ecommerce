@@ -1,11 +1,13 @@
 {
-    "name": "pko/product-videos",
+    "name": "pko/lunar-product-videos",
     "description": "Vidéos produit multi-provider (YouTube, Vimeo, Dailymotion, MP4) pour Lunar.",
     "type": "library",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "lunarphp/core": "^1.0"
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0"
     },
     "autoload": {
         "psr-4": {

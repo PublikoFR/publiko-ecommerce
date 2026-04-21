@@ -1,0 +1,26 @@
+{
+    "name": "pko/lunar-purchase-lists",
+    "description": "Listes d'achat récurrentes B2B pour Lunar.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "livewire/livewire": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\PurchaseLists\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\PurchaseLists\\PurchaseListsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
