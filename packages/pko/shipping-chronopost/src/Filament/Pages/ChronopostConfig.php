@@ -13,7 +13,7 @@ use Throwable;
 
 class ChronopostConfig extends BasePage
 {
-    protected static ?string $navigationGroup = 'Configuration';
+    protected static ?string $navigationGroup = 'Expédition';
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
