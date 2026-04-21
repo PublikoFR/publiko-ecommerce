@@ -26,11 +26,20 @@ class HomeOfferResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Offres du moment';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_offer.nav');
+    }
 
-    protected static ?string $modelLabel = 'offre du moment';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_offer.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Offres du moment';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_offer.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-megaphone';
 

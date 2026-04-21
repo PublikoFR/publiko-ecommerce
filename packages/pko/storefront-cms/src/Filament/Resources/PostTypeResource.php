@@ -22,11 +22,20 @@ class PostTypeResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Types de contenus';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post_type.nav');
+    }
 
-    protected static ?string $modelLabel = 'type de contenu';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post_type.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Types de contenus';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post_type.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 

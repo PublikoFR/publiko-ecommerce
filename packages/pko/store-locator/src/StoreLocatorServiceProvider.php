@@ -13,5 +13,9 @@ class StoreLocatorServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'store-locator');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-store-locator');
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/pko-store-locator'),
+        ], 'pko-store-locator-lang');
     }
 }

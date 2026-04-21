@@ -17,6 +17,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Contracts\Support\Htmlable;
 use Pko\StorefrontCms\Models\Setting;
 
 class StorefrontSettings extends Page implements HasForms
@@ -25,9 +26,15 @@ class StorefrontSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Paramètres';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.storefront_settings.nav');
+    }
 
-    protected static ?string $title = 'Paramètres du storefront';
+    public function getTitle(): string|Htmlable
+    {
+        return __('pko-storefront-cms::admin.storefront_settings.title');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 

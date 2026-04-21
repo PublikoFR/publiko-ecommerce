@@ -6,6 +6,7 @@ namespace Pko\ShippingColissimo\Filament\Pages;
 
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Throwable;
@@ -16,9 +17,15 @@ class ColissimoConfig extends BasePage
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
-    protected static ?string $navigationLabel = 'Colissimo';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-shipping-colissimo::admin.config.nav');
+    }
 
-    protected static ?string $title = 'Configuration Colissimo';
+    public function getTitle(): string|Htmlable
+    {
+        return __('pko-shipping-colissimo::admin.config.title');
+    }
 
     protected static string $view = 'mde-shipping-colissimo::pages.colissimo-config';
 

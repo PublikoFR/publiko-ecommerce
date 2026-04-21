@@ -29,11 +29,20 @@ class PostResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Contenus';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.nav');
+    }
 
-    protected static ?string $modelLabel = 'contenu';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Contenus';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.post.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
 

@@ -6,6 +6,7 @@ namespace Pko\ShippingChronopost\Filament\Pages;
 
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Throwable;
@@ -16,9 +17,15 @@ class ChronopostConfig extends BasePage
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
-    protected static ?string $navigationLabel = 'Chronopost';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-shipping-chronopost::admin.config.nav');
+    }
 
-    protected static ?string $title = 'Configuration Chronopost';
+    public function getTitle(): string|Htmlable
+    {
+        return __('pko-shipping-chronopost::admin.config.title');
+    }
 
     protected static string $view = 'mde-shipping-chronopost::pages.chronopost-config';
 

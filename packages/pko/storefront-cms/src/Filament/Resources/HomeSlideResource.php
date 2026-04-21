@@ -28,11 +28,20 @@ class HomeSlideResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Slides accueil';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_slide.nav');
+    }
 
-    protected static ?string $modelLabel = 'slide accueil';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_slide.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Slides accueil';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_slide.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-photo';
 

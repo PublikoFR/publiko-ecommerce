@@ -25,6 +25,10 @@ class ShippingColissimoServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'mde-shipping-colissimo');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-colissimo');
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-colissimo'),
+        ], 'pko-shipping-colissimo-lang');
 
         /** @var ShippingModifiers $modifiers */
         $modifiers = $this->app->make(ShippingModifiers::class);

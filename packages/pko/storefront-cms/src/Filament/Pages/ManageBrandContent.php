@@ -27,7 +27,10 @@ class ManageBrandContent extends Page implements HasForms
 
     protected static string $view = 'storefront-cms::filament.pages.manage-brand-content';
 
-    protected static ?string $navigationLabel = 'Page marque';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.brand_content.nav');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 

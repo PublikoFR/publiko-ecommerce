@@ -6,6 +6,7 @@ namespace Pko\StorefrontCms\Filament\Pages;
 
 use Filament\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Contracts\Support\Htmlable;
 
 /**
  * Coquille Filament Page — la logique et le rendu vivent dans
@@ -17,9 +18,15 @@ class PkoMediaLibrary extends Page
 {
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Médiathèque';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.media_library.nav');
+    }
 
-    protected static ?string $title = 'Médiathèque';
+    public function getTitle(): string|Htmlable
+    {
+        return __('pko-storefront-cms::admin.media_library.title');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-photo';
 

@@ -25,11 +25,20 @@ class HomeTileResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Tuiles accueil';
+    public static function getNavigationLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_tile.nav');
+    }
 
-    protected static ?string $modelLabel = 'tuile accueil';
+    public static function getModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_tile.label');
+    }
 
-    protected static ?string $pluralModelLabel = 'Tuiles accueil';
+    public static function getPluralModelLabel(): string
+    {
+        return __('pko-storefront-cms::admin.home_tile.plural');
+    }
 
     protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
 
