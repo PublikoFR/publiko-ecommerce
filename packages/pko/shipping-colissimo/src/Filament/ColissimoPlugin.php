@@ -12,7 +12,7 @@ class ColissimoPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-shipping-colissimo';
+        return 'pko-shipping-colissimo';
     }
 
     public function register(Panel $panel): void

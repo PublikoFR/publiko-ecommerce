@@ -38,6 +38,7 @@ use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
+use Pko\Secrets\Facades\Secrets;
 use Pko\ShippingChronopost\Filament\ChronopostPlugin;
 use Pko\ShippingColissimo\Filament\ColissimoPlugin;
 use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
@@ -52,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->swapLunarResources();
+        $this->registerSecretModules();
 
         LunarPanel::panel(function (Panel $panel): Panel {
             return $panel
@@ -124,6 +126,60 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(
             resource_path('views/filament/resources/pko-product/partials'),
             'pko-product'
+        );
+    }
+
+    /**
+     * Declare secret keys for each module so they can be toggled between .env and DB
+     * storage from the admin UI. Registered at register() so the helper secret() is
+     * usable during bootstrap of other providers.
+     */
+    private function registerSecretModules(): void
+    {
+        Secrets::register(
+            'stripe',
+            keys: [
+                'public_key' => 'STRIPE_KEY',
+                'secret' => 'STRIPE_SECRET',
+                'webhook_lunar' => 'STRIPE_WEBHOOK_SECRET_LUNAR',
+            ],
+            defaultSource: 'env',
+            label: 'Stripe',
+            configMap: [
+                'public_key' => 'services.stripe.public_key',
+                'secret' => 'services.stripe.key',
+                'webhook_lunar' => 'services.stripe.webhooks.lunar',
+            ],
+        );
+
+        Secrets::register(
+            'chronopost',
+            keys: [
+                'account' => 'CHRONOPOST_ACCOUNT',
+                'password' => 'CHRONOPOST_PASSWORD',
+                'sub_account' => 'CHRONOPOST_SUB_ACCOUNT',
+            ],
+            defaultSource: 'env',
+            label: 'Chronopost',
+            configMap: [
+                'account' => 'chronopost.credentials.account',
+                'password' => 'chronopost.credentials.password',
+                'sub_account' => 'chronopost.credentials.sub_account',
+            ],
+        );
+
+        Secrets::register(
+            'colissimo',
+            keys: [
+                'contract_number' => 'COLISSIMO_CONTRACT',
+                'password' => 'COLISSIMO_PASSWORD',
+            ],
+            defaultSource: 'env',
+            label: 'Colissimo',
+            configMap: [
+                'contract_number' => 'colissimo.credentials.contract_number',
+                'password' => 'colissimo.credentials.password',
+            ],
         );
     }
 

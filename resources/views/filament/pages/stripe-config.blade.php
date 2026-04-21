@@ -1,5 +1,16 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        {{-- Formulaire source + credentials --}}
+        <form wire:submit="save">
+            {{ $this->form }}
+
+            <div class="mt-4 flex justify-end">
+                <x-filament::button type="submit">
+                    Enregistrer
+                </x-filament::button>
+            </div>
+        </form>
+
         {{-- Status global --}}
         <x-filament::section>
             <x-slot name="heading">État de la configuration</x-slot>
@@ -27,8 +38,8 @@
                             Configuration incomplète
                         </p>
                         <p class="mt-1 text-sm text-warning-700/80 dark:text-warning-300/80">
-                            Une ou plusieurs variables sont manquantes dans le fichier <code>.env</code>.
-                            Voir la section « Variables d'environnement » ci-dessous.
+                            Une ou plusieurs clés sont manquantes. Source actuelle :
+                            <strong>{{ $this->getCurrentSource() === 'db' ? 'base de données' : 'fichier .env' }}</strong>.
                         </p>
                     </div>
                 </div>
@@ -39,7 +50,7 @@
         <x-filament::section>
             <x-slot name="heading">Clés API Stripe</x-slot>
             <x-slot name="description">
-                Valeurs lues depuis <code>config/services.php</code> (renseignées via <code>.env</code>).
+                Source actuelle : <strong>{{ $this->getCurrentSource() === 'db' ? 'base de données (chiffré)' : '.env' }}</strong>.
                 Les clés secrètes sont masquées.
             </x-slot>
 

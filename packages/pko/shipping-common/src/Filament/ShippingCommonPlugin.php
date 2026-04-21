@@ -12,7 +12,7 @@ class ShippingCommonPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-shipping-common';
+        return 'pko-shipping-common';
     }
 
     public function register(Panel $panel): void

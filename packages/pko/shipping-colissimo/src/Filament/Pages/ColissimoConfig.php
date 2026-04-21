@@ -5,15 +5,22 @@ declare(strict_types=1);
 namespace Pko\ShippingColissimo\Filament\Pages;
 
 use Filament\Actions\Action;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\Secrets\Facades\Secrets;
+use Pko\Secrets\Filament\Forms\SecretsFormSchema;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Throwable;
 
-class ColissimoConfig extends BasePage
+class ColissimoConfig extends BasePage implements HasForms
 {
-    protected static ?string $navigationGroup = 'Configuration';
+    use InteractsWithForms;
+
+    protected static ?string $navigationGroup = 'Expédition';
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
@@ -27,13 +34,51 @@ class ColissimoConfig extends BasePage
         return __('pko-shipping-colissimo::admin.config.title');
     }
 
-    protected static string $view = 'mde-shipping-colissimo::pages.colissimo-config';
+    protected static string $view = 'pko-shipping-colissimo::pages.colissimo-config';
 
     protected static ?int $navigationSort = 21;
 
+    /**
+     * @var array<string, mixed>
+     */
+    public array $data = [];
+
+    public function mount(): void
+    {
+        $this->form->fill(SecretsFormSchema::initialData('colissimo'));
+    }
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                SecretsFormSchema::make('colissimo', [
+                    'contract_number' => 'Numéro de contrat',
+                    'password' => 'Mot de passe',
+                ], heading: 'Credentials Colissimo'),
+            ])
+            ->statePath('data');
+    }
+
+    public function save(): void
+    {
+        $state = $this->form->getState();
+        SecretsFormSchema::save('colissimo', $state);
+
+        Notification::make()
+            ->success()
+            ->title(__('pko-secrets::secrets.saved'))
+            ->send();
+    }
+
+    public function getCurrentSource(): string
+    {
+        return Secrets::source('colissimo');
+    }
+
     public function getContractNumber(): ?string
     {
-        return config('colissimo.credentials.contract_number');
+        return Secrets::get('colissimo', 'contract_number') ?: config('colissimo.credentials.contract_number');
     }
 
     public function hasContractNumber(): bool
@@ -43,7 +88,7 @@ class ColissimoConfig extends BasePage
 
     public function hasPassword(): bool
     {
-        return filled(config('colissimo.credentials.password'));
+        return filled(Secrets::get('colissimo', 'password') ?: config('colissimo.credentials.password'));
     }
 
     public function isConfigured(): bool
@@ -86,7 +131,7 @@ class ColissimoConfig extends BasePage
 
     public function getMaskedPassword(): string
     {
-        $pass = (string) config('colissimo.credentials.password', '');
+        $pass = (string) (Secrets::get('colissimo', 'password') ?: config('colissimo.credentials.password', ''));
         if ($pass === '') {
             return '—';
         }
@@ -122,7 +167,7 @@ class ColissimoConfig extends BasePage
                             Notification::make()
                                 ->danger()
                                 ->title('Credentials manquants')
-                                ->body('Renseignez COLISSIMO_CONTRACT et COLISSIMO_PASSWORD dans .env.')
+                                ->body('Renseignez COLISSIMO_CONTRACT et COLISSIMO_PASSWORD dans .env ou passez le module en mode base de données.')
                                 ->send();
                         }
                     } catch (Throwable $e) {

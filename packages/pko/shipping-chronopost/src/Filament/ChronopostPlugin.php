@@ -12,7 +12,7 @@ class ChronopostPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-shipping-chronopost';
+        return 'pko-shipping-chronopost';
     }
 
     public function register(Panel $panel): void

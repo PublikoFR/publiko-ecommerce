@@ -1,5 +1,14 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        {{-- Source & credentials form --}}
+        <form wire:submit="save">
+            {{ $this->form }}
+
+            <div class="mt-4 flex justify-end">
+                <x-filament::button type="submit">Enregistrer</x-filament::button>
+            </div>
+        </form>
+
         {{-- Status --}}
         <x-filament::section>
             <x-slot name="heading">État de la configuration</x-slot>
@@ -23,7 +32,8 @@
                     <div>
                         <p class="font-semibold text-warning-700 dark:text-warning-300">Configuration incomplète</p>
                         <p class="mt-1 text-sm text-warning-700/80 dark:text-warning-300/80">
-                            Renseignez <code>COLISSIMO_CONTRACT</code> et <code>COLISSIMO_PASSWORD</code> dans <code>.env</code>.
+                            Source actuelle : <strong>{{ $this->getCurrentSource() === 'db' ? 'base de données' : '.env' }}</strong>.
+                            Renseignez les credentials dans le formulaire ci-dessus.
                         </p>
                     </div>
                 </div>

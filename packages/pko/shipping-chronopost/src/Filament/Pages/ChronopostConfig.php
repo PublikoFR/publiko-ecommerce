@@ -5,15 +5,22 @@ declare(strict_types=1);
 namespace Pko\ShippingChronopost\Filament\Pages;
 
 use Filament\Actions\Action;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\Secrets\Facades\Secrets;
+use Pko\Secrets\Filament\Forms\SecretsFormSchema;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Throwable;
 
-class ChronopostConfig extends BasePage
+class ChronopostConfig extends BasePage implements HasForms
 {
-    protected static ?string $navigationGroup = 'Configuration';
+    use InteractsWithForms;
+
+    protected static ?string $navigationGroup = 'Expédition';
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
@@ -27,18 +34,57 @@ class ChronopostConfig extends BasePage
         return __('pko-shipping-chronopost::admin.config.title');
     }
 
-    protected static string $view = 'mde-shipping-chronopost::pages.chronopost-config';
+    protected static string $view = 'pko-shipping-chronopost::pages.chronopost-config';
 
     protected static ?int $navigationSort = 20;
 
+    /**
+     * @var array<string, mixed>
+     */
+    public array $data = [];
+
+    public function mount(): void
+    {
+        $this->form->fill(SecretsFormSchema::initialData('chronopost'));
+    }
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                SecretsFormSchema::make('chronopost', [
+                    'account' => 'Numéro de compte',
+                    'password' => 'Mot de passe',
+                    'sub_account' => 'Sous-compte (optionnel)',
+                ], heading: 'Credentials Chronopost'),
+            ])
+            ->statePath('data');
+    }
+
+    public function save(): void
+    {
+        $state = $this->form->getState();
+        SecretsFormSchema::save('chronopost', $state);
+
+        Notification::make()
+            ->success()
+            ->title(__('pko-secrets::secrets.saved'))
+            ->send();
+    }
+
+    public function getCurrentSource(): string
+    {
+        return Secrets::source('chronopost');
+    }
+
     public function getAccount(): ?string
     {
-        return config('chronopost.credentials.account');
+        return Secrets::get('chronopost', 'account') ?: config('chronopost.credentials.account');
     }
 
     public function getSubAccount(): ?string
     {
-        return config('chronopost.credentials.sub_account');
+        return Secrets::get('chronopost', 'sub_account') ?: config('chronopost.credentials.sub_account');
     }
 
     public function hasAccount(): bool
@@ -48,7 +94,7 @@ class ChronopostConfig extends BasePage
 
     public function hasPassword(): bool
     {
-        return filled(config('chronopost.credentials.password'));
+        return filled(Secrets::get('chronopost', 'password') ?: config('chronopost.credentials.password'));
     }
 
     public function isConfigured(): bool
@@ -89,16 +135,6 @@ class ChronopostConfig extends BasePage
         return (array) config('chronopost.shipper', []);
     }
 
-    public function getMaskedPassword(): string
-    {
-        $pass = (string) config('chronopost.credentials.password', '');
-        if ($pass === '') {
-            return '—';
-        }
-
-        return str_repeat('•', max(4, strlen($pass) - 2)).substr($pass, -2);
-    }
-
     public function formatCents(int $cents): string
     {
         return number_format($cents / 100, 2, ',', ' ').' €';
@@ -127,7 +163,7 @@ class ChronopostConfig extends BasePage
                             Notification::make()
                                 ->danger()
                                 ->title('Credentials manquants')
-                                ->body('Renseignez CHRONOPOST_ACCOUNT et CHRONOPOST_PASSWORD dans .env.')
+                                ->body('Renseignez CHRONOPOST_ACCOUNT et CHRONOPOST_PASSWORD dans .env ou passez le module en mode base de données.')
                                 ->send();
                         }
                     } catch (Throwable $e) {
