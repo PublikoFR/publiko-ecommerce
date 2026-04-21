@@ -27,26 +27,26 @@ Framework d'intégration de transporteurs pour Lunar, porté par `packages/pko/s
 | `pko_carrier_grids` | Paliers tarifaires `max_kg` / `price_cents` — **éditable en admin** |
 | `pko_secrets` | Credentials API chiffrés (via package `pko/lunar-secrets`) |
 
-## Navigation Filament — 2 clusters Expédition + Transporteurs
+## Navigation Filament — Cluster Expédition
 
-Le périmètre est scindé en **2 clusters** (items de sidebar) via Filament Clusters. Chaque cluster affiche ses children en sub-nav à droite (`SubNavigationPosition::End`).
+Un **seul item** de sidebar "Expédition" (cluster `Pko\ShippingCommon\Filament\Clusters\Shipping`, slug `/admin/expedition/*`). À l'ouverture, Filament affiche la sub-nav à droite (`SubNavigationPosition::End`) scindée en **2 groupes collapsibles** via `$navigationGroup` :
 
-### Cluster `Shipping` (label "Expédition", sort 55)
+### Groupe "Expédition" (opérations d'expédition)
 
-URLs préfixées `/admin/expedition/*`. Contient les **opérations d'expédition** :
+1. **Méthodes d'expédition** — `PkoShippingMethodResource` (subclassée de Lunar)
+2. **Zones d'expédition** — `PkoShippingZoneResource`
+3. **Listes d'exclusion d'expédition** — `PkoShippingExclusionListResource`
+4. **Envois Transporteurs** — `CarrierShipmentResource`
 
-1. **Méthodes d'expédition** — Lunar `ShippingMethodResource` (subclassée `PkoShippingMethodResource` pour poser `$cluster`)
-2. **Zones d'expédition** — Lunar `ShippingZoneResource` (idem)
-3. **Listes d'exclusion d'expédition** — Lunar `ShippingExclusionListResource` (idem)
-4. **Envois Transporteurs** — `Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource`
+Le groupe "Expédition" vient de `__('lunarpanel.shipping::plugin.navigation.group')` sur les 3 resources Lunar, et de `getNavigationGroup() => 'Expédition'` sur `CarrierShipmentResource`.
 
-### Cluster `Carriers` (label "Transporteurs", sort 56)
+### Groupe "Transporteurs" (configurations par carrier)
 
-URLs préfixées `/admin/transporteurs/*`. Contient les **configurations par transporteur** :
+1. **Chronopost** — `ChronopostConfig`
+2. **Colissimo** — `ColissimoConfig`
+3. (futur DPD/UPS/… — hérite automatiquement via `AbstractCarrierConfigPage`)
 
-1. **Chronopost** — `Pko\ShippingChronopost\Filament\Pages\ChronopostConfig`
-2. **Colissimo** — `Pko\ShippingColissimo\Filament\Pages\ColissimoConfig`
-3. (futur transporteur DPD/UPS/… — via `AbstractCarrierConfigPage` qui hérite `$cluster = Carriers::class`)
+`AbstractCarrierConfigPage::$navigationGroup = 'Transporteurs'` → toutes les ConfigPages de transporteur remontent dans ce second groupe collapsible.
 
 ### Swap des resources Lunar vers le cluster
 
