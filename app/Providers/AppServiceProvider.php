@@ -39,9 +39,7 @@ use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\Secrets\Facades\Secrets;
-use Pko\ShippingChronopost\Filament\ChronopostPlugin;
-use Pko\ShippingColissimo\Filament\ColissimoPlugin;
-use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
+use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
@@ -79,9 +77,7 @@ class AppServiceProvider extends ServiceProvider
                 ])
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
-                ->plugin(ShippingCommonPlugin::make())
-                ->plugin(ChronopostPlugin::make())
-                ->plugin(ColissimoPlugin::make())
+                ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())
                 ->plugin(AiImporterPlugin::make())

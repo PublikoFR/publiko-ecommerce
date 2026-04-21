@@ -4,177 +4,21 @@ declare(strict_types=1);
 
 namespace Pko\ShippingChronopost\Filament\Pages;
 
-use Filament\Actions\Action;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
-use Filament\Notifications\Notification;
-use Illuminate\Contracts\Support\Htmlable;
-use Lunar\Admin\Support\Pages\BasePage;
-use Pko\Secrets\Facades\Secrets;
-use Pko\Secrets\Filament\Forms\SecretsFormSchema;
-use Pko\ShippingCommon\Contracts\CarrierClient;
-use Throwable;
+use Pko\ShippingCommon\Filament\Pages\AbstractCarrierConfigPage;
 
-class ChronopostConfig extends BasePage implements HasForms
+class ChronopostConfig extends AbstractCarrierConfigPage
 {
-    use InteractsWithForms;
-
-    protected static ?string $navigationGroup = 'Expédition';
-
-    protected static ?string $navigationIcon = 'heroicon-o-truck';
-
-    public static function getNavigationLabel(): string
-    {
-        return __('pko-shipping-chronopost::admin.config.nav');
-    }
-
-    public function getTitle(): string|Htmlable
-    {
-        return __('pko-shipping-chronopost::admin.config.title');
-    }
-
-    protected static string $view = 'pko-shipping-chronopost::pages.chronopost-config';
+    protected static string $view = 'pko-shipping-common::pages.carrier-config';
 
     protected static ?int $navigationSort = 20;
 
-    /**
-     * @var array<string, mixed>
-     */
-    public array $data = [];
-
-    public function mount(): void
+    protected function carrierCode(): string
     {
-        $this->form->fill(SecretsFormSchema::initialData('chronopost'));
+        return 'chronopost';
     }
 
-    public function form(Form $form): Form
+    protected static function navigationLabel(): ?string
     {
-        return $form
-            ->schema([
-                SecretsFormSchema::make('chronopost', [
-                    'account' => 'Numéro de compte',
-                    'password' => 'Mot de passe',
-                    'sub_account' => 'Sous-compte (optionnel)',
-                ], heading: 'Credentials Chronopost'),
-            ])
-            ->statePath('data');
-    }
-
-    public function save(): void
-    {
-        $state = $this->form->getState();
-        SecretsFormSchema::save('chronopost', $state);
-
-        Notification::make()
-            ->success()
-            ->title(__('pko-secrets::secrets.saved'))
-            ->send();
-    }
-
-    public function getCurrentSource(): string
-    {
-        return Secrets::source('chronopost');
-    }
-
-    public function getAccount(): ?string
-    {
-        return Secrets::get('chronopost', 'account') ?: config('chronopost.credentials.account');
-    }
-
-    public function getSubAccount(): ?string
-    {
-        return Secrets::get('chronopost', 'sub_account') ?: config('chronopost.credentials.sub_account');
-    }
-
-    public function hasAccount(): bool
-    {
-        return filled($this->getAccount());
-    }
-
-    public function hasPassword(): bool
-    {
-        return filled(Secrets::get('chronopost', 'password') ?: config('chronopost.credentials.password'));
-    }
-
-    public function isConfigured(): bool
-    {
-        return $this->hasAccount() && $this->hasPassword();
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function getServices(): array
-    {
-        $services = [];
-        foreach ((array) config('chronopost.services', []) as $code => $service) {
-            $services[] = [
-                'code' => (string) $code,
-                'label' => (string) ($service['label'] ?? $code),
-                'enabled' => (bool) ($service['enabled'] ?? false),
-            ];
-        }
-
-        return $services;
-    }
-
-    /**
-     * @return array<int, array<string, int>>
-     */
-    public function getGrid(): array
-    {
-        return (array) config('chronopost.grid', []);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function getShipper(): array
-    {
-        return (array) config('chronopost.shipper', []);
-    }
-
-    public function formatCents(int $cents): string
-    {
-        return number_format($cents / 100, 2, ',', ' ').' €';
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('testCredentials')
-                ->label('Tester les credentials')
-                ->icon('heroicon-o-bolt')
-                ->color('primary')
-                ->disabled(fn (): bool => ! $this->isConfigured())
-                ->action(function (): void {
-                    try {
-                        /** @var CarrierClient $client */
-                        $client = app('pko.shipping.carrier.chronopost');
-
-                        if ($client->testCredentials()) {
-                            Notification::make()
-                                ->success()
-                                ->title('Credentials valides')
-                                ->body('Les identifiants Chronopost sont présents.')
-                                ->send();
-                        } else {
-                            Notification::make()
-                                ->danger()
-                                ->title('Credentials manquants')
-                                ->body('Renseignez CHRONOPOST_ACCOUNT et CHRONOPOST_PASSWORD dans .env ou passez le module en mode base de données.')
-                                ->send();
-                        }
-                    } catch (Throwable $e) {
-                        Notification::make()
-                            ->danger()
-                            ->title('Erreur')
-                            ->body($e->getMessage())
-                            ->persistent()
-                            ->send();
-                    }
-                }),
-        ];
+        return 'Chronopost';
     }
 }
