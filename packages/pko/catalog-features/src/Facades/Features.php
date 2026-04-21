@@ -22,6 +22,8 @@ use Pko\CatalogFeatures\Services\FeatureManager;
  * @method static EloquentCollection familiesFor(Product $product)
  * @method static Builder productsWith(array $valueIds)
  * @method static array countsFor(LunarCollection $collection)
+ * @method static array countsForContext(Builder $baseQuery, array $selectedByFamily, ?int $excludeFamilyId = null)
+ * @method static array brandCountsForContext(Builder $baseQuery)
  */
 class Features extends Facade
 {

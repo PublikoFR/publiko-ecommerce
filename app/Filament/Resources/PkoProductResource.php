@@ -6,8 +6,13 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PkoProductResource\Pages\EditProductUnified;
 use App\Filament\Resources\PkoProductResource\Pages\PkoListProducts;
+use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
@@ -107,6 +112,119 @@ class PkoProductResource extends ProductResource
                 return $collection?->translateAttribute('name') ?? '—';
             });
 
-        return [$thumbnail, $brand, $name, $price, $sku, $stock, $mainCategory];
+        $status = TextColumn::make('status')
+            ->label('Statut')
+            ->badge()
+            ->sortable()
+            ->toggleable()
+            ->getStateUsing(fn (Product $record) => $record->deleted_at ? 'deleted' : $record->status)
+            ->formatStateUsing(fn (string $state) => match ($state) {
+                'published' => 'Publié',
+                'draft' => 'Brouillon',
+                'deleted' => 'Supprimé',
+                default => ucfirst($state),
+            })
+            ->color(fn (string $state) => match ($state) {
+                'published' => 'success',
+                'draft' => 'warning',
+                'deleted' => 'danger',
+                default => 'gray',
+            });
+
+        return [$thumbnail, $brand, $name, $price, $sku, $stock, $mainCategory, $status];
+    }
+
+    // ------- Global search (barre recherche admin en haut) -------
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        // 'attribute_data.name' est traité comme clé JSON via applyGlobalSearchAttributeConstraint ci-dessous
+        // (Filament interpréterait sinon le "." comme une relation Eloquent, qui n'existe pas).
+        return [
+            'attribute_data.name',
+            'variants.sku',
+            'variants.ean',
+            'variants.mpn',
+            'brand.name',
+            'tags.value',
+        ];
+    }
+
+    /**
+     * Intercepte `attribute_data.name` → recherche JSON via JSON_EXTRACT. Filament par défaut
+     * traiterait le "." comme une relation Eloquent (qui n'existe pas) → 0 résultat.
+     */
+    protected static function applyGlobalSearchAttributeConstraint(Builder $query, string $search, array $searchAttributes, bool &$isFirst): Builder
+    {
+        $jsonAttributes = [];
+        $normalAttributes = [];
+        foreach ($searchAttributes as $attr) {
+            if (str_starts_with($attr, 'attribute_data.')) {
+                $jsonAttributes[] = substr($attr, strlen('attribute_data.'));
+            } else {
+                $normalAttributes[] = $attr;
+            }
+        }
+
+        if ($normalAttributes !== []) {
+            parent::applyGlobalSearchAttributeConstraint($query, $search, $normalAttributes, $isFirst);
+        }
+
+        foreach ($jsonAttributes as $jsonKey) {
+            $whereClause = $isFirst ? 'where' : 'orWhere';
+            $query->{$whereClause.'Raw'}(
+                'LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, ?))) LIKE ?',
+                ['$."'.$jsonKey.'"', '%'.strtolower($search).'%'],
+            );
+            $isFirst = false;
+        }
+
+        return $query;
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['variants', 'brand']);
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string|Htmlable
+    {
+        return $record->translateAttribute('name') ?: '#'.$record->id;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Marque' => $record->brand?->name ?? '—',
+            'Réf.' => $record->variants->first()?->sku ?? '—',
+            'Stock' => (string) ($record->variants->first()?->stock ?? 0),
+        ];
+    }
+
+    public static function getGlobalSearchResultUrl(Model $record): string
+    {
+        return static::getUrl('edit', ['record' => $record]);
+    }
+
+    public static function getGlobalSearchResultsLimit(): int
+    {
+        return 10;
+    }
+
+    /**
+     * Ajoute en tête des résultats un lien "Voir tous les résultats" qui ouvre
+     * la liste produits admin avec la recherche pré-appliquée.
+     */
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        $results = parent::getGlobalSearchResults($search);
+
+        $viewAll = new GlobalSearchResult(
+            title: '🔍 Voir tous les résultats pour « '.$search.' »',
+            url: static::getUrl('index', ['tableSearch' => $search]),
+            details: ['Action' => 'Ouvre la liste produits filtrée sur votre recherche'],
+        );
+
+        return collect([$viewAll])->merge($results);
     }
 }

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Pko\StoreLocator\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
+#[ApiResource(operations: [new GetCollection, new Get])]
 class Store extends Model
 {
     protected $table = 'pko_stores';

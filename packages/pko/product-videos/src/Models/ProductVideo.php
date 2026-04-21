@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Pko\ProductVideos\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Lunar\Models\Product;
@@ -19,6 +22,7 @@ use Pko\ProductVideos\Enums\VideoProvider;
  * @property ?string $title
  * @property int $sort_order
  */
+#[ApiResource(operations: [new GetCollection, new Get])]
 class ProductVideo extends Model
 {
     protected $table = 'pko_product_videos';

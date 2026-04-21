@@ -594,9 +594,24 @@
         </aside>
 
         {{-- ============================================================ --}}
-        {{-- STICKY FOOTER (span full width sur lg, bottom de la page) --}}
+        {{-- FIXED FOOTER : offset left = largeur sidebar Filament (--sidebar-width
+             défini dans :root par Filament). Plein large sur mobile (sidebar cachée). --}}
         {{-- ============================================================ --}}
-        <div class="lg:col-span-2 sticky bottom-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-white/10 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] flex items-center justify-between flex-wrap gap-2">
+        <style>
+            .pko-edit-footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 20;
+            }
+            @media (min-width: 1024px) {
+                .pko-edit-footer {
+                    left: var(--sidebar-width, 16rem);
+                }
+            }
+        </style>
+        <div class="pko-edit-footer px-4 md:px-6 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-white/10 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] flex items-center justify-between flex-wrap gap-2">
             <div class="text-sm">
                 @if ($isDirty)
                     <span class="text-warning-600">● Modifications non enregistrées</span>

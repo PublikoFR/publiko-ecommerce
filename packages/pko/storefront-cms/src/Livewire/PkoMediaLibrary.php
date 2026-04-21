@@ -21,12 +21,10 @@ use Lunar\Models\Product;
 use Pko\StorefrontCms\Filament\Resources\HomeOfferResource;
 use Pko\StorefrontCms\Filament\Resources\HomeSlideResource;
 use Pko\StorefrontCms\Filament\Resources\HomeTileResource;
-use Pko\StorefrontCms\Filament\Resources\PageResource;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
 use Pko\StorefrontCms\Models\HomeOffer;
 use Pko\StorefrontCms\Models\HomeSlide;
 use Pko\StorefrontCms\Models\HomeTile;
-use Pko\StorefrontCms\Models\Page;
 use Pko\StorefrontCms\Models\Post;
 use Pko\StorefrontCms\Models\Setting;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -787,14 +785,9 @@ class PkoMediaLibrary extends Component
                 'resource' => BrandResource::class,
             ],
             Post::class => [
-                'label' => 'Actualité',
+                'label' => 'Contenu',
                 'title' => 'title',
                 'resource' => PostResource::class,
-            ],
-            Page::class => [
-                'label' => 'Page CMS',
-                'title' => 'title',
-                'resource' => PageResource::class,
             ],
             HomeSlide::class => [
                 'label' => 'Slide accueil',

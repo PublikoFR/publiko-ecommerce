@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\PageBuilder\Services;
 
 use Illuminate\Support\Str;
+use Mews\Purifier\Facades\Purifier;
 
 /**
  * Validates and normalises a page-builder content tree. The canonical JSON
@@ -139,7 +140,7 @@ final class PageBuilderManager
             self::BLOCK_TEXT => [
                 'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
                 'type' => self::BLOCK_TEXT,
-                'html' => is_string($raw['html'] ?? null) ? $raw['html'] : '',
+                'html' => self::sanitizeHtml(is_string($raw['html'] ?? null) ? $raw['html'] : ''),
             ],
             self::BLOCK_IMAGE => [
                 'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
@@ -156,6 +157,21 @@ final class PageBuilderManager
             ],
             default => null,
         };
+    }
+
+    /**
+     * Sanitize HTML user-content via HTMLPurifier avec le profil 'pko-content'
+     * (config/purifier.php). Élimine <script>, on* handlers, javascript:, data:
+     * URIs et tout HTML non listé dans HTML.Allowed. Appliqué au save ET au
+     * render pour defense-in-depth contre le stored XSS.
+     */
+    public static function sanitizeHtml(string $html): string
+    {
+        if (trim($html) === '') {
+            return '';
+        }
+
+        return Purifier::clean($html, 'pko-content');
     }
 
     /**

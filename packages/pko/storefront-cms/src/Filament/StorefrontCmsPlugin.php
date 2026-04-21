@@ -13,8 +13,8 @@ use Pko\StorefrontCms\Filament\Resources\HomeOfferResource;
 use Pko\StorefrontCms\Filament\Resources\HomeSlideResource;
 use Pko\StorefrontCms\Filament\Resources\HomeTileResource;
 use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
-use Pko\StorefrontCms\Filament\Resources\PageResource;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
+use Pko\StorefrontCms\Filament\Resources\PostTypeResource;
 
 class StorefrontCmsPlugin implements Plugin
 {
@@ -31,7 +31,7 @@ class StorefrontCmsPlugin implements Plugin
                 HomeTileResource::class,
                 HomeOfferResource::class,
                 PostResource::class,
-                PageResource::class,
+                PostTypeResource::class,
                 NewsletterSubscriberResource::class,
             ])
             ->pages([

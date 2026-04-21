@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
 use Pko\StorefrontCms\Filament\Forms\Components\MediaPicker;
 use Pko\StorefrontCms\Filament\Resources\PostResource\Pages;
 use Pko\StorefrontCms\Models\Post;
+use Pko\StorefrontCms\Models\PostType;
 
 class PostResource extends Resource
 {
@@ -28,11 +29,11 @@ class PostResource extends Resource
 
     protected static ?string $navigationGroup = 'Storefront';
 
-    protected static ?string $navigationLabel = 'Actualités';
+    protected static ?string $navigationLabel = 'Contenus';
 
-    protected static ?string $modelLabel = 'actualité';
+    protected static ?string $modelLabel = 'contenu';
 
-    protected static ?string $pluralModelLabel = 'Actualités';
+    protected static ?string $pluralModelLabel = 'Contenus';
 
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
 
@@ -41,21 +42,40 @@ class PostResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Grid::make(2)->schema([
+            Grid::make(3)->schema([
+                Select::make('post_type_id')
+                    ->label('Type de contenu')
+                    ->relationship('postType', 'label')
+                    ->required()
+                    ->default(fn () => PostType::where('handle', 'article')->value('id'))
+                    ->helperText(fn ($state) => $state
+                        ? '/'.(PostType::find($state)?->url_segment ?? '?').'/{slug}'
+                        : null
+                    )
+                    ->live(),
                 TextInput::make('title')
                     ->label('Titre')
                     ->required()
                     ->maxLength(200)
                     ->live(onBlur: true)
-                    ->afterStateUpdated(fn ($state, $set, $get) => $get('slug') ? null : $set('slug', Str::slug((string) $state))),
-                TextInput::make('slug')->label('Slug')->required()->unique(ignoreRecord: true)->maxLength(200),
+                    ->afterStateUpdated(fn ($state, $set, $get) => $get('slug') ? null : $set('slug', Str::slug((string) $state)))
+                    ->columnSpan(2),
             ]),
+            TextInput::make('slug')
+                ->label('Slug')
+                ->required()
+                ->maxLength(200)
+                ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule, $get) {
+                    return $rule->where('post_type_id', $get('post_type_id'));
+                }),
             MediaPicker::make('cover')->label('Image de couverture')->mediagroup('cover')->folder('blog'),
             Textarea::make('excerpt')->label('Extrait')->rows(2)->maxLength(500),
-            Grid::make(2)->schema([
+            Grid::make(3)->schema([
                 Select::make('status')->label('Statut')->options(['draft' => 'Brouillon', 'published' => 'Publié'])->default('draft')->required(),
                 DateTimePicker::make('published_at')->label('Date de publication')->default(now()),
+                TextInput::make('seo_title')->label('SEO Titre')->maxLength(255),
             ]),
+            Textarea::make('seo_description')->label('SEO Description')->rows(2)->maxLength(500),
         ]);
     }
 
@@ -66,11 +86,15 @@ class PostResource extends Resource
             ->columns([
                 ImageColumn::make('cover')->label('')->height(36)
                     ->getStateUsing(fn (Post $record) => $record->firstMediaUrl('cover')),
+                TextColumn::make('postType.label')->label('Type')->badge(),
                 TextColumn::make('title')->label('Titre')->searchable()->limit(50),
                 TextColumn::make('status')->label('Statut')->badge()->color(fn ($state) => $state === 'published' ? 'success' : 'gray'),
                 TextColumn::make('published_at')->label('Publié le')->dateTime('d/m/Y H:i')->sortable(),
             ])
             ->filters([
+                SelectFilter::make('post_type_id')
+                    ->label('Type')
+                    ->relationship('postType', 'label'),
                 SelectFilter::make('status')->options(['draft' => 'Brouillon', 'published' => 'Publié']),
             ])
             ->actions([EditAction::make()])

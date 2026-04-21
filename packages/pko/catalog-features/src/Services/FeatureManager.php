@@ -186,6 +186,84 @@ class FeatureManager
     }
 
     /**
+     * Face-counts per family/value pour un query de base arbitraire, avec option
+     * d'exclure les filtres d'une famille donnée (pattern PrestaShop : les options
+     * sibling dans la famille sélectionnée restent visibles au lieu de tomber à 0).
+     *
+     * @param  Builder<Product>  $baseQuery  Query de base (ex: produits d'une collection,
+     *                                       d'une marque, d'une recherche)
+     * @param  array<int, array<int, bool|int>>  $selectedByFamily  [family_id => [value_id => true|1]]
+     * @param  int|null  $excludeFamilyId  Si fourni, les filtres de cette famille ne sont PAS appliqués
+     *                                     au recount (permet de garder les siblings visibles)
+     * @return array<int, int> [value_id => count] — limité aux valeurs de excludeFamilyId si fourni,
+     *                         sinon toutes les valeurs visibles dans le subset
+     */
+    public function countsForContext(Builder $baseQuery, array $selectedByFamily, ?int $excludeFamilyId = null): array
+    {
+        // Clone pour ne pas polluer la query passée en paramètre
+        $query = (clone $baseQuery)->toBase();
+
+        // Appliquer tous les filtres feature SAUF ceux de la famille excluée
+        foreach ($selectedByFamily as $familyId => $values) {
+            if ((int) $familyId === $excludeFamilyId) {
+                continue;
+            }
+            $valueIds = array_values(array_filter(array_map('intval', array_keys(array_filter($values)))));
+            if ($valueIds === []) {
+                continue;
+            }
+            $expected = count($valueIds);
+            $query->whereIn('lunar_products.id', function ($sub) use ($valueIds, $expected): void {
+                $sub->from('pko_feature_value_product')
+                    ->select('product_id')
+                    ->whereIn('feature_value_id', $valueIds)
+                    ->groupBy('product_id')
+                    ->havingRaw('COUNT(DISTINCT feature_value_id) = ?', [$expected]);
+            });
+        }
+
+        // Comptage par value_id via inner join sur le pivot
+        $rows = $query
+            ->join('pko_feature_value_product as fvp_c', 'fvp_c.product_id', '=', 'lunar_products.id')
+            ->join('pko_feature_values as fv_c', 'fv_c.id', '=', 'fvp_c.feature_value_id')
+            ->when($excludeFamilyId !== null, fn ($q) => $q->where('fv_c.feature_family_id', $excludeFamilyId))
+            ->groupBy('fv_c.id')
+            ->selectRaw('fv_c.id as value_id, COUNT(DISTINCT lunar_products.id) as cnt')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row->value_id] = (int) $row->cnt;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Compte des produits par marque dans un query de base arbitraire, après
+     * application des filtres actuels (features + collections). Permet un
+     * recount dynamique de la facette marque.
+     *
+     * @param  Builder<Product>  $baseQuery
+     * @return array<int, int> [brand_id => count]
+     */
+    public function brandCountsForContext(Builder $baseQuery): array
+    {
+        $rows = (clone $baseQuery)->toBase()
+            ->whereNotNull('lunar_products.brand_id')
+            ->groupBy('lunar_products.brand_id')
+            ->selectRaw('lunar_products.brand_id, COUNT(DISTINCT lunar_products.id) as cnt')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row->brand_id] = (int) $row->cnt;
+        }
+
+        return $out;
+    }
+
+    /**
      * Face-counts per family/value for products belonging to a collection.
      *
      * Returns a nested array [family_id => [value_id => count]] suitable for

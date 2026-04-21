@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Models;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Pko\StorefrontCms\Concerns\HasMediaAttachments;
 
+#[ApiResource(operations: [new GetCollection, new Get])]
 class HomeOffer extends Model
 {
     use HasMediaAttachments;
@@ -17,6 +21,22 @@ class HomeOffer extends Model
     protected $fillable = ['title', 'subtitle', 'cta_label', 'cta_url', 'badge', 'position', 'is_active', 'ends_at'];
 
     protected $casts = ['is_active' => 'bool', 'ends_at' => 'datetime', 'position' => 'integer'];
+
+    /**
+     * Defense-in-depth : filtre active-only sur requêtes /api/*.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('pko_api_active_only', function (Builder $query): void {
+            if (app()->runningInConsole()) {
+                return;
+            }
+            if (request()->is('api/*')) {
+                $query->where('is_active', true)
+                    ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
+            }
+        });
+    }
 
     public function getImageUrlAttribute(): ?string
     {

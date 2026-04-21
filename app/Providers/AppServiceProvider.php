@@ -41,6 +41,7 @@ use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\ShippingChronopost\Filament\ChronopostPlugin;
 use Pko\ShippingColissimo\Filament\ColissimoPlugin;
 use Pko\ShippingCommon\Filament\ShippingCommonPlugin;
+use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\StorefrontCmsPlugin;
@@ -98,6 +99,7 @@ class AppServiceProvider extends ServiceProvider
             ],
             BrandResource::class => [
                 HideLunarMediaExtension::class,
+                BrandContentExtension::class,
             ],
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
