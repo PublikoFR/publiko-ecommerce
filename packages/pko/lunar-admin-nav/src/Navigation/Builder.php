@@ -30,13 +30,17 @@ use Lunar\Admin\Filament\Resources\TagResource;
 use Lunar\Admin\Filament\Resources\TaxClassResource;
 use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
+use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
 use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
+use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
+use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
+use Pko\ShippingColissimo\Filament\Pages\ColissimoConfig;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
@@ -196,18 +200,18 @@ class Builder
     /** @return array<NavigationItem> */
     private static function configPayment(): array
     {
-        // Note: les Resources/Pages shipping (ShippingMethod, ShippingZone,
-        // ShippingExclusionList, CarrierShipment, Chronopost, Colissimo) ne
-        // sont PAS listées au menu principal — elles partagent toutes
-        // $navigationGroup = 'Expédition' et s'affichent automatiquement en
-        // sub-navigation on-page (à droite) sur chaque page Expédition.
-        // Le raccourci Pilotage "Expédition" amène à ShippingMethodResource.
         return [
             ...self::navItems(CurrencyResource::class, sort: 1),
             ...self::navItems(TaxZoneResource::class, sort: 2),
             ...self::navItems(TaxClassResource::class, sort: 3),
             ...self::navItems(TaxRateResource::class, sort: 4),
             ...self::navItems(StripeConfig::class, sort: 5),
+            ...self::navItems(ShippingMethodResource::class, sort: 10),
+            ...self::navItems(ShippingZoneResource::class, sort: 11),
+            ...self::navItems(ShippingExclusionListResource::class, sort: 12),
+            ...self::navItems(CarrierShipmentResource::class, sort: 13),
+            ...self::navItems(ChronopostConfig::class, sort: 20),
+            ...self::navItems(ColissimoConfig::class, sort: 21),
         ];
     }
 
