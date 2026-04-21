@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Pko\ShippingCommon\Filament\Resources;
 
 use Filament\Notifications\Notification;
-use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Storage;
@@ -19,13 +18,6 @@ class CarrierShipmentResource extends BaseResource
     protected static ?string $model = CarrierShipment::class;
 
     protected static ?int $navigationSort = 10;
-
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
 
     public static function getLabel(): string
     {

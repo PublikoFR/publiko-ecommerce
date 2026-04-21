@@ -30,9 +30,9 @@ use Lunar\Admin\Filament\Resources\TagResource;
 use Lunar\Admin\Filament\Resources\TaxClassResource;
 use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
+use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
-use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
@@ -101,7 +101,7 @@ class Builder
                 ->sort(2),
             NavigationItem::make(__('admin-nav::admin.shortcuts.shipping'))
                 ->icon('heroicon-o-truck')
-                ->url(fn () => PkoShippingMethodResource::getUrl())
+                ->url(fn () => ShippingMethodResource::getUrl())
                 ->isActiveWhen(fn () => request()->routeIs('filament.lunar.resources.shipping-methods.*')
                     || request()->routeIs('filament.lunar.resources.shipping-zones.*')
                     || request()->routeIs('filament.lunar.resources.shipping-exclusion-lists.*')
