@@ -75,6 +75,10 @@ class AppServiceProvider extends ServiceProvider
                     TreeManager::class,
                     StorefrontSettings::class,
                 ])
+                ->discoverClusters(
+                    in: base_path('packages/pko/shipping-common/src/Filament/Clusters'),
+                    for: 'Pko\\ShippingCommon\\Filament\\Clusters',
+                )
                 ->plugin(FilamentShieldPlugin::make())
                 ->plugin(ShippingPlugin::make())
                 ->plugin(SwapLunarShippingResourcesPlugin::make())
