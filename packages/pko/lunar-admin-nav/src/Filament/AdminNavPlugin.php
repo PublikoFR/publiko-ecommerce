@@ -7,9 +7,11 @@ namespace Pko\AdminNav\Filament;
 use Filament\Contracts\Plugin;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
+use Lunar\Admin\Filament\Clusters\Taxes;
 use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
 use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
 use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
+use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
 use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource;
@@ -35,6 +37,7 @@ class AdminNavPlugin implements Plugin
             ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => Builder::build($builder));
 
         $this->swapShippingResources($panel);
+        $this->swapTaxesCluster($panel);
     }
 
     public function boot(Panel $panel): void {}
@@ -71,5 +74,21 @@ class AdminNavPlugin implements Plugin
         }
 
         $prop->setValue($panel, $resources);
+    }
+
+    /**
+     * Swap le Cluster Lunar Taxes avec PkoTaxesCluster qui force
+     * SubNavigationPosition::End (sub-nav à droite au lieu de gauche).
+     */
+    private function swapTaxesCluster(Panel $panel): void
+    {
+        $prop = new ReflectionProperty($panel, 'clusters');
+        $clusters = $prop->getValue($panel);
+
+        $idx = array_search(Taxes::class, $clusters, true);
+        if ($idx !== false) {
+            $clusters[$idx] = PkoTaxesCluster::class;
+            $prop->setValue($panel, $clusters);
+        }
     }
 }
