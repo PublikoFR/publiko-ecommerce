@@ -14,6 +14,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Lunar\Admin\Support\Pages\BasePage;
@@ -47,6 +48,8 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
     use InteractsWithForms;
 
     protected static ?string $cluster = Shipping::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
 
