@@ -1,0 +1,27 @@
+{
+    "name": "pko/lunar-loyalty",
+    "description": "Système de fidélité B2B pour Lunar (points, paliers, récompenses).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\Loyalty\\": "src/",
+            "Pko\\Loyalty\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\Loyalty\\LoyaltyServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

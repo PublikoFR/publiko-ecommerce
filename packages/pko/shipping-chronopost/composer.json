@@ -1,0 +1,27 @@
+{
+    "name": "pko/lunar-shipping-chronopost",
+    "description": "Driver Chronopost (SOAP) pour Lunar : tarifs + étiquettes + tracking.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "pko/lunar-shipping-common": "@dev",
+        "ladromelaboratoire/chronopostws": "^0.0.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\ShippingChronopost\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\ShippingChronopost\\ShippingChronopostServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

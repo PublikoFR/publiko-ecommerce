@@ -1,5 +1,5 @@
 {
-    "name": "pko/ai-core",
+    "name": "pko/lunar-ai-core",
     "description": "AI Core — providers LLM universels (Claude, OpenAI) utilisables par tous les modules du back-office.",
     "type": "library",
     "license": "proprietary",

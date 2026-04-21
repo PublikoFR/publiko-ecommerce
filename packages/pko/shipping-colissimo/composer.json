@@ -1,0 +1,27 @@
+{
+    "name": "pko/lunar-shipping-colissimo",
+    "description": "Driver Colissimo (SOAP) pour Lunar : tarifs + étiquettes + tracking.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "pko/lunar-shipping-common": "@dev",
+        "wsdltophp/package-colissimo-postage": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\ShippingColissimo\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\ShippingColissimo\\ShippingColissimoServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

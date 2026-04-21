@@ -1,6 +1,6 @@
 {
-    "name": "pko/lunar-product-videos",
-    "description": "Vidéos produit multi-provider (YouTube, Vimeo, Dailymotion, MP4) pour Lunar.",
+    "name": "pko/lunar-store-locator",
+    "description": "Carte et annuaire des magasins physiques pour storefront Lunar.",
     "type": "library",
     "license": "proprietary",
     "require": {
@@ -11,14 +11,16 @@
     },
     "autoload": {
         "psr-4": {
-            "Pko\\ProductVideos\\": "src/"
+            "Pko\\StoreLocator\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Pko\\ProductVideos\\ProductVideosServiceProvider"
+                "Pko\\StoreLocator\\StoreLocatorServiceProvider"
             ]
         }
-    }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

@@ -1,23 +1,23 @@
 {
-    "name": "pko/lunar-ai-filament",
-    "description": "Actions Filament pour l'IA : factory GenerateAiAction réutilisable sur tout champ.",
+    "name": "pko/lunar-customer-auth",
+    "description": "Authentification B2B Lunar : inscription pro, vérification SIRET INSEE, gate prix.",
     "type": "library",
     "license": "proprietary",
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "filament/filament": "^3.0",
-        "pko/lunar-ai-core": "@dev"
+        "lunarphp/core": "^1.0",
+        "livewire/livewire": "^3.0"
     },
     "autoload": {
         "psr-4": {
-            "Pko\\AiFilament\\": "src/"
+            "Pko\\CustomerAuth\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Pko\\AiFilament\\AiFilamentServiceProvider"
+                "Pko\\CustomerAuth\\CustomerAuthServiceProvider"
             ]
         }
     },

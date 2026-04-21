@@ -1,6 +1,6 @@
 {
-    "name": "pko/lunar-product-videos",
-    "description": "Vidéos produit multi-provider (YouTube, Vimeo, Dailymotion, MP4) pour Lunar.",
+    "name": "pko/lunar-catalog-features",
+    "description": "Caractéristiques produits filtrables (attributs structurés) pour Lunar.",
     "type": "library",
     "license": "proprietary",
     "require": {
@@ -11,14 +11,16 @@
     },
     "autoload": {
         "psr-4": {
-            "Pko\\ProductVideos\\": "src/"
+            "Pko\\CatalogFeatures\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Pko\\ProductVideos\\ProductVideosServiceProvider"
+                "Pko\\CatalogFeatures\\CatalogFeaturesServiceProvider"
             ]
         }
-    }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
