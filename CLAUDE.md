@@ -107,6 +107,68 @@ Ce back-office est conçu pour être **réutilisé sur n'importe quelle boutique
 10. **Policies Shield** — régénérées automatiquement par `make install`. Ne pas éditer à la main, sauf override explicite documenté dans `docs/`.
 11. **Service Docker** = `app` (pas `laravel.test`, pas `sail`). Stack custom Traefik + phpMyAdmin.
 
+### 3.2 Création d'un nouveau package PKO — NON-NÉGOCIABLE
+
+Tous les modules custom vivent sous `packages/pko/<feature>/` et sont installés via **path repositories** composer. **Ne jamais** ajouter d'entrée PSR-4 dans le `composer.json` racine ni de provider dans `bootstrap/providers.php` — tout passe par l'auto-discovery du package lui-même.
+
+#### Checklist obligatoire à la création
+
+1. **Nommage** :
+   - Dossier : `packages/pko/<feature-kebab>/` (ex: `packages/pko/my-feature/`)
+   - Namespace : `Pko\MyFeature\` (PascalCase)
+   - Composer : `pko/lunar-<feature-kebab>` dans `name` (ex: `pko/lunar-my-feature`)
+   - ServiceProvider : `Pko\MyFeature\MyFeatureServiceProvider`
+
+2. **Fichiers obligatoires** à la racine du package :
+   - `composer.json` avec `name`, `description`, `type: "library"`, `license: "proprietary"`, `require` (incluant toutes les cross-deps `pko/lunar-*` nécessaires), `autoload.psr-4`, et **impérativement** `extra.laravel.providers` pour auto-discovery
+   - `README.md` minimal : description 1-phrase + install + dépendances
+   - `src/<Feature>ServiceProvider.php` : provider qui `loadMigrationsFrom`, `loadViewsFrom`, `loadRoutesFrom`, `loadTranslationsFrom` selon le besoin
+
+3. **i18n minimal** : toute Filament Resource/Page avec `navigationLabel`/`modelLabel`/`pluralModelLabel` doit wrapper ces labels avec `__()` + fournir un fichier `lang/fr/admin.php` dans le package. Pattern :
+   ```php
+   public static function getNavigationLabel(): string
+   {
+       return __('pko-<feature>::admin.<resource>.nav');
+   }
+   ```
+   Le `ServiceProvider::boot()` doit appeler `loadTranslationsFrom(__DIR__.'/../lang', 'pko-<feature>')` et `publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/pko-<feature>')], 'pko-<feature>-lang')`.
+
+4. **Foundation média** : si le package stocke des fichiers (images, PDFs) attachés à un modèle, il doit déclarer `"pko/lunar-media-core": "@dev"` dans ses `require` et utiliser le trait `Pko\LunarMediaCore\Concerns\HasMediaAttachments` + le composant Filament `Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker`. **Jamais** recréer son propre pivot polymorphique.
+
+5. **Branding interdit** : aucun nom de client dans le nom de package, le namespace, les labels, les seeders (cf. §3.0). Seul le préfixe `pko`/`publiko` est autorisé dans le code.
+
+6. **Enregistrement root** : ajouter l'entrée `"pko/lunar-<feature>": "@dev"` dans `require` du `composer.json` racine. Le `repositories[type=path, url=packages/pko/*]` est déjà en place et découvrira automatiquement le nouveau dossier.
+
+7. **Ce qu'il ne faut PAS faire** :
+   - ❌ Ajouter le namespace dans `autoload.psr-4` du `composer.json` racine (tout est dans le composer.json du package)
+   - ❌ Ajouter le ServiceProvider dans `bootstrap/providers.php` (auto-discovery)
+   - ❌ Ajouter `autoload.files` dans le root pour les helpers du package (mettre `"files"` dans le `composer.json` du package)
+
+#### Swap de Resource Lunar — pattern obligatoire
+
+Si on subclass une Resource Lunar (ex: `PkoProductResource extends ProductResource`), **override obligatoire** de `getDefaultPages()` avec des sous-classes de pages qui redéclarent `$resource` vers la Pko-variante. Sinon Lunar's ListPage (qui hardcode `$resource = ProductResource::class`) génère des URLs edit/create vers une route inexistante après le swap → `RouteNotFoundException`.
+
+Pattern :
+```php
+// PkoProductTypeResource.php
+public static function getDefaultPages(): array
+{
+    return [
+        'index' => PkoListProductTypes::route('/'),
+        'create' => PkoCreateProductType::route('/create'),
+        'edit' => PkoEditProductType::route('/{record}/edit'),
+    ];
+}
+
+// PkoProductTypeResource/Pages/PkoListProductTypes.php
+class PkoListProductTypes extends \Lunar\Admin\...\ListProductTypes
+{
+    protected static string $resource = PkoProductTypeResource::class;
+}
+```
+
+S'applique aux Resources swappées via `$resources` reflection dans `AppServiceProvider::swapLunarResources()` (PkoProductResource, PkoProductTypeResource, PkoProductOptionResource, PkoAttributeGroupResource, PkoCollectionGroupResource).
+
 ---
 
 ## 4. Workflow de commit
@@ -165,3 +227,7 @@ Toute commande PHP/Artisan/Composer doit passer par Make (ou `docker compose exe
 - Répondre de mémoire sur Laravel/Filament/Livewire/Lunar sans avoir interrogé les MCPs
 - Committer du code qui introduit une décision technique sans mettre à jour `docs/`
 - Mentionner Claude/Anthropic dans un commit
+- Ajouter un package PKO dans `composer.json` racine → `autoload.psr-4` (cf §3.2 : chaque package a son propre composer.json + path repository)
+- Enregistrer un provider PKO dans `bootstrap/providers.php` (auto-discovery obligatoire via `extra.laravel.providers`)
+- Créer un pivot polymorphique pour attacher des médias à un modèle — utiliser `pko/lunar-media-core` (trait `HasMediaAttachments` + table `pko_mediables`)
+- Subclasser une Resource Lunar sans override de `getDefaultPages()` avec sous-classes redéclarant `$resource` (cf §3.2 : bug pages Lunar avec `$resource` hardcodé)
