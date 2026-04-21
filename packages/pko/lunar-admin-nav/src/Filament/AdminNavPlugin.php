@@ -8,6 +8,9 @@ use Filament\Contracts\Plugin;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
 use Lunar\Admin\Filament\Clusters\Taxes;
+use Lunar\Admin\Filament\Resources\TaxClassResource;
+use Lunar\Admin\Filament\Resources\TaxRateResource;
+use Lunar\Admin\Filament\Resources\TaxZoneResource;
 use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
 use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
 use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
@@ -17,6 +20,9 @@ use Pko\AdminNav\Filament\Pages\LoyaltyHub;
 use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource;
 use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
 use Pko\AdminNav\Filament\Resources\PkoShippingZoneResource;
+use Pko\AdminNav\Filament\Resources\PkoTaxClassResource;
+use Pko\AdminNav\Filament\Resources\PkoTaxRateResource;
+use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
 use Pko\AdminNav\Navigation\Builder;
 use ReflectionProperty;
 
@@ -61,6 +67,9 @@ class AdminNavPlugin implements Plugin
             ShippingMethodResource::class => PkoShippingMethodResource::class,
             ShippingZoneResource::class => PkoShippingZoneResource::class,
             ShippingExclusionListResource::class => PkoShippingExclusionListResource::class,
+            TaxZoneResource::class => PkoTaxZoneResource::class,
+            TaxClassResource::class => PkoTaxClassResource::class,
+            TaxRateResource::class => PkoTaxRateResource::class,
         ];
 
         $prop = new ReflectionProperty($panel, 'resources');
