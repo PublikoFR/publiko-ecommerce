@@ -30,8 +30,14 @@ use Lunar\Admin\Filament\Resources\ProductTypeResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
+use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
+use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
+use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
+use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingZoneResource;
 use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
@@ -129,6 +135,9 @@ class AppServiceProvider extends ServiceProvider
             ProductOptionResource::class => PkoProductOptionResource::class,
             AttributeGroupResource::class => PkoAttributeGroupResource::class,
             CollectionGroupResource::class => PkoCollectionGroupResource::class,
+            ShippingMethodResource::class => PkoShippingMethodResource::class,
+            ShippingZoneResource::class => PkoShippingZoneResource::class,
+            ShippingExclusionListResource::class => PkoShippingExclusionListResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

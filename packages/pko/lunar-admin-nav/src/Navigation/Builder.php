@@ -30,18 +30,13 @@ use Lunar\Admin\Filament\Resources\TagResource;
 use Lunar\Admin\Filament\Resources\TaxClassResource;
 use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
-use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
-use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
-use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
+use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
-use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
-use Pko\ShippingColissimo\Filament\Pages\ColissimoConfig;
-use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
@@ -106,11 +101,13 @@ class Builder
                 ->sort(2),
             NavigationItem::make(__('admin-nav::admin.shortcuts.shipping'))
                 ->icon('heroicon-o-truck')
-                ->url(fn () => ShippingMethodResource::getUrl())
+                ->url(fn () => PkoShippingMethodResource::getUrl())
                 ->isActiveWhen(fn () => request()->routeIs('filament.lunar.resources.shipping-methods.*')
                     || request()->routeIs('filament.lunar.resources.shipping-zones.*')
                     || request()->routeIs('filament.lunar.resources.shipping-exclusion-lists.*')
-                    || request()->routeIs('filament.lunar.resources.carrier-shipments.*'))
+                    || request()->routeIs('filament.lunar.resources.carrier-shipments.*')
+                    || request()->routeIs('filament.lunar.pages.chronopost-config')
+                    || request()->routeIs('filament.lunar.pages.colissimo-config'))
                 ->sort(3),
             NavigationItem::make(__('admin-nav::admin.shortcuts.customers'))
                 ->icon('heroicon-o-users')
@@ -200,18 +197,17 @@ class Builder
     /** @return array<NavigationItem> */
     private static function configPayment(): array
     {
+        // Les pages Expédition (Méthodes, Zones, Exclusions, Envois transporteurs,
+        // Chronopost, Colissimo) ne sont PAS listées ici : elles sont accessibles
+        // via le raccourci Pilotage "Expédition" qui amène à ShippingMethodResource,
+        // et la sub-navigation on-page (SubNavigationPosition::End) permet de
+        // naviguer entre les 6 pages à droite. Cf. ShippingSubNavigation::items().
         return [
             ...self::navItems(CurrencyResource::class, sort: 1),
             ...self::navItems(TaxZoneResource::class, sort: 2),
             ...self::navItems(TaxClassResource::class, sort: 3),
             ...self::navItems(TaxRateResource::class, sort: 4),
             ...self::navItems(StripeConfig::class, sort: 5),
-            ...self::navItems(ShippingMethodResource::class, sort: 10),
-            ...self::navItems(ShippingZoneResource::class, sort: 11),
-            ...self::navItems(ShippingExclusionListResource::class, sort: 12),
-            ...self::navItems(CarrierShipmentResource::class, sort: 13),
-            ...self::navItems(ChronopostConfig::class, sort: 20),
-            ...self::navItems(ColissimoConfig::class, sort: 21),
         ];
     }
 
