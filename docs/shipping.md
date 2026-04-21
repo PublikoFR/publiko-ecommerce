@@ -115,7 +115,15 @@ Revirement de la décision initiale « grilles statiques uniquement » (§5.2) :
 
 Voir [packages/transporters.md](packages/transporters.md) pour les détails d'implémentation.
 
-### 5.6 Hors scope shipping
+### 5.6 Suivi post-envoi (2026-04)
+
+1. **Email de confirmation d'expédition** — `ShipmentCreatedMail` envoyé dès que l'étiquette est générée. Lien "Suivre mon colis" unifié via `laposte.fr/outils/suivre-vos-envois`.
+2. **Polling tracking horaire** — command `shipping:poll-tracking` planifiée toutes les heures via `routes/console.php`. Utilise l'API REST La Poste unifiée (`api.laposte.fr/suivi/v2`, clé Okapi) qui couvre **Chronopost ET Colissimo** en un seul client. Normalise les codes événements dans un vocabulaire stable.
+3. **Statut Lunar Order** — `Order.status` flippe automatiquement à `dispatched` au moment où l'étiquette est créée, puis à `delivered` dès que l'API La Poste retourne un événement de livraison (`DI1`/`DI2`).
+
+Voir [packages/transporters.md](packages/transporters.md) pour les détails (colonnes DB, mapping codes, webhook futur).
+
+### 5.7 Hors scope shipping
 
 - Points relais (`BPR` Colissimo, `Chrono Relais`)
 - Tracking webhook (polling ou push transporteur)

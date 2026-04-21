@@ -177,6 +177,15 @@ class AppServiceProvider extends ServiceProvider
                 'password' => 'colissimo.credentials.password',
             ],
         );
+
+        Secrets::register(
+            'laposte',
+            keys: [
+                'api_key' => 'LAPOSTE_API_KEY',
+            ],
+            defaultSource: 'env',
+            label: 'La Poste — API Suivi',
+        );
     }
 
     /**

@@ -78,6 +78,34 @@ class CarrierShipmentResource extends BaseResource
                         default => 'gray',
                     })
                     ->sortable(),
+                Tables\Columns\TextColumn::make('delivery_status')
+                    ->label('Livraison')
+                    ->badge()
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        CarrierShipment::DELIVERY_IN_TRANSIT => 'En transit',
+                        CarrierShipment::DELIVERY_OUT_FOR_DELIVERY => 'En livraison',
+                        CarrierShipment::DELIVERY_DELIVERED => 'Livré',
+                        CarrierShipment::DELIVERY_RETURNED => 'Retourné',
+                        CarrierShipment::DELIVERY_FAILED => 'Échec',
+                        CarrierShipment::DELIVERY_UNKNOWN => 'Inconnu',
+                        default => '—',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        CarrierShipment::DELIVERY_DELIVERED => 'success',
+                        CarrierShipment::DELIVERY_FAILED, CarrierShipment::DELIVERY_RETURNED => 'danger',
+                        CarrierShipment::DELIVERY_OUT_FOR_DELIVERY => 'warning',
+                        CarrierShipment::DELIVERY_IN_TRANSIT => 'info',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('notified_customer_at')
+                    ->label('Email envoyé')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-envelope-open')
+                    ->falseIcon('heroicon-o-envelope')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Créé le')
                     ->dateTime('d/m/Y H:i')
@@ -96,6 +124,15 @@ class CarrierShipmentResource extends BaseResource
                         CarrierShipment::STATUS_PENDING => 'En attente',
                         CarrierShipment::STATUS_CREATED => 'Créé',
                         CarrierShipment::STATUS_FAILED => 'Échec',
+                    ]),
+                Tables\Filters\SelectFilter::make('delivery_status')
+                    ->label('Livraison')
+                    ->options([
+                        CarrierShipment::DELIVERY_IN_TRANSIT => 'En transit',
+                        CarrierShipment::DELIVERY_OUT_FOR_DELIVERY => 'En livraison',
+                        CarrierShipment::DELIVERY_DELIVERED => 'Livré',
+                        CarrierShipment::DELIVERY_RETURNED => 'Retourné',
+                        CarrierShipment::DELIVERY_FAILED => 'Échec',
                     ]),
             ])
             ->actions([

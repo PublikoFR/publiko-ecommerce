@@ -135,6 +135,59 @@ Chaque package transporteur peut bundler les tarifs publics de l'année dans `pa
 
 **Maintenance annuelle** : créer `PublicTariffs2027.php`, mettre à jour la classe référencée dans `ColissimoConfig::getHeaderActions()`.
 
+## Suivi post-envoi
+
+### Notification email au client
+
+Dès que `CreateCarrierShipmentJob` a généré l'étiquette avec succès :
+
+1. `Order.status` bascule à `dispatched` (Lunar).
+2. `ShipmentCreatedMail` (Mailable, queued) est envoyé au client avec :
+   - Référence commande
+   - Nom du transporteur
+   - N° de suivi
+   - Lien "Suivre mon colis" vers `laposte.fr/outils/suivre-vos-envois?code={tracking}` (unifié Chronopost + Colissimo)
+3. `notified_customer_at` est horodaté sur le `CarrierShipment` pour éviter les doubles envois.
+
+Destinataire résolu par priorité :
+1. `order->shippingAddress->contact_email`
+2. `order->billingAddress->contact_email`
+3. `order->customer->email`
+
+Template Blade : `pko-shipping-common::emails.shipment-created` (surchargeable via `php artisan vendor:publish`).
+
+### Polling tracking La Poste
+
+Une unique API REST couvre **tous les produits La Poste** (Colissimo, Chronopost, Lettre suivie…) : `https://api.laposte.fr/suivi/v2/idships/{tracking}`. Une seule clé API (`LAPOSTE_API_KEY`, alias Okapi key) à obtenir sur developer.laposte.fr.
+
+**Module `laposte` dans `pko/lunar-secrets`** : toggle env/DB comme les autres modules.
+
+**Command artisan** : `shipping:poll-tracking [--limit=100] [--min-age=1]`.
+
+**Schedule** : lancée **toutes les heures** via `routes/console.php`.
+
+**Logique** :
+1. Sélectionne les `CarrierShipment` où `status=created` + tracking_number présent + delivery_status non-terminal + dernière poll > 1 h.
+2. Pour chacun, appelle `LaPosteTrackingClient::track()`.
+3. Normalise le code événement La Poste dans un vocabulaire stable : `in_transit` / `out_for_delivery` / `delivered` / `returned` / `failed` / `unknown`.
+4. Persiste `delivery_status`, `delivery_status_updated_at`, `delivered_at`, `tracking_events` (JSON).
+5. Si transition vers `delivered` → `Order.status` passe à `delivered` (nouveau statut Lunar ajouté dans `config/lunar/orders.php`).
+
+**Colonnes ajoutées à `pko_carrier_shipments`** :
+- `delivery_status` (varchar 32, nullable, indexé avec `carrier`)
+- `delivery_status_updated_at` (timestamp)
+- `delivered_at` (timestamp)
+- `tracking_events` (json)
+- `notified_customer_at` (timestamp)
+
+**Admin Filament** : resource `Envois transporteurs` affiche désormais :
+- Badge "Livraison" (en transit / en livraison / livré / retourné / échec) + filtre
+- Icône "Email envoyé" (trueIcon/falseIcon)
+
+### Webhook La Poste (non implémenté)
+
+Pour un monitoring plus réactif (< 5 min vs 1 h), La Poste propose un webhook d'abonnement par numéro de suivi. Non implémenté en v1 : le polling horaire suffit pour la majorité des cas. Peut être ajouté sans casser l'existant — il suffirait de brancher un endpoint qui réutilise la logique `PollTrackingCommand::applyStatus()`.
+
 ## Décisions
 
 | Question | Choix | Raison |
