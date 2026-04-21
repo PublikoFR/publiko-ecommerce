@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Pko\AdminNav\Filament\Support;
 
 use Filament\Navigation\NavigationItem;
-use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
-use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
-use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource as ShippingExclusionListResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource as ShippingMethodResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingZoneResource as ShippingZoneResource;
 use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
 use Pko\ShippingColissimo\Filament\Pages\ColissimoConfig;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;

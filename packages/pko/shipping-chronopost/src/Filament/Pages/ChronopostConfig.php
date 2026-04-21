@@ -6,8 +6,10 @@ namespace Pko\ShippingChronopost\Filament\Pages;
 
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\AdminNav\Filament\Support\ShippingSubNavigation;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Throwable;
 
@@ -16,6 +18,22 @@ class ChronopostConfig extends BasePage
     protected static ?string $navigationGroup = 'Configuration';
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
+    public function getSubNavigation(): array
+    {
+        if (class_exists(ShippingSubNavigation::class)) {
+            return ShippingSubNavigation::items();
+        }
+
+        return [];
+    }
 
     public static function getNavigationLabel(): string
     {

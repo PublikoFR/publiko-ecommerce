@@ -7,13 +7,16 @@ namespace Pko\AdminNav\Filament;
 use Filament\Contracts\Plugin;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
-use Filament\Support\Facades\FilamentView;
-use Filament\View\PanelsRenderHook;
+use Lunar\Shipping\Filament\Resources\ShippingExclusionListResource;
+use Lunar\Shipping\Filament\Resources\ShippingMethodResource;
+use Lunar\Shipping\Filament\Resources\ShippingZoneResource;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
-use Pko\AdminNav\Filament\Support\ShippingSubNavigation;
-use Pko\AdminNav\Filament\Support\SideNavRegistry;
+use Pko\AdminNav\Filament\Resources\PkoShippingExclusionListResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
+use Pko\AdminNav\Filament\Resources\PkoShippingZoneResource;
 use Pko\AdminNav\Navigation\Builder;
+use ReflectionProperty;
 
 class AdminNavPlugin implements Plugin
 {
@@ -30,37 +33,43 @@ class AdminNavPlugin implements Plugin
                 HomepageHub::class,
             ])
             ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => Builder::build($builder));
+
+        $this->swapShippingResources($panel);
     }
 
-    public function boot(Panel $panel): void
-    {
-        $this->registerSideNavs();
-
-        FilamentView::registerRenderHook(
-            PanelsRenderHook::BODY_END,
-            fn (): string => view('admin-nav::side-nav')->render(),
-        );
-    }
+    public function boot(Panel $panel): void {}
 
     public static function make(): static
     {
         return app(static::class);
     }
 
-    private function registerSideNavs(): void
+    /**
+     * Swap les 3 Resources Lunar shipping enregistrées par ShippingPlugin
+     * avec les sous-classes Pko* qui déclarent $subNavigationPosition = End
+     * et getSubNavigation() pour rendre la sub-nav on-page.
+     *
+     * Doit être appelé APRÈS ShippingPlugin::register() — garanti car
+     * AdminNavPlugin est enregistré en dernier dans AppServiceProvider.
+     */
+    private function swapShippingResources(Panel $panel): void
     {
-        SideNavRegistry::register(
-            key: 'expedition',
-            matchRoutes: [
-                'filament.lunar.resources.shipping-methods.*',
-                'filament.lunar.resources.shipping-zones.*',
-                'filament.lunar.resources.shipping-exclusion-lists.*',
-                'filament.lunar.resources.carrier-shipments.*',
-                'filament.lunar.pages.chronopost-config',
-                'filament.lunar.pages.colissimo-config',
-            ],
-            items: fn () => ShippingSubNavigation::items(),
-            heading: 'Expédition',
-        );
+        $swaps = [
+            ShippingMethodResource::class => PkoShippingMethodResource::class,
+            ShippingZoneResource::class => PkoShippingZoneResource::class,
+            ShippingExclusionListResource::class => PkoShippingExclusionListResource::class,
+        ];
+
+        $prop = new ReflectionProperty($panel, 'resources');
+        $resources = $prop->getValue($panel);
+
+        foreach ($swaps as $original => $replacement) {
+            $idx = array_search($original, $resources, true);
+            if ($idx !== false) {
+                $resources[$idx] = $replacement;
+            }
+        }
+
+        $prop->setValue($panel, $resources);
     }
 }
