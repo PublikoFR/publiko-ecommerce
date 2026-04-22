@@ -1,0 +1,36 @@
+{
+    "name": "pko/lunar-admin-nav",
+    "description": "Réorganisation du menu Filament admin (groupes, sous-groupes, raccourcis Pilotage, on-page tabs Fidélité et Page d'accueil).",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "filament/filament": "^3.0",
+        "lunarphp/lunar": "^1.0",
+        "bezhansalleh/filament-shield": "^3.9",
+        "pko/lunar-ai-importer": "@dev",
+        "pko/lunar-catalog-features": "@dev",
+        "pko/lunar-loyalty": "@dev",
+        "pko/lunar-product-documents": "@dev",
+        "pko/lunar-shipping-chronopost": "@dev",
+        "pko/lunar-shipping-colissimo": "@dev",
+        "pko/lunar-shipping-common": "@dev",
+        "pko/lunar-storefront-cms": "@dev",
+        "pko/lunar-store-locator": "@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\AdminNav\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\AdminNav\\AdminNavServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

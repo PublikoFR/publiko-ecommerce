@@ -15,7 +15,6 @@ use App\Filament\Resources\PkoProductResource;
 use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -28,10 +27,17 @@ use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
+use Lunar\Admin\Filament\Resources\TaxClassResource;
+use Lunar\Admin\Filament\Resources\TaxRateResource;
+use Lunar\Admin\Filament\Resources\TaxZoneResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
+use Pko\AdminNav\Filament\AdminNavPlugin;
+use Pko\AdminNav\Filament\Resources\PkoTaxClassResource;
+use Pko\AdminNav\Filament\Resources\PkoTaxRateResource;
+use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
 use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
@@ -60,16 +66,6 @@ class AppServiceProvider extends ServiceProvider
                 ->path('admin')
                 ->brandName(brand_name())
                 ->viteTheme('resources/css/filament/admin/theme.css')
-                ->navigationGroups([
-                    'Catalogue',
-                    NavigationGroup::make('Paramètres catalogue')->collapsed(),
-                    'Storefront',
-                    'Commandes',
-                    'Clients',
-                    'Marketing',
-                    'Imports',
-                    'Configuration',
-                ])
                 ->pages([
                     StripeConfig::class,
                     TreeManager::class,
@@ -89,7 +85,8 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(LoyaltyPlugin::make())
                 ->plugin(StorefrontCmsPlugin::make())
                 ->plugin(StoreLocatorPlugin::make())
-                ->plugin(MediaManagerShimPlugin::make());
+                ->plugin(MediaManagerShimPlugin::make())
+                ->plugin(AdminNavPlugin::make());
         })->register();
 
         LunarPanel::extensions([
@@ -205,6 +202,9 @@ class AppServiceProvider extends ServiceProvider
             ProductOptionResource::class => PkoProductOptionResource::class,
             AttributeGroupResource::class => PkoAttributeGroupResource::class,
             CollectionGroupResource::class => PkoCollectionGroupResource::class,
+            TaxZoneResource::class => PkoTaxZoneResource::class,
+            TaxClassResource::class => PkoTaxClassResource::class,
+            TaxRateResource::class => PkoTaxRateResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

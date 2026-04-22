@@ -25,6 +25,11 @@ class CarrierShipmentResource extends BaseResource
 
     protected static ?int $navigationSort = 10;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getLabel(): string
     {
         return 'Envoi transporteur';

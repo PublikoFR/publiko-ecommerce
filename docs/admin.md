@@ -18,10 +18,29 @@ L'admin Lunar enregistre ~20 resources dans 3 groupes anglais (`Catalog`, `Sales
 
 ### Navigation cible
 
-| Groupe | Entrées | Usage |
-|--------|---------|-------|
-| **Catalogue** | Produits, Medias, Marques, Catégories, Caractéristiques | Quotidien |
-| **Paramètres catalogue** (collapsed) | Types de produits, Options de produits, Groupes d'attributs, Groupes de collections | Setup initial |
+La structure complète du menu est pilotée par le package **`pko/lunar-admin-nav`** (cf. [packages/admin-nav.md](packages/admin-nav.md)) via `NavigationBuilder` injecté dans le panel. Elle remplace le `->navigationGroups([...])` statique historiquement déclaré dans `AppServiceProvider`.
+
+Structure actuelle :
+
+| Section | Contenu |
+|---------|---------|
+| **Pilotage** (sans label, en tête) | Tableau de bord, Commandes (avec badge), Expédition, Clients — raccourcis vers les Resources natives |
+| **Catalogue** | Produits, Marques, Catégories, Caractéristiques |
+| **Paramètres catalogue** (collapsed) | Types de produits, Options de produits, Groupes d'attributs, Groupes de collections, Catégories de documents, Tags |
+| **Ventes & Clients** | Groupes de clients, Réductions, Abonnés newsletter, Fidélité (hub) |
+| **Contenu** | Page d'accueil (hub), Contenus, Types de contenus |
+| **Général** (collapsed) | Personnel, Rôles, Configurations LLM |
+| **Imports et Données** (collapsed) | Imports, Configurations d'import, Activités |
+| **Boutique** (collapsed) | Paramètres storefront, Magasins, Canaux, Langues |
+| **Paiement & Expédition** (collapsed) | Devises, Taxes (Cluster Lunar → 1 entrée menu avec sub-nav on-page 3 items), Stripe |
+
+**Sub-navigation on-page (droite)** : deux sections consolidées en 1 entrée menu + sub-nav Filament native côté droit — **Expédition** (6 items : Méthodes / Zones / Exclusion / Envois transporteurs / Chronopost / Colissimo, accessibles depuis le raccourci Pilotage) et **Taxes** (Cluster Lunar, 3 items : Zones / Classes / Taux, dans le groupe Paiement & Expédition). Swap Pko* des Resources Lunar requis — cf. `docs/packages/admin-nav.md`.
+
+**Hubs à onglets** : Fidélité (`/admin/fidelite`) et Page d'accueil (`/admin/page-accueil`) fusionnent respectivement 4 et 3 entrées jadis listées séparément. Navigation inter-onglets sans rechargement complet (Livewire partial render, query string `?tab=`). URLs originales des Resources (loyalty-tiers, home-slides, etc.) restent accessibles mais non listées au menu.
+
+**Raccourcis Pilotage** : Dashboard, OrderResource, CarrierShipmentResource, CustomerResource apparaissent uniquement dans la section Pilotage (pas de doublon dans un groupe métier). Les raccourcis utilisent `NavigationItem::url()` pointant vers la Resource native → aucune URL n'a changé.
+
+**Gotcha Filament** : Filament 3 ne supporte pas les sous-groupes imbriqués persistants côté sidebar. La section Configuration du cahier des charges est matérialisée par 4 groupes collapsed adjacents (Général / Imports et Données / Boutique / Paiement & Expédition) plutôt qu'un groupe unique Configuration avec sous-sections.
 
 **TreeManager** : anciennement 1 entrée nav, désormais 2 (`Catégories` et `Caractéristiques`) via `getNavigationItems()` retournant 2 `NavigationItem` avec query param `?tab=categories|features`. Toggle 3 modes sur la page (catégories seules, features seules, les deux).
 
