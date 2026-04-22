@@ -30,11 +30,11 @@ use Lunar\Admin\Filament\Resources\TagResource;
 use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
-use Pko\AdminNav\Filament\Resources\PkoShippingMethodResource;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
+use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
@@ -99,13 +99,8 @@ class Builder
                 ->sort(2),
             NavigationItem::make(__('admin-nav::admin.shortcuts.shipping'))
                 ->icon('heroicon-o-truck')
-                ->url(fn () => PkoShippingMethodResource::getUrl())
-                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.resources.shipping-methods.*')
-                    || request()->routeIs('filament.lunar.resources.shipping-zones.*')
-                    || request()->routeIs('filament.lunar.resources.shipping-exclusion-lists.*')
-                    || request()->routeIs('filament.lunar.resources.carrier-shipments.*')
-                    || request()->routeIs('filament.lunar.pages.chronopost-config')
-                    || request()->routeIs('filament.lunar.pages.colissimo-config'))
+                ->url(fn () => Shipping::getUrl())
+                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.expedition.*'))
                 ->sort(3),
             NavigationItem::make(__('admin-nav::admin.shortcuts.customers'))
                 ->icon('heroicon-o-users')

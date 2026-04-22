@@ -15,7 +15,7 @@ class ShippingExclusionListPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_shipping::exclusion::list');
+        return $staff->can('view_any_pko::shipping::exclusion::list');
     }
 
     /**
@@ -23,7 +23,7 @@ class ShippingExclusionListPolicy
      */
     public function view(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('view_shipping::exclusion::list');
+        return $staff->can('view_pko::shipping::exclusion::list');
     }
 
     /**
@@ -31,7 +31,7 @@ class ShippingExclusionListPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_shipping::exclusion::list');
+        return $staff->can('create_pko::shipping::exclusion::list');
     }
 
     /**
@@ -39,7 +39,7 @@ class ShippingExclusionListPolicy
      */
     public function update(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('update_shipping::exclusion::list');
+        return $staff->can('update_pko::shipping::exclusion::list');
     }
 
     /**
@@ -47,7 +47,7 @@ class ShippingExclusionListPolicy
      */
     public function delete(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('delete_shipping::exclusion::list');
+        return $staff->can('delete_pko::shipping::exclusion::list');
     }
 
     /**
@@ -55,7 +55,7 @@ class ShippingExclusionListPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_shipping::exclusion::list');
+        return $staff->can('delete_any_pko::shipping::exclusion::list');
     }
 
     /**
@@ -63,7 +63,7 @@ class ShippingExclusionListPolicy
      */
     public function forceDelete(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('force_delete_shipping::exclusion::list');
+        return $staff->can('force_delete_pko::shipping::exclusion::list');
     }
 
     /**
@@ -71,7 +71,7 @@ class ShippingExclusionListPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_shipping::exclusion::list');
+        return $staff->can('force_delete_any_pko::shipping::exclusion::list');
     }
 
     /**
@@ -79,7 +79,7 @@ class ShippingExclusionListPolicy
      */
     public function restore(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('restore_shipping::exclusion::list');
+        return $staff->can('restore_pko::shipping::exclusion::list');
     }
 
     /**
@@ -87,7 +87,7 @@ class ShippingExclusionListPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_shipping::exclusion::list');
+        return $staff->can('restore_any_pko::shipping::exclusion::list');
     }
 
     /**
@@ -95,7 +95,7 @@ class ShippingExclusionListPolicy
      */
     public function replicate(Staff $staff, ShippingExclusionList $shippingExclusionList): bool
     {
-        return $staff->can('replicate_shipping::exclusion::list');
+        return $staff->can('replicate_pko::shipping::exclusion::list');
     }
 
     /**
@@ -103,6 +103,6 @@ class ShippingExclusionListPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_shipping::exclusion::list');
+        return $staff->can('reorder_pko::shipping::exclusion::list');
     }
 }

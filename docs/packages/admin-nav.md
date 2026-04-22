@@ -79,12 +79,11 @@ Chaque raccourci est un `NavigationItem::make()->url(XxxResource::getUrl())` ave
 
 Deux mécanismes Filament natifs utilisés :
 
-### Section Expédition — `$subNavigationPosition + getSubNavigation()`
+### Section Expédition — Cluster Filament `Shipping`
 
-6 Resources/Pages partagent une sub-nav à droite reliant **Méthodes / Zones / Exclusion / Envois transporteurs / Chronopost / Colissimo** — 3 Resources sont dans Lunar (`lunar-shipping`), 1 dans `pko/shipping-common`, 2 dans `pko/shipping-chronopost`/`colissimo`.
+Implémenté **hors du package admin-nav**, dans `pko/shipping-common` (introduit par PR #16, cf. `docs/packages/transporters.md`). Le cluster `Pko\ShippingCommon\Filament\Clusters\Shipping` (slug `expedition`) regroupe les 6 pages Expédition sous `/admin/expedition/...` avec sub-nav on-page native à droite. Le swap des 3 Resources Lunar shipping est porté par `Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin`.
 
-- **Pour les 3 Resources Lunar** : swap Panel-level via reflection dans `AdminNavPlugin::swapShippingResources()` qui remplace `ShippingMethodResource` → `PkoShippingMethodResource` (et 2 autres). Chaque Pko* subclass déclare `$subNavigationPosition = SubNavigationPosition::End` et override `getDefaultPages()` pour pointer vers des List Pages Pko qui override `getSubNavigation()` via `ShippingSubNavigation::items()`.
-- **Pour les 3 Pages/Resources Pko** : modification directe du code (packages `pko/shipping-*` sont sous contrôle direct) — ajout de `$subNavigationPosition`, `shouldRegisterNavigation = false` et `getSubNavigation()`.
+Le Pilotage de ce package pointe simplement vers `Shipping::getUrl()` — aucun swap shipping dans AdminNavPlugin.
 
 ### Section Taxes — Cluster Filament
 
@@ -109,12 +108,9 @@ Swap appliqué :
 | `TaxZoneResource` | `PkoTaxZoneResource` | idem | idem |
 | `TaxClassResource` | `PkoTaxClassResource` | idem | idem |
 | `TaxRateResource` | `PkoTaxRateResource` | idem | idem |
-| `ShippingMethodResource` | `PkoShippingMethodResource` | `Panel::$resources` reflection | `AdminNavPlugin::swapShippingResources` |
-| `ShippingZoneResource` | `PkoShippingZoneResource` | idem | idem |
-| `ShippingExclusionListResource` | `PkoShippingExclusionListResource` | idem | idem |
 | `Taxes` (Cluster) | `PkoTaxesCluster` | `Panel::$clusters` reflection | `AdminNavPlugin::swapTaxesCluster` |
 
-Pourquoi 2 mécanismes différents : les Resources Lunar core sont enregistrées via `LunarPanelManager::$resources` (swappable AVANT `LunarPanel::register()`). Les Resources des plugins Lunar satellites (comme `lunar-shipping`) sont enregistrées directement via `$panel->resources()` au moment où le plugin s'enregistre — il faut donc swapper AU NIVEAU du Panel Filament, APRÈS que ShippingPlugin ait registré ses resources. AdminNavPlugin étant enregistré en dernier dans `AppServiceProvider::panel()`, son `register()` s'exécute après ShippingPlugin.
+(Le swap des 3 Resources Lunar `Shipping*` est géré séparément par `Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin`, cf. `docs/packages/transporters.md`.)
 
 ## Couplage avec Lunar — risques & mitigation
 
@@ -124,7 +120,7 @@ Le swap reflection est fragile par design. **Avant chaque mise à jour Lunar** (
 2. **Lire le CHANGELOG** de Lunar avant bump — cherche rename de Resources, Pages, Clusters, namespaces.
 3. **Smoke test post-upgrade** — visiter dans le navigateur :
    - `/admin/products` + sub-nav à droite
-   - `/admin/shipping-methods` + sub-nav à droite (6 items)
+   - `/admin/expedition/pko-shipping-methods` + sub-nav à droite (6 items)
    - `/admin/taxes/tax-zones` + sub-nav à droite (3 items)
    - `/admin/fidelite` et `/admin/page-accueil` (onglets)
    - `/admin` → menu complet avec raccourcis Pilotage

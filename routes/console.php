@@ -13,3 +13,9 @@ Schedule::command('ai-importer:run-scheduled')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)
     ->runInBackground();
+
+// Shipping: interroge l'API Suivi La Poste pour tous les envois non terminaux
+Schedule::command('shipping:poll-tracking')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->runInBackground();

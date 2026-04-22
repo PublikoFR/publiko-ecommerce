@@ -15,7 +15,7 @@ class ShippingZonePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_shipping::zone');
+        return $staff->can('view_any_pko::shipping::zone');
     }
 
     /**
@@ -23,7 +23,7 @@ class ShippingZonePolicy
      */
     public function view(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('view_shipping::zone');
+        return $staff->can('view_pko::shipping::zone');
     }
 
     /**
@@ -31,7 +31,7 @@ class ShippingZonePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_shipping::zone');
+        return $staff->can('create_pko::shipping::zone');
     }
 
     /**
@@ -39,7 +39,7 @@ class ShippingZonePolicy
      */
     public function update(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('update_shipping::zone');
+        return $staff->can('update_pko::shipping::zone');
     }
 
     /**
@@ -47,7 +47,7 @@ class ShippingZonePolicy
      */
     public function delete(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('delete_shipping::zone');
+        return $staff->can('delete_pko::shipping::zone');
     }
 
     /**
@@ -55,7 +55,7 @@ class ShippingZonePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_shipping::zone');
+        return $staff->can('delete_any_pko::shipping::zone');
     }
 
     /**
@@ -63,7 +63,7 @@ class ShippingZonePolicy
      */
     public function forceDelete(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('force_delete_shipping::zone');
+        return $staff->can('force_delete_pko::shipping::zone');
     }
 
     /**
@@ -71,7 +71,7 @@ class ShippingZonePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_shipping::zone');
+        return $staff->can('force_delete_any_pko::shipping::zone');
     }
 
     /**
@@ -79,7 +79,7 @@ class ShippingZonePolicy
      */
     public function restore(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('restore_shipping::zone');
+        return $staff->can('restore_pko::shipping::zone');
     }
 
     /**
@@ -87,7 +87,7 @@ class ShippingZonePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_shipping::zone');
+        return $staff->can('restore_any_pko::shipping::zone');
     }
 
     /**
@@ -95,7 +95,7 @@ class ShippingZonePolicy
      */
     public function replicate(Staff $staff, ShippingZone $shippingZone): bool
     {
-        return $staff->can('replicate_shipping::zone');
+        return $staff->can('replicate_pko::shipping::zone');
     }
 
     /**
@@ -103,6 +103,6 @@ class ShippingZonePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_shipping::zone');
+        return $staff->can('reorder_pko::shipping::zone');
     }
 }

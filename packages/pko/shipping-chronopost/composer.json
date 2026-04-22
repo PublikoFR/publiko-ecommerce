@@ -7,6 +7,7 @@
         "php": "^8.2",
         "illuminate/support": "^11.0",
         "lunarphp/core": "^1.0",
+        "pko/lunar-secrets": "@dev",
         "pko/lunar-shipping-common": "@dev",
         "ladromelaboratoire/chronopostws": "^0.0.13"
     },

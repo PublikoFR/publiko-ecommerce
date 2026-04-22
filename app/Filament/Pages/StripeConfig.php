@@ -5,13 +5,20 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use Filament\Actions\Action;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\Secrets\Facades\Secrets;
+use Pko\Secrets\Filament\Forms\SecretsFormSchema;
 use Stripe\Exception\ApiErrorException;
 use Stripe\StripeClient;
 
-class StripeConfig extends BasePage
+class StripeConfig extends BasePage implements HasForms
 {
+    use InteractsWithForms;
+
     protected static ?string $navigationGroup = 'Configuration';
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
@@ -24,19 +31,53 @@ class StripeConfig extends BasePage
 
     protected static ?int $navigationSort = 10;
 
-    public function getPublicKey(): ?string
+    /**
+     * @var array<string, mixed>
+     */
+    public array $data = [];
+
+    public function mount(): void
     {
-        return config('services.stripe.public_key');
+        $this->form->fill(SecretsFormSchema::initialData('stripe'));
+    }
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                SecretsFormSchema::make('stripe', [
+                    'public_key' => 'Clé publique',
+                    'secret' => 'Clé secrète',
+                    'webhook_lunar' => 'Webhook signing secret (Lunar)',
+                ], heading: 'Credentials Stripe'),
+            ])
+            ->statePath('data');
+    }
+
+    public function save(): void
+    {
+        $state = $this->form->getState();
+        SecretsFormSchema::save('stripe', $state);
+
+        Notification::make()
+            ->success()
+            ->title(__('pko-secrets::secrets.saved'))
+            ->send();
     }
 
     public function getSecretKey(): ?string
     {
-        return config('services.stripe.key');
+        return Secrets::get('stripe', 'secret') ?: config('services.stripe.key');
+    }
+
+    public function getPublicKey(): ?string
+    {
+        return Secrets::get('stripe', 'public_key') ?: config('services.stripe.public_key');
     }
 
     public function getWebhookSecret(): ?string
     {
-        return config('services.stripe.webhooks.lunar');
+        return Secrets::get('stripe', 'webhook_lunar') ?: config('services.stripe.webhooks.lunar');
     }
 
     public function getWebhookUrl(): string
@@ -61,9 +102,12 @@ class StripeConfig extends BasePage
 
     public function isFullyConfigured(): bool
     {
-        return $this->hasPublicKey()
-            && $this->hasSecretKey()
-            && $this->hasWebhookSecret();
+        return $this->hasPublicKey() && $this->hasSecretKey() && $this->hasWebhookSecret();
+    }
+
+    public function getCurrentSource(): string
+    {
+        return Secrets::source('stripe');
     }
 
     public function getMaskedSecret(?string $value): string
@@ -90,7 +134,7 @@ class StripeConfig extends BasePage
                         Notification::make()
                             ->danger()
                             ->title('Clé secrète Stripe manquante')
-                            ->body('Renseignez STRIPE_SECRET dans le fichier .env.')
+                            ->body('Renseignez STRIPE_SECRET dans .env ou passez le module en mode base de données.')
                             ->send();
 
                         return;

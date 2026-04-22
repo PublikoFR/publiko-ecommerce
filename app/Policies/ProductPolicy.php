@@ -15,7 +15,7 @@ class ProductPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_product');
+        return $staff->can('view_any_pko::product');
     }
 
     /**
@@ -23,7 +23,7 @@ class ProductPolicy
      */
     public function view(Staff $staff, Product $product): bool
     {
-        return $staff->can('view_product');
+        return $staff->can('view_pko::product');
     }
 
     /**
@@ -31,7 +31,7 @@ class ProductPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_product');
+        return $staff->can('create_pko::product');
     }
 
     /**
@@ -39,7 +39,7 @@ class ProductPolicy
      */
     public function update(Staff $staff, Product $product): bool
     {
-        return $staff->can('update_product');
+        return $staff->can('update_pko::product');
     }
 
     /**
@@ -47,7 +47,7 @@ class ProductPolicy
      */
     public function delete(Staff $staff, Product $product): bool
     {
-        return $staff->can('delete_product');
+        return $staff->can('delete_pko::product');
     }
 
     /**
@@ -55,7 +55,7 @@ class ProductPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_product');
+        return $staff->can('delete_any_pko::product');
     }
 
     /**
@@ -63,7 +63,7 @@ class ProductPolicy
      */
     public function forceDelete(Staff $staff, Product $product): bool
     {
-        return $staff->can('force_delete_product');
+        return $staff->can('force_delete_pko::product');
     }
 
     /**
@@ -71,7 +71,7 @@ class ProductPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_product');
+        return $staff->can('force_delete_any_pko::product');
     }
 
     /**
@@ -79,7 +79,7 @@ class ProductPolicy
      */
     public function restore(Staff $staff, Product $product): bool
     {
-        return $staff->can('restore_product');
+        return $staff->can('restore_pko::product');
     }
 
     /**
@@ -87,7 +87,7 @@ class ProductPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_product');
+        return $staff->can('restore_any_pko::product');
     }
 
     /**
@@ -95,7 +95,7 @@ class ProductPolicy
      */
     public function replicate(Staff $staff, Product $product): bool
     {
-        return $staff->can('replicate_product');
+        return $staff->can('replicate_pko::product');
     }
 
     /**
@@ -103,6 +103,6 @@ class ProductPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_product');
+        return $staff->can('reorder_pko::product');
     }
 }
