@@ -32,7 +32,9 @@ Structure actuelle :
 | **Général** (collapsed) | Personnel, Rôles, Configurations LLM |
 | **Imports et Données** (collapsed) | Imports, Configurations d'import, Activités |
 | **Boutique** (collapsed) | Paramètres storefront, Magasins, Canaux, Langues |
-| **Paiement & Expédition** (collapsed) | Devises, Zones fiscales, Classes fiscales, Taux de TVA, Stripe, Chronopost, Colissimo |
+| **Paiement & Expédition** (collapsed) | Devises, Taxes (Cluster Lunar → 1 entrée menu avec sub-nav on-page 3 items), Stripe |
+
+**Sub-navigation on-page (droite)** : deux sections consolidées en 1 entrée menu + sub-nav Filament native côté droit — **Expédition** (6 items : Méthodes / Zones / Exclusion / Envois transporteurs / Chronopost / Colissimo, accessibles depuis le raccourci Pilotage) et **Taxes** (Cluster Lunar, 3 items : Zones / Classes / Taux, dans le groupe Paiement & Expédition). Swap Pko* des Resources Lunar requis — cf. `docs/packages/admin-nav.md`.
 
 **Hubs à onglets** : Fidélité (`/admin/fidelite`) et Page d'accueil (`/admin/page-accueil`) fusionnent respectivement 4 et 3 entrées jadis listées séparément. Navigation inter-onglets sans rechargement complet (Livewire partial render, query string `?tab=`). URLs originales des Resources (loyalty-tiers, home-slides, etc.) restent accessibles mais non listées au menu.
 
