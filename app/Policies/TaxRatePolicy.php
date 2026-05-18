@@ -15,7 +15,7 @@ class TaxRatePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_tax::rate');
+        return $staff->can('view_any_pko::tax::rate');
     }
 
     /**
@@ -23,7 +23,7 @@ class TaxRatePolicy
      */
     public function view(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('view_tax::rate');
+        return $staff->can('view_pko::tax::rate');
     }
 
     /**
@@ -31,7 +31,7 @@ class TaxRatePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_tax::rate');
+        return $staff->can('create_pko::tax::rate');
     }
 
     /**
@@ -39,7 +39,7 @@ class TaxRatePolicy
      */
     public function update(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('update_tax::rate');
+        return $staff->can('update_pko::tax::rate');
     }
 
     /**
@@ -47,7 +47,7 @@ class TaxRatePolicy
      */
     public function delete(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('delete_tax::rate');
+        return $staff->can('delete_pko::tax::rate');
     }
 
     /**
@@ -55,7 +55,7 @@ class TaxRatePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_tax::rate');
+        return $staff->can('delete_any_pko::tax::rate');
     }
 
     /**
@@ -63,7 +63,7 @@ class TaxRatePolicy
      */
     public function forceDelete(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('force_delete_tax::rate');
+        return $staff->can('force_delete_pko::tax::rate');
     }
 
     /**
@@ -71,7 +71,7 @@ class TaxRatePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_tax::rate');
+        return $staff->can('force_delete_any_pko::tax::rate');
     }
 
     /**
@@ -79,7 +79,7 @@ class TaxRatePolicy
      */
     public function restore(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('restore_tax::rate');
+        return $staff->can('restore_pko::tax::rate');
     }
 
     /**
@@ -87,7 +87,7 @@ class TaxRatePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_tax::rate');
+        return $staff->can('restore_any_pko::tax::rate');
     }
 
     /**
@@ -95,7 +95,7 @@ class TaxRatePolicy
      */
     public function replicate(Staff $staff, TaxRate $taxRate): bool
     {
-        return $staff->can('replicate_tax::rate');
+        return $staff->can('replicate_pko::tax::rate');
     }
 
     /**
@@ -103,6 +103,6 @@ class TaxRatePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_tax::rate');
+        return $staff->can('reorder_pko::tax::rate');
     }
 }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "464180597cac7b095b4a3b193e0029f4",
+    "content-hash": "478789e441b7c286c59da866568a6916",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -7323,7 +7323,7 @@
         },
         {
             "name": "pko/lunar-account",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/account",
@@ -7359,7 +7359,7 @@
         },
         {
             "name": "pko/lunar-admin-nav",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-admin-nav",
@@ -7405,7 +7405,7 @@
         },
         {
             "name": "pko/lunar-ai-core",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-core",
@@ -7439,7 +7439,7 @@
         },
         {
             "name": "pko/lunar-ai-filament",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-filament",
@@ -7475,7 +7475,7 @@
         },
         {
             "name": "pko/lunar-ai-importer",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-importer",
@@ -7515,7 +7515,7 @@
         },
         {
             "name": "pko/lunar-catalog-features",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/catalog-features",
@@ -7551,7 +7551,7 @@
         },
         {
             "name": "pko/lunar-customer-auth",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/customer-auth",
@@ -7587,7 +7587,7 @@
         },
         {
             "name": "pko/lunar-loyalty",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/loyalty",
@@ -7624,7 +7624,7 @@
         },
         {
             "name": "pko/lunar-media-core",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
@@ -7661,7 +7661,7 @@
         },
         {
             "name": "pko/lunar-page-builder",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/page-builder",
@@ -7697,8 +7697,56 @@
             }
         },
         {
+            "name": "pko/lunar-pennylane",
+            "version": "dev-pennylane",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/pennylane",
+                "reference": "1edb4d778fdc201a742bab53a04df03a7492b7c5"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/database": "^11.0",
+                "illuminate/http": "^11.0",
+                "illuminate/queue": "^11.0",
+                "illuminate/support": "^11.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^9.0",
+                "pestphp/pest": "^3.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\Pennylane\\PennylaneServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Pko\\Pennylane\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Pko\\Pennylane\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Intégration Pennylane (API v2) pour Lunar : émission automatique de factures et d'avoirs.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "pko/lunar-product-documents",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-documents",
@@ -7735,7 +7783,7 @@
         },
         {
             "name": "pko/lunar-product-videos",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-videos",
@@ -7771,7 +7819,7 @@
         },
         {
             "name": "pko/lunar-purchase-lists",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/purchase-lists",
@@ -7807,7 +7855,7 @@
         },
         {
             "name": "pko/lunar-quick-order",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/quick-order",
@@ -7843,7 +7891,7 @@
         },
         {
             "name": "pko/lunar-secrets",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/secrets",
@@ -7884,7 +7932,7 @@
         },
         {
             "name": "pko/lunar-shipping-chronopost",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-chronopost",
@@ -7922,7 +7970,7 @@
         },
         {
             "name": "pko/lunar-shipping-colissimo",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-colissimo",
@@ -7960,7 +8008,7 @@
         },
         {
             "name": "pko/lunar-shipping-common",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-common",
@@ -7996,7 +8044,7 @@
         },
         {
             "name": "pko/lunar-store-locator",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/store-locator",
@@ -8032,7 +8080,7 @@
         },
         {
             "name": "pko/lunar-storefront",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront",
@@ -8068,7 +8116,7 @@
         },
         {
             "name": "pko/lunar-storefront-cms",
-            "version": "dev-feat/admin-nav-reorg",
+            "version": "dev-pennylane",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront-cms",
@@ -17382,6 +17430,7 @@
         "pko/lunar-loyalty": 20,
         "pko/lunar-media-core": 20,
         "pko/lunar-page-builder": 20,
+        "pko/lunar-pennylane": 20,
         "pko/lunar-product-documents": 20,
         "pko/lunar-product-videos": 20,
         "pko/lunar-purchase-lists": 20,

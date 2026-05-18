@@ -9,6 +9,8 @@ use Pko\AiImporter\Actions\ExecutionContext;
 
 final class MathAction extends Action
 {
+    private const LEGACY_OPERATION_TYPES = ['multiply', 'divide', 'add', 'subtract'];
+
     public function __construct(
         public readonly string $operation = 'multiply', // multiply|divide|add|subtract
         public readonly float $value = 1.0,
@@ -17,6 +19,22 @@ final class MathAction extends Action
     public static function type(): string
     {
         return 'math';
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    public static function fromArray(array $config): static
+    {
+        $type = (string) ($config['type'] ?? 'math');
+        unset($config['type']);
+
+        // Legacy aliases: {"type":"multiply","value":1.2} → operation=multiply
+        if (in_array($type, self::LEGACY_OPERATION_TYPES, true) && ! isset($config['operation'])) {
+            $config['operation'] = $type;
+        }
+
+        return new static(...$config); // @phpstan-ignore-line
     }
 
     public function execute(mixed $value, ExecutionContext $ctx): mixed

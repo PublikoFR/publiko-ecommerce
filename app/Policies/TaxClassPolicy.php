@@ -15,7 +15,7 @@ class TaxClassPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_tax::class');
+        return $staff->can('view_any_pko::tax::class');
     }
 
     /**
@@ -23,7 +23,7 @@ class TaxClassPolicy
      */
     public function view(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('view_tax::class');
+        return $staff->can('view_pko::tax::class');
     }
 
     /**
@@ -31,7 +31,7 @@ class TaxClassPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_tax::class');
+        return $staff->can('create_pko::tax::class');
     }
 
     /**
@@ -39,7 +39,7 @@ class TaxClassPolicy
      */
     public function update(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('update_tax::class');
+        return $staff->can('update_pko::tax::class');
     }
 
     /**
@@ -47,7 +47,7 @@ class TaxClassPolicy
      */
     public function delete(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('delete_tax::class');
+        return $staff->can('delete_pko::tax::class');
     }
 
     /**
@@ -55,7 +55,7 @@ class TaxClassPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_tax::class');
+        return $staff->can('delete_any_pko::tax::class');
     }
 
     /**
@@ -63,7 +63,7 @@ class TaxClassPolicy
      */
     public function forceDelete(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('force_delete_tax::class');
+        return $staff->can('force_delete_pko::tax::class');
     }
 
     /**
@@ -71,7 +71,7 @@ class TaxClassPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_tax::class');
+        return $staff->can('force_delete_any_pko::tax::class');
     }
 
     /**
@@ -79,7 +79,7 @@ class TaxClassPolicy
      */
     public function restore(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('restore_tax::class');
+        return $staff->can('restore_pko::tax::class');
     }
 
     /**
@@ -87,7 +87,7 @@ class TaxClassPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_tax::class');
+        return $staff->can('restore_any_pko::tax::class');
     }
 
     /**
@@ -95,7 +95,7 @@ class TaxClassPolicy
      */
     public function replicate(Staff $staff, TaxClass $taxClass): bool
     {
-        return $staff->can('replicate_tax::class');
+        return $staff->can('replicate_pko::tax::class');
     }
 
     /**
@@ -103,6 +103,6 @@ class TaxClassPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_tax::class');
+        return $staff->can('reorder_pko::tax::class');
     }
 }

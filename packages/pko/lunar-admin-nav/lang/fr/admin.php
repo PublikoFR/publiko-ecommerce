@@ -14,6 +14,7 @@ return [
         'config_imports' => 'Imports et Données',
         'config_shop' => 'Boutique',
         'config_payment' => 'Paiement & Expédition',
+        'accounting' => 'Comptabilité',
     ],
     'shortcuts' => [
         'dashboard' => 'Tableau de bord',

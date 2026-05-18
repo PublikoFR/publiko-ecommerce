@@ -46,6 +46,7 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 - [admin-nav.md](packages/admin-nav.md) — réorganisation menu Filament + raccourcis Pilotage + on-page tabs
 - [secrets.md](packages/secrets.md) — gestion unifiée des credentials API (env ou base de données, par module)
 - [transporters.md](packages/transporters.md) — framework transporteurs (CarrierRegistry, abstractions, grilles/services en DB)
+- [pennylane.md](packages/pennylane.md) — intégration Pennylane (API v2, factures + avoirs automatiques)
 
 ## Guides utilisateur et plans existants
 

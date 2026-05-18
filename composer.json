@@ -38,6 +38,7 @@
         "pko/lunar-loyalty": "@dev",
         "pko/lunar-media-core": "@dev",
         "pko/lunar-page-builder": "@dev",
+        "pko/lunar-pennylane": "@dev",
         "pko/lunar-product-documents": "@dev",
         "pko/lunar-product-videos": "@dev",
         "pko/lunar-purchase-lists": "@dev",

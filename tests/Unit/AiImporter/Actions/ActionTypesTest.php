@@ -186,4 +186,55 @@ class ActionTypesTest extends TestCase
 
         $this->assertSame(3, $action->execute(null, $this->ctx([], $sheets)));
     }
+
+    public function test_prefix_prepends_text(): void
+    {
+        $action = Action::make(['type' => 'prefix', 'text' => 'SOM']);
+
+        $this->assertSame('SOM4275', $action->execute('4275', $this->ctx()));
+    }
+
+    public function test_prefix_with_separator(): void
+    {
+        $action = Action::make(['type' => 'prefix', 'text' => 'REF', 'separator' => '-']);
+
+        $this->assertSame('REF-4275', $action->execute('4275', $this->ctx()));
+    }
+
+    public function test_prefix_on_empty_value_returns_text_only(): void
+    {
+        $action = Action::make(['type' => 'prefix', 'text' => 'SOM', 'separator' => '-']);
+
+        $this->assertSame('SOM', $action->execute('', $this->ctx()));
+    }
+
+    public function test_suffix_appends_text(): void
+    {
+        $action = Action::make(['type' => 'suffix', 'text' => 'EUR', 'separator' => ' ']);
+
+        $this->assertSame('19.90 EUR', $action->execute('19.90', $this->ctx()));
+    }
+
+    public function test_legacy_multiply_type_routes_to_math(): void
+    {
+        $action = Action::make(['type' => 'multiply', 'value' => 1.2]);
+
+        $this->assertSame(120.0, $action->execute(100, $this->ctx()));
+    }
+
+    public function test_legacy_divide_type_routes_to_math(): void
+    {
+        $action = Action::make(['type' => 'divide', 'value' => 10]);
+
+        $this->assertSame(2.5, $action->execute(25, $this->ctx()));
+    }
+
+    public function test_legacy_add_and_subtract_types_route_to_math(): void
+    {
+        $add = Action::make(['type' => 'add', 'value' => 5]);
+        $sub = Action::make(['type' => 'subtract', 'value' => 3]);
+
+        $this->assertSame(15.0, $add->execute(10, $this->ctx()));
+        $this->assertSame(7.0, $sub->execute(10, $this->ctx()));
+    }
 }
