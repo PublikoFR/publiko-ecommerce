@@ -13,10 +13,12 @@ use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Actions\Types\MapAction;
 use Pko\AiImporter\Actions\Types\MathAction;
 use Pko\AiImporter\Actions\Types\MultilineAggregateAction;
+use Pko\AiImporter\Actions\Types\PrefixAction;
 use Pko\AiImporter\Actions\Types\RegexReplaceAction;
 use Pko\AiImporter\Actions\Types\ReplaceAction;
 use Pko\AiImporter\Actions\Types\RoundAction;
 use Pko\AiImporter\Actions\Types\SlugifyAction;
+use Pko\AiImporter\Actions\Types\SuffixAction;
 use Pko\AiImporter\Actions\Types\TemplateAction;
 use Pko\AiImporter\Actions\Types\TrimAction;
 use Pko\AiImporter\Actions\Types\TruncateAction;
@@ -46,6 +48,8 @@ final class ActionRegistry
             TrimAction::class,
             TruncateAction::class,
             SlugifyAction::class,
+            PrefixAction::class,
+            SuffixAction::class,
             ReplaceAction::class,
             RegexReplaceAction::class,
             DateFormatAction::class,
@@ -59,6 +63,11 @@ final class ActionRegistry
             FeatureBuildAction::class,
         ] as $class) {
             self::register($class::type(), $class);
+        }
+
+        // Legacy aliases (configs PrestaShop v0) → MathAction multi-operation
+        foreach (['multiply', 'divide', 'add', 'subtract'] as $alias) {
+            self::register($alias, MathAction::class);
         }
     }
 
