@@ -1,0 +1,38 @@
+{
+    "name": "pko/lunar-pennylane",
+    "description": "Intégration Pennylane (API v2) pour Lunar : émission automatique de factures et d'avoirs.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "illuminate/http": "^11.0",
+        "illuminate/database": "^11.0",
+        "illuminate/queue": "^11.0",
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.0",
+        "orchestra/testbench": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\Pennylane\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pko\\Pennylane\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\Pennylane\\PennylaneServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

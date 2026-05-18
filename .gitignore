@@ -24,6 +24,7 @@ yarn-error.log
 /.vscode
 /.zed
 /.grepai
+/.ai
 /_scaffold
 
 core

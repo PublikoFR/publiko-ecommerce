@@ -15,7 +15,7 @@ class TaxZonePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_tax::zone');
+        return $staff->can('view_any_pko::tax::zone');
     }
 
     /**
@@ -23,7 +23,7 @@ class TaxZonePolicy
      */
     public function view(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('view_tax::zone');
+        return $staff->can('view_pko::tax::zone');
     }
 
     /**
@@ -31,7 +31,7 @@ class TaxZonePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_tax::zone');
+        return $staff->can('create_pko::tax::zone');
     }
 
     /**
@@ -39,7 +39,7 @@ class TaxZonePolicy
      */
     public function update(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('update_tax::zone');
+        return $staff->can('update_pko::tax::zone');
     }
 
     /**
@@ -47,7 +47,7 @@ class TaxZonePolicy
      */
     public function delete(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('delete_tax::zone');
+        return $staff->can('delete_pko::tax::zone');
     }
 
     /**
@@ -55,7 +55,7 @@ class TaxZonePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_tax::zone');
+        return $staff->can('delete_any_pko::tax::zone');
     }
 
     /**
@@ -63,7 +63,7 @@ class TaxZonePolicy
      */
     public function forceDelete(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('force_delete_tax::zone');
+        return $staff->can('force_delete_pko::tax::zone');
     }
 
     /**
@@ -71,7 +71,7 @@ class TaxZonePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_tax::zone');
+        return $staff->can('force_delete_any_pko::tax::zone');
     }
 
     /**
@@ -79,7 +79,7 @@ class TaxZonePolicy
      */
     public function restore(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('restore_tax::zone');
+        return $staff->can('restore_pko::tax::zone');
     }
 
     /**
@@ -87,7 +87,7 @@ class TaxZonePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_tax::zone');
+        return $staff->can('restore_any_pko::tax::zone');
     }
 
     /**
@@ -95,7 +95,7 @@ class TaxZonePolicy
      */
     public function replicate(Staff $staff, TaxZone $taxZone): bool
     {
-        return $staff->can('replicate_tax::zone');
+        return $staff->can('replicate_pko::tax::zone');
     }
 
     /**
@@ -103,6 +103,6 @@ class TaxZonePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_tax::zone');
+        return $staff->can('reorder_pko::tax::zone');
     }
 }

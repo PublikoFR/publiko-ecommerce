@@ -33,6 +33,8 @@ use Pko\AdminNav\Filament\Pages\LoyaltyHub;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
+use Pko\Pennylane\Filament\Pages\PennylaneConfig;
+use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
@@ -74,7 +76,19 @@ class Builder
                 NavigationGroup::make(__('admin-nav::admin.groups.config_payment'))
                     ->collapsed()
                     ->items(self::configPayment()),
+                NavigationGroup::make(__('admin-nav::admin.groups.accounting'))
+                    ->collapsed()
+                    ->items(self::accounting()),
             ]);
+    }
+
+    /** @return array<NavigationItem> */
+    private static function accounting(): array
+    {
+        return [
+            ...self::navItems(PennylaneInvoiceResource::class, sort: 1),
+            ...self::navItems(PennylaneConfig::class, sort: 2),
+        ];
     }
 
     /**

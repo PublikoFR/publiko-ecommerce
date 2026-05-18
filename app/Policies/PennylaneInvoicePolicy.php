@@ -4,9 +4,9 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Lunar\Models\TaxRate;
+use Pko\Pennylane\Models\PennylaneInvoice;
 
-class TaxRatePolicy
+class PennylaneInvoicePolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class TaxRatePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_pko::tax::rate');
+        return $staff->can('view_any_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can view the model.
      */
-    public function view(Staff $staff, TaxRate $taxRate): bool
+    public function view(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('view_pko::tax::rate');
+        return $staff->can('view_pennylane::invoice');
     }
 
     /**
@@ -31,23 +31,23 @@ class TaxRatePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_pko::tax::rate');
+        return $staff->can('create_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can update the model.
      */
-    public function update(Staff $staff, TaxRate $taxRate): bool
+    public function update(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('update_pko::tax::rate');
+        return $staff->can('update_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can delete the model.
      */
-    public function delete(Staff $staff, TaxRate $taxRate): bool
+    public function delete(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('delete_pko::tax::rate');
+        return $staff->can('delete_pennylane::invoice');
     }
 
     /**
@@ -55,15 +55,15 @@ class TaxRatePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_pko::tax::rate');
+        return $staff->can('delete_any_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can permanently delete.
      */
-    public function forceDelete(Staff $staff, TaxRate $taxRate): bool
+    public function forceDelete(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('force_delete_pko::tax::rate');
+        return $staff->can('force_delete_pennylane::invoice');
     }
 
     /**
@@ -71,15 +71,15 @@ class TaxRatePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_pko::tax::rate');
+        return $staff->can('force_delete_any_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can restore.
      */
-    public function restore(Staff $staff, TaxRate $taxRate): bool
+    public function restore(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('restore_pko::tax::rate');
+        return $staff->can('restore_pennylane::invoice');
     }
 
     /**
@@ -87,15 +87,15 @@ class TaxRatePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_pko::tax::rate');
+        return $staff->can('restore_any_pennylane::invoice');
     }
 
     /**
      * Determine whether the staff can replicate.
      */
-    public function replicate(Staff $staff, TaxRate $taxRate): bool
+    public function replicate(Staff $staff, PennylaneInvoice $pennylaneInvoice): bool
     {
-        return $staff->can('replicate_pko::tax::rate');
+        return $staff->can('replicate_pennylane::invoice');
     }
 
     /**
@@ -103,6 +103,6 @@ class TaxRatePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_pko::tax::rate');
+        return $staff->can('reorder_pennylane::invoice');
     }
 }
