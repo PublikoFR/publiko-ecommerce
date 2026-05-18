@@ -187,6 +187,28 @@ class ActionTypesTest extends TestCase
         $this->assertSame(3, $action->execute(null, $this->ctx([], $sheets)));
     }
 
+    public function test_multiline_aggregate_filter_type_accepts_csv(): void
+    {
+        $sheets = [
+            'M' => [
+                ['type' => 'NOTICE', 'url' => 'notice.pdf'],
+                ['type' => 'PHOTO', 'url' => 'a.jpg'],
+                ['type' => 'BROCH', 'url' => 'brochure.pdf'],
+                ['type' => 'VIDEO', 'url' => 'v.mp4'],
+            ],
+        ];
+
+        $action = Action::make([
+            'type' => 'multiline_aggregate',
+            'sheet' => 'M',
+            'method' => 'count',
+            'filter_type' => 'NOTICE,BROCH',
+            'columns' => ['url'],
+        ]);
+
+        $this->assertSame(2, $action->execute(null, $this->ctx([], $sheets)));
+    }
+
     public function test_prefix_prepends_text(): void
     {
         $action = Action::make(['type' => 'prefix', 'text' => 'SOM']);
