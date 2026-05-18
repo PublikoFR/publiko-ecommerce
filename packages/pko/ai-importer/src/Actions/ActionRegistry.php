@@ -13,6 +13,8 @@ use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Actions\Types\MapAction;
 use Pko\AiImporter\Actions\Types\MathAction;
 use Pko\AiImporter\Actions\Types\MultilineAggregateAction;
+use Pko\AiImporter\Actions\Types\ParseCategoryBreadcrumbAction;
+use Pko\AiImporter\Actions\Types\ParseFeaturesStringAction;
 use Pko\AiImporter\Actions\Types\PrefixAction;
 use Pko\AiImporter\Actions\Types\RegexReplaceAction;
 use Pko\AiImporter\Actions\Types\ReplaceAction;
@@ -61,6 +63,8 @@ final class ActionRegistry
             LlmTransformAction::class,
             MultilineAggregateAction::class,
             FeatureBuildAction::class,
+            ParseFeaturesStringAction::class,
+            ParseCategoryBreadcrumbAction::class,
         ] as $class) {
             self::register($class::type(), $class);
         }
