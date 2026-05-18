@@ -53,6 +53,13 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *
  * Anything the writer doesn't recognise is ignored.
  *
+ * Legacy aliases (PrestaShop FAB-DIS compat — auto-normalised on entry, canonical key wins):
+ *   - `ean13` → `ean`, `quantity` → `stock`, `manufacturer` → `brand_name`,
+ *     `link_rewrite` → `url_key`, `depth` → `length_value`, `width` → `width_value`,
+ *     `height` → `height_value`, `weight` → `weight_value`, `image` → `images`,
+ *     `category` → `collections`.
+ *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
+ *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
 final class LunarProductWriter
@@ -89,6 +96,8 @@ final class LunarProductWriter
         $data = $record->data instanceof \ArrayObject
             ? $record->data->getArrayCopy()
             : (array) $record->data;
+
+        $data = self::normalizeLegacyKeys($data);
 
         $sku = trim((string) ($data['reference'] ?? ''));
         if ($sku === '') {
@@ -361,5 +370,52 @@ final class LunarProductWriter
             'status' => StagingStatus::Error,
             'error_message' => $message,
         ]);
+    }
+
+    /**
+     * Tolerance layer for PrestaShop-flavoured config JSON.
+     *
+     * Maps legacy keys to the canonical writer contract. The canonical key always
+     * wins when both are present. Conversions (€→cents, dimension axes) are
+     * applied only when the canonical target is empty.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function normalizeLegacyKeys(array $data): array
+    {
+        $aliases = [
+            'ean13' => 'ean',
+            'quantity' => 'stock',
+            'manufacturer' => 'brand_name',
+            'link_rewrite' => 'url_key',
+            'depth' => 'length_value',
+            'width' => 'width_value',
+            'height' => 'height_value',
+            'weight' => 'weight_value',
+            'category' => 'collections',
+            'image' => 'images',
+        ];
+
+        foreach ($aliases as $legacy => $canonical) {
+            if (! array_key_exists($legacy, $data)) {
+                continue;
+            }
+            if (! array_key_exists($canonical, $data) || $data[$canonical] === null || $data[$canonical] === '') {
+                $data[$canonical] = $data[$legacy];
+            }
+            unset($data[$legacy]);
+        }
+
+        // price_tex (PrestaShop, in euros — float or string) → price_cents (int cents).
+        if (array_key_exists('price_tex', $data)) {
+            if (! array_key_exists('price_cents', $data) || $data['price_cents'] === null || $data['price_cents'] === '') {
+                $euros = is_numeric($data['price_tex']) ? (float) $data['price_tex'] : 0.0;
+                $data['price_cents'] = (int) round($euros * 100);
+            }
+            unset($data['price_tex']);
+        }
+
+        return $data;
     }
 }
