@@ -16,6 +16,7 @@ use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * « Aperçu des données » — preview & édition des lignes parsées avant import.
@@ -101,7 +102,7 @@ class StagingRecordsRelationManager extends RelationManager
                     ->label('Exporter CSV')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
-                    ->action(fn (): \Symfony\Component\HttpFoundation\StreamedResponse => $this->exportCsv()),
+                    ->action(fn (): StreamedResponse => $this->exportCsv()),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -164,7 +165,7 @@ class StagingRecordsRelationManager extends RelationManager
         return new HtmlString('<div style="max-height:14rem;overflow-y:auto;">'.$rows.'</div>');
     }
 
-    private function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    private function exportCsv(): StreamedResponse
     {
         $job = $this->getOwnerRecord();
         $filename = 'staging_'.$job->uuid.'.csv';

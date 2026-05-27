@@ -26,6 +26,7 @@ use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Support\ProductFieldCatalog;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ViewImportJob extends ViewRecord
 {
@@ -137,7 +138,7 @@ class ViewImportJob extends ViewRecord
             && Storage::disk(config('ai-importer.storage.disk', 'local'))->exists($path);
     }
 
-    private function download(string $path): \Symfony\Component\HttpFoundation\StreamedResponse
+    private function download(string $path): StreamedResponse
     {
         return Storage::disk(config('ai-importer.storage.disk', 'local'))->download($path);
     }
