@@ -80,7 +80,7 @@ Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration
   - `Launch import Lunar` — visible si `Parsed` et `import_status ∈ {Pending, Scheduled}`
   - `Rollback` — visible si `Imported` avec `backup_path` et `!rollback_completed`
   - `Cancel` — visible si `Pending | Parsing | Paused`
-- L'éditeur visuel drag-n-drop de config (remplace le textarea JSON actuel) reste hors scope — tracked comme phase 5+ dédiée.
+- L'éditeur visuel structuré de config est livré en V2 (cf §7.quinquies.13). Le textarea JSON brut reste disponible en second onglet comme échappatoire avancée.
 
 #### Phase 6 — CLI migration depuis PS
 
@@ -192,13 +192,33 @@ Stratégie : afficher la liste des handles autorisés au LLM via `llm_global_con
 - ProductType : le writer utilise le premier `ProductType` trouvé (ordre `id asc`) si `product_type_handle` absent. Pour forcer, ajouter la clé au staging.
 - TaxClass : idem, premier trouvé (fallback de `tax_class_handle`).
 - True streaming XLSX : `PhpSpreadsheet::load()` charge tout en RAM. Au-delà de ~100k lignes, basculer sur un `IReadFilter` chunked — l'API parser reste stable.
-- Éditeur config visual : reste en textarea JSON (phase 5+).
+- Éditeur config visual : livré (cf §7.quinquies.13). Filtre live « masquer colonnes vides » / recherche de colonne au niveau du Repeater de mapping non implémenté (Filament 3.3 n'expose pas de filtrage d'items natif) — utiliser la recherche du dropdown « Champ cible ».
 - Appels LLM réels non testés automatiquement (nécessitent une clé API valide, hors CI).
 
-### 7.quinquies.13 V1 fidélité PrestaShop — socle backend
+### 7.quinquies.13 Éditeur de configuration V2 (fidélité PrestaShop)
 
-Rapprochement du module PrestaShop d'origine. **Backend only** — l'UI Filament de
-ces options arrive dans les volets suivants.
+`ImporterConfigResource` reproduit l'éditeur du module Publiko AI Importer en thème Filament/Lunar. Onglet **Éditeur visuel** (3 sections) + onglet **JSON brut** (échappatoire). Les deux sérialisent vers la même colonne `config_data`.
+
+**Sections de l'éditeur visuel :**
+1. **Feuilles Excel** — `primary_sheet` + `join_key` globale, puis Repeater « Feuilles avec relations » (nom, relation `one`/`many`, colonne de jointure, type, toggle en-têtes). Mappe sur `config_data.sheets{}`.
+2. **Configuration IA (optionnel)** — toggle `ai.context_cache` + textarea `ai.global_context`. Le bloc `ai` est **omis du JSON** si inutilisé (cache off + contexte vide), via `normalizeAi()`.
+3. **Mapping des colonnes** — Repeater présenté en grille tabulaire (Filament 3.3 n'a pas encore `Repeater::table()`) : par ligne un **champ cible** (dropdown groupé `ProductFieldCatalog`), colonne source, feuille, valeur par défaut, et un **résumé compact du pipeline**. Bouton **« Configurer »** = action modale (`extraItemActions`, largeur `5xl`) éditant le pipeline d'actions de la ligne.
+
+**Builder de pipeline (modal) :**
+- Repeater d'actions ordonné, type d'action choisi via **Select catégorisé** (`ActionPalette::groupedOptions()` — Logique / Calcul / Texte / Remplacement / Combiner / Correspondance / Dates & validation / IA / Agrégation). Tout type runtime absent de la palette curatée est surfacé dans un groupe « Autres » (pas de perte silencieuse).
+- Paramètres génériques via `KeyValue` (visible pour tout type ≠ `condition`).
+- Type `condition` : **builder de branching SI / ALORS / SINON SI / SINON**. Repeater de branches (logique ET/OU, règles `field`/`operator`/`value`, actions ALORS) + actions SINON (`else_actions`). Les pipelines internes (branche / sinon) **n'autorisent pas** de `condition` imbriquée — cohérent avec `ConditionAction` qui ne récurse jamais.
+
+**Round-trip JSON↔visuel (`hydrateVisual` / `dehydrateVisual`) :**
+- Clés scratch `sheets_repeater` / `mapping_repeater` pendant l'état du formulaire, repliées sur `sheets{}` / `mapping{}` au save (et omises si vides → pas d'artefact `[]`).
+- Les actions **non-`condition`** conservent la représentation éprouvée `{type, params:KeyValue}` (typage restauré par `typedParams` : bool/int/float/JSON) → **zéro régression** des 19 types + alias. Seul `condition` reçoit une structure dédiée (`branches[]` / `else_actions[]`), lue nativement depuis le JSON canonique.
+- Garde-fou : `tests/Unit/AiImporter/ImporterConfigRoundTripTest` couvre feuilles, IA, pipeline simple, params JSON (`map`), branching `condition` complet, et l'ensemble des types d'actions enregistrés.
+
+**Classes support :** `Pko\AiImporter\Support\ProductFieldCatalog` (champs produit canoniques type PrestaShop, clés = clés moteur consommées par `LunarProductWriter`) et `Pko\AiImporter\Support\ActionPalette` (palette catégorisée + labels FR, source unique pour le Select et le résumé). Branding neutre (aucun nom client).
+
+### 7.quinquies.14 V1 fidélité PrestaShop — socle backend
+
+Rapprochement du module PrestaShop d'origine. **Backend only** — l'UI Filament de ces options est documentée en §7.quinquies.13.
 
 #### Feuilles avec relations (`config_data.sheets`)
 
@@ -244,7 +264,7 @@ options une fois par job (appelé dans `ImportStagingToLunarJob` depuis `$job->o
 
 Tests : `tests/Feature/AiImporter/WriterOptionsTest` (7 cas — update_mode × 4, row_filter × 3).
 
-> **Note dette technique (hors scope ce volet)** : la suite complète sur DB fraîche
+> **Note dette technique** : la suite complète sur DB fraîche
 > (`migrate:fresh` de `RefreshDatabase`) échoue à cause d'un conflit de migration
 > inter-packages — `page-builder` (`add_content_to_cms_tables`) et `storefront-cms`
 > (`unify_posts_and_pages`) ajoutent tous deux la colonne `content` à `pko_posts`,
