@@ -4,16 +4,140 @@ declare(strict_types=1);
 
 namespace Pko\AiImporter\Filament\Resources\ImportJobResource\Pages;
 
+use Filament\Actions;
+use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
+use Pko\AiImporter\Models\ImporterConfig;
 
 class CreateImportJob extends CreateRecord
 {
     protected static string $resource = ImportJobResource::class;
+
+    public function getTitle(): string
+    {
+        return 'Préparer un fichier';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('newConfiguration')
+                ->label('Nouvelle configuration')
+                ->icon('heroicon-o-plus')
+                ->color('success')
+                ->url(ImporterConfigResource::getUrl('create')),
+
+            Actions\Action::make('importJson')
+                ->label('Importer JSON')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('gray')
+                ->modalHeading('Importer une configuration JSON')
+                ->modalDescription('Laissez le nom vide pour utiliser le nom du fichier.')
+                ->form([
+                    Forms\Components\TextInput::make('config_name')
+                        ->label('Nom de la configuration')
+                        ->placeholder('Optionnel — défaut : nom du fichier')
+                        ->maxLength(128),
+                    Forms\Components\FileUpload::make('config_file')
+                        ->label('Fichier JSON')
+                        ->acceptedFileTypes(['application/json', 'text/json'])
+                        ->disk('local')
+                        ->directory('ai-importer/tmp-configs')
+                        ->required(),
+                ])
+                ->action(fn (array $data) => $this->importJsonConfig($data)),
+
+            Actions\Action::make('runCron')
+                ->label('Exécuter CRON')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalDescription('Lance immédiatement les imports Lunar programmés dont la date est échue (équivalent de la commande planifiée ai-importer:run-scheduled).')
+                ->action(function (): void {
+                    Artisan::call('ai-importer:run-scheduled');
+                    Notification::make()
+                        ->success()
+                        ->title('CRON exécuté')
+                        ->body(trim(Artisan::output()) ?: 'Aucun job programmé dû.')
+                        ->send();
+                }),
+        ];
+    }
+
+    /**
+     * Importe un JSON Publiko AI Importer via la commande dédiée (réutilise la
+     * normalisation + le rapport de compatibilité côté CLI).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function importJsonConfig(array $data): void
+    {
+        $path = $data['config_file'] ?? null;
+        if (! is_string($path) || ! Storage::disk('local')->exists($path)) {
+            Notification::make()->danger()->title('Fichier JSON introuvable')->send();
+
+            return;
+        }
+
+        $absolute = Storage::disk('local')->path($path);
+        $name = trim((string) ($data['config_name'] ?? ''));
+
+        $options = ['file' => $absolute, '--replace' => true];
+        if ($name !== '') {
+            $options['--name'] = $name;
+        }
+
+        $exit = Artisan::call('ai-importer:import-ps-config', $options);
+        Storage::disk('local')->delete($path);
+
+        if ($exit === 0) {
+            Notification::make()->success()->title('Configuration importée')->body(trim(Artisan::output()))->send();
+        } else {
+            Notification::make()->danger()->title('Échec de l\'import')->body(trim(Artisan::output()))->send();
+        }
+    }
+
+    public function duplicateImporterConfig(int $id): void
+    {
+        $config = ImporterConfig::find($id);
+        if (! $config) {
+            return;
+        }
+
+        $clone = $config->replicate();
+        $clone->name = $config->name.' (copie)';
+        $clone->save();
+
+        Notification::make()->success()->title('Configuration dupliquée')->send();
+    }
+
+    public function deleteImporterConfig(int $id): void
+    {
+        ImporterConfig::whereKey($id)->delete();
+
+        Notification::make()->success()->title('Configuration supprimée')->send();
+    }
+
+    protected function getCreateFormAction(): Actions\Action
+    {
+        return parent::getCreateFormAction()
+            ->label('Préparer les données')
+            ->icon('heroicon-o-play');
+    }
+
+    protected function getCreateAnotherFormAction(): Actions\Action
+    {
+        return parent::getCreateAnotherFormAction()->hidden();
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

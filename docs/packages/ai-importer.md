@@ -244,6 +244,71 @@ options une fois par job (appelé dans `ImportStagingToLunarJob` depuis `$job->o
 
 Tests : `tests/Feature/AiImporter/WriterOptionsTest` (7 cas — update_mode × 4, row_filter × 3).
 
+### 7.quinquies.14 V3 — Page « Préparer un fichier » (UI Filament fidèle PS)
+
+Portage fidèle de la page PrestaShop *Prepare a File* sur `ImportJobResource` (page
+**Create** = « Préparer un fichier », page **List** = « Liste des imports »).
+
+#### `Support/ConfigColumnExtractor` (helper testable)
+
+Extrait du `config_data.mapping` la liste des **colonnes à traiter** affichées dans
+la grille, à l'identique de `ajaxProcessGetConfigColumns` (PS) :
+
+- ignore les colonnes sans `col` source **ET** sans `actions`/`action` (valeur
+  `default` seule = statique, rien à préparer) ;
+- `has_ai = true` dès qu'une action est de type `llm_transform` (gère aussi le
+  format legacy v0 `action: {}` objet unique) ;
+- libellé = `clé (sheet:col)` / `clé (colonne X)` / `clé (défaut: …)`, tri alpha ;
+- helpers `allColumnKeys()` (pré-cochage), `aiColumnKeys()` (bouton « désélectionner IA »).
+
+Tests : `tests/Unit/AiImporter/Support/ConfigColumnExtractorTest` (5 cas, pur, sans DB).
+
+#### Page Create (`CreateImportJob`) — sections du formulaire
+
+1. **Configurations enregistrées** (section repliable) : table inline rendue par la
+   vue `pko-ai-importer::filament.saved-configs` (namespace de vues ajouté au
+   `ServiceProvider` via `loadViewsFrom`). Colonnes Fournisseur / Type / nb Colonnes /
+   Actions. Éditer → lien `ImporterConfigResource`. Dupliquer / Supprimer → `wire:click`
+   sur les méthodes publiques `duplicateImporterConfig()` / `deleteImporterConfig()` de
+   la page. La requête des configs est faite **dans la vue** pour refléter en direct
+   les duplications/suppressions.
+2. **Header actions** : « Nouvelle configuration » (→ create config), « Importer JSON »
+   (modale nom optionnel + upload → délègue à la commande `ai-importer:import-ps-config`
+   avec `--replace`), « Exécuter CRON » (lance `ai-importer:run-scheduled` via
+   `Artisan::call`, notification avec la sortie).
+3. **Colonnes à traiter** : `CheckboxList` `options.columns_to_process` générée live
+   depuis la config choisie (`config_id` `->live()`), badges HTML « AI Prompt »
+   (`allowHtml`), `bulkToggleable()` (tout sélectionner / désélectionner) + `hintAction`
+   « Désélectionner les colonnes IA ». Pré-cochage de toutes les colonnes à chaque
+   changement de config (`afterStateUpdated`).
+4. **Filtrage des lignes** : `Radio` `options.row_filter` (enum `RowFilter`) +
+   `Select` `options.join_column` (Référence/EAN) affiché si filtre ≠ « toutes ».
+5. **Limite de lignes** (`row_limit`) + **Taille du lot** (`chunk_size`) + politique
+   d'erreur + planification, libellés/aides FR alignés sur PS.
+6. Bouton submit relabellé **« Préparer les données »** ; « créer un autre » masqué ;
+   `afterCreate` dispatch `ParseFileToStagingJob` (inchangé).
+
+> Les champs `options.*` sont persistés dans la colonne JSON `options` (cast
+> `AsArrayObject`) via la notation pointée Filament — consommés par
+> `ParseFileToStagingJob` (`columns_to_process`) et `LunarProductWriter` (`row_filter`,
+> `join_column`), cf. §7.quinquies.13.
+
+#### Page List (`ListImportJobs`) — colonnes alignées PS
+
+Table : Job (UUID mono) · **Source** (badge Préparation/Import CSV selon `config_id`) ·
+Configuration · **Fichier** (`basename(input_file_path)`) · **Préparation** (`status`) ·
+**Import** (`import_status`) · **Progression** (`processed/total (max N)`) · Date.
+Actions par ligne : Voir / Logs (→ page view) / Supprimer. Header : « Préparer un
+fichier » + « Importer une préparation ».
+
+> **Limite assumée** : PS exposait « Importer une préparation » comme un chemin séparé
+> (CSV déjà transformé → staging direct). Ce portage unifie tout via le flux
+> « Préparer un fichier » + config ; le bouton renvoie donc vers la page Create (tooltip
+> explicatif). Un vrai chemin CSV-préparé→staging sans config reste hors scope V3.
+>
+> L'équivalent du « Run CRON » PS est la commande `ai-importer:run-scheduled`
+> (planifiée), exposée en plus en action UI sur la page Create.
+
 > **Note dette technique (hors scope ce volet)** : la suite complète sur DB fraîche
 > (`migrate:fresh` de `RefreshDatabase`) échoue à cause d'un conflit de migration
 > inter-packages — `page-builder` (`add_content_to_cms_tables`) et `storefront-cms`
