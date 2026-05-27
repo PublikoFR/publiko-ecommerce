@@ -23,6 +23,7 @@ class AiImporterServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'pko-ai-importer');
 
         $this->publishes([
             __DIR__.'/../config/ai-importer.php' => config_path('ai-importer.php'),
