@@ -335,5 +335,48 @@ fichier » + « Importer une préparation ».
 > (`unify_posts_and_pages`) ajoutent tous deux la colonne `content` à `pko_posts`,
 > la seconde sans garde `hasColumn`. À corriger côté storefront-cms.
 
+#### V4 — Page « Aperçu & Import » (portage `preview.tpl` PS)
+
+Refonte de la page détail d'un job (`ViewImportJob` + `StagingRecordsRelationManager`)
+pour reproduire la page PrestaShop « Aperçu et Import », thème Filament natif.
+
+- **Stat cards** (`ImportJobProgressWidget`, polling 2 s) : `Parse` + 5 compteurs de
+  staging — Total / En attente / Importé / Avertissements / Erreurs. Source :
+  `ImportJob::stagingStatusCounts()` (une requête `GROUP BY status`, buckets :
+  `pending`=pending+validated, `imported`=imported+created+updated, `warning`,
+  `error`, `skipped`). Testable sans Filament.
+- **Infolist** (3 sections, `ViewImportJob::infolist()`) :
+  - *Fichiers joints* — vue `pko-ai-importer::filament.infolists.attached-files`
+    (fichier source / traité / sauvegardes scannées dans le disque par `job_<uuid>_`).
+    Actions de section : télécharger source, télécharger sauvegarde active,
+    restaurer (= `LunarBackupManager::restore`, expose le rollback par la section
+    en plus du header action).
+  - *Options d'import* — affichage `join_column`, `update_mode`, politique d'erreur,
+    `scheduled_at`, `columns_to_import`. Édition via le header action **« Options
+    d'import »** (modal : `TextInput` join_column, `Radio` update_mode, `Select`
+    error_policy, `DateTimePicker` scheduled_at, `CheckboxList` columns_to_import
+    alimentée par `ProductFieldCatalog::flat()`). Persistées dans `$job->options`
+    + colonnes `error_policy`/`scheduled_at`, consommées au lancement par
+    `ImportStagingToLunarJob` → `LunarProductWriter::configure()`.
+  - *Logs de console* — vue terminal `pko-ai-importer::filament.infolists.console-logs`
+    (300 derniers `ImportLog`, niveaux colorisés), `wire:poll.3s` tant que le job
+    est en cours. **Complète** `ImportLogsRelationManager` (conservé pour le filtrage).
+- **Header actions** : existantes (resumeParse, launchImport, rollback, resumeImport,
+  cancel) + **editOptions** + **testCron** (= `Artisan::call('ai-importer:run-scheduled',
+  ['--dry' => true])`, sortie en notification — équivalent du « Tester CRON » PS).
+- **Aperçu des données** (`StagingRecordsRelationManager`) : statut éditable en ligne
+  (`SelectColumn`), modal d'édition de ligne complète avec **« Historique des logs de
+  la ligne »** (`ImportLog` filtrés sur `row_number`), action header **Exporter CSV**
+  (flux `row_number,status,error_message,<clés data>` aplaties). Filtre par statut +
+  recherche SKU + pagination déjà en place.
+
+> **Limite connue** : Filament n'offre pas d'édition de cellule au double-clic native.
+> Le statut est éditable inline (`SelectColumn`) ; l'édition complète d'une cellule
+> passe par le modal de ligne. La fusion (« Merger ») PS n'est pas portée (optionnelle).
+
+Tests : `tests/Feature/AiImporter/ViewImportJobTest` (compteurs de staging × 2 +
+édition d'une ligne staging via le relation manager). Même réserve `RefreshDatabase`
+que ci-dessus (conflit migration `pko_posts`).
+
 ---
 
