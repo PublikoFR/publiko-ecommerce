@@ -52,8 +52,21 @@ final class LlmTransformAction extends Action
             $inputs['__context__'] = $this->additional_context;
         }
 
+        // Contexte global (section `ai` de la config) injecté dans tous les appels
+        // LLM en bloc système, optionnellement mis en cache (Anthropic prompt caching).
+        $cfg = $ctx->job->config?->config_data;
+        $aiConfig = $cfg instanceof \ArrayObject ? (array) ($cfg->getArrayCopy()['ai'] ?? []) : [];
+        $globalContext = trim((string) ($aiConfig['global_context'] ?? ''));
+        $useCache = (bool) ($aiConfig['context_cache'] ?? false);
+
+        $options = [];
+        if ($globalContext !== '') {
+            $options['system'] = $globalContext;
+            $options['cache_system'] = $useCache;
+        }
+
         $provider = app(LlmManager::class)->forConfig($config);
-        $result = $provider->transform($this->prompt, $inputs);
+        $result = $provider->transform($this->prompt, $inputs, $options);
 
         if ($this->output_format === 'json' && $this->output_json_key !== null) {
             $decoded = json_decode($result, true);

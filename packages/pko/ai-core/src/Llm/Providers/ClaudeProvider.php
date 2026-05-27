@@ -29,6 +29,15 @@ final class ClaudeProvider implements LlmProviderInterface
             ],
         ];
 
+        // Contexte global (option `system`). Si `cache_system`, on l'émet en bloc
+        // texte avec `cache_control` ephemeral → prompt caching côté Anthropic.
+        if (! empty($options['system'])) {
+            $system = (string) $options['system'];
+            $body['system'] = ! empty($options['cache_system'])
+                ? [['type' => 'text', 'text' => $system, 'cache_control' => ['type' => 'ephemeral']]]
+                : $system;
+        }
+
         $response = Http::timeout((int) config('ai-core.llm.http_timeout', 60))
             ->withHeaders([
                 'x-api-key' => $this->apiKey,
