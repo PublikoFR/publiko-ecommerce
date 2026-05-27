@@ -37,27 +37,39 @@ class ImportJobProgressWidget extends StatsOverviewWidget
         $pct = $progress['percentage'] ?? $job->progressPercentage();
 
         $parseBar = $this->bar($pct);
+        $counts = $job->stagingStatusCounts();
 
         return [
-            Stat::make('Parse', ($job->status->label()))
+            Stat::make('Parse', $job->status->label())
                 ->description(sprintf('%s / %s lignes — %d%%', $this->fmt($processed), $this->fmt($total), $pct))
                 ->descriptionIcon('heroicon-o-document-arrow-down')
                 ->color($job->status->color())
                 ->chart($parseBar),
 
-            Stat::make('Staging', $this->fmt($job->staging_count))
-                ->description('lignes prêtes à l\'import')
+            Stat::make('Total', $this->fmt($counts['total']))
+                ->description('lignes en staging')
                 ->descriptionIcon('heroicon-o-table-cells')
+                ->color('gray'),
+
+            Stat::make('En attente', $this->fmt($counts['pending']))
+                ->description('à importer')
+                ->descriptionIcon('heroicon-o-clock')
                 ->color('info'),
 
-            Stat::make('Import Lunar', $job->import_status->label())
-                ->description(sprintf(
-                    '%s importés%s',
-                    $this->fmt($job->imported_count),
-                    $job->error_count > 0 ? ' · '.$job->error_count.' erreurs' : '',
-                ))
+            Stat::make('Importé', $this->fmt($counts['imported']))
+                ->description($job->import_status->label())
                 ->descriptionIcon('heroicon-o-arrow-down-on-square-stack')
-                ->color($job->import_status->color()),
+                ->color('success'),
+
+            Stat::make('Avertissements', $this->fmt($counts['warning']))
+                ->description('lignes à vérifier')
+                ->descriptionIcon('heroicon-o-exclamation-triangle')
+                ->color('warning'),
+
+            Stat::make('Erreurs', $this->fmt($counts['error']))
+                ->description('lignes en échec')
+                ->descriptionIcon('heroicon-o-x-circle')
+                ->color('danger'),
         ];
     }
 

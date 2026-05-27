@@ -14,6 +14,7 @@ use Lunar\Admin\Models\Staff;
 use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Enums\StagingStatus;
 
 /**
  * @property int $id
@@ -95,5 +96,32 @@ class ImportJob extends Model
         }
 
         return (int) min(100, round(($this->processed_rows / $this->total_rows) * 100));
+    }
+
+    /**
+     * Compteurs de staging agrégés pour les stat cards « Aperçu & Import »,
+     * portage du bandeau PrestaShop (Total / En attente / Importé /
+     * Avertissements / Erreurs). Une seule requête GROUP BY.
+     *
+     * @return array{total:int, pending:int, imported:int, warning:int, error:int, skipped:int}
+     */
+    public function stagingStatusCounts(): array
+    {
+        $byStatus = $this->stagingRecords()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $count = static fn (StagingStatus ...$statuses): int => collect($statuses)
+            ->sum(fn (StagingStatus $s): int => (int) ($byStatus[$s->value] ?? 0));
+
+        return [
+            'total' => (int) $byStatus->sum(),
+            'pending' => $count(StagingStatus::Pending, StagingStatus::Validated),
+            'imported' => $count(StagingStatus::Imported, StagingStatus::Created, StagingStatus::Updated),
+            'warning' => $count(StagingStatus::Warning),
+            'error' => $count(StagingStatus::Error),
+            'skipped' => $count(StagingStatus::Skipped),
+        ];
     }
 }

@@ -7,32 +7,39 @@ namespace Pko\AiImporter\Filament\Resources\ImportJobResource\RelationManagers;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
+use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\StagingStatus;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 
 /**
- * Preview & edit of parsed rows before the import is triggered.
+ * « Aperçu des données » — preview & édition des lignes parsées avant import.
  *
- * The `data` column is a JSON blob whose schema is defined by the mapping
- * config — we can't display a static columns list. Instead we show a
- * summary (reference + name + price_cents + status) and hand editing off
- * to a JSON textarea in the edit modal. A full visual editor is tracked
- * for phase 5+.
+ * Le statut est éditable en ligne (`SelectColumn`). L'édition complète d'une
+ * ligne passe par le modal `EditAction`, qui montre aussi l'historique des
+ * logs de la ligne (cf. capture 11 du module PrestaShop). Le `data` est un
+ * blob JSON dont le schéma dépend du mapping — pas de colonnes statiques.
+ *
+ * NB : Filament n'a pas d'édition de cellule au double-clic native. Le statut
+ * est éditable inline ; tout le reste passe par le modal d'édition de ligne.
  */
 class StagingRecordsRelationManager extends RelationManager
 {
     protected static string $relationship = 'stagingRecords';
 
-    protected static ?string $title = 'Staging (preview)';
+    protected static ?string $title = 'Aperçu des données';
 
     protected static ?string $icon = 'heroicon-o-table-cells';
 
     public function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('row_number')->disabled(),
+            Forms\Components\TextInput::make('row_number')->label('Ligne #')->disabled(),
             Forms\Components\Select::make('status')
                 ->options(collect(StagingStatus::cases())
                     ->mapWithKeys(fn (StagingStatus $s): array => [$s->value => $s->label()])
@@ -40,12 +47,16 @@ class StagingRecordsRelationManager extends RelationManager
                 ->required(),
             Forms\Components\Textarea::make('data')
                 ->label('Données mappées (JSON)')
-                ->rows(18)
+                ->rows(16)
                 ->columnSpanFull()
                 ->formatStateUsing(fn ($state): string => json_encode((array) $state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE))
                 ->dehydrateStateUsing(fn ($state): array => is_string($state) ? (json_decode($state, true) ?? []) : (array) $state)
                 ->rules(['json']),
             Forms\Components\Textarea::make('error_message')->rows(2)->disabled(),
+            Forms\Components\Placeholder::make('log_history')
+                ->label('Historique des logs de la ligne')
+                ->columnSpanFull()
+                ->content(fn (?StagingRecord $record): Htmlable => $this->renderRowLogHistory($record)),
         ]);
     }
 
@@ -71,11 +82,13 @@ class StagingRecordsRelationManager extends RelationManager
 
                         return $cents === null ? '—' : number_format(((int) $cents) / 100, 2, ',', ' ').' €';
                     }),
-                Tables\Columns\TextColumn::make('status')
+                Tables\Columns\SelectColumn::make('status')
                     ->label('Statut')
-                    ->badge()
-                    ->color(fn (StagingStatus $state): string => $state->color())
-                    ->formatStateUsing(fn (StagingStatus $state): string => $state->label()),
+                    ->options(collect(StagingStatus::cases())
+                        ->mapWithKeys(fn (StagingStatus $s): array => [$s->value => $s->label()])
+                        ->toArray())
+                    ->selectablePlaceholder(false)
+                    ->rules(['required']),
                 Tables\Columns\TextColumn::make('error_message')->label('Erreur')->limit(60)->tooltip(fn ($record): ?string => $record->error_message),
                 Tables\Columns\TextColumn::make('lunar_product_id')->label('Produit Lunar')->placeholder('—'),
             ])
@@ -83,8 +96,17 @@ class StagingRecordsRelationManager extends RelationManager
                 Tables\Filters\SelectFilter::make('status')
                     ->options(collect(StagingStatus::cases())->mapWithKeys(fn (StagingStatus $s): array => [$s->value => $s->label()])->toArray()),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('exportCsv')
+                    ->label('Exporter CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(fn (): \Symfony\Component\HttpFoundation\StreamedResponse => $this->exportCsv()),
+            ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->modalHeading(fn (StagingRecord $record): string => 'Ligne #'.$record->row_number),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
@@ -99,5 +121,78 @@ class StagingRecordsRelationManager extends RelationManager
                     ->action(fn ($records) => $records->each->update(['status' => StagingStatus::Skipped])),
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    private function renderRowLogHistory(?StagingRecord $record): Htmlable
+    {
+        if ($record === null) {
+            return new HtmlString('<span class="text-gray-400">—</span>');
+        }
+
+        $logs = ImportLog::query()
+            ->where('import_job_id', $record->import_job_id)
+            ->where('row_number', $record->row_number)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        if ($logs->isEmpty()) {
+            return new HtmlString('<span class="text-gray-400">Aucun log pour cette ligne.</span>');
+        }
+
+        $colors = [
+            LogLevel::Success->value => '#059669',
+            LogLevel::Warning->value => '#d97706',
+            LogLevel::Error->value => '#dc2626',
+            LogLevel::Info->value => '#2563eb',
+            LogLevel::Debug->value => '#6b7280',
+        ];
+
+        $rows = $logs->map(function (ImportLog $log) use ($colors): string {
+            $color = $colors[$log->level->value] ?? '#374151';
+            $time = optional($log->created_at)->format('H:i:s') ?? '';
+
+            return sprintf(
+                '<div style="font-family:ui-monospace,monospace;font-size:.75rem;"><span style="color:#9ca3af;">%s</span> <span style="color:%s;font-weight:600;">[%s]</span> %s</div>',
+                e($time),
+                $color,
+                e(strtoupper($log->level->value)),
+                e($log->message),
+            );
+        })->implode('');
+
+        return new HtmlString('<div style="max-height:14rem;overflow-y:auto;">'.$rows.'</div>');
+    }
+
+    private function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $job = $this->getOwnerRecord();
+        $filename = 'staging_'.$job->uuid.'.csv';
+
+        $records = StagingRecord::query()
+            ->where('import_job_id', $job->id)
+            ->orderBy('row_number')
+            ->get();
+
+        $keys = $records
+            ->flatMap(fn (StagingRecord $r): array => array_keys((array) $r->data))
+            ->unique()
+            ->values()
+            ->all();
+
+        return response()->streamDownload(function () use ($records, $keys): void {
+            $out = fopen('php://output', 'wb');
+            fputcsv($out, array_merge(['row_number', 'status', 'error_message'], $keys));
+            foreach ($records as $record) {
+                $data = (array) $record->data;
+                $line = [$record->row_number, $record->status->value, $record->error_message];
+                foreach ($keys as $key) {
+                    $value = $data[$key] ?? '';
+                    $line[] = is_scalar($value) ? (string) $value : json_encode($value, JSON_UNESCAPED_UNICODE);
+                }
+                fputcsv($out, $line);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }
