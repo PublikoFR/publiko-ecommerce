@@ -19,11 +19,17 @@ final class OpenAiProvider implements LlmProviderInterface
 
     public function transform(string $prompt, array $inputs = [], array $options = []): string
     {
+        $messages = [];
+        // Contexte global (option `system`) injecté en message système. OpenAI gère
+        // le caching automatiquement côté serveur ; `cache_system` est sans effet ici.
+        if (! empty($options['system'])) {
+            $messages[] = ['role' => 'system', 'content' => (string) $options['system']];
+        }
+        $messages[] = ['role' => 'user', 'content' => $this->assembleMessage($prompt, $inputs)];
+
         $body = [
             'model' => $this->model,
-            'messages' => [
-                ['role' => 'user', 'content' => $this->assembleMessage($prompt, $inputs)],
-            ],
+            'messages' => $messages,
             'max_tokens' => $options['max_tokens'] ?? (int) (($this->options['max_tokens'] ?? null) ?? 1024),
         ];
 

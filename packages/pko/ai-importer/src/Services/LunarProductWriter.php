@@ -16,7 +16,9 @@ use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\RowFilter;
 use Pko\AiImporter\Enums\StagingStatus;
+use Pko\AiImporter\Enums\UpdateMode;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\CatalogFeatures\Facades\Features;
@@ -93,11 +95,55 @@ final class LunarProductWriter
 
     private ?string $defaultLanguage = null;
 
+    private UpdateMode $updateMode = UpdateMode::All;
+
+    private RowFilter $rowFilter = RowFilter::All;
+
+    private string $joinColumn = 'reference';
+
+    /** @var array<int, string> Sous-ensemble de clés réellement écrites (vide = tout). */
+    private array $columnsToImport = [];
+
     private readonly ProductImagePipeline $imagePipeline;
 
     public function __construct(?ProductImagePipeline $imagePipeline = null)
     {
         $this->imagePipeline = $imagePipeline ?? new ProductImagePipeline;
+    }
+
+    /**
+     * Applique les options de job (`pko_ai_importer_jobs.options`) au writer.
+     * Idempotent et fluide : appeler une fois par job avant la boucle d'écriture.
+     *
+     * Clés reconnues : `update_mode`, `row_filter`, `join_column`, `columns_to_import`.
+     *
+     * @param  array<string, mixed>|\ArrayAccess<string, mixed>|null  $options
+     */
+    public function configure(array|\ArrayAccess|null $options): self
+    {
+        $options = $options instanceof \ArrayObject ? $options->getArrayCopy() : (array) ($options ?? []);
+
+        if (isset($options['update_mode'])) {
+            $this->updateMode = $options['update_mode'] instanceof UpdateMode
+                ? $options['update_mode']
+                : (UpdateMode::tryFrom((string) $options['update_mode']) ?? UpdateMode::All);
+        }
+
+        if (isset($options['row_filter'])) {
+            $this->rowFilter = $options['row_filter'] instanceof RowFilter
+                ? $options['row_filter']
+                : (RowFilter::tryFrom((string) $options['row_filter']) ?? RowFilter::All);
+        }
+
+        if (! empty($options['join_column'])) {
+            $this->joinColumn = (string) $options['join_column'];
+        }
+
+        if (! empty($options['columns_to_import']) && is_array($options['columns_to_import'])) {
+            $this->columnsToImport = array_values(array_map('strval', $options['columns_to_import']));
+        }
+
+        return $this;
     }
 
     public function write(StagingRecord $record): void
@@ -107,6 +153,7 @@ final class LunarProductWriter
             : (array) $record->data;
 
         $data = self::normalizeLegacyKeys($data);
+        $data = $this->filterImportColumns($data);
 
         $sku = trim((string) ($data['reference'] ?? ''));
         if ($sku === '') {
@@ -115,11 +162,25 @@ final class LunarProductWriter
             return;
         }
 
-        $variant = ProductVariant::query()->where('sku', $sku)->first();
+        $variant = $this->findExistingVariant($data, $sku);
         $product = $variant?->product;
-        $wasCreate = false;
+        $exists = $product !== null;
 
-        if (! $product) {
+        // row_filter — n'écrire que les produits absents / existants selon l'option.
+        if (! $this->rowFilter->allows($exists)) {
+            $record->update([
+                'status' => StagingStatus::Skipped,
+                'lunar_product_id' => $product?->id,
+                'error_message' => null,
+            ]);
+
+            return;
+        }
+
+        $unresolved = ['collections' => [], 'features' => []];
+
+        if (! $exists) {
+            // Création : toujours intégrale (update_mode ne s'applique qu'aux MAJ).
             if (! isset($data['name']) || $data['name'] === '') {
                 $this->markError($record, 'name requis à la création');
 
@@ -147,24 +208,115 @@ final class LunarProductWriter
                 ...$this->dimensions($data),
             ]);
 
+            $this->applyPrice($variant, $data);
+            $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
-            $product->update(array_filter([
-                'brand_id' => $this->resolveBrand($data),
-                'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
-            ], static fn ($v) => $v !== null));
+            // Mise à jour : champs écrits selon update_mode.
+            $wasCreate = false;
 
-            $variant->update(array_filter([
-                'ean' => $data['ean'] ?? null,
-                'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
-                ...$this->dimensions($data),
-            ], static fn ($v) => $v !== null));
+            if ($this->updateMode->writesFullRecord()) {
+                $product->update(array_filter([
+                    'brand_id' => $this->resolveBrand($data),
+                    'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
+                ], static fn ($v) => $v !== null));
+
+                $variant->update(array_filter([
+                    'ean' => $data['ean'] ?? null,
+                    'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
+                    ...$this->dimensions($data),
+                ], static fn ($v) => $v !== null));
+
+                $this->applyPrice($variant, $data);
+                $unresolved = $this->applyRelations($product, $data);
+            } else {
+                if ($this->updateMode->writesPrice()) {
+                    $this->applyPrice($variant, $data);
+                }
+                if ($this->updateMode->writesStock() && isset($data['stock'])) {
+                    $variant->update(['stock' => (int) $data['stock']]);
+                }
+            }
         }
 
-        if (isset($data['price_cents'])) {
-            $this->upsertPrice($variant, (int) $data['price_cents'], isset($data['compare_price_cents']) ? (int) $data['compare_price_cents'] : null);
+        $record->update([
+            'status' => $wasCreate ? StagingStatus::Created : StagingStatus::Updated,
+            'lunar_product_id' => $product->id,
+            'imported_at' => now(),
+            'error_message' => null,
+        ]);
+
+        $this->logUnresolvedHandles($record, $sku, $unresolved);
+    }
+
+    /**
+     * Restreint les données à `columns_to_import` quand l'option est définie.
+     * Les clés essentielles à l'identification (reference, name, colonne de
+     * jointure) sont toujours conservées, sinon le produit deviendrait
+     * impossible à créer ou résoudre.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function filterImportColumns(array $data): array
+    {
+        if ($this->columnsToImport === []) {
+            return $data;
         }
 
+        $essential = ['reference', 'name', $this->joinColumn];
+        $keep = array_flip(array_unique([...$this->columnsToImport, ...$essential]));
+
+        return array_intersect_key($data, $keep);
+    }
+
+    /**
+     * Résout le variant existant selon la colonne de jointure (`join_column`).
+     * Lunar n'a pas de champ « référence fournisseur » natif : mappez votre réf
+     * fournisseur sur `reference` (→ SKU) dans le mapping de config. Jointures
+     * supportées : `reference`/`sku` (défaut) et `ean`/`ean13`.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function findExistingVariant(array $data, string $sku): ?ProductVariant
+    {
+        $column = match ($this->joinColumn) {
+            'ean', 'ean13' => 'ean',
+            default => 'sku',
+        };
+
+        $value = $column === 'ean' ? trim((string) ($data['ean'] ?? '')) : $sku;
+        if ($value === '') {
+            return null;
+        }
+
+        return ProductVariant::query()->where($column, $value)->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function applyPrice(ProductVariant $variant, array $data): void
+    {
+        if (! isset($data['price_cents'])) {
+            return;
+        }
+
+        $this->upsertPrice(
+            $variant,
+            (int) $data['price_cents'],
+            isset($data['compare_price_cents']) ? (int) $data['compare_price_cents'] : null,
+        );
+    }
+
+    /**
+     * Synchronise collections / features / images / vidéos d'un produit.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{collections: array<int, string>, features: array<int, string>}
+     */
+    private function applyRelations(Product $product, array $data): array
+    {
         $unresolved = ['collections' => [], 'features' => []];
 
         if (! empty($data['collections'])) {
@@ -191,14 +343,7 @@ final class LunarProductWriter
             app(ProductVideoManager::class)->sync($product, $videoUrls);
         }
 
-        $record->update([
-            'status' => $wasCreate ? StagingStatus::Created : StagingStatus::Updated,
-            'lunar_product_id' => $product->id,
-            'imported_at' => now(),
-            'error_message' => null,
-        ]);
-
-        $this->logUnresolvedHandles($record, $sku, $unresolved);
+        return $unresolved;
     }
 
     /**

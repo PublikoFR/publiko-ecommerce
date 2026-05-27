@@ -85,6 +85,16 @@ class ParseFileToStagingJob implements ShouldQueue
 
             $joinKey = $parser->joinKeyName();
             $mapping = (array) ($config['mapping'] ?? []);
+
+            // Option `columns_to_process` : restreint le mapping à un sous-ensemble
+            // de clés (les autres ne sont pas calculées au parse). Vide = tout.
+            $columnsToProcess = array_values(array_map(
+                'strval',
+                (array) ($job->options['columns_to_process'] ?? []),
+            ));
+            if ($columnsToProcess !== []) {
+                $mapping = array_intersect_key($mapping, array_flip($columnsToProcess));
+            }
             $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
             $rowLimit = $job->row_limit;
             $startAfter = (int) ($job->last_processed_row ?? 0);
@@ -110,7 +120,23 @@ class ParseFileToStagingJob implements ShouldQueue
                 $mapped = [];
                 foreach ($mapping as $outputKey => $columnConfig) {
                     $srcCol = $columnConfig['col'] ?? null;
-                    $initial = $srcCol !== null ? ($row[$srcCol] ?? null) : null;
+                    $srcSheet = $columnConfig['sheet'] ?? null;
+
+                    // Résolution de la valeur initiale selon la feuille source :
+                    //  - feuille primaire (ou absente)  → colonne de la row courante.
+                    //  - feuille secondaire relation=one → colonne de l'unique row jointe.
+                    //  - feuille secondaire relation=many → laissée à `multiline_aggregate`.
+                    if ($srcCol === null) {
+                        $initial = null;
+                    } elseif ($srcSheet === null || $srcSheet === '' || $srcSheet === $primary) {
+                        $initial = $row[$srcCol] ?? null;
+                    } else {
+                        $relation = (string) ($config['sheets'][$srcSheet]['relation'] ?? 'many');
+                        $initial = $relation === 'one'
+                            ? (($sheets[$srcSheet][0] ?? [])[$srcCol] ?? null)
+                            : null;
+                    }
+
                     $value = $pipeline->run($initial, (array) $columnConfig, $ctx);
                     $mapped[$outputKey] = $value;
                     $ctx->setOutput((string) $outputKey, $value);

@@ -178,7 +178,9 @@ final class SpreadsheetParser
             if ($sheetName === ($this->config['primary_sheet'] ?? null)) {
                 continue;
             }
-            $joinKey = $sheetCfg['join_key'] ?? ($this->config['join_key'] ?? null);
+            // Colonne de jointure côté feuille secondaire : `join_col` (schéma PS)
+            // prioritaire, puis `join_key` local, puis le `join_key` global.
+            $joinKey = $sheetCfg['join_col'] ?? $sheetCfg['join_key'] ?? ($this->config['join_key'] ?? null);
             if (! $joinKey) {
                 continue;
             }

@@ -195,5 +195,60 @@ Stratégie : afficher la liste des handles autorisés au LLM via `llm_global_con
 - Éditeur config visual : reste en textarea JSON (phase 5+).
 - Appels LLM réels non testés automatiquement (nécessitent une clé API valide, hors CI).
 
+### 7.quinquies.13 V1 fidélité PrestaShop — socle backend
+
+Rapprochement du module PrestaShop d'origine. **Backend only** — l'UI Filament de
+ces options arrive dans les volets suivants.
+
+#### Feuilles avec relations (`config_data.sheets`)
+
+Schéma porté du JSON Publiko AI Importer. Chaque feuille secondaire déclare :
+
+| Clé | Rôle |
+|---|---|
+| `relation` | `one` (jointure 1-1) ou `many` (jointure 1-N). Défaut `many`. |
+| `join_col` | Colonne de jointure **côté feuille secondaire** (fallback `join_key` local puis `join_key` global). |
+| `type_col` / `skip_first_row` | inchangés. |
+
+- `ParseFileToStagingJob` résout la valeur initiale d'un mapping selon sa clé `sheet` :
+  feuille primaire (ou absente) → row courante ; feuille `relation=one` → unique row
+  jointe (`$sheets[$sheet][0]`) ; feuille `relation=many` → laissée à `multiline_aggregate`.
+- `SpreadsheetParser::secondarySheetsFor()` indexe désormais sur `join_col` en priorité.
+
+#### Section IA (`config_data.ai`)
+
+| Clé | Type | Effet |
+|---|---|---|
+| `global_context` | string | Injecté dans **tous** les appels LLM en bloc système (`LlmTransformAction`). |
+| `context_cache` | bool | Si vrai, le contexte global est émis avec `cache_control: ephemeral` (Anthropic prompt caching). Sans effet sur OpenAI (caching serveur auto). |
+
+Câblage : `LlmTransformAction` lit `job->config->config_data['ai']` et passe
+`system` + `cache_system` en options de `transform()`. `ClaudeProvider` ajoute un
+bloc `system` (texte simple, ou bloc cache_control si `cache_system`). `OpenAiProvider`
+préfixe un message `role=system`.
+
+#### Options de job (`pko_ai_importer_jobs.options`, JSON)
+
+Honorées par les jobs + le writer. Enums dédiés `UpdateMode` / `RowFilter` (labels FR + couleurs).
+
+| Option | Valeurs | Où | Comportement |
+|---|---|---|---|
+| `update_mode` | `all` \| `price` \| `stock` \| `price_stock` | `LunarProductWriter` | Sur un produit **existant** uniquement : restreint les champs écrits (`price` → prix seul, `stock` → stock seul, `price_stock` → les deux, `all` → tout). La **création** reste toujours intégrale. Porte le « Si le produit existe déjà » de PS. |
+| `row_filter` | `all` \| `missing_supplier_ref` \| `existing_supplier_ref` | `LunarProductWriter` | Filtre selon la présence en base (via `join_column`). `missing` → n'écrit que les créations ; `existing` → n'écrit que les MAJ ; les lignes exclues passent en statut `skipped`. |
+| `join_column` | `reference` (défaut, → SKU) \| `ean`/`ean13` (→ EAN) | `LunarProductWriter` | Colonne d'identification du produit existant. ⚠️ Lunar n'a **pas** de champ « réf fournisseur » natif : mappez votre réf fournisseur sur `reference` (SKU) dans le mapping de config. |
+| `columns_to_process` | array de clés de mapping | `ParseFileToStagingJob` | Restreint le mapping calculé au parse (les autres clés sont ignorées). Vide = tout. |
+| `columns_to_import` | array de clés staging | `LunarProductWriter` | Restreint les champs réellement écrits dans Lunar. Les clés essentielles (`reference`, `name`, `join_column`) sont toujours conservées. Vide = tout. |
+
+`LunarProductWriter::configure(array|ArrayObject|null $options): self` applique ces
+options une fois par job (appelé dans `ImportStagingToLunarJob` depuis `$job->options`).
+
+Tests : `tests/Feature/AiImporter/WriterOptionsTest` (7 cas — update_mode × 4, row_filter × 3).
+
+> **Note dette technique (hors scope ce volet)** : la suite complète sur DB fraîche
+> (`migrate:fresh` de `RefreshDatabase`) échoue à cause d'un conflit de migration
+> inter-packages — `page-builder` (`add_content_to_cms_tables`) et `storefront-cms`
+> (`unify_posts_and_pages`) ajoutent tous deux la colonne `content` à `pko_posts`,
+> la seconde sans garde `hasColumn`. À corriger côté storefront-cms.
+
 ---
 
