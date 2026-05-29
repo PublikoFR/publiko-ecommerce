@@ -67,7 +67,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('pko_post_types')
                 ->restrictOnDelete();
-            $table->json('content')->nullable()->after('body');
+            // page-builder peut avoir déjà ajouté cette colonne via sa propre migration
+            if (! Schema::hasColumn('pko_posts', 'content')) {
+                $table->json('content')->nullable()->after('body');
+            }
             $table->string('seo_title')->nullable()->after('content');
             $table->string('seo_description', 500)->nullable()->after('seo_title');
         });

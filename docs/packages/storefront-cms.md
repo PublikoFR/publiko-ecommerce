@@ -35,6 +35,16 @@ Migration `2026_04_20_210001_unify_posts_and_pages` :
 - Drop `pko_pages`
 - `change()` évité → `DB::statement('ALTER TABLE … MODIFY post_type_id BIGINT UNSIGNED NOT NULL')` pour éviter la dépendance à doctrine/dbal.
 
+### Partage de `pko_posts.content` avec page-builder — règle d'idempotence
+
+La colonne `content JSON` de `pko_posts` est déclarée par **deux migrations** :
+- `page-builder` → `2026_04_20_120001_add_content_to_cms_tables` (timestamp antérieur)
+- `storefront-cms` → `2026_04_20_210001_unify_posts_and_pages` (timestamp postérieur)
+
+Sur un `migrate:fresh`, la migration page-builder s'exécute **avant** celle de storefront-cms. La migration storefront-cms wrappe donc son ajout de colonne dans un guard `if (! Schema::hasColumn('pko_posts', 'content'))` pour éviter l'erreur « Duplicate column ».
+
+**Règle** : toute migration qui ajoute une colonne à `pko_posts` doit vérifier `Schema::hasColumn()` avant d'appeler `$table->addColumn()` / `->json()` / etc. La table est partagée entre storefront-cms et page-builder — une absence de guard provoque un échec silencieux sur `migrate:fresh`.
+
 
 ## Brand pages via builder universel
 
