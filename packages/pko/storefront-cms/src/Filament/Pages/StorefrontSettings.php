@@ -17,7 +17,9 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
+use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
 use Pko\StorefrontCms\Models\Setting;
 
 class StorefrontSettings extends Page implements HasForms
@@ -25,6 +27,10 @@ class StorefrontSettings extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationGroup = 'Storefront';
+
+    protected static ?string $cluster = PkoShopPaymentCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getNavigationLabel(): string
     {

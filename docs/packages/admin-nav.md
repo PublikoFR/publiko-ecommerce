@@ -147,3 +147,59 @@ Pour retirer la réorganisation et revenir au menu Filament natif :
 **Nouveau hub à onglets** : créer une Page sous `src/Filament/Pages/`, des `TableWidget` sous `src/Filament/Widgets/`, enregistrer la Page dans `AdminNavPlugin::register()->pages([...])`.
 
 **Nouvelle sub-navigation on-page** pour un groupe de Resources Lunar : dupliquer le pattern Taxes / Expédition — Pko subclass Resource avec `$subNavigationPosition = End` + Pko subclass pages redéclarant `$resource` + swap via reflection. Si les Resources visées sont dans `LunarPanelManager::$resources`, swap dans `AppServiceProvider`. Sinon (plugins Lunar satellites), swap dans `AdminNavPlugin::register()` au niveau du Panel.
+
+---
+
+## Organisation A — « Consolidation par clusters » (branche `feat/nav-reorg-a`)
+
+Réorganisation de la sidebar de **10 sections / 37 entrées → 5 pôles / ~19 entrées**
+(cf. `docs/admin-nav-reorg-proposal.md` §3). Les grappes de réglages sont repliées
+en **clusters on-page** (sub-nav à droite), le mental model métier est conservé.
+
+### Arborescence
+
+```
+[Pilotage]  Tableau de bord · Commandes · Expédition · Clients   (raccourcis, inchangés)
+[Catalogue] Produits · Médiathèque · Marques · Taxonomie(1 entrée) · ⚙ Paramètres catalogue
+[Ventes & Clients] Groupes de clients · Réductions · Newsletter · Fidélité(hub)
+[Contenu]   Page d'accueil(hub) · Contenus · Types de contenus
+[Configuration] ⚙ Boutique & paiement · ⚙ Système & données · Taxes(cluster Lunar) · Rôles · Comptabilité(2)
+```
+
+### 3 nouveaux clusters (`src/Filament/Clusters/`)
+
+| Cluster | Slug | Membres |
+|---|---|---|
+| `PkoCatalogueSettingsCluster` | `parametres-catalogue` | Types de produits, Options, Groupes d'attributs, Groupes de collections, Catégories de documents, Tags |
+| `PkoShopPaymentCluster` | `boutique-paiement` | Paramètres storefront, Magasins, Canaux, Langues, Devises, Stripe |
+| `PkoSystemDataCluster` | `systeme-donnees` | Personnel, Config LLM, Imports, Config d'import, Activités |
+
+Tous trois `extends Filament\Clusters\Cluster` avec `$subNavigationPosition = End`.
+Auto-découverts via le `discoverClusters(...)` déjà en place dans `AppServiceProvider`.
+
+### Membres : 2 mécanismes
+
+- **Resources Pko-natives** (DocumentCategory, Store, LlmConfig, ImportJob, ImporterConfig)
+  + **Pages** (StorefrontSettings, StripeConfig) : ajout direct de `$cluster` + `$subNavigationPosition`
+  sur la classe. Leur enregistrement passe par `->resources()/->pages()` → `registerToCluster()`
+  auto-peuple la sub-nav.
+- **Resources Lunar** (Tag, Channel, Language, Currency, Staff, Activity) : pattern de swap
+  identique à Taxes — `Pko*Resource` (slug + `$cluster` + `$subNavigationPosition = End`
+  + override `getDefaultPages()`) + Pko subclass pages redéclarant `$resource`, swap dans
+  `AppServiceProvider::swapLunarResources()` (les 6 originales sont dans `LunarPanelManager::$resources`).
+  Les 4 resources catalog déjà swappées (ProductType/Option/AttributeGroup/CollectionGroup)
+  reçoivent juste `$cluster`.
+
+### Écarts assumés (pragmatisme — cf. proposal §3)
+
+- **Pilotage = 4** (Expédition conservée en raccourci) au lieu de 3 : éviter une régression
+  d'accès (le cluster Expédition n'est listé nulle part ailleurs dans la nav).
+- **Taxes** reste un cluster Lunar autonome dans Configuration (Filament n'imbrique pas les
+  clusters) → compteur ~19 et non 18.
+- **Rôles** laissée en entrée plate : resource Shield hors `LunarPanelManager::$resources`,
+  non atteignable par le swap reflection (path différent, risque/valeur défavorables).
+
+### Cross-package
+
+Les resources/pages Pko-natives référencent désormais `Pko\AdminNav\Filament\Clusters\*`
+(autoload root agrégé → OK sans modifier les `composer.json` des packages).

@@ -19,15 +19,21 @@ use Filament\Panel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
+use Lunar\Admin\Filament\Resources\ActivityResource;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
 use Lunar\Admin\Filament\Resources\BrandResource;
+use Lunar\Admin\Filament\Resources\ChannelResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionResource;
+use Lunar\Admin\Filament\Resources\CurrencyResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
+use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
+use Lunar\Admin\Filament\Resources\StaffResource;
+use Lunar\Admin\Filament\Resources\TagResource;
 use Lunar\Admin\Filament\Resources\TaxClassResource;
 use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
@@ -36,6 +42,12 @@ use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
+use Pko\AdminNav\Filament\Resources\PkoActivityResource;
+use Pko\AdminNav\Filament\Resources\PkoChannelResource;
+use Pko\AdminNav\Filament\Resources\PkoCurrencyResource;
+use Pko\AdminNav\Filament\Resources\PkoLanguageResource;
+use Pko\AdminNav\Filament\Resources\PkoStaffResource;
+use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxClassResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxRateResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
@@ -230,6 +242,13 @@ class AppServiceProvider extends ServiceProvider
             TaxZoneResource::class => PkoTaxZoneResource::class,
             TaxClassResource::class => PkoTaxClassResource::class,
             TaxRateResource::class => PkoTaxRateResource::class,
+            // Organisation A — clusterisation des réglages (sub-nav on-page).
+            TagResource::class => PkoTagResource::class,
+            ChannelResource::class => PkoChannelResource::class,
+            LanguageResource::class => PkoLanguageResource::class,
+            CurrencyResource::class => PkoCurrencyResource::class,
+            StaffResource::class => PkoStaffResource::class,
+            ActivityResource::class => PkoActivityResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

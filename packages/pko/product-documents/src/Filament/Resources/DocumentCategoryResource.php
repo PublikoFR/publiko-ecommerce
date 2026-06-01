@@ -6,10 +6,12 @@ namespace Pko\ProductDocuments\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 use Lunar\Admin\Support\Resources\BaseResource;
+use Pko\AdminNav\Filament\Clusters\PkoCatalogueSettingsCluster;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource\Pages;
 use Pko\ProductDocuments\Models\DocumentCategory;
 
@@ -18,6 +20,10 @@ class DocumentCategoryResource extends BaseResource
     protected static ?string $model = DocumentCategory::class;
 
     protected static ?int $navigationSort = 25;
+
+    protected static ?string $cluster = PkoCatalogueSettingsCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getLabel(): string
     {
