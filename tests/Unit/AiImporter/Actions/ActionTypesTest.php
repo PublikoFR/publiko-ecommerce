@@ -125,6 +125,103 @@ class ActionTypesTest extends TestCase
         $this->assertSame('Somfy Moteur RS100 (R-123)', $action->execute(null, $this->ctx($row)));
     }
 
+    public function test_concat_resolves_object_sources_from_secondary_sheets(): void
+    {
+        // FAB-DIS: sources référencent des feuilles secondaires via {col, sheet}.
+        $action = Action::make([
+            'type' => 'concat',
+            'sources' => [
+                ['col' => 'URL_IMAGE_1', 'sheet' => 'B03_MEDIA'],
+                ['col' => 'URL_IMAGE_2', 'sheet' => 'B03_MEDIA'],
+            ],
+            'separator' => ',',
+        ]);
+
+        $sheets = ['B03_MEDIA' => [['URL_IMAGE_1' => 'a.jpg', 'URL_IMAGE_2' => 'b.jpg']]];
+
+        $this->assertSame('a.jpg,b.jpg', $action->execute(null, $this->ctx([], $sheets)));
+    }
+
+    public function test_concat_mixes_string_and_object_sources(): void
+    {
+        // Rétrocompat : string (row primaire) + objet (feuille secondaire) côte à côte.
+        $action = Action::make([
+            'type' => 'concat',
+            'sources' => [
+                'brand',
+                ['col' => 'LIBELLE', 'sheet' => 'B01_COMMERCE'],
+            ],
+            'separator' => ' - ',
+        ]);
+
+        $row = ['brand' => 'Somfy'];
+        $sheets = ['B01_COMMERCE' => [['LIBELLE' => 'Moteur RS100']]];
+
+        $this->assertSame('Somfy - Moteur RS100', $action->execute(null, $this->ctx($row, $sheets)));
+    }
+
+    public function test_concat_object_source_with_empty_sheet_reads_primary_row(): void
+    {
+        // sheet vide → la colonne est lue dans la row primaire.
+        $action = Action::make([
+            'type' => 'concat',
+            'sources' => [['col' => 'brand', 'sheet' => '']],
+        ]);
+
+        $this->assertSame('Somfy', $action->execute(null, $this->ctx(['brand' => 'Somfy'])));
+    }
+
+    public function test_template_resolves_object_sources_from_multiple_sheets(): void
+    {
+        // template avec sources objet pointant deux feuilles secondaires distinctes.
+        $action = Action::make([
+            'type' => 'template',
+            'template' => '{nom} — {marque}',
+            'sources' => [
+                'nom' => ['col' => 'LIBELLE', 'sheet' => 'B01_COMMERCE'],
+                'marque' => ['col' => 'MARQUE', 'sheet' => 'B02_MARQUE'],
+            ],
+        ]);
+
+        $sheets = [
+            'B01_COMMERCE' => [['LIBELLE' => 'Moteur RS100']],
+            'B02_MARQUE' => [['MARQUE' => 'Somfy']],
+        ];
+
+        $this->assertSame('Moteur RS100 — Somfy', $action->execute(null, $this->ctx([], $sheets)));
+    }
+
+    public function test_template_mixes_string_and_object_sources(): void
+    {
+        $action = Action::make([
+            'type' => 'template',
+            'template' => '{ref} {nom}',
+            'sources' => [
+                'ref' => 'ref_col',
+                'nom' => ['col' => 'LIBELLE', 'sheet' => 'B01_COMMERCE'],
+            ],
+        ]);
+
+        $row = ['ref_col' => 'R-123'];
+        $sheets = ['B01_COMMERCE' => [['LIBELLE' => 'Moteur RS100']]];
+
+        $this->assertSame('R-123 Moteur RS100', $action->execute(null, $this->ctx($row, $sheets)));
+    }
+
+    public function test_object_source_missing_secondary_row_yields_empty(): void
+    {
+        // Feuille secondaire sans row jointe pour cette ligne → chaîne vide (pas de crash).
+        $action = Action::make([
+            'type' => 'concat',
+            'sources' => [
+                'brand',
+                ['col' => 'URL_IMAGE_1', 'sheet' => 'B03_MEDIA'],
+            ],
+        ]);
+
+        $this->assertSame('Somfy', $action->execute(null, $this->ctx(['brand' => 'Somfy'])));
+    }
+
     public function test_map_single_value(): void
     {
         $action = Action::make([

@@ -88,7 +88,7 @@ Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration
 
 #### Phase 2 — Tests
 
-- **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count).
+- **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count) + couverture `concat`/`template` avec `sources` en objet `{col, sheet}` (mono/multi-feuilles, mix string+objet, fallback row primaire).
 - **`tests/Unit/AiImporter/Services/ActionPipelineTest`** (5 tests) : chaînage ordonné, défaut sur valeur null, `condition` true/false, lève sur type inconnu.
 - **`tests/Feature/AiImporter/ParseFileToStagingJobTest`** : CSV fake → pipeline → staging (fixture CSV minimale via `Storage::fake`).
 - **`tests/Feature/AiImporter/LunarProductWriterTest`** (3 tests) : création produit + variant + prix, update sur 2e appel, erreur sur `reference` manquante.
@@ -158,8 +158,8 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `regex_replace` | Search/replace via pattern PCRE |
 | `date_format` | Conversion entre patterns de date |
 | `validate_ean13` | Valide checksum EAN13 (sinon vide) |
-| `concat` | Concatène plusieurs colonnes de la row primaire |
-| `template` | Interpole `{placeholders}` depuis sources nommées |
+| `concat` | Concatène plusieurs `sources` — voir **Sources multi-feuilles** ci-dessous |
+| `template` | Interpole `{placeholders}` depuis `sources` nommées — voir **Sources multi-feuilles** ci-dessous |
 | `copy` | Recopie une autre colonne (déjà mappée ou brute) |
 | `map` | Lookup `{from => to}`, support multi-value avec séparateur |
 | `category_map` | Mappe un libellé via `values` → fil d'Ariane, fallback `default_category`, puis CSV de handles (réutilise `parse_category_breadcrumb`). Config PS `somfy.json` |
@@ -178,6 +178,30 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 Permet d'importer un JSON PS sans modifier les actions.
 
 **Tolérance aux clés inconnues** : `Action::fromArray()` (factory de base) filtre la config pour ne garder que les clés correspondant à un paramètre du constructeur de l'action ciblée (via `ReflectionClass::getConstructor()`). Les clés extra — `comment` (annotation documentaire fréquente dans les configs PrestaShop réelles), marqueurs internes `_*`, etc. — sont **ignorées silencieusement** au lieu de lever `ArgumentCountError: Unknown named parameter`. La même tolérance s'applique à `MathAction::fromArray()` (qui override la factory) via le helper protégé `Action::filterConstructorParams()`.
+
+#### Sources multi-feuilles (`concat` / `template`)
+
+Les actions `concat` et `template` acceptent chaque entrée de `sources` sous **deux formes** (cf. `config/example-avec-actions.json` du module PS, cas FAB-DIS) :
+
+- **String** → clé de colonne lue dans la **row primaire** (`ctx->row`). Forme historique, conservée pour rétrocompat.
+- **Objet `{"col": "...", "sheet": "..."}`** → colonne lue dans la **première row jointe** d'une feuille secondaire (`ctx->sheets[sheet][0][col]`).
+
+```json
+{ "type": "concat",   "separator": ",", "sources": [
+    {"col": "URL_IMAGE_1", "sheet": "B03_MEDIA"},
+    {"col": "URL_IMAGE_2", "sheet": "B03_MEDIA"}
+] }
+
+{ "type": "template", "template": "{nom} — {marque}", "sources": {
+    "nom":    {"col": "LIBELLE", "sheet": "B01_COMMERCE"},
+    "marque": "MARQUE_COL"
+} }
+```
+
+Résolution (trait `Actions\Concerns\ResolvesSheetSources`, alignée sur `ParseFileToStagingJob` et `ConditionAction::resolveField`) :
+- `sheet` vide/absent, ou feuille secondaire **sans row jointe** pour cette ligne → fallback sur `ctx->row[col]` (chaîne vide si la colonne n'existe pas — pas de crash).
+- `sheet` présent dans `ctx->sheets` (feuille secondaire jointe) → `ctx->sheets[sheet][0][col]`.
+- Relation `many` : seule la **première** row jointe est lue. Pour agréger toutes les rows, utiliser `multiline_aggregate`.
 
 ### 7.quinquies.11 Diagnostic des imports LLM
 
