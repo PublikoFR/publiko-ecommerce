@@ -11,6 +11,7 @@ use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\StagingStatus;
@@ -36,6 +37,36 @@ class StagingRecordsRelationManager extends RelationManager
     protected static ?string $title = 'Aperçu des données';
 
     protected static ?string $icon = 'heroicon-o-table-cells';
+
+    // Édition autorisée même sur la page View (ViewImportJob) : correction du
+    // staging à la volée. Filament rend par défaut un RelationManager read-only
+    // sur une page ViewRecord (isReadOnly() → is_subclass_of ViewRecord) ; la
+    // propriété statique $isReadOnly n'est PAS lue par cette version → on override
+    // la méthode pour masquer le read-only et révéler edit/delete/bulk.
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
+    // StagingRecord n'a pas de policy Shield dédiée (modèle interne d'import).
+    // L'accès est déjà gardé par celui du job parent (ImportJobResource) : tout
+    // staff pouvant consulter le job peut corriger son staging. On autorise donc
+    // explicitement edit/delete ici plutôt que de dépendre d'une policy absente
+    // (sinon seul un super-admin via Gate::before y aurait accès).
+    protected function canEdit(Model $record): bool
+    {
+        return true;
+    }
+
+    protected function canDelete(Model $record): bool
+    {
+        return true;
+    }
+
+    protected function canDeleteAny(): bool
+    {
+        return true;
+    }
 
     public function form(Form $form): Form
     {

@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Notifications;
 
 use Filament\Notifications\Actions\Action;
 use Filament\Notifications\Notification;
+use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Models\ImportJob;
 
 /**
@@ -32,7 +33,7 @@ final class ImportJobNotifier
                 ->actions([
                     Action::make('view')
                         ->label('Voir')
-                        ->url(route('filament.lunar.resources.import-jobs.view', ['record' => $job->id])),
+                        ->url(ImportJobResource::getUrl('view', ['record' => $job->id])),
                 ]),
         );
     }
@@ -56,7 +57,7 @@ final class ImportJobNotifier
                 ->actions([
                     Action::make('view')
                         ->label('Voir')
-                        ->url(route('filament.lunar.resources.import-jobs.view', ['record' => $job->id])),
+                        ->url(ImportJobResource::getUrl('view', ['record' => $job->id])),
                 ]),
         );
     }

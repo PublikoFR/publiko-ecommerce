@@ -38,7 +38,7 @@ class LoyaltyManagerTest extends TestCase
     public function test_award_creates_points_history_and_customer_points(): void
     {
         Notification::fake();
-        $customer = Customer::first() ?? Customer::factory()->create();
+        $customer = Customer::factory()->create();
         $order = $this->makePlacedOrder($customer, subTotalCents: 100_00); // 100€HT
 
         app(LoyaltyManager::class)->awardForOrder($order);
@@ -56,7 +56,7 @@ class LoyaltyManagerTest extends TestCase
     public function test_award_is_idempotent_per_order(): void
     {
         Notification::fake();
-        $customer = Customer::first();
+        $customer = Customer::factory()->create();
         $order = $this->makePlacedOrder($customer, 100_00);
         $manager = app(LoyaltyManager::class);
 
@@ -70,7 +70,7 @@ class LoyaltyManagerTest extends TestCase
     public function test_unlocks_tier_and_dispatches_notifications(): void
     {
         Notification::fake();
-        $customer = Customer::first();
+        $customer = Customer::factory()->create();
         $tier = LoyaltyTier::create([
             'name' => 'Bronze',
             'points_required' => 50,
@@ -92,7 +92,7 @@ class LoyaltyManagerTest extends TestCase
     public function test_no_double_unlock_for_same_tier(): void
     {
         Notification::fake();
-        $customer = Customer::first();
+        $customer = Customer::factory()->create();
         LoyaltyTier::create(['name' => 'A', 'points_required' => 10, 'gift_title' => 'X', 'active' => true]);
 
         $manager = app(LoyaltyManager::class);

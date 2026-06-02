@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\PageBuilder;
 
-use PHPUnit\Framework\TestCase;
 use Pko\PageBuilder\Services\PageBuilderManager;
+use Tests\TestCase;
 
 final class PageBuilderManagerTest extends TestCase
 {
