@@ -88,7 +88,7 @@ Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration
 
 #### Phase 2 — Tests
 
-- **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count).
+- **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count) + couverture `concat`/`template` avec `sources` en objet `{col, sheet}` (mono/multi-feuilles, mix string+objet, fallback row primaire).
 - **`tests/Unit/AiImporter/Services/ActionPipelineTest`** (5 tests) : chaînage ordonné, défaut sur valeur null, `condition` true/false, lève sur type inconnu.
 - **`tests/Feature/AiImporter/ParseFileToStagingJobTest`** : CSV fake → pipeline → staging (fixture CSV minimale via `Storage::fake`).
 - **`tests/Feature/AiImporter/LunarProductWriterTest`** (3 tests) : création produit + variant + prix, update sur 2e appel, erreur sur `reference` manquante.
@@ -158,8 +158,8 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `regex_replace` | Search/replace via pattern PCRE |
 | `date_format` | Conversion entre patterns de date |
 | `validate_ean13` | Valide checksum EAN13 (sinon vide) |
-| `concat` | Concatène plusieurs colonnes de la row primaire |
-| `template` | Interpole `{placeholders}` depuis sources nommées |
+| `concat` | Concatène plusieurs `sources` — voir **Sources multi-feuilles** ci-dessous |
+| `template` | Interpole `{placeholders}` depuis `sources` nommées — voir **Sources multi-feuilles** ci-dessous |
 | `copy` | Recopie une autre colonne (déjà mappée ou brute) |
 | `map` | Lookup `{from => to}`, support multi-value avec séparateur |
 | `llm_transform` | Appel LLM (Claude/OpenAI) avec prompt + sources |
@@ -170,6 +170,30 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `condition` | Branching `if/else` avec branches/rules/else_actions. Support `field: "sheet:col"` ou `"col_value"`, opérateurs `=`/`!=`/`>`/`<`/`contains`/`empty`/`in`. Premier match wins. Pas de récursion (nested condition silencieusement skip). |
 
 **Alias legacy** (configs PrestaShop v0) : `multiply`, `divide`, `add`, `subtract` routent automatiquement vers `MathAction` avec l'opération correspondante. Permet d'importer un JSON PS sans modifier les actions.
+
+#### Sources multi-feuilles (`concat` / `template`)
+
+Les actions `concat` et `template` acceptent chaque entrée de `sources` sous **deux formes** (cf. `config/example-avec-actions.json` du module PS, cas FAB-DIS) :
+
+- **String** → clé de colonne lue dans la **row primaire** (`ctx->row`). Forme historique, conservée pour rétrocompat.
+- **Objet `{"col": "...", "sheet": "..."}`** → colonne lue dans la **première row jointe** d'une feuille secondaire (`ctx->sheets[sheet][0][col]`).
+
+```json
+{ "type": "concat",   "separator": ",", "sources": [
+    {"col": "URL_IMAGE_1", "sheet": "B03_MEDIA"},
+    {"col": "URL_IMAGE_2", "sheet": "B03_MEDIA"}
+] }
+
+{ "type": "template", "template": "{nom} — {marque}", "sources": {
+    "nom":    {"col": "LIBELLE", "sheet": "B01_COMMERCE"},
+    "marque": "MARQUE_COL"
+} }
+```
+
+Résolution (trait `Actions\Concerns\ResolvesSheetSources`, alignée sur `ParseFileToStagingJob` et `ConditionAction::resolveField`) :
+- `sheet` vide/absent, ou feuille secondaire **sans row jointe** pour cette ligne → fallback sur `ctx->row[col]` (chaîne vide si la colonne n'existe pas — pas de crash).
+- `sheet` présent dans `ctx->sheets` (feuille secondaire jointe) → `ctx->sheets[sheet][0][col]`.
+- Relation `many` : seule la **première** row jointe est lue. Pour agréger toutes les rows, utiliser `multiline_aggregate`.
 
 ### 7.quinquies.11 Diagnostic des imports LLM
 
