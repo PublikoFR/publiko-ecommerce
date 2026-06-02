@@ -17,17 +17,24 @@ use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
+use Lunar\Admin\Filament\Resources\ActivityResource;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
 use Lunar\Admin\Filament\Resources\BrandResource;
+use Lunar\Admin\Filament\Resources\ChannelResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionResource;
+use Lunar\Admin\Filament\Resources\CurrencyResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
+use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
+use Lunar\Admin\Filament\Resources\StaffResource;
+use Lunar\Admin\Filament\Resources\TagResource;
 use Lunar\Admin\Filament\Resources\TaxClassResource;
 use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
@@ -36,6 +43,12 @@ use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
+use Pko\AdminNav\Filament\Resources\PkoActivityResource;
+use Pko\AdminNav\Filament\Resources\PkoChannelResource;
+use Pko\AdminNav\Filament\Resources\PkoCurrencyResource;
+use Pko\AdminNav\Filament\Resources\PkoLanguageResource;
+use Pko\AdminNav\Filament\Resources\PkoStaffResource;
+use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxClassResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxRateResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
@@ -123,6 +136,17 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Garde anti-wipe : depuis un worktree PKOS (container_name fige dans
+        // compose.yaml → pas d'isolation, on tape sur la base de dev mde), on
+        // interdit migrate:fresh / migrate:refresh / migrate:reset / db:wipe.
+        // PKOS_WORKTREE est injecte par le Makefile (cible -e PKOS_WORKTREE=1).
+        // On exclut l'env testing : la suite (RefreshDatabase) lance migrate:fresh
+        // sur la base `testing` (forcee par phpunit.xml), qui est sure — la prohiber
+        // casserait `make test`. Hors worktree (flag absent) : comportement inchange.
+        DB::prohibitDestructiveCommands(
+            (bool) env('PKOS_WORKTREE', false) && ! $this->app->environment('testing')
+        );
+
         // Regenerate product URL slug when variants change — MPN is only
         // available after variant creation so Lunar's native post-create hook
         // runs too early. See App\Generators\PkoProductUrlGenerator::regenerate.
@@ -230,6 +254,13 @@ class AppServiceProvider extends ServiceProvider
             TaxZoneResource::class => PkoTaxZoneResource::class,
             TaxClassResource::class => PkoTaxClassResource::class,
             TaxRateResource::class => PkoTaxRateResource::class,
+            // Organisation A — clusterisation des réglages (sub-nav on-page).
+            TagResource::class => PkoTagResource::class,
+            ChannelResource::class => PkoChannelResource::class,
+            LanguageResource::class => PkoLanguageResource::class,
+            CurrencyResource::class => PkoCurrencyResource::class,
+            StaffResource::class => PkoStaffResource::class,
+            ActivityResource::class => PkoActivityResource::class,
         ];
 
         $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('resources');

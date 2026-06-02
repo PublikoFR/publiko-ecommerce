@@ -1,6 +1,14 @@
+# Garde anti-wipe : detecte si make tourne depuis un worktree PKOS.
+# container_name est fige dans compose.yaml → un worktree retombe sur le
+# conteneur principal = base de dev mde. On bloque les commandes destructives
+# et on propage PKOS_WORKTREE=1 dans le conteneur pour la garde framework
+# (DB::prohibitDestructiveCommands dans AppServiceProvider).
+WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))
+WT_ENV := $(if $(WORKTREE_GUARD),-e PKOS_WORKTREE=1,)
+
 DC=docker compose
-EXEC=$(DC) exec -u sail app
-EXEC_ROOT=$(DC) exec app
+EXEC=$(DC) exec -u sail $(WT_ENV) app
+EXEC_ROOT=$(DC) exec $(WT_ENV) app
 
 .PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions
 
@@ -34,6 +42,7 @@ help:
 	@echo "  Mailpit        http://mailpit.localhost (shared)"
 
 install:
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(DC) up -d --build
 	$(EXEC) composer install
 	$(MAKE) permissions
@@ -70,6 +79,7 @@ migrate:
 	$(EXEC) php artisan migrate
 
 fresh:
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate:fresh --force
 	$(EXEC) php artisan lunar:install --no-interaction
@@ -93,6 +103,7 @@ ps:
 	$(DC) ps
 
 lunar:
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan lunar:install
 
 shield:

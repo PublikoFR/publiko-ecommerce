@@ -7,12 +7,14 @@ namespace Pko\AiImporter\Filament\Resources;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Resources\BaseResource;
 use Pko\AiCore\Models\LlmConfig;
+use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
 use Pko\AiImporter\Actions\Types\ConditionAction;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages;
 use Pko\AiImporter\Models\ImporterConfig;
@@ -52,6 +54,10 @@ class ImporterConfigResource extends BaseResource
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static ?int $navigationSort = 20;
+
+    protected static ?string $cluster = PkoSystemDataCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     /** @var array<string, string> */
     private const RULE_OPERATORS = [

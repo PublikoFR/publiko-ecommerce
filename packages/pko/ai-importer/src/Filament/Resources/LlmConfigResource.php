@@ -6,9 +6,11 @@ namespace Pko\AiImporter\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Lunar\Admin\Support\Resources\BaseResource;
+use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
 use Pko\AiCore\Enums\LlmProviderName;
 use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource\Pages;
@@ -20,6 +22,10 @@ class LlmConfigResource extends BaseResource
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
 
     protected static ?int $navigationSort = 30;
+
+    protected static ?string $cluster = PkoSystemDataCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getLabel(): string
     {

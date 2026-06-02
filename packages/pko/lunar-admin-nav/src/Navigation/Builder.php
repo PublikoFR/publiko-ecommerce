@@ -4,48 +4,38 @@ declare(strict_types=1);
 
 namespace Pko\AdminNav\Navigation;
 
-use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
-use App\Filament\Resources\PkoAttributeGroupResource;
-use App\Filament\Resources\PkoCollectionGroupResource;
-use App\Filament\Resources\PkoProductOptionResource;
 use App\Filament\Resources\PkoProductResource;
-use App\Filament\Resources\PkoProductTypeResource;
 use BezhanSalleh\FilamentShield\Resources\RoleResource;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
-use Lunar\Admin\Filament\Resources\ActivityResource;
 use Lunar\Admin\Filament\Resources\BrandResource;
-use Lunar\Admin\Filament\Resources\ChannelResource;
-use Lunar\Admin\Filament\Resources\CurrencyResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\DiscountResource;
-use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource;
-use Lunar\Admin\Filament\Resources\StaffResource;
-use Lunar\Admin\Filament\Resources\TagResource;
+use Pko\AdminNav\Filament\Clusters\PkoCatalogueSettingsCluster;
+use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
+use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
 use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
-use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
-use Pko\AiImporter\Filament\Resources\ImportJobResource;
-use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
-use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
-use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
 use Pko\StorefrontCms\Filament\Resources\PostTypeResource;
-use Pko\StoreLocator\Filament\Resources\StoreResource;
 
 /**
- * Construit la navigation complète du panel admin Filament.
+ * Construit la navigation complète du panel admin Filament — Organisation A
+ * (« Consolidation par clusters »). 5 pôles : Pilotage (raccourcis) + Catalogue,
+ * Ventes & Clients, Contenu, Configuration. Les grappes de réglages sont repliées
+ * en clusters on-page (sub-nav à droite) pour réduire la sidebar (~37 → ~19).
+ *
  * Appelé depuis AdminNavPlugin via ->navigation(fn (NavigationBuilder) => ...).
  */
 class Builder
@@ -57,38 +47,13 @@ class Builder
             ->groups([
                 NavigationGroup::make(__('admin-nav::admin.groups.catalogue'))
                     ->items(self::catalogue()),
-                NavigationGroup::make(__('admin-nav::admin.groups.catalogue_settings'))
-                    ->collapsed()
-                    ->items(self::catalogueSettings()),
                 NavigationGroup::make(__('admin-nav::admin.groups.sales'))
                     ->items(self::sales()),
                 NavigationGroup::make(__('admin-nav::admin.groups.content'))
                     ->items(self::content()),
-                NavigationGroup::make(__('admin-nav::admin.groups.config_general'))
-                    ->collapsed()
-                    ->items(self::configGeneral()),
-                NavigationGroup::make(__('admin-nav::admin.groups.config_imports'))
-                    ->collapsed()
-                    ->items(self::configImports()),
-                NavigationGroup::make(__('admin-nav::admin.groups.config_shop'))
-                    ->collapsed()
-                    ->items(self::configShop()),
-                NavigationGroup::make(__('admin-nav::admin.groups.config_payment'))
-                    ->collapsed()
-                    ->items(self::configPayment()),
-                NavigationGroup::make(__('admin-nav::admin.groups.accounting'))
-                    ->collapsed()
-                    ->items(self::accounting()),
+                NavigationGroup::make(__('admin-nav::admin.groups.config'))
+                    ->items(self::configuration()),
             ]);
-    }
-
-    /** @return array<NavigationItem> */
-    private static function accounting(): array
-    {
-        return [
-            ...self::navItems(PennylaneInvoiceResource::class, sort: 1),
-            ...self::navItems(PennylaneConfig::class, sort: 2),
-        ];
     }
 
     /**
@@ -131,21 +96,10 @@ class Builder
             ...self::navItems(PkoProductResource::class, sort: 1),
             ...self::navItems(PkoMediaLibrary::class, sort: 2),
             ...self::navItems(BrandResource::class, sort: 3),
-            // TreeManager émet 2 NavigationItems : Catégories + Caractéristiques
-            ...self::navItems(TreeManager::class, sort: 4),
-        ];
-    }
-
-    /** @return array<NavigationItem> */
-    private static function catalogueSettings(): array
-    {
-        return [
-            ...self::navItems(PkoProductTypeResource::class, sort: 1),
-            ...self::navItems(PkoProductOptionResource::class, sort: 2),
-            ...self::navItems(PkoAttributeGroupResource::class, sort: 3),
-            ...self::navItems(PkoCollectionGroupResource::class, sort: 4),
-            ...self::navItems(DocumentCategoryResource::class, sort: 5),
-            ...self::navItems(TagResource::class, sort: 6),
+            self::taxonomyItem(sort: 4),
+            // Cluster « Paramètres catalogue » : Types, Options, Groupes d'attributs,
+            // Groupes de collections, Catégories de documents, Tags (sub-nav on-page).
+            ...self::navItems(PkoCatalogueSettingsCluster::class, sort: 5),
         ];
     }
 
@@ -170,52 +124,45 @@ class Builder
         ];
     }
 
-    /** @return array<NavigationItem> */
-    private static function configGeneral(): array
+    /**
+     * Groupe « Configuration » (fusion Général + Imports + Boutique + Paiement + Compta).
+     * Deux nouveaux clusters + le cluster Taxes Lunar (non imbricable) + Rôles (resource
+     * Shield, laissée plate) + Comptabilité (2 entrées Pennylane).
+     *
+     * @return array<NavigationItem>
+     */
+    private static function configuration(): array
     {
         return [
-            ...self::navItems(StaffResource::class, sort: 1),
-            ...self::navItems(RoleResource::class, sort: 2),
-            ...self::navItems(LlmConfigResource::class, sort: 3),
+            // Cluster « Boutique & paiement » : Paramètres storefront, Magasins,
+            // Canaux, Langues, Devises, Stripe (sub-nav on-page).
+            ...self::navItems(PkoShopPaymentCluster::class, sort: 1),
+            // Cluster « Système & données » : Personnel, Config LLM, Imports,
+            // Config d'import, Activités (sub-nav on-page).
+            ...self::navItems(PkoSystemDataCluster::class, sort: 2),
+            // Cluster Lunar Taxes (Zones / Classes / Taux) — clusters non imbricables
+            // dans Filament, donc reste une entrée autonome.
+            ...self::navItems(PkoTaxesCluster::class, sort: 3),
+            // Rôles : resource Shield hors LunarPanelManager::$resources → non swappable
+            // par le mécanisme cluster, laissée en entrée plate.
+            ...self::navItems(RoleResource::class, sort: 4),
+            // Comptabilité (Pennylane).
+            ...self::navItems(PennylaneInvoiceResource::class, sort: 5),
+            ...self::navItems(PennylaneConfig::class, sort: 6),
         ];
     }
 
-    /** @return array<NavigationItem> */
-    private static function configImports(): array
+    /**
+     * Entrée unique « Taxonomie » : la page TreeManager gère déjà Catégories +
+     * Caractéristiques via onglets (?tab=). Une seule entrée sidebar au lieu de deux.
+     */
+    private static function taxonomyItem(int $sort): NavigationItem
     {
-        return [
-            ...self::navItems(ImportJobResource::class, sort: 1),
-            ...self::navItems(ImporterConfigResource::class, sort: 2),
-            ...self::navItems(ActivityResource::class, sort: 3),
-        ];
-    }
-
-    /** @return array<NavigationItem> */
-    private static function configShop(): array
-    {
-        return [
-            ...self::navItems(StorefrontSettings::class, sort: 1),
-            ...self::navItems(StoreResource::class, sort: 2),
-            ...self::navItems(ChannelResource::class, sort: 3),
-            ...self::navItems(LanguageResource::class, sort: 4),
-        ];
-    }
-
-    /** @return array<NavigationItem> */
-    private static function configPayment(): array
-    {
-        // Les pages Expédition (Méthodes, Zones, Exclusions, Envois transporteurs,
-        // Chronopost, Colissimo) ne sont PAS listées ici : elles sont accessibles
-        // via le raccourci Pilotage "Expédition" qui amène à ShippingMethodResource,
-        // et la sub-navigation on-page (SubNavigationPosition::End) permet de
-        // naviguer entre les 6 pages à droite. Cf. ShippingSubNavigation::items().
-        return [
-            ...self::navItems(CurrencyResource::class, sort: 1),
-            // Cluster Lunar Taxes = 1 seule entrée menu, sub-nav on-page
-            // auto-générée (Zones / Classes / Taux).
-            ...self::navItems(PkoTaxesCluster::class, sort: 2),
-            ...self::navItems(StripeConfig::class, sort: 3),
-        ];
+        return NavigationItem::make(__('admin-nav::admin.catalogue.taxonomy'))
+            ->icon('heroicon-o-rectangle-stack')
+            ->sort($sort)
+            ->url(fn () => TreeManager::getUrl())
+            ->isActiveWhen(fn (): bool => request()->routeIs(TreeManager::getNavigationItemActiveRoutePattern()));
     }
 
     /**

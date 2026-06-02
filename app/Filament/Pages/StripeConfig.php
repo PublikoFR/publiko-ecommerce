@@ -9,7 +9,9 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
+use Filament\Pages\SubNavigationPosition;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
 use Pko\Secrets\Facades\Secrets;
 use Pko\Secrets\Filament\Forms\SecretsFormSchema;
 use Stripe\Exception\ApiErrorException;
@@ -20,6 +22,10 @@ class StripeConfig extends BasePage implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationGroup = 'Configuration';
+
+    protected static ?string $cluster = PkoShopPaymentCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 

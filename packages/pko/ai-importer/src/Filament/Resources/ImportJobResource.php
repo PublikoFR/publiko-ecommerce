@@ -8,10 +8,12 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Resources\BaseResource;
+use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\RowFilter;
@@ -29,6 +31,10 @@ class ImportJobResource extends BaseResource
     protected static ?string $navigationIcon = 'heroicon-o-arrow-down-on-square-stack';
 
     protected static ?int $navigationSort = 10;
+
+    protected static ?string $cluster = PkoSystemDataCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getLabel(): string
     {

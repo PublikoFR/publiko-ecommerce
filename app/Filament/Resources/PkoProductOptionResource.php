@@ -7,11 +7,17 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PkoProductOptionResource\Pages\PkoCreateProductOption;
 use App\Filament\Resources\PkoProductOptionResource\Pages\PkoEditProductOption;
 use App\Filament\Resources\PkoProductOptionResource\Pages\PkoListProductOptions;
+use Filament\Pages\SubNavigationPosition;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
+use Pko\AdminNav\Filament\Clusters\PkoCatalogueSettingsCluster;
 
 class PkoProductOptionResource extends ProductOptionResource
 {
     protected static ?int $navigationSort = 2;
+
+    protected static ?string $cluster = PkoCatalogueSettingsCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getNavigationGroup(): ?string
     {

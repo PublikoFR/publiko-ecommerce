@@ -22,6 +22,14 @@ return [
         'shipping' => 'Expédition',
         'customers' => 'Clients',
     ],
+    'catalogue' => [
+        'taxonomy' => 'Taxonomie',
+    ],
+    'clusters' => [
+        'catalogue_settings' => 'Paramètres catalogue',
+        'shop_payment' => 'Boutique & paiement',
+        'system_data' => 'Système & données',
+    ],
     'hubs' => [
         'loyalty' => [
             'nav' => 'Fidélité',

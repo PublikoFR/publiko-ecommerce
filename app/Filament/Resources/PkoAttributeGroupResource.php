@@ -7,11 +7,17 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PkoAttributeGroupResource\Pages\PkoCreateAttributeGroup;
 use App\Filament\Resources\PkoAttributeGroupResource\Pages\PkoEditAttributeGroup;
 use App\Filament\Resources\PkoAttributeGroupResource\Pages\PkoListAttributeGroups;
+use Filament\Pages\SubNavigationPosition;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
+use Pko\AdminNav\Filament\Clusters\PkoCatalogueSettingsCluster;
 
 class PkoAttributeGroupResource extends AttributeGroupResource
 {
     protected static ?int $navigationSort = 3;
+
+    protected static ?string $cluster = PkoCatalogueSettingsCluster::class;
+
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
 
     public static function getNavigationGroup(): ?string
     {
