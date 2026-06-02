@@ -92,7 +92,7 @@ Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration
 #### Phase 2 — Tests
 
 - **`tests/Unit/AiImporter/Actions/ActionTypesTest`** (17 tests) : chaque type d'action (math, change_case, truncate, concat, template, map simple et multi-value, validate_ean13, slugify, replace/regex_replace, copy, trim, date_format, multiline_aggregate concat et count) + couverture `concat`/`template` avec `sources` en objet `{col, sheet}` (mono/multi-feuilles, mix string+objet, fallback row primaire).
-- **`tests/Unit/AiImporter/Services/ActionPipelineTest`** (5 tests) : chaînage ordonné, défaut sur valeur null, `condition` true/false, lève sur type inconnu.
+- **`tests/Unit/AiImporter/Services/ActionPipelineTest`** (9 tests) : chaînage ordonné, défaut sur valeur null, `condition` true/false, lève sur type inconnu, `prefix`/`suffix` colonne appliqués à la valeur source (avant actions, no-op si vide), condition `col_value` évaluée sur la valeur **brute** (non préfixée).
 - **`tests/Feature/AiImporter/ParseFileToStagingJobTest`** : CSV fake → pipeline → staging (fixture CSV minimale via `Storage::fake`). Couvre aussi la robustesse parse : `error_policy=ignore` (ligne fautive → statut `error`, le job continue), `error_policy=stop` (arrêt propre sur la 1re erreur, lignes suivantes non parsées), et la reprise sans doublon (`row_limit` puis relance → reprend exactement après `last_processed_row`, `updateOrCreate` idempotent). Une `BoomAction` de test (registrée via `ActionRegistry::register`) lève sur une cellule sentinelle pour simuler l'échec déterministe.
 - **`tests/Feature/AiImporter/LunarProductWriterTest`** (3 tests) : création produit + variant + prix, update sur 2e appel, erreur sur `reference` manquante.
 
@@ -167,7 +167,7 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `map` | Lookup `{from => to}`, support multi-value avec séparateur |
 | `category_map` | Mappe un libellé via `values` → fil d'Ariane, fallback `default_category`, puis CSV de handles (réutilise `parse_category_breadcrumb`). Config PS `somfy.json` |
 | `llm_transform` | Appel LLM (Claude/OpenAI) avec prompt + sources |
-| `multiline_aggregate` | Agrège plusieurs lignes d'une sheet many (concat/count/json_array) |
+| `multiline_aggregate` | Agrège plusieurs lignes d'une sheet many (concat/count/json_array). `filter_type` restreint sur la colonne `type_col` (défaut `type`, ex PS `MTYP`). |
 | `feature_build` | Construit le hash `features` depuis N colonnes source |
 | `parse_features_string` | Parse `"F1:V1,V2|F2:V3"` (sortie LLM) → `{f1:[v1,v2]}` slugifié |
 | `parse_category_breadcrumb` | Parse `"A>B>C,D>E"` → CSV de handles, mode `leaf` (défaut) ou `all` |
@@ -266,12 +266,25 @@ Schéma porté du JSON Publiko AI Importer. Chaque feuille secondaire déclare :
 |---|---|
 | `relation` | `one` (jointure 1-1) ou `many` (jointure 1-N). Défaut `many`. |
 | `join_col` | Colonne de jointure **côté feuille secondaire** (fallback `join_key` local puis `join_key` global). |
-| `type_col` / `skip_first_row` | inchangés. |
+| `type_col` | Nom de la colonne « type » d'une feuille `many`, consommée par `multiline_aggregate.filter_type` (défaut `type`, ex PS `MTYP`). |
+| `skip_first_row` | inchangé. |
 
 - `ParseFileToStagingJob` résout la valeur initiale d'un mapping selon sa clé `sheet` :
   feuille primaire (ou absente) → row courante ; feuille `relation=one` → unique row
   jointe (`$sheets[$sheet][0]`) ; feuille `relation=many` → laissée à `multiline_aggregate`.
 - `SpreadsheetParser::secondarySheetsFor()` indexe désormais sur `join_col` en priorité.
+
+#### Clés de mapping de colonne (`config_data.mapping.<clé>`)
+
+Lues par `ActionPipeline::run()` dans l'ordre suivant :
+
+| Clé | Rôle |
+|---|---|
+| `col` / `sheet` | Colonne source (+ feuille). |
+| `default` | Valeur de repli si la source est `null`. |
+| `condition` `{field, operator, value}` + `else` | Gate optionnel. `field: "col_value"` évalue la valeur **brute** de la colonne (avant `prefix`/`suffix`, comme le `getColumnValue()` du module PS) ; sinon `field` cible une autre colonne de la row. Échec → retourne `else` (ou la valeur, non affixée). |
+| `prefix` / `suffix` | Concaténation simple (sans séparateur) sur la valeur source **non vide**, appliquée **avant** la pipeline d'actions (port du `prefix` au niveau colonne des mappings PS, ex `{"col":"REFCIALE","prefix":"FAA"}`). No-op si la valeur est `null`/vide. |
+| `actions[]` | Pipeline d'actions séquentiel. |
 
 #### Section IA (`config_data.ai`)
 
