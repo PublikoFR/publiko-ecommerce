@@ -8,6 +8,7 @@ enum ImportStatus: string
 {
     case Pending = 'pending';
     case Scheduled = 'scheduled';
+    case Queued = 'queued';
     case Importing = 'importing';
     case Imported = 'imported';
     case Error = 'error';
@@ -18,6 +19,7 @@ enum ImportStatus: string
         return match ($this) {
             self::Pending => 'En attente',
             self::Scheduled => 'Programmé',
+            self::Queued => 'En file',
             self::Importing => 'Import en cours',
             self::Imported => 'Importé',
             self::Error => 'Erreur',
@@ -30,6 +32,7 @@ enum ImportStatus: string
         return match ($this) {
             self::Pending => 'gray',
             self::Scheduled => 'info',
+            self::Queued => 'info',
             self::Importing => 'info',
             self::Imported => 'success',
             self::Error => 'danger',
