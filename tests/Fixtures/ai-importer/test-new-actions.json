@@ -1,0 +1,84 @@
+{
+  "fournisseur": "Test Nouvelles Actions",
+  "type": "TEST",
+
+  "mapping": {
+    "ID": {
+      "col": "A",
+      "sheet": "Sheet1",
+      "comment": "ID de test"
+    },
+
+    "Test Uppercase": {
+      "col": "B",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "uppercase"
+      }
+    },
+
+    "Test Lowercase": {
+      "col": "C",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "lowercase"
+      }
+    },
+
+    "Test Capitalize": {
+      "col": "D",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "capitalize"
+      }
+    },
+
+    "Test Add": {
+      "col": "E",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "add",
+        "value": 10
+      }
+    },
+
+    "Test Subtract": {
+      "col": "E",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "subtract",
+        "value": 5
+      }
+    },
+
+    "Test Trim": {
+      "col": "F",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "trim",
+        "side": "both"
+      }
+    },
+
+    "Test Regex Replace": {
+      "col": "G",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "regex_replace",
+        "pattern": "/[^0-9]/",
+        "replace": "",
+        "comment": "Garder uniquement les chiffres"
+      }
+    },
+
+    "Test Date Format": {
+      "col": "H",
+      "sheet": "Sheet1",
+      "action": {
+        "type": "date_format",
+        "from": "d/m/Y",
+        "to": "Y-m-d"
+      }
+    }
+  }
+}

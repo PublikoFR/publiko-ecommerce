@@ -448,5 +448,58 @@ Tests : `tests/Feature/AiImporter/ViewImportJobTest` (compteurs de staging × 2 
 édition d'une ligne staging via le relation manager). Même réserve `RefreshDatabase`
 que ci-dessus (conflit migration `pko_posts`).
 
+### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
+
+Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,
+sans réécriture du mapping, dans les limites décrites ici. Cette compat est désormais
+**verrouillée par des tests qui chargent les VRAIES configs** (`config/somfy.json`,
+`config/example-avec-actions.json`, `config/test-new-actions.json` du module PS,
+copiées en fixtures read-only dans `tests/Fixtures/ai-importer/`).
+
+#### ✅ Supporté tel quel
+
+| Élément PS | Mécanisme |
+|---|---|
+| `action: {}` (objet singulier) | Lifté en `actions: [ {} ]` à l'import (`ImportPsConfigCommand::normalise`) |
+| `comment` / clés `_*` dans une action | Ignorées silencieusement (`Action::filterConstructorParams`) |
+| `comment` au niveau colonne | Non lu par le pipeline (toléré) |
+| Alias `multiply`/`divide`/`add`/`subtract` | → `MathAction` |
+| Alias `uppercase`/`lowercase`/`capitalize` | → `ChangeCaseAction` (mode dérivé) **réellement enregistrés** |
+| `prefix` au niveau colonne (`{"col":"REFCIALE","prefix":"FAA"}`) | Concat avant pipeline (`ActionPipeline::applyAffixes`) |
+| `category_map` (`values` + `default_category`) | → CSV de handles |
+| `conditional` (`{condition:"> 0", if_true, if_false}`) | Ternaire scalaire |
+| `concat` / `template` avec `sources: {col, sheet}` | Résolution multi-feuilles (`ResolvesSheetSources`) |
+| Feuilles jointes (`sheets` + `join_key` / `join_col`, `type_col: MTYP`) | Index secondaire + `multiline_aggregate` |
+| Mapping en lettres de colonne (`col: "M"`) | Double-clé header **ET** lettre (`SpreadsheetParser`) |
+| Clés writer legacy FAB-DIS (`ean13`, `quantity`, `manufacturer`…) | Normalisées (§7.quinquies.9) |
+
+#### ⚠️ `llm_transform` — coûts API réels
+
+`llm_transform` n'est **PAS** un no-op en production : sur une config avec un
+`LlmConfig` **actif**, chaque ligne parsée déclenche un **vrai appel API
+facturable** (Anthropic / OpenAI). En dev/test la table `pko_llm_configs` est vide →
+`LlmConfig::default()` renvoie `null` → l'action retourne la valeur source sans
+toucher au réseau (no-op sûr).
+
+> **NE JAMAIS lancer une préparation de fichier (parse réel) sur une config
+> contenant des actions `llm_transform` sans budget API maîtrisé et sans
+> `LlmConfig` choisi en connaissance de cause.** `config/somfy.json` contient une
+> telle action — son **import** (`ai-importer:import-ps-config`) reste sûr (simple
+> insertion DB, zéro appel), mais son **parse réel** contre une config LLM active
+> coûte de l'argent à chaque ligne.
+
+#### Couverture non-régression (tests dédiés)
+
+- **`tests/Feature/AiImporter/ImportPsConfigCommandTest`** : importe les 3 vraies
+  configs PS (exit 0, mapping intégral conservé), vérifie la normalisation
+  `action`→`actions`, et garantit `Http::assertNothingSent()` (zéro coût à l'import).
+- **`tests/Feature/AiImporter/PsConfigParseE2eTest`** : parse e2e d'un classeur XLSX
+  3 feuilles (B01_COMMERCE primaire + B02_LOGISTIQUE/B03_MEDIA jointes) via
+  `ParseFileToStagingJob`, asserte le résultat staging de chaque action PS critique
+  (prefix `REFCIALE`→`FAA…`, `uppercase`/`lowercase`/`capitalize`, `multiply`+`comment`,
+  `category_map`, `conditional > 0`, `concat`/`template` multi-feuilles, `replace`).
+  Une colonne `llm_transform` y reste volontairement présente pour prouver le no-op,
+  sous `Http::fake()` + `assertNothingSent()` + aucun `LlmConfig` actif.
+
 ---
 
