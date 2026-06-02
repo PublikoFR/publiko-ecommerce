@@ -171,6 +171,8 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 
 **Alias legacy** (configs PrestaShop v0) : `multiply`, `divide`, `add`, `subtract` routent automatiquement vers `MathAction` avec l'opération correspondante. Permet d'importer un JSON PS sans modifier les actions.
 
+**Tolérance aux clés inconnues** : `Action::fromArray()` (factory de base) filtre la config pour ne garder que les clés correspondant à un paramètre du constructeur de l'action ciblée (via `ReflectionClass::getConstructor()`). Les clés extra — `comment` (annotation documentaire fréquente dans les configs PrestaShop réelles), marqueurs internes `_*`, etc. — sont **ignorées silencieusement** au lieu de lever `ArgumentCountError: Unknown named parameter`. La même tolérance s'applique à `MathAction::fromArray()` (qui override la factory) via le helper protégé `Action::filterConstructorParams()`.
+
 ### 7.quinquies.11 Diagnostic des imports LLM
 
 Quand un `llm_transform` (ou n'importe quelle source) émet un handle de `Collection` ou de `FeatureFamily`/`FeatureValue` qui n'existe pas en DB, le writer **ne plante pas** : le record est écrit normalement, et un `ImportLog` warning est créé avec le détail des handles ignorés. Visible dans l'onglet **Logs** de chaque `ImportJob` (RelationManager temps-réel).
