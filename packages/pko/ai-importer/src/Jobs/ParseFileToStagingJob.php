@@ -12,6 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\StagingStatus;
@@ -97,76 +98,127 @@ class ParseFileToStagingJob implements ShouldQueue
             }
             $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
             $rowLimit = $job->row_limit;
+            $policy = $job->error_policy instanceof ErrorPolicy
+                ? $job->error_policy
+                : ErrorPolicy::from((string) $job->error_policy);
+
+            // Sémantique de reprise unique : `last_processed_row` = nombre de
+            // lignes DATA déjà traitées (succès OU erreur). On le passe tel
+            // quel à iterateRows() qui l'interprète comme un offset de
+            // comptage (cf. SpreadsheetParser::iterateRows). « Relancer le
+            // parse » reprend ainsi exactement après la dernière ligne traitée,
+            // sans saut ni doublon.
             $startAfter = (int) ($job->last_processed_row ?? 0);
             $processed = $startAfter;
             $stagingCount = (int) $job->staging_count;
+            $errors = 0;
+            $stopped = false;
 
             foreach ($parser->iterateRows($primary, $startAfter) as $rowNumber => $row) {
                 if ($rowLimit !== null && $processed >= $rowLimit) {
                     break;
                 }
 
-                $sheets = $joinKey !== null
-                    ? $parser->secondarySheetsFor($row[$joinKey] ?? '')
-                    : [];
-
-                $ctx = new ExecutionContext(
-                    job: $job,
-                    row: $row,
-                    sheets: $sheets,
-                    rowNumber: $rowNumber,
-                );
-
+                // Isolation par ligne : une ligne en erreur (action mal formée,
+                // échec LLM, cellule invalide…) ne doit JAMAIS avorter tout le
+                // job. Elle est journalisée, persistée en staging au statut
+                // Error, puis le `error_policy` décide de continuer ou d'arrêter.
                 $mapped = [];
-                foreach ($mapping as $outputKey => $columnConfig) {
-                    $srcCol = $columnConfig['col'] ?? null;
-                    $srcSheet = $columnConfig['sheet'] ?? null;
+                $halt = false;
 
-                    // Résolution de la valeur initiale selon la feuille source :
-                    //  - feuille primaire (ou absente)  → colonne de la row courante.
-                    //  - feuille secondaire relation=one → colonne de l'unique row jointe.
-                    //  - feuille secondaire relation=many → laissée à `multiline_aggregate`.
-                    if ($srcCol === null) {
-                        $initial = null;
-                    } elseif ($srcSheet === null || $srcSheet === '' || $srcSheet === $primary) {
-                        $initial = $row[$srcCol] ?? null;
-                    } else {
-                        $relation = (string) ($config['sheets'][$srcSheet]['relation'] ?? 'many');
-                        $initial = $relation === 'one'
-                            ? (($sheets[$srcSheet][0] ?? [])[$srcCol] ?? null)
-                            : null;
+                try {
+                    $sheets = $joinKey !== null
+                        ? $parser->secondarySheetsFor($row[$joinKey] ?? '')
+                        : [];
+
+                    $ctx = new ExecutionContext(
+                        job: $job,
+                        row: $row,
+                        sheets: $sheets,
+                        rowNumber: $rowNumber,
+                    );
+
+                    foreach ($mapping as $outputKey => $columnConfig) {
+                        $srcCol = $columnConfig['col'] ?? null;
+                        $srcSheet = $columnConfig['sheet'] ?? null;
+
+                        // Résolution de la valeur initiale selon la feuille source :
+                        //  - feuille primaire (ou absente)  → colonne de la row courante.
+                        //  - feuille secondaire relation=one → colonne de l'unique row jointe.
+                        //  - feuille secondaire relation=many → laissée à `multiline_aggregate`.
+                        if ($srcCol === null) {
+                            $initial = null;
+                        } elseif ($srcSheet === null || $srcSheet === '' || $srcSheet === $primary) {
+                            $initial = $row[$srcCol] ?? null;
+                        } else {
+                            $relation = (string) ($config['sheets'][$srcSheet]['relation'] ?? 'many');
+                            $initial = $relation === 'one'
+                                ? (($sheets[$srcSheet][0] ?? [])[$srcCol] ?? null)
+                                : null;
+                        }
+
+                        $value = $pipeline->run($initial, (array) $columnConfig, $ctx);
+                        $mapped[$outputKey] = $value;
+                        $ctx->setOutput((string) $outputKey, $value);
                     }
 
-                    $value = $pipeline->run($initial, (array) $columnConfig, $ctx);
-                    $mapped[$outputKey] = $value;
-                    $ctx->setOutput((string) $outputKey, $value);
-                }
+                    // Anti-doublon à la reprise : updateOrCreate sur la clé
+                    // unique (import_job_id, row_number).
+                    $record = StagingRecord::updateOrCreate(
+                        ['import_job_id' => $job->id, 'row_number' => $rowNumber],
+                        ['data' => $mapped, 'status' => StagingStatus::Pending, 'error_message' => null],
+                    );
+                    if ($record->wasRecentlyCreated) {
+                        $stagingCount++;
+                    }
+                } catch (\Throwable $e) {
+                    $errors++;
+                    $record = StagingRecord::updateOrCreate(
+                        ['import_job_id' => $job->id, 'row_number' => $rowNumber],
+                        ['data' => $mapped, 'status' => StagingStatus::Error, 'error_message' => $e->getMessage()],
+                    );
+                    if ($record->wasRecentlyCreated) {
+                        $stagingCount++;
+                    }
+                    $this->log($job, LogLevel::Error, "Ligne #{$rowNumber}: {$e->getMessage()}", [
+                        'row_number' => $rowNumber,
+                    ]);
 
-                StagingRecord::create([
-                    'import_job_id' => $job->id,
-                    'row_number' => $rowNumber,
-                    'data' => $mapped,
-                    'status' => StagingStatus::Pending,
-                ]);
+                    // ignore → on continue ; stop/rollback → arrêt propre du
+                    // parse (rien à rollback à ce stade : aucune écriture Lunar).
+                    $halt = $policy !== ErrorPolicy::Ignore;
+                }
 
                 $processed++;
-                $stagingCount++;
+
+                if ($halt) {
+                    $stopped = true;
+                    $this->persistProgress($job, $processed, $stagingCount, $total);
+                    break;
+                }
 
                 if ($processed % $chunkEvery === 0) {
-                    $job->update([
-                        'processed_rows' => $processed,
-                        'staging_count' => $stagingCount,
-                        'last_processed_row' => $rowNumber,
-                    ]);
-                    ProgressCache::set($job, $processed, $total);
+                    $this->persistProgress($job, $processed, $stagingCount, $total);
                 }
+            }
+
+            if ($stopped) {
+                $job->update([
+                    'status' => JobStatus::Error,
+                    'error_message' => "Parse arrêté selon la politique « {$policy->label()} » après {$errors} erreur(s).",
+                ]);
+                $this->log($job, LogLevel::Error, "Parse interrompu (politique {$policy->value}) : {$errors} erreur(s).", [
+                    'last_processed_row' => $processed,
+                ]);
+
+                return;
             }
 
             $job->update([
                 'status' => JobStatus::Parsed,
                 'processed_rows' => $processed,
                 'staging_count' => $stagingCount,
-                'last_processed_row' => $startAfter + $processed,
+                'last_processed_row' => $processed,
                 'parse_completed_at' => now(),
             ]);
             ProgressCache::set($job, $processed, $total);
@@ -174,6 +226,7 @@ class ParseFileToStagingJob implements ShouldQueue
             $this->log($job, LogLevel::Success, 'Parse terminé', [
                 'total_rows' => $total,
                 'staging_rows' => $stagingCount,
+                'error_rows' => $errors,
             ]);
 
             ImportJobNotifier::parseCompleted($job->fresh());
@@ -189,6 +242,16 @@ class ParseFileToStagingJob implements ShouldQueue
             'status' => JobStatus::Error,
             'error_message' => $e->getMessage(),
         ]);
+    }
+
+    private function persistProgress(ImportJob $job, int $processed, int $stagingCount, ?int $total): void
+    {
+        $job->update([
+            'processed_rows' => $processed,
+            'staging_count' => $stagingCount,
+            'last_processed_row' => $processed,
+        ]);
+        ProgressCache::set($job, $processed, $total);
     }
 
     private function fail(ImportJob $job, string $message): void
