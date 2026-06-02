@@ -24,6 +24,7 @@ final class ActionPalette
     private const PALETTE = [
         'Logique' => [
             'condition' => 'Condition (SI / ALORS / SINON)',
+            'conditional' => 'Condition simple (ternaire)',
         ],
         'Calcul' => [
             'math' => 'Calcul (× ÷ + −)',
@@ -48,6 +49,7 @@ final class ActionPalette
         ],
         'Correspondance' => [
             'map' => 'Table de correspondance',
+            'category_map' => 'Mapping catégories (table → fil d\'Ariane)',
             'parse_category_breadcrumb' => 'Mapping catégories (fil d\'Ariane)',
         ],
         'Dates & validation' => [
@@ -123,6 +125,9 @@ final class ActionPalette
 
     private static function isLegacyAlias(string $type): bool
     {
-        return in_array($type, ['multiply', 'divide', 'add', 'subtract'], true);
+        return in_array($type, [
+            'multiply', 'divide', 'add', 'subtract',
+            'uppercase', 'lowercase', 'capitalize',
+        ], true);
     }
 }

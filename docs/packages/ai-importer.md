@@ -8,7 +8,7 @@ Portage du module PrestaShop **Publiko AI Importer** (23 560 lignes de code, 43 
 
 - Package **Filament Plugin** autonome `Pko\AiImporter\` sous `packages/pko/ai-importer/`
 - 5 tables `pko_ai_importer_*` (configs, llm_configs, jobs, staging, logs)
-- Pipeline d'actions **polymorphe** — 17 classes (après simplification Proposition D, fusion `multiply/divide/add/subtract` → `math`, `uppercase/lowercase/capitalize` → `change_case`, `map/category_map` → `map` multi-value, `prefix` supprimé au profit de `concat → truncate → change_case`)
+- Pipeline d'actions **polymorphe** — 21 classes (après simplification Proposition D : `multiply/divide/add/subtract` → alias `math`, `uppercase/lowercase/capitalize` → alias `change_case`). `category_map` et `conditional` restent des actions dédiées (mapping breadcrumb + ternaire simple PS) car non couvertes par `map`/`condition`.
 - Workflow découpé en 2 Laravel Jobs queue (`ParseFileToStagingJob`, `ImportStagingToLunarJob`), replacent les 3 cron PS (`cron.php`, `cron-prepare.php`, `cron-import.php`)
 - Preview & import via **Filament Resources** natives (pas de DataTables server-side custom) — réutilise les patterns perf TreeManager (`#[Computed]`, pagination SQL, cache Redis progress)
 
@@ -142,7 +142,7 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `category` | `collections` | passe array ou CSV inchangé |
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
 
-### 7.quinquies.10 Actions disponibles (19 + 4 alias legacy)
+### 7.quinquies.10 Actions disponibles (21 + 7 alias legacy)
 
 | Type | Rôle |
 |---|---|
@@ -162,14 +162,20 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `template` | Interpole `{placeholders}` depuis sources nommées |
 | `copy` | Recopie une autre colonne (déjà mappée ou brute) |
 | `map` | Lookup `{from => to}`, support multi-value avec séparateur |
+| `category_map` | Mappe un libellé via `values` → fil d'Ariane, fallback `default_category`, puis CSV de handles (réutilise `parse_category_breadcrumb`). Config PS `somfy.json` |
 | `llm_transform` | Appel LLM (Claude/OpenAI) avec prompt + sources |
 | `multiline_aggregate` | Agrège plusieurs lignes d'une sheet many (concat/count/json_array) |
 | `feature_build` | Construit le hash `features` depuis N colonnes source |
 | `parse_features_string` | Parse `"F1:V1,V2|F2:V3"` (sortie LLM) → `{f1:[v1,v2]}` slugifié |
 | `parse_category_breadcrumb` | Parse `"A>B>C,D>E"` → CSV de handles, mode `leaf` (défaut) ou `all` |
 | `condition` | Branching `if/else` avec branches/rules/else_actions. Support `field: "sheet:col"` ou `"col_value"`, opérateurs `=`/`!=`/`>`/`<`/`contains`/`empty`/`in`. Premier match wins. Pas de récursion (nested condition silencieusement skip). |
+| `conditional` | Ternaire simple PS `{condition:"> 0", if_true:"1", if_false:"0"}`. Parse l'opérateur en tête (`>`/`>=`/`=`/`!=`/`contains`/`empty`…) sur la valeur courante. Distinct de `condition` (pas de branches/actions imbriquées). |
 
-**Alias legacy** (configs PrestaShop v0) : `multiply`, `divide`, `add`, `subtract` routent automatiquement vers `MathAction` avec l'opération correspondante. Permet d'importer un JSON PS sans modifier les actions.
+**Alias legacy** (configs PrestaShop v0) :
+- `multiply`, `divide`, `add`, `subtract` → `MathAction` (opération correspondante).
+- `uppercase`, `lowercase`, `capitalize` → `ChangeCaseAction` (mode `upper`/`lower`/`capitalize` dérivé du type).
+
+Permet d'importer un JSON PS sans modifier les actions.
 
 ### 7.quinquies.11 Diagnostic des imports LLM
 
