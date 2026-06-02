@@ -98,6 +98,62 @@ class ImporterConfigRoundTripTest extends TestCase
         $this->assertSame($config, $this->roundTrip($config));
     }
 
+    public function test_source_type_round_trips(): void
+    {
+        $config = [
+            'type' => 'FAB-DIS',
+            'primary_sheet' => 'B01_COMMERCE',
+        ];
+
+        $this->assertSame($config, $this->roundTrip($config));
+    }
+
+    public function test_full_llm_transform_action_round_trips(): void
+    {
+        $config = [
+            'mapping' => [
+                'description' => [
+                    'col' => 'DESC',
+                    'actions' => [
+                        [
+                            'type' => 'llm_transform',
+                            'llm_config_id' => 3,
+                            'prompt' => 'Reformule la description produit.',
+                            'input_columns' => ['DESC', 'NOM'],
+                            'output_format' => 'json',
+                            'output_json_key' => 'description',
+                            'additional_context' => 'Ton B2B, vouvoiement.',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertSame($config, $this->roundTrip($config));
+    }
+
+    public function test_multi_value_map_action_round_trips(): void
+    {
+        $config = [
+            'mapping' => [
+                'features' => [
+                    'col' => 'TAGS',
+                    'actions' => [
+                        [
+                            'type' => 'map',
+                            'values' => ['A' => 'Alpha', 'B' => 'Beta'],
+                            'default' => null,
+                            'multi_value' => true,
+                            'separator' => '|',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertSame($config, $this->roundTrip($config));
+    }
+
     public function test_condition_branching_round_trips(): void
     {
         $config = [
