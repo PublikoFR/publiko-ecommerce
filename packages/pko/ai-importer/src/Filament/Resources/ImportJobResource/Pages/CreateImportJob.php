@@ -17,6 +17,7 @@ use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImporterConfig;
+use Pko\AiImporter\Services\PreparedCsvImporter;
 
 class CreateImportJob extends CreateRecord
 {
@@ -55,6 +56,26 @@ class CreateImportJob extends CreateRecord
                         ->required(),
                 ])
                 ->action(fn (array $data) => $this->importJsonConfig($data)),
+
+            Actions\Action::make('importPreparedCsv')
+                ->label('Importer un CSV préparé')
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->modalHeading('Importer un CSV déjà préparé')
+                ->modalDescription('Charge directement les lignes en staging, sans configuration ni traitement IA. Séparateur « ; », 1ʳᵉ ligne = en-têtes.')
+                ->form([
+                    Forms\Components\TextInput::make('import_name')
+                        ->label('Nom de l\'import')
+                        ->placeholder('Optionnel — défaut : nom du fichier')
+                        ->maxLength(128),
+                    Forms\Components\FileUpload::make('csv_file')
+                        ->label('Fichier CSV préparé')
+                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                        ->disk(config('ai-importer.storage.disk', 'local'))
+                        ->directory(config('ai-importer.storage.inputs_path', 'ai-importer/inputs'))
+                        ->required(),
+                ])
+                ->action(fn (array $data) => $this->importPreparedCsv($data)),
 
             Actions\Action::make('runCron')
                 ->label('Exécuter CRON')
@@ -104,6 +125,43 @@ class CreateImportJob extends CreateRecord
         } else {
             Notification::make()->danger()->title('Échec de l\'import')->body(trim(Artisan::output()))->send();
         }
+    }
+
+    /**
+     * Importe un CSV déjà préparé directement en staging (sans config), puis
+     * redirige vers la vue du job créé. Portage de la fonction read-only
+     * `ajaxProcessImportPreparedCsv` du module PrestaShop.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function importPreparedCsv(array $data): void
+    {
+        $path = $data['csv_file'] ?? null;
+        $disk = config('ai-importer.storage.disk', 'local');
+
+        if (! is_string($path) || ! Storage::disk($disk)->exists($path)) {
+            Notification::make()->danger()->title('Fichier CSV introuvable')->send();
+
+            return;
+        }
+
+        try {
+            $job = app(PreparedCsvImporter::class)->import($path, $data['import_name'] ?? null);
+        } catch (\Throwable $e) {
+            Notification::make()->danger()->title('Échec de l\'import CSV')->body($e->getMessage())->send();
+
+            return;
+        }
+
+        if ($job->staging_count === 0) {
+            Notification::make()->warning()->title('Aucune ligne importée')
+                ->body('Le fichier ne contient aucune ligne de données.')->send();
+        } else {
+            Notification::make()->success()->title('CSV importé en staging')
+                ->body($job->staging_count.' ligne(s) prête(s) à l\'import.')->send();
+        }
+
+        $this->redirect(ImportJobResource::getUrl('view', ['record' => $job]));
     }
 
     public function duplicateImporterConfig(int $id): void

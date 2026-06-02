@@ -45,6 +45,15 @@ Nouveau groupe Filament **« Imports »** (entre *Expédition* et *Configuration
 - `ImporterConfigResource` — CRUD configs de mapping par fournisseur
 - `LlmConfigResource` — CRUD clés API LLM (Claude, OpenAI)
 
+### 7.quinquies.6bis Import direct d'un CSV préparé (parité PS read-only)
+
+Header action **« Importer un CSV préparé »** sur la page `CreateImportJob` (modale : nom optionnel + upload CSV). Portage de `AdminPublikoImportController::ajaxProcessImportPreparedCsv` (PrestaShop) : on charge un CSV **déjà préparé** directement en staging, **sans `ImporterConfig` ni traitement IA**.
+
+- Service dédié **`Services/PreparedCsvImporter`** : lecture `fgetcsv` (séparateur `;`, BOM UTF-8 strippé sur la 1ʳᵉ cellule d'en-tête), 1ʳᵉ ligne = en-têtes → clés du tableau `data` de chaque `StagingRecord`. Lignes vides ignorées.
+- Crée un `ImportJob` **sans `config_id`** (badge « Import CSV » côté liste, cf. colonne `source`), directement en `status=Parsed` / `import_status=Pending` (aucun parse asynchrone requis), avec `total_rows` / `processed_rows` / `staging_count` renseignés. Le nom saisi (défaut = nom du fichier) est stocké dans `options.import_name`. Le chemin du fichier uploadé est conservé dans `input_file_path` (téléchargeable via l'action « Fichier source »).
+- Insère les `StagingRecord` (`status=Pending`) puis redirige vers `ViewImportJob`. La grille « Colonnes à traiter » du formulaire Create reste masquée quand `config_id` est absent (déjà géré par `visible()`).
+- Couverture : `tests/Feature/AiImporter/PreparedCsvImporterTest` (insertion staging, BOM + défaut nom = fichier, fichier en-têtes seules → 0 staging).
+
 ### 7.quinquies.7 Phase 1 — Foundation (commit 4a66a3e)
 
 - Squelette package complet, 5 migrations appliquées, 5 modèles Eloquent, 6 enums, contrats, 16 classes d'action, LLM Manager + providers, 2 Jobs queue (squelettes), 3 Filament Resources, enregistrement `composer.json` + `bootstrap/providers.php` + `AppServiceProvider`.
