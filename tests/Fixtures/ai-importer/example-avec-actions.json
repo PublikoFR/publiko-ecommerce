@@ -1,0 +1,216 @@
+{
+  "fournisseur": "Example avec Actions",
+  "type": "FAB-DIS",
+
+  "mapping": {
+    "Nom*": {
+      "col": "LIBELLE",
+      "sheet": "B01_COMMERCE",
+      "prefix": null,
+      "default": "",
+      "action": null
+    },
+
+    "Référence fournisseur": {
+      "col": "REFCIALE",
+      "sheet": "B01_COMMERCE",
+      "prefix": "FAA",
+      "default": "",
+      "action": null
+    },
+
+    "Prix HT": {
+      "col": "PRIX_NET",
+      "sheet": "B01_COMMERCE",
+      "prefix": null,
+      "default": "0",
+      "action": {
+        "type": "multiply",
+        "value": 1.2
+      }
+    },
+
+    "Largeur": {
+      "col": "LARGEUR_MM",
+      "sheet": "B02_LOGISTIQUE",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "divide",
+        "value": 10,
+        "comment": "Conversion mm vers cm"
+      }
+    },
+
+    "URL des images (x,y,z, etc.)": {
+      "col": null,
+      "sheet": null,
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "concat",
+        "separator": ",",
+        "sources": [
+          {
+            "col": "URL_IMAGE_1",
+            "sheet": "B03_MEDIA"
+          },
+          {
+            "col": "URL_IMAGE_2",
+            "sheet": "B03_MEDIA"
+          },
+          {
+            "col": "URL_IMAGE_3",
+            "sheet": "B03_MEDIA"
+          }
+        ]
+      }
+    },
+
+    "Catégories (x,y,z...)": {
+      "col": null,
+      "sheet": null,
+      "prefix": null,
+      "default": "Accueil",
+      "action": {
+        "type": "concat",
+        "separator": ">",
+        "sources": [
+          {
+            "col": "FAMILLE",
+            "sheet": "B04_ETIM"
+          },
+          {
+            "col": "SOUS_FAMILLE",
+            "sheet": "B04_ETIM"
+          },
+          {
+            "col": "CATEGORIE",
+            "sheet": "B04_ETIM"
+          }
+        ]
+      }
+    },
+
+    "Description": {
+      "col": "DESC_COURTE",
+      "sheet": "B03_MEDIA",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "concat",
+        "separator": " - ",
+        "sources": [
+          {
+            "col": "DESC_COURTE",
+            "sheet": "B03_MEDIA"
+          },
+          {
+            "col": "DESC_TECHNIQUE",
+            "sheet": "B03_MEDIA"
+          }
+        ]
+      }
+    },
+
+    "Actif (0/1)": {
+      "col": "STATUT",
+      "sheet": "B01_COMMERCE",
+      "prefix": null,
+      "default": "0",
+      "action": {
+        "type": "map",
+        "values": {
+          "Disponible": "1",
+          "En stock": "1",
+          "Rupture": "0",
+          "Arrêté": "0"
+        }
+      }
+    },
+
+    "EAN-13": {
+      "col": "CODEBARRE",
+      "sheet": "B02_LOGISTIQUE",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "replace",
+        "search": " ",
+        "replace": ""
+      }
+    },
+
+    "Récapitulatif": {
+      "col": "LIBELLE",
+      "sheet": "B01_COMMERCE",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "truncate",
+        "length": 250,
+        "suffix": "..."
+      }
+    },
+
+    "URL réécrite": {
+      "col": "LIBELLE",
+      "sheet": "B01_COMMERCE",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "slugify",
+        "lowercase": true
+      }
+    },
+
+    "Balise titre": {
+      "col": null,
+      "sheet": null,
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "template",
+        "template": "{NOM} - {MARQUE} - {REF}",
+        "sources": {
+          "NOM": {
+            "col": "LIBELLE",
+            "sheet": "B01_COMMERCE"
+          },
+          "MARQUE": {
+            "col": "FABRICANT",
+            "sheet": "B04_ETIM"
+          },
+          "REF": {
+            "col": "REFCIALE",
+            "sheet": "B01_COMMERCE"
+          }
+        }
+      }
+    },
+
+    "Poids": {
+      "col": "POIDS_BRUT",
+      "sheet": "B02_LOGISTIQUE",
+      "prefix": null,
+      "default": "",
+      "action": {
+        "type": "round",
+        "decimals": 2
+      }
+    },
+
+    "Disponible à la commande (0 = Non, 1 = Oui)": {
+      "col": "STOCK",
+      "sheet": "B02_LOGISTIQUE",
+      "prefix": null,
+      "default": "1",
+      "action": {
+        "type": "conditional",
+        "condition": "> 0",
+        "if_true": "1",
+        "if_false": "0"
+      }
+    }
+  }
+}

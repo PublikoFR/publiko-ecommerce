@@ -12,8 +12,15 @@ use Pko\AiImporter\Actions\ExecutionContext;
 /**
  * LLM-powered column transform.
  *
- * Phase 1 = wiring + input assembly. Actual API call delegated to LlmManager
- * once ClaudeProvider/OpenAiProvider are implemented in phase 2.
+ * Assemble les colonnes d'entrée + le contexte global, puis délègue l'appel à
+ * `LlmManager::forConfig()` (providers ClaudeProvider / OpenAiProvider tous deux
+ * opérationnels). No-op sûr quand aucun `LlmConfig` actif n'est résolu (table
+ * vide en dev/test) : `execute()` renvoie la valeur source sans toucher au
+ * réseau.
+ *
+ * ⚠️ Coûts API : sur une config active, chaque ligne parsée déclenche un VRAI
+ * appel facturable. Ne jamais lancer un parse réel d'une config contenant des
+ * actions `llm_transform` sans budget maîtrisé (cf. docs/packages/ai-importer.md).
  */
 final class LlmTransformAction extends Action
 {

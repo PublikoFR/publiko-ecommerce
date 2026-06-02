@@ -1,0 +1,511 @@
+{
+    "fournisseur": "SOMFY",
+    "type": "FAB-DIS",
+    "join_key": "REFCIALE",
+    "primary_sheet": "B01_COMMERCE",
+    "sheets": {
+        "B01_COMMERCE": {
+            "relation": "one",
+            "join_col": "B"
+        },
+        "B02_LOGISTIQUE": {
+            "relation": "one",
+            "join_col": "B"
+        },
+        "B03_MEDIA": {
+            "relation": "many",
+            "join_col": "B",
+            "type_col": "MTYP"
+        },
+        "B04_REGLEMENTAIRE": {
+            "relation": "one",
+            "join_col": "B"
+        }
+    },
+    "mapping": {
+        "ID": [],
+        "Actif (0\/1)": {
+            "default": "1"
+        },
+        "Nom*": {
+            "col": "H",
+            "sheet": "B01_COMMERCE"
+        },
+        "Catégories (x,y,z...)": {
+            "col": "G",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "category_map",
+                "values": {
+                    "Sachets visserie": "Accueil>Quincaillerie",
+                    "Moteurs": "Accueil>Électronique>Motorisation",
+                    "Kits d'installation": "Accueil>Électronique>Motorisation>Kits d'installation",
+                    "Pièces détachées": "Accueil>Pièces détachées",
+                    "Moteurs solaires": "Accueil>Électronique>Motorisation>Moteurs solaires",
+                    "Accessoires": "Accueil>Électronique>Accessoires électroniques",
+                    "Rails et accessoires": "Accueil>Électronique>Motorisation>Rails et accessoires",
+                    "Piles": "Accueil>Consommables>Piles et batteries",
+                    "Accessoires solaires": "Accueil>Énergie solaire>Accessoires solaires",
+                    "Emetteurs": "Accueil>Électronique>Domotique>Émetteurs",
+                    "Cables": "Accueil>Électronique>Câbles et connectique",
+                    "Récepteurs": "Accueil>Électronique>Domotique>Récepteurs",
+                    "Télécommandes et commandes": "Accueil>Électronique>Télécommandes et commandes",
+                    "Capteurs": "Accueil>Électronique>Domotique>Capteurs",
+                    "Commandes centralisées": "Accueil>Électronique>Domotique>Commandes centralisées",
+                    "Commandes centralisées connectées": "Accueil>Électronique>Domotique>Commandes centralisées connectées",
+                    "Visiophones connectés": "Accueil>Électronique>Interphonie>Visiophones connectés",
+                    "Kits d'installation alarmes": "Accueil>Électronique>Alarme>Kits d'installation alarmes",
+                    "Batteries": "Accueil>Consommables>Piles et batteries",
+                    "Enceintes audio": "Accueil>Audio>Enceintes audio",
+                    "Panneaux solaires": "Accueil>Énergie solaire>Panneaux solaires",
+                    "Anémomètres": "Accueil>Électronique>Domotique>Capteurs>Anémomètres",
+                    "Alarmes": "Accueil>Électronique>Alarme",
+                    "Kits d'installation solaires": "Accueil>Énergie solaire>Kits d'installation solaires",
+                    "Kits": "Accueil>Électronique>Domotique>Kits domotique",
+                    "Stations météo": "Accueil>Électronique>Domotique>Stations météo"
+                },
+                "default_category": "Accueil>SOMFY>Non classé"
+            },
+            "comment": "Mapping des catégories fournisseur vers catégories Prestashop"
+        },
+        "Prix HT": {
+            "col": "M",
+            "sheet": "B01_COMMERCE",
+            "default": "0",
+            "action": {
+                "type": "multiply",
+                "value": 1.2,
+                "comment": "Prix achat distributeur x 1.2 = Prix HT public"
+            }
+        },
+        "ID règle de taxes": {
+            "default": "53",
+            "comment": "ID de la règle de taxe PrestaShop (1 = TVA 20% FR) - défini dans PrestaShop, pas dans le tableur"
+        },
+        "Prix d'achat": {
+            "col": "M",
+            "sheet": "B01_COMMERCE",
+            "default": "0",
+            "comment": "Prix achat distributeur (non visible client)"
+        },
+        "En soldes (0\/1)": {
+            "default": "0"
+        },
+        "Montant de la remise": {
+            "default": "0"
+        },
+        "Pourcentage de réduction": [],
+        "Réduction de (AAAA-MM-JJ)": [],
+        "Réduction à (AAAA-MM-JJ)": [],
+        "Référence": {
+            "col": "REFCIALE",
+            "sheet": "B01_COMMERCE",
+            "prefix": "SOM"
+        },
+        "Référence fournisseur": {
+            "col": "B",
+            "sheet": "B01_COMMERCE"
+        },
+        "Fournisseurs": {
+            "default": "SOMFY"
+        },
+        "Marque": {
+            "col": "A",
+            "sheet": "B01_COMMERCE",
+            "default": "SOMFY"
+        },
+        "EAN-13": {
+            "col": "D",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "validate_ean13"
+            },
+            "comment": "Valider l'EAN13 (doit faire exactement 13 chiffres, sinon vide)"
+        },
+        "UPC": [],
+        "MPN": [],
+        "Éco-participation": {
+            "col": "L",
+            "sheet": "B04_REGLEMENTAIRE",
+            "default": "0"
+        },
+        "Largeur": {
+            "col": "L",
+            "sheet": "B02_LOGISTIQUE",
+            "action": {
+                "type": "divide",
+                "value": 10,
+                "comment": "Conversion mm vers cm pour PrestaShop"
+            }
+        },
+        "Hauteur": {
+            "col": "J",
+            "sheet": "B02_LOGISTIQUE",
+            "action": {
+                "type": "divide",
+                "value": 10,
+                "comment": "Conversion mm vers cm pour PrestaShop"
+            }
+        },
+        "Profondeur": {
+            "col": "N",
+            "sheet": "B02_LOGISTIQUE",
+            "action": {
+                "type": "divide",
+                "value": 10,
+                "comment": "Conversion mm vers cm pour PrestaShop"
+            }
+        },
+        "Poids": {
+            "col": "P",
+            "sheet": "B02_LOGISTIQUE",
+            "action": {
+                "type": "round",
+                "decimals": 3,
+                "comment": "Poids en kg avec 3 décimales"
+            }
+        },
+        "Délai de livraison pour les produits en stock :": {
+            "default": "48\/72H"
+        },
+        "Délai de livraison des produits épuisés avec commande autorisée:": {
+            "default": "Sur demande"
+        },
+        "Quantité": {
+            "col": "N",
+            "sheet": "B01_COMMERCE",
+            "default": "0"
+        },
+        "Quantité minimale": {
+            "col": "S",
+            "sheet": "B01_COMMERCE",
+            "default": "1"
+        },
+        "Niveau de stock bas": {
+            "default": "5"
+        },
+        "Visibilité": {
+            "default": "both",
+            "comment": "Visible partout (catalogue et recherche)"
+        },
+        "Frais de port supplémentaire": {
+            "default": "0"
+        },
+        "Unité pour le prix unitaire": {
+            "default": "unité"
+        },
+        "Prix unitaire": [],
+        "Récapitulatif": {
+            "col": "I",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "truncate",
+                "length": 800,
+                "suffix": "...",
+                "comment": "Limite PrestaShop pour le résumé"
+            }
+        },
+        "Description": {
+            "col": "J",
+            "sheet": "B01_COMMERCE"
+        },
+        "Mot-clés (x,y,z...)": {
+            "col": "I",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "concat",
+                "separator": ",",
+                "sources": [
+                    {
+                        "col": "A",
+                        "sheet": "B01_COMMERCE"
+                    },
+                    {
+                        "col": "B",
+                        "sheet": "B01_COMMERCE"
+                    },
+                    {
+                        "col": "D",
+                        "sheet": "B01_COMMERCE"
+                    },
+                    {
+                        "col": "F",
+                        "sheet": "B01_COMMERCE"
+                    },
+                    {
+                        "col": "H",
+                        "sheet": "B01_COMMERCE"
+                    }
+                ]
+            },
+            "comment": "Tags pour le référencement interne: (Marque, Refciale, GTIN, Gamme, Nom)"
+        },
+        "Balise titre": {
+            "action": {
+                "type": "template",
+                "template": "{NOM} - SOMFY | MDE Distribution",
+                "sources": {
+                    "NOM": {
+                        "col": "H",
+                        "sheet": "B01_COMMERCE"
+                    }
+                },
+                "comment": "Title SEO: Nom produit - Marque | Site"
+            }
+        },
+        "Meta mots-clés": {
+            "action": {
+                "type": "copy",
+                "col": "Mot-clés (x,y,z...)"
+            },
+            "comment": "Peu utile pour SEO mais reprise des tags"
+        },
+        "Meta description": {
+            "col": "J",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "truncate",
+                "length": 160,
+                "suffix": "",
+                "comment": "Limite SEO meta description"
+            }
+        },
+        "URL réécrite": {
+            "col": "H",
+            "sheet": "B01_COMMERCE",
+            "action": {
+                "type": "slugify",
+                "lowercase": true,
+                "comment": "URL friendly à partir du nom produit"
+            }
+        },
+        "Libellé si en stock": {
+            "default": "En stock - Expédition 48\/72h",
+            "comment": "Message affiché si produit en stock"
+        },
+        "Libellé quand précommande activée": {
+            "default": "Disponible sur commande"
+        },
+        "Disponible à la commande (0 = Non, 1 = Oui)": {
+            "default": "1",
+            "comment": "Toujours commandable"
+        },
+        "Date de disponibilité du produit": {
+            "default": "",
+            "comment": "Date dispo si rupture, sinon vide = 48\/72h"
+        },
+        "Date d'ajout du produit": {
+            "comment": "Sera défini automatiquement à l'import"
+        },
+        "Afficher le prix (0 = Non, 1 = Oui)": {
+            "default": "0",
+            "comment": "Prix masqué si non connecté (géré côté thème\/module)"
+        },
+        "URL des images (x,y,z, etc.)": {
+            "col": "N",
+            "sheet": "B03_MEDIA",
+            "type": "PHOTO",
+            "aggregate": "concat",
+            "separator": ",",
+            "comment": "URL des images produit (type PHOTO uniquement)"
+        },
+        "Textes alternatif des images (x,y,z...)": {
+            "col": "L",
+            "sheet": "B03_MEDIA",
+            "type": "PHOTO",
+            "aggregate": "concat",
+            "separator": ",",
+            "comment": "Alt text pour SEO images (type PHOTO uniquement)"
+        },
+        "Supprimer les images existantes (0 = Non, 1 = Oui)": {
+            "default": "0",
+            "comment": "Conserver images existantes lors des mises à jour"
+        },
+        "Disponible en ligne uniquement (0 = Non, 1 = Oui)": {
+            "default": "1"
+        },
+        "État": {
+            "default": "new",
+            "comment": "État du produit: new, used, refurbished"
+        },
+        "Personnalisable (0 = Non, 1 = Oui)": {
+            "default": "0"
+        },
+        "Fichiers téléchargeables (0 = Non, 1 = Oui)": {
+            "default": "0",
+            "comment": "Produit physique, pas de téléchargement"
+        },
+        "Champs texte (0 = Non, 1 = Oui)": {
+            "default": "0"
+        },
+        "Action en cas de rupture de stock": {
+            "default": "1",
+            "comment": "1 = Autoriser commandes, client contacté par mail"
+        },
+        "Produit dématérialisé (0 = Non, 1 = Oui)": {
+            "default": "0"
+        },
+        "URL du fichier": [],
+        "Nombre de téléchargements autorisés": [],
+        "Date d'expiration (aaaa-mm-jj)": [],
+        "Nombre de jours": [],
+        "ID \/ Nom de la boutique": {
+            "default": "1",
+            "comment": "ID boutique par défaut (monoboutique)"
+        },
+        "Gestion des stocks avancée": {
+            "default": "0",
+            "comment": "Gestion stock avancée désactivée"
+        },
+        "En fonction du stock": [],
+        "Entrepôt": [],
+        "Accessoires (x,y,z...)": [],
+        "Caractéristique (Nom:Valeur:Position:Personnalisé)": {
+            "comment": "Features produit - à extraire de B04_ETIM si besoin",
+            "action": {
+                "type": "llm_transform",
+                "llm_config_id": "1",
+                "prompt": "Tu es un expert en référencement de produit sur Prestashop 8. \nA partir des informations disponibles pour ce produit, sa marque et sa référence, détermine parmi la liste des caractéristiques techniques fournie, quelles sont ses caracatéristiques.\n\nLe format de retour attendu est uniquement une chaine der caractère formatée comme suit : \"Feature 1:Value 1,Value 2|Feature 2:Value1, Value 2|Feature 3:Value1\" etc\n\nIl faut impérativement respecter l'orthographe exacte des caractéristiques fournies.",
+                "input_columns": [
+                    {
+                        "col": "Nom*",
+                        "label": "Nom*"
+                    },
+                    {
+                        "col": "Catégories (x,y,z...)",
+                        "label": "Catégories (x,y,z...)"
+                    },
+                    {
+                        "col": "Référence",
+                        "label": "Référence"
+                    },
+                    {
+                        "col": "Référence fournisseur",
+                        "label": "Référence fournisseur"
+                    },
+                    {
+                        "col": "Fournisseurs",
+                        "label": "Fournisseurs"
+                    },
+                    {
+                        "col": "Marque",
+                        "label": "Marque"
+                    },
+                    {
+                        "col": "EAN-13",
+                        "label": "EAN-13"
+                    },
+                    {
+                        "col": "Description",
+                        "label": "Description"
+                    },
+                    {
+                        "col": "Balise titre",
+                        "label": "Balise titre"
+                    }
+                ],
+                "additional_context": {
+                    "Application": [
+                        "Pergola",
+                        "Portail",
+                        "Porte de garage",
+                        "Rideau métallique \/ Porte Enroulable",
+                        "Store \/ Screen",
+                        "Volet roulant"
+                    ],
+                    "Type de connexion": [
+                        "Filaire",
+                        "Sans-fil"
+                    ],
+                    "Type d'alimentation": [
+                        "Batterie",
+                        "Piles",
+                        "PoE",
+                        "Secteur",
+                        "Solaire auto-alimenté"
+                    ],
+                    "Tension d'alimentation": [
+                        "12 V",
+                        "230 V",
+                        "24 V",
+                        "48 V"
+                    ],
+                    "Connectivité": [
+                        "Bluetooth",
+                        "EnOcean",
+                        "io-homecontrol",
+                        "KNX",
+                        "Matter",
+                        "Modbus",
+                        "Radio 433 MHz",
+                        "Radio 868 MHz",
+                        "RTS",
+                        "Thread",
+                        "WiFi",
+                        "WT (filaire)",
+                        "Z-Wave",
+                        "Zigbee"
+                    ],
+                    "Couple (Nm)": [
+                        "10 Nm",
+                        "100+ Nm",
+                        "15-20 Nm",
+                        "30-40 Nm",
+                        "50-60 Nm",
+                        "6 Nm"
+                    ],
+                    "Force (N)": [
+                        "1000+ N",
+                        "250-300 N",
+                        "400-500 N",
+                        "600-800 N"
+                    ],
+                    "Diamètre moteur": [
+                        "Ø35",
+                        "Ø40",
+                        "Ø45",
+                        "Ø50 ",
+                        "Ø60"
+                    ],
+                    "Gamme": [
+                        "ALTUS",
+                        "AXOVIA",
+                        "DEXXO",
+                        "ELIXO",
+                        "EVOLVIA",
+                        "EXAVIA",
+                        "GDK",
+                        "GLYDEA",
+                        "ILMO",
+                        "IXENGO",
+                        "J4",
+                        "LOCKYVIA",
+                        "LS40",
+                        "LT \/ LT50 \/ LT60",
+                        "MOVELITE",
+                        "OREA",
+                        "OXIMO",
+                        "PERGOLA",
+                        "RDO",
+                        "RS100",
+                        "SONESSE",
+                        "SUNEA",
+                        "SUNILUS"
+                    ],
+                    "Type de pièce": [
+                        "Boîtier de commande",
+                        "Carte électronique",
+                        "Condensateur",
+                        "Dispositif antichute",
+                        "Fin de course",
+                        "Pignon \/ Axe",
+                        "Récepteur",
+                        "Tête moteur",
+                        "Visserie"
+                    ]
+                },
+                "output_format": "string"
+            }
+        }
+    }
+}
