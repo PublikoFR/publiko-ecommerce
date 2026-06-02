@@ -40,6 +40,32 @@ abstract class Action implements ActionInterface
         // Subclasses override when more complex parsing is required.
         unset($config['type']);
 
-        return new static(...$config); // @phpstan-ignore-line
+        return new static(...static::filterConstructorParams($config)); // @phpstan-ignore-line
+    }
+
+    /**
+     * Keep only the keys that match a parameter of the target constructor.
+     *
+     * Real-world PrestaShop configs annotate actions with documentation keys
+     * (e.g. `comment`) or internal markers (`_*`) that are not constructor
+     * parameters. Passing them through `new static(...$config)` would raise an
+     * `ArgumentCountError: Unknown named parameter`. We silently drop them.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    protected static function filterConstructorParams(array $config): array
+    {
+        $constructor = (new \ReflectionClass(static::class))->getConstructor();
+        if ($constructor === null) {
+            return [];
+        }
+
+        $allowed = [];
+        foreach ($constructor->getParameters() as $parameter) {
+            $allowed[$parameter->getName()] = true;
+        }
+
+        return array_intersect_key($config, $allowed);
     }
 }

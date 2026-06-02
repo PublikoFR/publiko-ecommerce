@@ -40,6 +40,46 @@ class ActionTypesTest extends TestCase
         $this->assertSame(42.0, $action->execute(42, $this->ctx()));
     }
 
+    public function test_math_tolerates_unknown_comment_key(): void
+    {
+        // Real PrestaShop configs annotate actions with a "comment" key that is
+        // not a constructor parameter. It must be silently ignored, not crash.
+        $action = Action::make([
+            'type' => 'math',
+            'operation' => 'multiply',
+            'value' => 1.2,
+            'comment' => 'Marge B2B +20%',
+            '_source' => 'somfy.json',
+        ]);
+
+        $this->assertSame('multiply', $action->operation);
+        $this->assertSame(1.2, $action->value);
+        $this->assertSame(120.0, $action->execute(100, $this->ctx()));
+    }
+
+    public function test_legacy_multiply_type_tolerates_comment_key(): void
+    {
+        $action = Action::make(['type' => 'multiply', 'value' => 1.5, 'comment' => 'doc']);
+
+        $this->assertSame('multiply', $action->operation);
+        $this->assertSame(150.0, $action->execute(100, $this->ctx()));
+    }
+
+    public function test_base_factory_tolerates_unknown_keys(): void
+    {
+        // Default Action::fromArray (used by simple actions like trim/prefix)
+        // must also drop keys absent from the constructor signature.
+        $action = Action::make([
+            'type' => 'prefix',
+            'text' => 'REF',
+            'separator' => '-',
+            'comment' => 'préfixe référence',
+            '_note' => 'ignored',
+        ]);
+
+        $this->assertSame('REF-4275', $action->execute('4275', $this->ctx()));
+    }
+
     public function test_change_case_handles_three_modes(): void
     {
         $upper = Action::make(['type' => 'change_case', 'mode' => 'upper']);
