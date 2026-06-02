@@ -38,12 +38,19 @@ Tous les fichiers PHP portés portent `declare(strict_types=1);` (CLAUDE.md §3.
 - `@tailwindcss/forms` ^0.5.9
 - `@ryangjchandler/alpine-clipboard` ^2.3.0
 
+### Checkout — corrections starter kit → Livewire 3 (2026-06)
+
+Le `CheckoutPage` du starter kit visait Livewire 2 et était cassé sur ce projet (Livewire 3.7). Corrections appliquées :
+
+- **Binding sur modèle Eloquent interdit en Livewire 3** : `wire:model="shipping.first_name"` sur une propriété `CartAddress` lève `Can't set model properties directly` (`ModelSynth`). Les valeurs s'affichaient mais n'entraient jamais dans l'état → validation « field required » sur des champs remplis. **Décision** : `CheckoutPage::$shipping` / `$billing` sont désormais des **arrays** (`emptyAddress()` / `addressToArray()`), reconvertis en `CartAddress` dans `saveAddress()`. Le résumé d'adrese (partial) lit l'adresse **sauvegardée** (`$this->cart->{$type}Address`), pas l'array. Test de non-régression : `tests/Feature/CheckoutBindingTest.php`.
+- **Layout** : `CheckoutPage`/`CheckoutSuccessPage` passent de `layouts.checkout` (layout démo Lunar) à `layouts.storefront` (thème projet). `@stripeScripts` poussé via `@push('head')` car le layout storefront ne l'inclut pas (cf. `@stack('head')`).
+- **Pays** : `getCountriesProperty()` retourne désormais `Country::orderBy('name')->get()` (était `['GBR','USA']`, jamais présents en DB → select vide). Défaut = pays boutique.
+- **Prefill** : `mount()` pré-remplit l'adresse depuis le client connecté (`$cart->customer` : nom, société, email du User, `meta.phone`, `meta.sirene_address`).
+
 ### Limitations connues / follow-up
 
-- **Pays pour le checkout** : `CheckoutPage::getCountriesProperty()` retourne uniquement `['GBR', 'USA']` (hérité starter kit). À remplacer par la France/UE pour le projet.
 - **Recherche** : `SearchPage` repose sur `Product::search()` (Scout). Nécessite un driver configuré (Algolia/Typesense/DB) ; sinon les résultats seront vides.
 - **Navigation** : `Navigation::getCollectionsProperty()` charge toutes les collections en arbre à chaque requête — à mettre en cache si le catalogue explose.
-- **Stripe JS** : `layouts/checkout.blade.php` inclut l'initialisation Stripe ; `STRIPE_PK` doit être exposé côté vue.
 - **UI** : starter kit basique non-production ready, sera amené à être refondu (Inertia+Vue kit à surveiller).
 
 ### Impact back-office

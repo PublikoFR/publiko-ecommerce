@@ -130,6 +130,7 @@
                     </x-input.group>
                 </div>
             @elseif($currentStep > $step)
+                @php($saved = $this->cart->{$type . 'Address'})
                 <dl class="grid grid-cols-1 gap-8 text-sm sm:grid-cols-2">
                     <div>
                         <div class="space-y-4">
@@ -139,30 +140,30 @@
                                 </dt>
 
                                 <dd class="mt-0.5">
-                                    {{ $this->{$type}->first_name }} {{ $this->{$type}->last_name }}
+                                    {{ $saved?->first_name }} {{ $saved?->last_name }}
                                 </dd>
                             </div>
 
-                            @if ($this->{$type}->company_name)
+                            @if ($saved?->company_name)
                                 <div>
                                     <dt class="font-medium">
                                         Company
                                     </dt>
 
                                     <dd class="mt-0.5">
-                                        {{ $this->{$type}->company_name }}
+                                        {{ $saved->company_name }}
                                     </dd>
                                 </div>
                             @endif
 
-                            @if ($this->{$type}->contact_phone)
+                            @if ($saved?->contact_phone)
                                 <div>
                                     <dt class="font-medium">
                                         Phone Number
                                     </dt>
 
                                     <dd class="mt-0.5">
-                                        {{ $this->{$type}->contact_phone }}
+                                        {{ $saved->contact_phone }}
                                     </dd>
                                 </div>
                             @endif
@@ -173,7 +174,7 @@
                                 </dt>
 
                                 <dd class="mt-0.5">
-                                    {{ $this->{$type}->contact_email }}
+                                    {{ $saved?->contact_email }}
                                 </dd>
                             </div>
                         </div>
@@ -185,21 +186,21 @@
                         </dt>
 
                         <dd class="mt-0.5">
-                            {{ $this->{$type}->line_one }}<br>
-                            @if ($this->{$type}->line_two)
-                                {{ $this->{$type}->line_two }}<br>
+                            {{ $saved?->line_one }}<br>
+                            @if ($saved?->line_two)
+                                {{ $saved->line_two }}<br>
                             @endif
-                            @if ($this->{$type}->line_three)
-                                {{ $this->{$type}->line_three }}<br>
+                            @if ($saved?->line_three)
+                                {{ $saved->line_three }}<br>
                             @endif
-                            @if ($this->{$type}->city)
-                                {{ $this->{$type}->city }}<br>
+                            @if ($saved?->city)
+                                {{ $saved->city }}<br>
                             @endif
-                            @if ($this->{$type}->state)
-                                {{ $this->{$type}->state }}<br>
+                            @if ($saved?->state)
+                                {{ $saved->state }}<br>
                             @endif
-                            {{ $this->{$type}->postcode }}<br>
-                            {{ $this->{$type}->country?->native }}
+                            {{ $saved?->postcode }}<br>
+                            {{ $saved?->country?->native }}
                         </dd>
                     </div>
                 </dl>
