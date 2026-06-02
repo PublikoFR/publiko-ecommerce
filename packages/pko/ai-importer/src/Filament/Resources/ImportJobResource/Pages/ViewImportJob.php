@@ -225,6 +225,7 @@ class ViewImportJob extends ViewRecord
                 ->action(function (): void {
                     ImportStagingToLunarJob::dispatch($this->record->id)
                         ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
+                    $this->record->update(['import_status' => ImportStatus::Queued]);
                     Notification::make()->success()->title('Import Lunar mis en file')->send();
                 }),
             Actions\Action::make('rollback')
@@ -252,7 +253,7 @@ class ViewImportJob extends ViewRecord
                 ->action(function (): void {
                     ImportStagingToLunarJob::dispatch($this->record->id)
                         ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
-                    $this->record->update(['import_status' => ImportStatus::Pending, 'error_message' => null]);
+                    $this->record->update(['import_status' => ImportStatus::Queued, 'error_message' => null]);
                     Notification::make()->success()->title('Import relancé')->send();
                 }),
             Actions\Action::make('testCron')

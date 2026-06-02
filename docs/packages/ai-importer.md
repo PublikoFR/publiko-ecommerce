@@ -328,6 +328,16 @@ fichier » + « Importer une préparation ».
 >
 > L'équivalent du « Run CRON » PS est la commande `ai-importer:run-scheduled`
 > (planifiée), exposée en plus en action UI sur la page Create.
+>
+> **Anti double-dispatch** : la commande ne matche que les jobs `parsed` avec
+> `import_status ∈ {Pending, Scheduled}` et `scheduled_at <= now`. Au dispatch elle
+> transitionne le job en `import_status=queued` (`ImportStatus::Queued`, label « En
+> file », color info) **avant** d'envoyer `ImportStagingToLunarJob`. Comme `queued`
+> est hors du filtre d'éligibilité, un tick cron ultérieur ne re-matche plus le job
+> même si le worker queue prend du retard (le job reste `status=parsed` tant que le
+> worker n'a pas démarré) → plus de double import des produits. Le worker repasse
+> ensuite à `importing`. Les actions UI `launchImport`/`resumeImport` passent elles
+> aussi à `queued` au dispatch (même garde anti double-clic).
 
 > **Note dette technique (hors scope ce volet)** : la suite complète sur DB fraîche
 > (`migrate:fresh` de `RefreshDatabase`) échoue à cause d'un conflit de migration

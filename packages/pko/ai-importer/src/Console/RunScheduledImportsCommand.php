@@ -58,7 +58,11 @@ class RunScheduledImportsCommand extends Command
                 continue;
             }
 
-            $job->update(['import_status' => ImportStatus::Scheduled]);
+            // Passage à Queued AVANT le dispatch : cet état est hors de la requête
+            // d'éligibilité ([Pending, Scheduled]), donc un tick cron ultérieur ne
+            // re-matchera plus ce job même si le worker queue prend du retard. Évite
+            // le double dispatch (et donc le double import des produits).
+            $job->update(['import_status' => ImportStatus::Queued]);
             ImportStagingToLunarJob::dispatch($job->id)
                 ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
         }
