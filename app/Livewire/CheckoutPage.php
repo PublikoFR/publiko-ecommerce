@@ -22,14 +22,21 @@ class CheckoutPage extends Component
     public ?Cart $cart;
 
     /**
-     * The shipping address instance.
+     * The shipping address form data.
+     *
+     * Plain array (not an Eloquent model): Livewire 3 forbids binding
+     * wire:model to attributes of a model property.
+     *
+     * @var array<string, mixed>
      */
-    public ?CartAddress $shipping = null;
+    public array $shipping = [];
 
     /**
-     * The billing address instance.
+     * The billing address form data.
+     *
+     * @var array<string, mixed>
      */
-    public ?CartAddress $billing = null;
+    public array $billing = [];
 
     /**
      * The current checkout step.
@@ -114,12 +121,82 @@ class CheckoutPage extends Component
             }
         }
 
-        // Do we have a shipping address?
-        $this->shipping = $this->cart->shippingAddress ?: new CartAddress;
+        // Do we have a shipping address? Otherwise prefill from the customer profile.
+        $this->shipping = $this->cart->shippingAddress
+            ? $this->addressToArray($this->cart->shippingAddress)
+            : $this->prefilledAddress();
 
-        $this->billing = $this->cart->billingAddress ?: new CartAddress;
+        $this->billing = $this->cart->billingAddress
+            ? $this->addressToArray($this->cart->billingAddress)
+            : $this->prefilledAddress();
 
         $this->determineCheckoutStep();
+    }
+
+    /**
+     * An empty address form, defaulted to the shop country.
+     *
+     * @return array<string, mixed>
+     */
+    protected function emptyAddress(): array
+    {
+        return [
+            'first_name' => null,
+            'last_name' => null,
+            'company_name' => null,
+            'line_one' => null,
+            'line_two' => null,
+            'line_three' => null,
+            'city' => null,
+            'state' => null,
+            'postcode' => null,
+            // Default to the shop country (single-country B2B shop).
+            'country_id' => Country::orderBy('name')->value('id'),
+            'contact_email' => null,
+            'contact_phone' => null,
+            'delivery_instructions' => null,
+        ];
+    }
+
+    /**
+     * Reduce a CartAddress to a plain form array.
+     *
+     * @return array<string, mixed>
+     */
+    protected function addressToArray(CartAddress $address): array
+    {
+        return array_merge(
+            $this->emptyAddress(),
+            $address->only(array_keys($this->emptyAddress())),
+        );
+    }
+
+    /**
+     * Build an address form pre-filled from the authenticated pro customer.
+     *
+     * @return array<string, mixed>
+     */
+    protected function prefilledAddress(): array
+    {
+        $address = $this->emptyAddress();
+
+        if (! $customer = $this->cart->customer) {
+            return $address;
+        }
+
+        $meta = $customer->meta;
+        $user = $this->cart->user ?? auth()->user();
+
+        return array_merge($address, array_filter([
+            'first_name' => $customer->first_name,
+            'last_name' => $customer->last_name,
+            'company_name' => $customer->company_name,
+            'contact_email' => $user?->email,
+            'contact_phone' => data_get($meta, 'phone'),
+            'line_one' => data_get($meta, 'sirene_address.line_1'),
+            'city' => data_get($meta, 'sirene_address.city'),
+            'postcode' => data_get($meta, 'sirene_address.postcode'),
+        ], fn ($value) => filled($value)));
     }
 
     public function hydrate(): void
@@ -198,34 +275,24 @@ class CheckoutPage extends Component
      */
     public function saveAddress(string $type): void
     {
-        $validatedData = $this->validate(
+        $this->validate(
             $this->getAddressValidation($type)
         );
 
-        $address = $this->{$type};
+        $address = (new CartAddress)->fill($this->{$type});
 
         if ($type == 'billing') {
             $this->cart->setBillingAddress($address);
-            $this->billing = $this->cart->billingAddress;
+            $this->billing = $this->addressToArray($this->cart->billingAddress);
         }
 
         if ($type == 'shipping') {
             $this->cart->setShippingAddress($address);
-            $this->shipping = $this->cart->shippingAddress;
+            $this->shipping = $this->addressToArray($this->cart->shippingAddress);
 
             if ($this->shippingIsBilling) {
-                // Do we already have a billing address?
-                if ($billing = $this->cart->billingAddress) {
-                    $billing->fill($validatedData['shipping']);
-                    $this->cart->setBillingAddress($billing);
-                } else {
-                    $address = $address->only(
-                        $address->getFillable()
-                    );
-                    $this->cart->setBillingAddress($address);
-                }
-
-                $this->billing = $this->cart->billingAddress;
+                $this->cart->setBillingAddress((new CartAddress)->fill($this->shipping));
+                $this->billing = $this->addressToArray($this->cart->billingAddress);
             }
         }
 
@@ -237,7 +304,15 @@ class CheckoutPage extends Component
      */
     public function saveShippingOption(): void
     {
+        $this->validate(['chosenShipping' => 'required']);
+
         $option = $this->shippingOptions->first(fn ($option) => $option->getIdentifier() == $this->chosenShipping);
+
+        if (! $option) {
+            $this->addError('chosenShipping', __('Please select an available shipping option.'));
+
+            return;
+        }
 
         CartSession::setShippingOption($option);
 
@@ -267,7 +342,7 @@ class CheckoutPage extends Component
      */
     public function getCountriesProperty(): Collection
     {
-        return Country::whereIn('iso3', ['GBR', 'USA'])->get();
+        return Country::orderBy('name')->get();
     }
 
     /**
@@ -305,6 +380,6 @@ class CheckoutPage extends Component
     public function render(): View
     {
         return view('livewire.checkout-page')
-            ->layout('layouts.checkout');
+            ->layout('layouts.storefront');
     }
 }

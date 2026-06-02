@@ -8,6 +8,7 @@ use Illuminate\Database\Seeder;
 use Lunar\DataTypes\Price as PriceValue;
 use Lunar\Models\Country;
 use Lunar\Models\Currency;
+use Lunar\Models\CustomerGroup;
 use Lunar\Shipping\Models\ShippingMethod;
 use Lunar\Shipping\Models\ShippingRate;
 use Lunar\Shipping\Models\ShippingZone;
@@ -21,7 +22,7 @@ class PkoShippingSeeder extends Seeder
 
         $zone = ShippingZone::query()->updateOrCreate(
             ['name' => 'France métropolitaine'],
-            ['type' => 'country'],
+            ['type' => 'countries'],
         );
 
         $zone->countries()->syncWithoutDetaching([$france->id]);
@@ -57,6 +58,13 @@ class PkoShippingSeeder extends Seeder
                 'driver' => 'free-shipping',
                 'data' => ['minimum_spend' => ['EUR' => 50000]],
             ],
+        );
+
+        // Make every method available to all customer groups (Particuliers + Installateurs).
+        // Without a customer-group schedule, ShippingManifest resolves zero options.
+        $groups = CustomerGroup::all();
+        collect([$standard, $pickup, $free])->each(
+            fn (ShippingMethod $method) => $method->scheduleCustomerGroup($groups)
         );
 
         $this->attachRate($standard, $zone, $eur, [

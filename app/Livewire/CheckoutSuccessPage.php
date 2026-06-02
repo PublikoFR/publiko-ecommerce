@@ -31,6 +31,7 @@ class CheckoutSuccessPage extends Component
 
     public function render(): View
     {
-        return view('livewire.checkout-success-page');
+        return view('livewire.checkout-success-page')
+            ->layout('layouts.storefront');
     }
 }

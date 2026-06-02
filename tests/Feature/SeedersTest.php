@@ -39,10 +39,20 @@ class SeedersTest extends TestCase
             ->where('name', 'France métropolitaine')
             ->firstOrFail();
 
-        $this->assertSame('country', $zone->type);
+        // Must be the plural 'countries' type expected by the table-rate resolver,
+        // otherwise ShippingManifest resolves zero options at checkout.
+        $this->assertSame('countries', $zone->type);
         $this->assertTrue(
             $zone->countries()->where('iso2', 'FR')->exists(),
             'Shipping zone must be attached to FR country.',
+        );
+
+        // Methods must be scheduled against the customer groups, otherwise the
+        // customer-group scope rejects every rate and no option is available.
+        $standardMethod = ShippingMethod::query()->where('code', 'mde-standard')->firstOrFail();
+        $this->assertTrue(
+            $standardMethod->customerGroups()->count() > 0,
+            'Shipping methods must be scheduled against customer groups.',
         );
 
         $this->assertSame(3, ShippingMethod::query()->count());

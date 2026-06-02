@@ -113,7 +113,7 @@ class CheckoutAddress extends Component
 
     public function getCountriesProperty()
     {
-        return Country::whereIn('iso3', ['GBR', 'USA'])->get();
+        return Country::orderBy('name')->get();
     }
 
     public function render(): View
