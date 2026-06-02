@@ -499,4 +499,151 @@ class ActionTypesTest extends TestCase
 
         $this->assertSame(20.0, $action->execute(10, $this->ctx(['flag' => 'A'])));
     }
+
+    public function test_category_map_maps_value_to_breadcrumb_then_csv_handles(): void
+    {
+        $action = Action::make([
+            'type' => 'category_map',
+            'values' => [
+                'Moteurs' => 'Accueil>Motorisation>Moteur filaire',
+                'Domotique' => 'Accueil>Domotique',
+            ],
+            'default_category' => 'Accueil>Divers',
+        ]);
+
+        // Leaf + slugify (aligné sur ParseCategoryBreadcrumbAction) → compatible writer.
+        $this->assertSame('moteur-filaire', $action->execute('Moteurs', $this->ctx()));
+        $this->assertSame('domotique', $action->execute('Domotique', $this->ctx()));
+    }
+
+    public function test_category_map_falls_back_to_default_category_on_miss(): void
+    {
+        $action = Action::make([
+            'type' => 'category_map',
+            'values' => ['Moteurs' => 'Accueil>Motorisation>Moteur filaire'],
+            'default_category' => 'Accueil>Divers',
+        ]);
+
+        $this->assertSame('divers', $action->execute('Inconnu', $this->ctx()));
+    }
+
+    public function test_category_map_no_match_no_default_returns_empty(): void
+    {
+        $action = Action::make([
+            'type' => 'category_map',
+            'values' => ['Moteurs' => 'Accueil>Motorisation>Moteur filaire'],
+        ]);
+
+        $this->assertSame('', $action->execute('Inconnu', $this->ctx()));
+    }
+
+    public function test_category_map_all_mode_keeps_every_segment(): void
+    {
+        $action = Action::make([
+            'type' => 'category_map',
+            'values' => ['Moteurs' => 'Accueil>Motorisation>Moteur filaire'],
+            'mode' => 'all',
+        ]);
+
+        $this->assertSame('accueil,motorisation,moteur-filaire', $action->execute('Moteurs', $this->ctx()));
+    }
+
+    public function test_conditional_greater_than_returns_branch_value(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => '> 0',
+            'if_true' => '1',
+            'if_false' => '0',
+        ]);
+
+        $this->assertSame('1', $action->execute('5', $this->ctx()));
+        $this->assertSame('0', $action->execute('0', $this->ctx()));
+        $this->assertSame('0', $action->execute('-3', $this->ctx()));
+    }
+
+    public function test_conditional_gte_operator(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => '>= 5',
+            'if_true' => 'ok',
+            'if_false' => 'ko',
+        ]);
+
+        $this->assertSame('ok', $action->execute(5, $this->ctx()));
+        $this->assertSame('ko', $action->execute(4, $this->ctx()));
+    }
+
+    public function test_conditional_equality_operator(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => '= GTK',
+            'if_true' => 'oui',
+            'if_false' => 'non',
+        ]);
+
+        $this->assertSame('oui', $action->execute('GTK', $this->ctx()));
+        $this->assertSame('non', $action->execute('ABC', $this->ctx()));
+    }
+
+    public function test_conditional_bare_condition_is_treated_as_equality(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => 'GTK',
+            'if_true' => 'oui',
+            'if_false' => 'non',
+        ]);
+
+        $this->assertSame('oui', $action->execute('GTK', $this->ctx()));
+        $this->assertSame('non', $action->execute('XXX', $this->ctx()));
+    }
+
+    public function test_conditional_contains_operator(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => 'contains pro',
+            'if_true' => 'pro',
+            'if_false' => 'std',
+        ]);
+
+        $this->assertSame('pro', $action->execute('gamme professionnelle', $this->ctx()));
+        $this->assertSame('std', $action->execute('gamme standard', $this->ctx()));
+    }
+
+    public function test_conditional_numeric_operator_with_non_numeric_value_is_false(): void
+    {
+        $action = Action::make([
+            'type' => 'conditional',
+            'condition' => '> 0',
+            'if_true' => '1',
+            'if_false' => '0',
+        ]);
+
+        $this->assertSame('0', $action->execute('abc', $this->ctx()));
+    }
+
+    public function test_legacy_uppercase_type_routes_to_change_case(): void
+    {
+        $action = Action::make(['type' => 'uppercase']);
+
+        $this->assertSame('SOMFY', $action->execute('Somfy', $this->ctx()));
+    }
+
+    public function test_legacy_lowercase_type_routes_to_change_case(): void
+    {
+        $action = Action::make(['type' => 'lowercase']);
+
+        $this->assertSame('somfy', $action->execute('SOMFY', $this->ctx()));
+    }
+
+    public function test_legacy_capitalize_type_routes_to_change_case(): void
+    {
+        $action = Action::make(['type' => 'capitalize']);
+
+        $this->assertSame('Somfy Rts', $action->execute('somfy rts', $this->ctx()));
+    }
 }

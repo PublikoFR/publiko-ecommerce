@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Pko\AiImporter\Actions;
 
+use Pko\AiImporter\Actions\Types\CategoryMapAction;
 use Pko\AiImporter\Actions\Types\ChangeCaseAction;
 use Pko\AiImporter\Actions\Types\ConcatAction;
 use Pko\AiImporter\Actions\Types\ConditionAction;
+use Pko\AiImporter\Actions\Types\ConditionalAction;
 use Pko\AiImporter\Actions\Types\CopyAction;
 use Pko\AiImporter\Actions\Types\DateFormatAction;
 use Pko\AiImporter\Actions\Types\FeatureBuildAction;
@@ -59,6 +61,8 @@ final class ActionRegistry
             ValidateEan13Action::class,
             ConcatAction::class,
             ConditionAction::class,
+            ConditionalAction::class,
+            CategoryMapAction::class,
             TemplateAction::class,
             CopyAction::class,
             MapAction::class,
@@ -74,6 +78,11 @@ final class ActionRegistry
         // Legacy aliases (configs PrestaShop v0) → MathAction multi-operation
         foreach (['multiply', 'divide', 'add', 'subtract'] as $alias) {
             self::register($alias, MathAction::class);
+        }
+
+        // Legacy aliases (configs PrestaShop v0) → ChangeCaseAction (mode dérivé du type)
+        foreach (['uppercase', 'lowercase', 'capitalize'] as $alias) {
+            self::register($alias, ChangeCaseAction::class);
         }
     }
 
