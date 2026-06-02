@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Pko\AdminNav\Navigation;
 
+use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
+use App\Filament\Resources\PkoAttributeGroupResource;
+use App\Filament\Resources\PkoCollectionGroupResource;
 use App\Filament\Resources\PkoProductResource;
+use App\Filament\Resources\PkoProductTypeResource;
 use BezhanSalleh\FilamentShield\Resources\RoleResource;
+use Closure;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -16,25 +21,37 @@ use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\DiscountResource;
 use Lunar\Admin\Filament\Resources\OrderResource;
-use Pko\AdminNav\Filament\Clusters\PkoCatalogueSettingsCluster;
-use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
-use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
 use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
-use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
+use Pko\AdminNav\Filament\Resources\PkoActivityResource;
+use Pko\AdminNav\Filament\Resources\PkoChannelResource;
+use Pko\AdminNav\Filament\Resources\PkoCurrencyResource;
+use Pko\AdminNav\Filament\Resources\PkoStaffResource;
+use Pko\AdminNav\Filament\Resources\PkoTagResource;
+use Pko\AiImporter\Filament\Resources\ImportJobResource;
+use Pko\AiImporter\Filament\Resources\LlmConfigResource;
+use Pko\CatalogFeatures\Filament\Resources\FeatureFamilyResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
+use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
+use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
+use Pko\StorefrontCms\Filament\Resources\HomeOfferResource;
+use Pko\StorefrontCms\Filament\Resources\HomeSlideResource;
+use Pko\StorefrontCms\Filament\Resources\HomeTileResource;
 use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
-use Pko\StorefrontCms\Filament\Resources\PostTypeResource;
 
 /**
- * Construit la navigation complète du panel admin Filament — Organisation A
- * (« Consolidation par clusters »). 5 pôles : Pilotage (raccourcis) + Catalogue,
- * Ventes & Clients, Contenu, Configuration. Les grappes de réglages sont repliées
- * en clusters on-page (sub-nav à droite) pour réduire la sidebar (~37 → ~19).
+ * Navigation custom du panel admin — layout « MDE » (sur-mesure Rom).
+ *
+ * 1 raccourci (Tableau de bord) + 5 groupes : Ventes & Clients, Catalogue,
+ * Marketing, Boutique, Configuration. Deux sous-menus IMBRIQUÉS animés dans la
+ * sidebar (Catégorisation, et Réglages / Paiements & Facturation) via
+ * self::nestedMenu() — le rendu (flèche dépliable + animation x-collapse +
+ * indentation) est assuré par l'override de vue
+ * resources/views/vendor/filament-panels/components/sidebar/item.blade.php.
  *
  * Appelé depuis AdminNavPlugin via ->navigation(fn (NavigationBuilder) => ...).
  */
@@ -43,152 +60,177 @@ class Builder
     public static function build(NavigationBuilder $builder): NavigationBuilder
     {
         return $builder
-            ->items(self::pilotage())
+            ->items([
+                NavigationItem::make('Tableau de bord')
+                    ->icon('heroicon-o-home')
+                    ->url(fn (): string => Dashboard::getUrl())
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.lunar.pages.dashboard'))
+                    ->sort(1),
+            ])
             ->groups([
-                NavigationGroup::make(__('admin-nav::admin.groups.catalogue'))
-                    ->items(self::catalogue()),
-                NavigationGroup::make(__('admin-nav::admin.groups.sales'))
-                    ->items(self::sales()),
-                NavigationGroup::make(__('admin-nav::admin.groups.content'))
-                    ->items(self::content()),
-                NavigationGroup::make(__('admin-nav::admin.groups.config'))
-                    ->items(self::configuration()),
+                NavigationGroup::make('Ventes & Clients')->items(self::sales()),
+                NavigationGroup::make('Catalogue')->items(self::catalogue()),
+                NavigationGroup::make('Marketing')->items(self::marketing()),
+                NavigationGroup::make('Boutique')->items(self::boutique()),
+                NavigationGroup::make('Configuration')->items(self::configuration()),
             ]);
-    }
-
-    /**
-     * Raccourcis Pilotage (sans label de groupe — rendus en tête de sidebar).
-     *
-     * @return array<NavigationItem>
-     */
-    private static function pilotage(): array
-    {
-        return [
-            NavigationItem::make(__('admin-nav::admin.shortcuts.dashboard'))
-                ->icon('heroicon-o-chart-bar')
-                ->url(fn () => Dashboard::getUrl())
-                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.pages.dashboard'))
-                ->sort(1),
-            NavigationItem::make(__('admin-nav::admin.shortcuts.orders'))
-                ->icon('heroicon-o-inbox')
-                ->url(fn () => OrderResource::getUrl())
-                ->badge(fn () => OrderResource::getNavigationBadge())
-                ->badgeTooltip(fn () => OrderResource::getNavigationBadgeTooltip())
-                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.resources.orders.*'))
-                ->sort(2),
-            NavigationItem::make(__('admin-nav::admin.shortcuts.shipping'))
-                ->icon('heroicon-o-truck')
-                ->url(fn () => Shipping::getUrl())
-                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.expedition.*'))
-                ->sort(3),
-            NavigationItem::make(__('admin-nav::admin.shortcuts.customers'))
-                ->icon('heroicon-o-users')
-                ->url(fn () => CustomerResource::getUrl())
-                ->isActiveWhen(fn () => request()->routeIs('filament.lunar.resources.customers.*'))
-                ->sort(4),
-        ];
-    }
-
-    /** @return array<NavigationItem> */
-    private static function catalogue(): array
-    {
-        return [
-            ...self::navItems(PkoProductResource::class, sort: 1),
-            ...self::navItems(PkoMediaLibrary::class, sort: 2),
-            ...self::navItems(BrandResource::class, sort: 3),
-            self::taxonomyItem(sort: 4),
-            // Cluster « Paramètres catalogue » : Types, Options, Groupes d'attributs,
-            // Groupes de collections, Catégories de documents, Tags (sub-nav on-page).
-            ...self::navItems(PkoCatalogueSettingsCluster::class, sort: 5),
-        ];
     }
 
     /** @return array<NavigationItem> */
     private static function sales(): array
     {
-        return [
-            ...self::navItems(CustomerGroupResource::class, sort: 1),
-            ...self::navItems(DiscountResource::class, sort: 2),
-            ...self::navItems(NewsletterSubscriberResource::class, sort: 3),
-            ...self::navItems(LoyaltyHub::class, sort: 10),
-        ];
+        return array_values(array_filter([
+            self::resItem(CustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
+            self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(2),
+            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(3),
+            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(4),
+            self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(5),
+        ]));
     }
 
     /** @return array<NavigationItem> */
-    private static function content(): array
+    private static function catalogue(): array
     {
-        return [
-            ...self::navItems(HomepageHub::class, sort: 1),
-            ...self::navItems(PostResource::class, sort: 2),
-            ...self::navItems(PostTypeResource::class, sort: 3),
-        ];
+        return array_values(array_filter([
+            self::resItem(PkoProductResource::class, 'heroicon-o-cube', 'Produits')?->sort(1),
+            self::resItem(PkoMediaLibrary::class, 'heroicon-o-photo', 'Médias')?->sort(2),
+            self::nestedMenu('Catégorisation', 'heroicon-o-rectangle-stack', [
+                self::linkItem(
+                    'Catégories',
+                    'heroicon-o-folder-open',
+                    fn (): string => TreeManager::getUrl().'?tab=categories',
+                    fn (): bool => request()->routeIs('filament.lunar.pages.tree-manager') && request()->query('tab') !== 'features',
+                ),
+                self::resItem(FeatureFamilyResource::class, 'heroicon-o-list-bullet', 'Caractéristiques'),
+                self::resItem(BrandResource::class, 'heroicon-o-bookmark-square', 'Marques'),
+                self::resItem(PkoProductTypeResource::class, 'heroicon-o-cube-transparent', 'Types de produits'),
+                self::resItem(PkoAttributeGroupResource::class, 'heroicon-o-rectangle-group', 'Groupes d\'attributs'),
+                self::resItem(PkoCollectionGroupResource::class, 'heroicon-o-folder', 'Groupes de collections'),
+                self::resItem(PkoTagResource::class, 'heroicon-o-hashtag', 'Tags'),
+                self::resItem(DocumentCategoryResource::class, 'heroicon-o-document-text', 'Catégories de documents'),
+            ], sort: 3),
+            self::resItem(ImportJobResource::class, 'heroicon-o-arrow-down-on-square-stack', 'Imports')?->sort(4),
+        ]));
     }
 
-    /**
-     * Groupe « Configuration » (fusion Général + Imports + Boutique + Paiement + Compta).
-     * Deux nouveaux clusters + le cluster Taxes Lunar (non imbricable) + Rôles (resource
-     * Shield, laissée plate) + Comptabilité (2 entrées Pennylane).
-     *
-     * @return array<NavigationItem>
-     */
+    /** @return array<NavigationItem> */
+    private static function marketing(): array
+    {
+        return array_values(array_filter([
+            self::resItem(DiscountResource::class, 'heroicon-o-receipt-percent', 'Réductions')?->sort(1),
+            self::resItem(LoyaltyHub::class, 'heroicon-o-gift', 'Fidélité')?->sort(2),
+            self::resItem(NewsletterSubscriberResource::class, 'heroicon-o-envelope', 'Newsletter')?->sort(3),
+        ]));
+    }
+
+    /** @return array<NavigationItem> */
+    private static function boutique(): array
+    {
+        return array_values(array_filter([
+            self::resItem(HomeSlideResource::class, 'heroicon-o-rectangle-group', 'Slider accueil')?->sort(1),
+            self::resItem(HomeTileResource::class, 'heroicon-o-squares-2x2', 'Tuiles accueil')?->sort(2),
+            self::resItem(HomeOfferResource::class, 'heroicon-o-megaphone', 'Offres du moment')?->sort(3),
+            // « Type de contenus » est déplacé en bouton header de la page Contenus
+            // (PostResource), volontairement absent du menu.
+            self::resItem(PostResource::class, 'heroicon-o-document-duplicate', 'Contenus')?->sort(4),
+        ]));
+    }
+
+    /** @return array<NavigationItem> */
     private static function configuration(): array
     {
-        return [
-            // Cluster « Boutique & paiement » : Paramètres storefront, Magasins,
-            // Canaux, Langues, Devises, Stripe (sub-nav on-page).
-            ...self::navItems(PkoShopPaymentCluster::class, sort: 1),
-            // Cluster « Système & données » : Personnel, Config LLM, Imports,
-            // Config d'import, Activités (sub-nav on-page).
-            ...self::navItems(PkoSystemDataCluster::class, sort: 2),
-            // Cluster Lunar Taxes (Zones / Classes / Taux) — clusters non imbricables
-            // dans Filament, donc reste une entrée autonome.
-            ...self::navItems(PkoTaxesCluster::class, sort: 3),
-            // Rôles : resource Shield hors LunarPanelManager::$resources → non swappable
-            // par le mécanisme cluster, laissée en entrée plate.
-            ...self::navItems(RoleResource::class, sort: 4),
-            // Comptabilité (Pennylane).
-            ...self::navItems(PennylaneInvoiceResource::class, sort: 5),
-            ...self::navItems(PennylaneConfig::class, sort: 6),
-        ];
+        return array_values(array_filter([
+            self::nestedMenu('Réglages', 'heroicon-o-cog-6-tooth', [
+                self::resItem(StorefrontSettings::class, 'heroicon-o-adjustments-horizontal', 'Paramètres'),
+                self::resItem(PkoChannelResource::class, 'heroicon-o-signal', 'Canaux'),
+                self::resItem(PkoActivityResource::class, 'heroicon-o-clock', 'Activités'),
+                self::resItem(RoleResource::class, 'heroicon-o-shield-check', 'Rôles'),
+                self::resItem(PkoStaffResource::class, 'heroicon-o-user-circle', 'Personnel'),
+            ], sort: 1),
+            self::nestedMenu('Paiements & Facturation', 'heroicon-o-credit-card', [
+                self::resItem(PkoCurrencyResource::class, 'heroicon-o-banknotes', 'Devises'),
+                self::resItem(PkoTaxesCluster::class, 'heroicon-o-calculator', 'Taxes'),
+                self::resItem(StripeConfig::class, 'heroicon-o-credit-card', 'Stripe'),
+                self::resItem(PennylaneConfig::class, 'heroicon-o-building-library', 'Pennylane'),
+            ], sort: 2),
+            self::resItem(LlmConfigResource::class, 'heroicon-o-sparkles', 'Configurations LLM')?->sort(3),
+        ]));
     }
 
     /**
-     * Entrée unique « Taxonomie » : la page TreeManager gère déjà Catégories +
-     * Caractéristiques via onglets (?tab=). Une seule entrée sidebar au lieu de deux.
-     */
-    private static function taxonomyItem(int $sort): NavigationItem
-    {
-        return NavigationItem::make(__('admin-nav::admin.catalogue.taxonomy'))
-            ->icon('heroicon-o-rectangle-stack')
-            ->sort($sort)
-            ->url(fn () => TreeManager::getUrl())
-            ->isActiveWhen(fn (): bool => request()->routeIs(TreeManager::getNavigationItemActiveRoutePattern()));
-    }
-
-    /**
-     * Récupère les NavigationItems d'une Resource ou Page en forçant le sort custom,
-     * en enlevant le group natif (on gère le groupement ici) et en ignorant si la classe
-     * n'existe pas (package optionnel pas installé).
+     * Item de navigation d'une Resource/Page, icône + libellé forcés, sorti de
+     * tout groupe/parent natif (le groupement est géré ici). Null si la classe
+     * n'existe pas (package optionnel non installé).
      *
      * @param  class-string  $class
-     * @return array<NavigationItem>
      */
-    private static function navItems(string $class, int $sort): array
+    private static function resItem(string $class, string $icon, ?string $label = null): ?NavigationItem
     {
-        if (! class_exists($class)) {
-            return [];
+        if (! class_exists($class) || ! method_exists($class, 'getNavigationItems')) {
+            return null;
         }
 
-        if (! method_exists($class, 'getNavigationItems')) {
-            return [];
+        $item = $class::getNavigationItems()[0] ?? null;
+        if (! $item instanceof NavigationItem) {
+            return null;
         }
 
-        $items = $class::getNavigationItems();
+        $item->group(null)->parentItem(null);
 
-        foreach ($items as $item) {
-            $item->sort($sort)->group(null)->parentItem(null);
+        // Préserver le picto natif de la resource (icône ET activeIcon) pour éviter
+        // le mismatch inactif/actif. L'icône passée n'est qu'un FALLBACK appliqué
+        // seulement si la resource n'en déclare aucune.
+        if ($item->getIcon() === null) {
+            $item->icon($icon);
         }
 
-        return $items;
+        if ($label !== null) {
+            $item->label($label);
+        }
+
+        return $item;
+    }
+
+    /**
+     * Item de navigation custom (lien arbitraire — ex. onglet d'une page).
+     */
+    private static function linkItem(string $label, string $icon, Closure $url, ?Closure $active = null): NavigationItem
+    {
+        $item = NavigationItem::make($label)
+            ->icon($icon)
+            ->group(null)
+            ->parentItem(null)
+            ->url($url);
+
+        if ($active !== null) {
+            $item->isActiveWhen($active);
+        }
+
+        return $item;
+    }
+
+    /**
+     * Item parent à SOUS-MENU IMBRIQUÉ animé (dropdown sidebar). Réutilisable :
+     * passer le label, l'icône du parent, et la liste d'enfants (NavigationItem
+     * issus de self::resItem()/self::linkItem(), les null sont ignorés). Le rendu
+     * est géré par l'override de vue sidebar/item.blade.php.
+     *
+     * @param  array<NavigationItem|null>  $children
+     */
+    private static function nestedMenu(string $label, string $icon, array $children, int $sort): NavigationItem
+    {
+        $items = [];
+        $i = 0;
+        foreach (array_filter($children) as $child) {
+            $items[] = $child->sort(++$i);
+        }
+
+        $first = $items[0] ?? null;
+
+        return NavigationItem::make($label)
+            ->icon($icon)
+            ->sort($sort)
+            ->url($first !== null ? fn (): string => (string) $first->getUrl() : fn (): string => '#')
+            ->childItems($items);
     }
 }
