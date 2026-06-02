@@ -209,6 +209,29 @@ class ActionTypesTest extends TestCase
         $this->assertSame(2, $action->execute(null, $this->ctx([], $sheets)));
     }
 
+    public function test_multiline_aggregate_filters_on_custom_type_col(): void
+    {
+        $sheets = [
+            'B03' => [
+                ['MTYP' => 'PHOTO', 'URL' => 'a.jpg'],
+                ['MTYP' => 'NOTICE', 'URL' => 'manual.pdf'],
+                ['MTYP' => 'PHOTO', 'URL' => 'b.jpg'],
+            ],
+        ];
+
+        $action = Action::make([
+            'type' => 'multiline_aggregate',
+            'sheet' => 'B03',
+            'method' => 'concat',
+            'separator' => '|',
+            'filter_type' => 'PHOTO',
+            'type_col' => 'MTYP',
+            'columns' => ['URL'],
+        ]);
+
+        $this->assertSame('a.jpg|b.jpg', $action->execute(null, $this->ctx([], $sheets)));
+    }
+
     public function test_prefix_prepends_text(): void
     {
         $action = Action::make(['type' => 'prefix', 'text' => 'SOM']);

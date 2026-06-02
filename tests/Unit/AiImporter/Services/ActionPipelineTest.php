@@ -73,6 +73,65 @@ class ActionPipelineTest extends TestCase
         $this->assertSame(120.0, $result);
     }
 
+    public function test_column_prefix_and_suffix_are_applied_to_source_value(): void
+    {
+        $pipeline = new ActionPipeline;
+        $ctx = new ExecutionContext(job: new ImportJob);
+
+        $result = $pipeline->run('REFCIALE', [
+            'prefix' => 'FAA',
+            'suffix' => '-X',
+        ], $ctx);
+
+        $this->assertSame('FAAREFCIALE-X', $result);
+    }
+
+    public function test_column_prefix_runs_before_actions(): void
+    {
+        $pipeline = new ActionPipeline;
+        $ctx = new ExecutionContext(job: new ImportJob);
+
+        // upper-case action must see the already-prefixed value
+        $result = $pipeline->run('faa', [
+            'prefix' => 'pre-',
+            'actions' => [['type' => 'change_case', 'mode' => 'upper']],
+        ], $ctx);
+
+        $this->assertSame('PRE-FAA', $result);
+    }
+
+    public function test_column_prefix_left_untouched_on_empty_value(): void
+    {
+        $pipeline = new ActionPipeline;
+        $ctx = new ExecutionContext(job: new ImportJob);
+
+        $this->assertSame('', $pipeline->run('', ['prefix' => 'FAA'], $ctx));
+        $this->assertNull($pipeline->run(null, ['prefix' => 'FAA'], $ctx));
+    }
+
+    public function test_col_value_condition_sees_raw_unprefixed_value(): void
+    {
+        $pipeline = new ActionPipeline;
+        $ctx = new ExecutionContext(job: new ImportJob);
+
+        // not_empty must evaluate the raw column value, not the prefixed one,
+        // so a present reference passes and gets the prefix applied afterwards.
+        $present = $pipeline->run('R-1', [
+            'prefix' => 'FAA',
+            'condition' => ['field' => 'col_value', 'operator' => 'not_empty'],
+            'else' => '',
+        ], $ctx);
+        $this->assertSame('FAAR-1', $present);
+
+        // Empty reference fails not_empty → else branch, unprefixed.
+        $missing = $pipeline->run('', [
+            'prefix' => 'FAA',
+            'condition' => ['field' => 'col_value', 'operator' => 'not_empty'],
+            'else' => '',
+        ], $ctx);
+        $this->assertSame('', $missing);
+    }
+
     public function test_unknown_action_type_throws(): void
     {
         $pipeline = new ActionPipeline;

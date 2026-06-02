@@ -12,7 +12,9 @@ use Pko\AiImporter\Actions\ExecutionContext;
  *
  * The secondary sheet must be pre-indexed by `join_key` in `ctx->sheets`.
  * Each entry is a row array; `filter_type` restricts to rows where the
- * `type` column matches (e.g. only "CODE_IMAGE" rows).
+ * `type_col` column matches (e.g. only "CODE_IMAGE" rows). `type_col` names
+ * the column holding the type (defaults to `type`); PS sheet configs declare
+ * it explicitly (e.g. `"type_col": "MTYP"`).
  */
 final class MultilineAggregateAction extends Action
 {
@@ -24,6 +26,7 @@ final class MultilineAggregateAction extends Action
         public readonly string $method = 'concat', // first|last|count|concat|json_array
         public readonly string $separator = '|',
         public readonly ?string $filter_type = null,
+        public readonly string $type_col = 'type',
         public readonly array $columns = [],
     ) {}
 
@@ -40,7 +43,7 @@ final class MultilineAggregateAction extends Action
             $allowed = array_map('trim', explode(',', $this->filter_type));
             $rows = array_values(array_filter(
                 $rows,
-                fn (array $r): bool => in_array((string) ($r['type'] ?? ''), $allowed, true),
+                fn (array $r): bool => in_array((string) ($r[$this->type_col] ?? ''), $allowed, true),
             ));
         }
 
