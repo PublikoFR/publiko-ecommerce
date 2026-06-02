@@ -203,3 +203,60 @@ Auto-découverts via le `discoverClusters(...)` déjà en place dans `AppService
 
 Les resources/pages Pko-natives référencent désormais `Pko\AdminNav\Filament\Clusters\*`
 (autoload root agrégé → OK sans modifier les `composer.json` des packages).
+
+---
+
+## Layout MDE (sur-mesure) — sous-menus imbriqués en sidebar (layout retenu)
+
+Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
+1 raccourci **Tableau de bord** + 5 groupes :
+
+```
+[Ventes & Clients] Clients · Commandes · Factures · Expédition · Groupes de clients
+[Catalogue]        Produits · Médias · ⌄ Catégorisation · Imports
+[Marketing]        Réductions · Fidélité · Newsletter
+[Boutique]         Slider accueil · Tuiles accueil · Offres du moment · Contenus
+[Configuration]    ⌄ Réglages · ⌄ Paiements & Facturation · Configurations LLM
+```
+
+`⌄` = **sous-menu imbriqué dropdown animé dans la sidebar** :
+- Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
+- Réglages : Paramètres, Canaux, Activités, Rôles, Personnel
+- Paiements & Facturation : Devises, Taxes, Stripe, Pennylane
+
+### Système de sous-menu imbriqué (réutilisable)
+
+- **`Builder::nestedMenu(label, icon, children[], sort)`** : crée un item parent avec
+  `->childItems()`. Helpers `resItem(class, icon, ?label)` (préserve le picto natif de la
+  resource — icône passée = **fallback** seulement, évite le mismatch inactif/actif) et
+  `linkItem(label, icon, url, active)` (lien custom, ex. onglet TreeManager).
+- **Override de vue** `resources/views/vendor/filament-panels/components/sidebar/item.blade.php` :
+  rend tout item à `childItems` en dropdown (flèche `chevron-down` pivotante, animation
+  `x-collapse`, indentation + ligne-guide). Filament natif n'affiche les `childItems` que
+  si la section est active ; cet override ajoute le toggle au clic.
+  > ⚠️ **FORK d'une vue interne Filament** (pas d'API stable). Seul ajout vs upstream :
+  > le bloc `@if ($hasChildItems)` + l'affichage de l'icône en mode `sub-grouped`.
+  > **Re-diff contre l'upstream à chaque montée de version Filament.**
+  > Styles (rotation flèche, indentation) en **inline** pour ne pas dépendre du build
+  > Tailwind — à repasser en classes via thème compilé lors du figement.
+
+### Masquage du sub-nav on-page (réversible)
+
+Les 3 clusters Organisation A désormais représentés en sous-menus sidebar
+(`PkoCatalogueSettingsCluster`, `PkoShopPaymentCluster`, `PkoSystemDataCluster`)
+overrident `getClusteredComponents()` → retournent `[]` pour supprimer leur sub-nav
+on-page (doublon). Piloté par **`config('admin-nav.hide_cluster_subnav')`**
+(défaut `true`), réversible via **`ADMIN_NAV_HIDE_CLUSTER_SUBNAV=false`**. N'impacte
+pas le routing (routes pilotées par l'enregistrement panel des resources).
+Les clusters **Taxes / Expédition / Pennylane** ne sont **pas** touchés : une seule entrée
+sidebar chacun → leur sub-nav on-page reste le seul accès à leurs sous-pages.
+
+### Bouton « Types de contenus »
+
+`PostTypeResource` est retiré du menu et exposé via une **header action** sur la page
+Contenus (`PostResource/Pages/ListPosts`).
+
+### Reste à figer (dette assumée)
+- i18n des libellés de groupes/items (actuellement littéraux FR dans `Builder`).
+- Styles inline de l'override → classes Tailwind (thème Filament compilé).
+- Discipline de re-diff de la vue forkée à chaque upgrade Filament.

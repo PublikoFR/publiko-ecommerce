@@ -26,6 +26,20 @@ class PkoSystemDataCluster extends Cluster
         return __('admin-nav::admin.clusters.system_data');
     }
 
+    /**
+     * Sub-nav on-page désactivé : navigation via le sous-menu imbriqué de la sidebar.
+     * Réactivable via ADMIN_NAV_HIDE_CLUSTER_SUBNAV=false (fonction cluster conservée).
+     * N'impacte pas le routing (routes pilotées par l'enregistrement panel des resources).
+     *
+     * @return array<class-string>
+     */
+    public static function getClusteredComponents(): array
+    {
+        return config('admin-nav.hide_cluster_subnav', true)
+            ? []
+            : parent::getClusteredComponents();
+    }
+
     public static function getClusterBreadcrumb(): ?string
     {
         return __('admin-nav::admin.clusters.system_data');
