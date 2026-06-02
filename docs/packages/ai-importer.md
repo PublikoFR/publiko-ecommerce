@@ -200,19 +200,22 @@ Stratégie : afficher la liste des handles autorisés au LLM via `llm_global_con
 `ImporterConfigResource` reproduit l'éditeur du module Publiko AI Importer en thème Filament/Lunar. Onglet **Éditeur visuel** (3 sections) + onglet **JSON brut** (échappatoire). Les deux sérialisent vers la même colonne `config_data`.
 
 **Sections de l'éditeur visuel :**
-1. **Feuilles Excel** — `primary_sheet` + `join_key` globale, puis Repeater « Feuilles avec relations » (nom, relation `one`/`many`, colonne de jointure, type, toggle en-têtes). Mappe sur `config_data.sheets{}`.
+1. **Feuilles Excel** — Select **Type de source** (`FAB-DIS` / `CSV` / `XLSX`, mappé sur `config_data.type` — repris par `saved-configs.blade.php` pour le badge Type), puis `primary_sheet` + `join_key` globale, puis Repeater « Feuilles avec relations » (nom, relation `one`/`many`, colonne de jointure, type, toggle en-têtes). Mappe sur `config_data.sheets{}`.
 2. **Configuration IA (optionnel)** — toggle `ai.context_cache` + textarea `ai.global_context`. Le bloc `ai` est **omis du JSON** si inutilisé (cache off + contexte vide), via `normalizeAi()`.
 3. **Mapping des colonnes** — Repeater présenté en grille tabulaire (Filament 3.3 n'a pas encore `Repeater::table()`) : par ligne un **champ cible** (dropdown groupé `ProductFieldCatalog`), colonne source, feuille, valeur par défaut, et un **résumé compact du pipeline**. Bouton **« Configurer »** = action modale (`extraItemActions`, largeur `5xl`) éditant le pipeline d'actions de la ligne.
 
 **Builder de pipeline (modal) :**
 - Repeater d'actions ordonné, type d'action choisi via **Select catégorisé** (`ActionPalette::groupedOptions()` — Logique / Calcul / Texte / Remplacement / Combiner / Correspondance / Dates & validation / IA / Agrégation). Tout type runtime absent de la palette curatée est surfacé dans un groupe « Autres » (pas de perte silencieuse).
-- Paramètres génériques via `KeyValue` (visible pour tout type ≠ `condition`).
+- Paramètres génériques via `KeyValue` (visible pour tout type sans éditeur dédié, c.-à-d. ≠ `condition`/`llm_transform`/`map`).
 - Type `condition` : **builder de branching SI / ALORS / SINON SI / SINON**. Repeater de branches (logique ET/OU, règles `field`/`operator`/`value`, actions ALORS) + actions SINON (`else_actions`). Les pipelines internes (branche / sinon) **n'autorisent pas** de `condition` imbriquée — cohérent avec `ConditionAction` qui ne récurse jamais.
+- Type `llm_transform` : **éditeur de prompt IA dédié** (Fieldset « Prompt IA ») — Select `llm_config_id` (options depuis `Pko\AiCore\Models\LlmConfig`, vide = config par défaut), Textarea `prompt`, TagsInput `input_columns`, Select `output_format` (`string`/`json`), TextInput `output_json_key` (visible si `json`), Textarea `additional_context`. Remplace le `KeyValue` brut, peu lisible pour un prompt.
+- Type `map` : **table de correspondance dédiée** (Fieldset « Table de correspondance ») — `KeyValue` alimentant le param `values` (valeur source → valeur cible), TextInput `default`, toggle `multi_value` + TextInput `separator` (visible si multi). Remplace la saisie JSON manuelle de `values`.
+- Les éditeurs `llm_transform` et `map` sont disponibles aussi bien au niveau racine du pipeline que dans les branches `condition`.
 
 **Round-trip JSON↔visuel (`hydrateVisual` / `dehydrateVisual`) :**
 - Clés scratch `sheets_repeater` / `mapping_repeater` pendant l'état du formulaire, repliées sur `sheets{}` / `mapping{}` au save (et omises si vides → pas d'artefact `[]`).
-- Les actions **non-`condition`** conservent la représentation éprouvée `{type, params:KeyValue}` (typage restauré par `typedParams` : bool/int/float/JSON) → **zéro régression** des 19 types + alias. Seul `condition` reçoit une structure dédiée (`branches[]` / `else_actions[]`), lue nativement depuis le JSON canonique.
-- Garde-fou : `tests/Unit/AiImporter/ImporterConfigRoundTripTest` couvre feuilles, IA, pipeline simple, params JSON (`map`), branching `condition` complet, et l'ensemble des types d'actions enregistrés.
+- Les actions **sans éditeur dédié** conservent la représentation éprouvée `{type, params:KeyValue}` (typage restauré par `typedParams` : bool/int/float/JSON) → **zéro régression** des types génériques + alias. `condition`, `llm_transform` et `map` reçoivent chacun une branche hydrate/dehydrate dédiée (champs nommés → forme canonique `{type, ...params}`), lue/écrite nativement depuis le JSON canonique. `map` ré-émet toujours `values`/`default`/`multi_value`/`separator` (round-trip sans perte) ; `llm_transform` n'émet que les champs renseignés (`output_format` toujours présent).
+- Garde-fou : `tests/Unit/AiImporter/ImporterConfigRoundTripTest` couvre feuilles, IA, type de source, pipeline simple, `map` (params JSON + multi-valeur), `llm_transform` complet (`json` + `output_json_key` + `additional_context`), branching `condition` complet, et l'ensemble des types d'actions enregistrés.
 
 **Classes support :** `Pko\AiImporter\Support\ProductFieldCatalog` (champs produit canoniques type PrestaShop, clés = clés moteur consommées par `LunarProductWriter`) et `Pko\AiImporter\Support\ActionPalette` (palette catégorisée + labels FR, source unique pour le Select et le résumé). Branding neutre (aucun nom client).
 

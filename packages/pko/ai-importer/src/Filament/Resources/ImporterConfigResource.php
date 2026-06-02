@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Resources\BaseResource;
+use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Types\ConditionAction;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages;
 use Pko\AiImporter\Models\ImporterConfig;
@@ -38,8 +39,10 @@ use Pko\AiImporter\Support\ProductFieldCatalog;
  * uses `sheets_repeater` / `mapping_repeater` scratch keys during form state
  * that {@see self::dehydrateVisual()} folds back into the canonical
  * `sheets` / `mapping` shape on save (and {@see self::hydrateVisual()} expands
- * on fill). Non-`condition` actions keep the proven `{type, params}` KeyValue
- * representation — only `condition` gets a structured branching editor — so no
+ * on fill). Most actions keep the proven `{type, params}` KeyValue
+ * representation; `condition` gets a SI/ALORS/SINON branching editor,
+ * `llm_transform` a named-fields IA-prompt editor, and `map` a dedicated
+ * key/value lookup table — each with its own hydrate/dehydrate branch so no
  * existing action type regresses through the round-trip.
  */
 class ImporterConfigResource extends BaseResource
@@ -181,6 +184,17 @@ class ImporterConfigResource extends BaseResource
             ->icon('heroicon-o-table-cells')
             ->description('Feuille principale itérée à l\'import, plus les feuilles liées par une clé de jointure.')
             ->schema([
+                Forms\Components\Select::make('config_data.type')
+                    ->label('Type de source')
+                    ->options([
+                        'FAB-DIS' => 'FAB-DIS',
+                        'CSV' => 'CSV',
+                        'XLSX' => 'XLSX',
+                    ])
+                    ->native(false)
+                    ->placeholder('—')
+                    ->helperText('Format du fichier source attendu pour cette configuration.'),
+
                 Forms\Components\Grid::make(2)->schema([
                     Forms\Components\TextInput::make('config_data.primary_sheet')
                         ->label('Feuille principale')
@@ -345,13 +359,22 @@ class ImporterConfigResource extends BaseResource
                 ->live()
                 ->columnSpanFull(),
 
+            // Generic key/value editor for every action type that has no
+            // dedicated form below (`condition`, `llm_transform` and `map`
+            // each carry their own structured editor).
             Forms\Components\KeyValue::make('params')
                 ->label('Paramètres')
                 ->keyLabel('Paramètre')
                 ->valueLabel('Valeur')
                 ->reorderable()
-                ->visible(fn (Get $get): bool => $get('type') !== 'condition')
+                ->visible(fn (Get $get): bool => ! in_array($get('type'), ['condition', 'llm_transform', 'map'], true))
                 ->columnSpanFull(),
+
+            // Dedicated editor for the IA prompt action.
+            self::llmTransformFieldset(),
+
+            // Dedicated key/value editor for the lookup-table action.
+            self::mapFieldset(),
         ];
 
         if ($allowCondition) {
@@ -385,6 +408,83 @@ class ImporterConfigResource extends BaseResource
         }
 
         return $schema;
+    }
+
+    /**
+     * Structured editor for the `llm_transform` action — replaces the raw
+     * params KeyValue with named fields matching {@see LlmTransformAction}.
+     */
+    private static function llmTransformFieldset(): Forms\Components\Fieldset
+    {
+        return Forms\Components\Fieldset::make('Prompt IA')
+            ->visible(fn (Get $get): bool => $get('type') === 'llm_transform')
+            ->columns(4)
+            ->schema([
+                Forms\Components\Select::make('llm_config_id')
+                    ->label('Configuration LLM')
+                    ->options(fn (): array => LlmConfig::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->placeholder('Configuration par défaut')
+                    ->searchable()
+                    ->native(false)
+                    ->columnSpan(2),
+                Forms\Components\Select::make('output_format')
+                    ->label('Format de sortie')
+                    ->options(['string' => 'Texte', 'json' => 'JSON'])
+                    ->default('string')
+                    ->native(false)
+                    ->live()
+                    ->columnSpan(1),
+                Forms\Components\TextInput::make('output_json_key')
+                    ->label('Clé JSON de sortie')
+                    ->placeholder('ex: description')
+                    ->visible(fn (Get $get): bool => $get('output_format') === 'json')
+                    ->columnSpan(1),
+                Forms\Components\Textarea::make('prompt')
+                    ->label('Prompt')
+                    ->rows(3)
+                    ->columnSpanFull(),
+                Forms\Components\TagsInput::make('input_columns')
+                    ->label('Colonnes d\'entrée')
+                    ->placeholder('Ajouter une colonne')
+                    ->helperText('Colonnes de la ligne injectées dans le prompt.')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('additional_context')
+                    ->label('Contexte additionnel')
+                    ->rows(2)
+                    ->columnSpanFull(),
+            ])
+            ->columnSpanFull();
+    }
+
+    /**
+     * Structured editor for the `map` action — a dedicated key/value table
+     * feeding the `values` param instead of hand-typed JSON.
+     */
+    private static function mapFieldset(): Forms\Components\Fieldset
+    {
+        return Forms\Components\Fieldset::make('Table de correspondance')
+            ->visible(fn (Get $get): bool => $get('type') === 'map')
+            ->columns(3)
+            ->schema([
+                Forms\Components\KeyValue::make('values')
+                    ->label('Correspondances')
+                    ->keyLabel('Valeur source')
+                    ->valueLabel('Valeur cible')
+                    ->reorderable()
+                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('default')
+                    ->label('Valeur par défaut')
+                    ->placeholder('Vide = ignorer la valeur'),
+                Forms\Components\Toggle::make('multi_value')
+                    ->label('Valeurs multiples')
+                    ->live()
+                    ->inline(false),
+                Forms\Components\TextInput::make('separator')
+                    ->label('Séparateur')
+                    ->default(',')
+                    ->visible(fn (Get $get): bool => (bool) $get('multi_value')),
+            ])
+            ->columnSpanFull();
     }
 
     private static function rulesRepeater(): Forms\Components\Repeater
@@ -592,6 +692,34 @@ class ImporterConfigResource extends BaseResource
                 continue;
             }
 
+            if ($type === 'llm_transform') {
+                $out[] = self::baseItem('llm_transform') + [
+                    'llm_config_id' => isset($a['llm_config_id']) ? (int) $a['llm_config_id'] : null,
+                    'prompt' => (string) ($a['prompt'] ?? ''),
+                    'input_columns' => array_values(array_map('strval', (array) ($a['input_columns'] ?? []))),
+                    'output_format' => (string) ($a['output_format'] ?? 'string'),
+                    'output_json_key' => isset($a['output_json_key']) ? (string) $a['output_json_key'] : null,
+                    'additional_context' => isset($a['additional_context']) ? (string) $a['additional_context'] : null,
+                ];
+
+                continue;
+            }
+
+            if ($type === 'map') {
+                $values = [];
+                foreach ((array) ($a['values'] ?? []) as $k => $v) {
+                    $values[(string) $k] = self::scalarToString($v);
+                }
+                $out[] = self::baseItem('map') + [
+                    'values' => $values,
+                    'default' => isset($a['default']) ? self::scalarToString($a['default']) : null,
+                    'multi_value' => (bool) ($a['multi_value'] ?? false),
+                    'separator' => (string) ($a['separator'] ?? ','),
+                ];
+
+                continue;
+            }
+
             $out[] = [
                 'type' => $type,
                 'params' => self::stringifyParams(array_diff_key($a, ['type' => true])),
@@ -601,6 +729,18 @@ class ImporterConfigResource extends BaseResource
         }
 
         return $out;
+    }
+
+    /**
+     * Empty form-item skeleton for an action with a dedicated editor: the
+     * generic params/branches keys stay present (but hidden) so every repeater
+     * item shares a uniform shape.
+     *
+     * @return array<string, mixed>
+     */
+    private static function baseItem(string $type): array
+    {
+        return ['type' => $type, 'params' => [], 'branches' => [], 'else_actions' => []];
     }
 
     /**
@@ -647,6 +787,62 @@ class ImporterConfigResource extends BaseResource
                     'type' => 'condition',
                     'branches' => array_values($branches),
                     'else_actions' => self::dehydrateActions((array) ($item['else_actions'] ?? []), allowCondition: false),
+                ];
+
+                continue;
+            }
+
+            if ($type === 'llm_transform') {
+                $action = ['type' => 'llm_transform'];
+
+                $llmId = $item['llm_config_id'] ?? null;
+                if ($llmId !== null && $llmId !== '') {
+                    $action['llm_config_id'] = (int) $llmId;
+                }
+                $prompt = trim((string) ($item['prompt'] ?? ''));
+                if ($prompt !== '') {
+                    $action['prompt'] = $prompt;
+                }
+                $columns = array_values(array_filter(
+                    array_map('strval', (array) ($item['input_columns'] ?? [])),
+                    static fn (string $c): bool => $c !== '',
+                ));
+                if ($columns !== []) {
+                    $action['input_columns'] = $columns;
+                }
+                $action['output_format'] = ($item['output_format'] ?? 'string') === 'json' ? 'json' : 'string';
+                if ($action['output_format'] === 'json') {
+                    $jsonKey = trim((string) ($item['output_json_key'] ?? ''));
+                    if ($jsonKey !== '') {
+                        $action['output_json_key'] = $jsonKey;
+                    }
+                }
+                $context = trim((string) ($item['additional_context'] ?? ''));
+                if ($context !== '') {
+                    $action['additional_context'] = $context;
+                }
+
+                $out[] = $action;
+
+                continue;
+            }
+
+            if ($type === 'map') {
+                $values = [];
+                foreach ((array) ($item['values'] ?? []) as $k => $v) {
+                    if ((string) $k === '') {
+                        continue;
+                    }
+                    $values[(string) $k] = self::scalarToString($v);
+                }
+                $default = $item['default'] ?? null;
+                $separator = (string) ($item['separator'] ?? ',');
+                $out[] = [
+                    'type' => 'map',
+                    'values' => $values,
+                    'default' => ($default === null || $default === '') ? null : self::scalarToString($default),
+                    'multi_value' => (bool) ($item['multi_value'] ?? false),
+                    'separator' => $separator !== '' ? $separator : ',',
                 ];
 
                 continue;
