@@ -58,6 +58,21 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 ---
 
 
+## Garde anti-wipe DB depuis les worktrees PKOS
+
+**Problème** : `compose.yaml` fige `container_name: mde-laravel-*`. Quand un agent PKOS lance `docker compose` depuis un worktree (`~/.pkos/worktrees/<id>/`), il n'a **pas** son propre conteneur isolé : il retombe sur le conteneur principal, donc sur la **base de dev `mde`** de Rom. Une commande destructive (`make fresh`, `make install`, ou `make artisan CMD='migrate:fresh'`) vide alors la vraie base de dev (staff, produits, configs). Incident constaté le 2026-06-02.
+
+**Garde — défense en profondeur** (zéro impact hors worktree) :
+
+1. **Makefile (hôte)** : `WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))` détecte le worktree. Les cibles `fresh`, `install` et `lunar` font un fast-fail (`exit 1`) avec message explicite si lancées depuis un worktree.
+2. **Flag conteneur** : en worktree, le Makefile injecte `-e PKOS_WORKTREE=1` dans `docker compose exec` (`WT_ENV`).
+3. **Framework (`AppServiceProvider::boot`)** : `DB::prohibitDestructiveCommands()` bloque `migrate:fresh`, `migrate:refresh`, `migrate:reset` et `db:wipe` même via `make artisan`, dès que `PKOS_WORKTREE` est présent **et** que l'environnement n'est **pas** `testing`. Couvre le cas où on contourne les cibles Make. L'exclusion de `testing` est nécessaire : `RefreshDatabase` lance `migrate:fresh` sur la base `testing` (forcée par `phpunit.xml`) — la prohiber casserait `make test`.
+
+**Conséquence** : depuis un worktree, le **seul** moyen autorisé de valider une migration est **`make test`** — la suite tourne sur la base `testing` (forcée par `phpunit.xml`, trait `RefreshDatabase`), jamais sur la base de dev. Ne jamais lancer `make fresh` / `migrate:fresh` pour tester un schéma ; si un reset réel de la base de dev est nécessaire, le faire hors worktree depuis le repo principal.
+
+---
+
+
 ## Conventions Git
 
 - Branches : `main` (prod), `develop` (intégration), `feature/*` par module

@@ -17,6 +17,7 @@ use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\ActivityResource;
@@ -135,6 +136,17 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Garde anti-wipe : depuis un worktree PKOS (container_name fige dans
+        // compose.yaml → pas d'isolation, on tape sur la base de dev mde), on
+        // interdit migrate:fresh / migrate:refresh / migrate:reset / db:wipe.
+        // PKOS_WORKTREE est injecte par le Makefile (cible -e PKOS_WORKTREE=1).
+        // On exclut l'env testing : la suite (RefreshDatabase) lance migrate:fresh
+        // sur la base `testing` (forcee par phpunit.xml), qui est sure — la prohiber
+        // casserait `make test`. Hors worktree (flag absent) : comportement inchange.
+        DB::prohibitDestructiveCommands(
+            (bool) env('PKOS_WORKTREE', false) && ! $this->app->environment('testing')
+        );
+
         // Regenerate product URL slug when variants change — MPN is only
         // available after variant creation so Lunar's native post-create hook
         // runs too early. See App\Generators\PkoProductUrlGenerator::regenerate.
