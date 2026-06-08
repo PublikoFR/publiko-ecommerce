@@ -20,6 +20,7 @@ use Pko\AiImporter\Enums\RowFilter;
 use Pko\AiImporter\Filament\Resources\ImportJobResource\Pages;
 use Pko\AiImporter\Filament\Resources\ImportJobResource\RelationManagers\ImportLogsRelationManager;
 use Pko\AiImporter\Filament\Resources\ImportJobResource\RelationManagers\StagingRecordsRelationManager;
+use Pko\AiImporter\Filament\Widgets\ImportJobProgressWidget;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Support\ConfigColumnExtractor;
@@ -270,6 +271,19 @@ class ImportJobResource extends BaseResource
             'index' => Pages\ListImportJobs::route('/'),
             'create' => Pages\CreateImportJob::route('/create'),
             'view' => Pages\ViewImportJob::route('/{record}'),
+        ];
+    }
+
+    /**
+     * Widgets de la resource — enregistrés comme composants Livewire par le
+     * panel (HasComponents::registerLivewireComponents). Sans cette déclaration,
+     * ImportJobProgressWidget utilisé dans ViewImportJob::getHeaderWidgets()
+     * lève ComponentNotFoundException.
+     */
+    public static function getWidgets(): array
+    {
+        return [
+            ImportJobProgressWidget::class,
         ];
     }
 }
