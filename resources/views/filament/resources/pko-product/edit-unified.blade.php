@@ -346,6 +346,14 @@
                         </div>
                     </div>
                 </div>
+
+                <hr class="border-gray-200 dark:border-white/10" />
+
+                <x-pko-product::switch-row
+                    label="Frais de port offert"
+                    description="Expédié directement par le fournisseur (dropshipping), port inclus dans le prix d'achat. Les lignes concernées sont exclues du calcul de livraison."
+                    model="freeShipping"
+                />
             </x-pko-product::card>
 
             {{-- 7. Variantes --}}

@@ -63,7 +63,6 @@ use Pko\Pennylane\Filament\Extensions\OrderInvoiceActionsExtension;
 use Pko\Pennylane\Filament\PennylanePlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\Secrets\Facades\Secrets;
-use Pko\ShippingCommon\Filament\Extensions\ProductFreeShippingExtension;
 use Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin;
 use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
@@ -117,7 +116,6 @@ class AppServiceProvider extends ServiceProvider
             PkoProductResource::class => [
                 ProductFeaturesExtension::class,
                 HideLunarMediaExtension::class,
-                ProductFreeShippingExtension::class,
             ],
             CollectionResource::class => [
                 HideLunarMediaExtension::class,

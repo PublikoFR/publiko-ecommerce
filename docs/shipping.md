@@ -152,7 +152,7 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 - `WeightCalculator::allLinesFreeShipping(Cart)` — nouveau, retourne `true` si toutes les lignes sont flaggées.
 - `AbstractCarrierModifier::handle()` — utilise désormais `fromCartTaxable()` au lieu de `fromCart()`.
 - `FreeShippingModifier` — enregistré dans `ShippingCommonServiceProvider`, injecte l'option gratuite quand applicable.
-- `ProductFreeShippingExtension` — extension Filament (section "Livraison / Logistique" dans la fiche produit).
+- Toggle "Frais de port offert" — rendu dans la page d'édition produit unifiée (`EditProductUnified`, carte "Inventaire & expédition"), prop Livewire `freeShipping` → `lunar_products.pko_free_shipping`. (Pas une extension `extendForm` : la fiche produit est une page Livewire custom qui ne passe pas par le form Lunar.)
 
 **Front** : badge "Livraison offerte" (vert) sur la fiche produit storefront quand `pko_free_shipping = true`, remplace "Livraison 24/48h".
 

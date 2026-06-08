@@ -147,10 +147,10 @@ Voir `docs/product-edit-unified-page.md`. En résumé :
 
 ## Champ produit — Frais de port offert (dropshipping)
 
-`Toggle('pko_free_shipping')` injecté via `ProductFreeShippingExtension` (extension Filament `extendForm`), enregistrée dans `AppServiceProvider::LunarPanel::extensions()` sur `PkoProductResource`.
+Toggle "Frais de port offert" rendu directement dans la **page d'édition produit unifiée** (`EditProductUnified`, carte "Inventaire & expédition"), pas via une extension Lunar : la fiche produit est une page Livewire custom qui n'utilise pas le form Lunar standard, donc `ResourceExtension::extendForm` n'a aucun effet dessus. Le champ est une prop Livewire `freeShipping` (chargée dans `mount()`, persistée dans `save()` sur `$product->pko_free_shipping`).
 
-- Section "Livraison / Logistique" collapsible (collapsée si `pko_free_shipping = false`).
 - Colonne source : `lunar_products.pko_free_shipping` (boolean, NOT NULL DEFAULT 0, index).
+- ⚠️ Tout nouveau champ produit doit être ajouté à `EditProductUnified` + son template Blade ; une extension `extendForm` serait ignorée.
 - Effet checkout : cf. [shipping.md §5.8](shipping.md#58-frais-de-port-offert-par-produit--dropshipping-2026-06).
 
 ---
