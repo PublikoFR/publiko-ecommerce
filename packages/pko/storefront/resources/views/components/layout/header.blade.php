@@ -1,17 +1,8 @@
 @php
-use Illuminate\Support\Facades\Cache;
 use Lunar\Facades\CartSession;
-use Lunar\Models\Collection;
 
 $contact = config('storefront.contact');
 $nav = config('storefront.nav.secondary', []);
-
-$rootCollections = Cache::remember('pko.storefront.nav.roots.v1', 3600, function () {
-    return Collection::with(['defaultUrl', 'children' => fn ($q) => $q->with('defaultUrl')])
-        ->whereIsRoot()
-        ->orderBy('_lft')
-        ->get();
-});
 
 try {
     $cart = CartSession::current();
@@ -122,37 +113,15 @@ $user = auth()->user();
     {{-- Secondary nav --}}
     <nav class="bg-primary-700 text-white">
         <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center overflow-x-auto no-scrollbar">
-            <div x-data="{ open: false }" class="relative shrink-0" @click.away="open = false">
-                <button type="button" @click="open = !open" class="flex items-center gap-2 py-3 pr-4 font-semibold text-sm uppercase tracking-wide hover:bg-primary-800 transition">
-                    <x-ui.icon name="menu" class="w-5 h-5" />
-                    <span>Tous nos produits</span>
-                    <x-ui.icon name="chevron-down" class="w-4 h-4" />
-                </button>
-                <div x-show="open" x-transition style="display: none;" class="absolute left-0 top-full z-50 w-screen max-w-4xl bg-white shadow-2xl border border-neutral-200 rounded-b-lg text-neutral-800">
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-1 p-4 max-h-[70vh] overflow-y-auto">
-                        @forelse ($rootCollections as $root)
-                            <div class="p-3">
-                                <a href="{{ $root->defaultUrl?->slug ? route('collection.view', $root->defaultUrl->slug) : '#' }}" class="block font-bold text-primary-700 hover:text-primary-900 mb-2">
-                                    {{ $root->translateAttribute('name') }}
-                                </a>
-                                @if ($root->children->isNotEmpty())
-                                    <ul class="space-y-1">
-                                        @foreach ($root->children->take(8) as $child)
-                                            <li>
-                                                <a href="{{ $child->defaultUrl?->slug ? route('collection.view', $child->defaultUrl->slug) : '#' }}" class="text-sm text-neutral-600 hover:text-primary-600 transition">
-                                                    {{ $child->translateAttribute('name') }}
-                                                </a>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </div>
-                        @empty
-                            <p class="p-4 text-sm text-neutral-500 col-span-full">Catalogue en cours de chargement…</p>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
+            <button
+                type="button"
+                x-data
+                @click="$dispatch('open-lateral-menu')"
+                class="flex items-center gap-2 py-3 pr-4 font-semibold text-sm uppercase tracking-wide hover:bg-primary-800 transition shrink-0"
+            >
+                <x-ui.icon name="menu" class="w-5 h-5" />
+                <span>Tous nos produits</span>
+            </button>
 
             @foreach ($nav as $item)
                 <a href="{{ $item['href'] ?? '#' }}" class="shrink-0 py-3 px-4 font-semibold text-sm uppercase tracking-wide hover:bg-primary-800 transition">
