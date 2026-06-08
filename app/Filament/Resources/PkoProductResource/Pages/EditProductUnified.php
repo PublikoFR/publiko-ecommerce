@@ -107,6 +107,8 @@ class EditProductUnified extends Page implements HasForms
 
     public ?string $height = null;
 
+    public bool $freeShipping = false;
+
     // ------- Statut & visibilité
     public string $status = 'draft';
 
@@ -188,6 +190,7 @@ class EditProductUnified extends Page implements HasForms
 
         $this->status = (string) ($product->status ?? 'draft');
         $this->featured = (bool) ($product->featured ?? false);
+        $this->freeShipping = (bool) ($product->pko_free_shipping ?? false);
         $this->brandId = $product->brand_id;
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
         $this->tagInputs = $product->tags->pluck('value')->all();
@@ -781,6 +784,7 @@ class EditProductUnified extends Page implements HasForms
             $product->brand_id = $this->brandId;
             $product->status = $this->status;
             $product->featured = $this->featured;
+            $product->pko_free_shipping = $this->freeShipping;
             $product->save();
 
             $product->collections()->sync($this->collectionIds);
