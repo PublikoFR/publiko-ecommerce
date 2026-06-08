@@ -45,6 +45,16 @@ class CollectionPage extends Component
         if (! $this->url) {
             abort(404);
         }
+
+        // Abort if the collection (or any of its ancestors) is disabled.
+        $visible = CollectionModel::query()
+            ->where('id', $this->url->element->id)
+            ->navVisible()
+            ->exists();
+
+        if (! $visible) {
+            abort(404);
+        }
     }
 
     public function toggleValue(int $familyId, int $valueId): void
@@ -91,12 +101,14 @@ class CollectionPage extends Component
 
     /**
      * Query de base : produits de la collection, sans aucun filtre feature/brand.
+     * Filtre les produits sans collection nav-visible (pko_enabled cascade).
      *
      * @return Builder<Product>
      */
     private function baseQuery(): Builder
     {
         return Product::query()
+            ->storefrontVisible()
             ->whereHas('collections', fn ($q) => $q->where('lunar_collections.id', $this->collection->id));
     }
 

@@ -43,6 +43,7 @@ class SearchAutocomplete extends Component
 
             $products = Product::query()
                 ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
+                ->storefrontVisible()
                 ->whereExists(function ($q) use ($like) {
                     $q->from('lunar_product_translations as t')
                         ->whereColumn('t.product_id', 'lunar_products.id')
@@ -55,15 +56,21 @@ class SearchAutocomplete extends Component
             if ($products->isEmpty()) {
                 $products = Product::query()
                     ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
+                    ->storefrontVisible()
                     ->whereHas('variants', fn ($q) => $q->where('sku', 'like', $like))
                     ->limit(8)
                     ->get();
             }
 
             $brands = Brand::query()->where('name', 'like', $like)->limit(3)->get();
-            $collections = Collection::query()->with('defaultUrl')->whereExists(function ($q) use ($like) {
-                $q->from(DB::raw('(SELECT 1)'))->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(attribute_data, '$.name.value')) LIKE ?", [$like]);
-            })->limit(3)->get();
+            $collections = Collection::query()
+                ->with('defaultUrl')
+                ->navVisible()
+                ->whereExists(function ($q) use ($like) {
+                    $q->from(DB::raw('(SELECT 1)'))->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(attribute_data, '$.name.value')) LIKE ?", [$like]);
+                })
+                ->limit(3)
+                ->get();
         }
 
         return view('storefront::livewire.search-autocomplete', [

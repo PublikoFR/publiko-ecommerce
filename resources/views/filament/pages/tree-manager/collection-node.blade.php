@@ -1,6 +1,7 @@
 @php($children = $node['children'] ?? [])
 @php($hasChildren = count($children) > 0)
-<li data-id="{{ $node['id'] }}">
+@php($enabled = $node['pko_enabled'] ?? true)
+<li data-id="{{ $node['id'] }}" class="{{ $enabled ? '' : 'opacity-50' }}">
     <div class="tree-node">
         <x-heroicon-o-bars-3 class="tree-node__handle h-4 w-4" />
         @if ($hasChildren)
@@ -8,12 +9,25 @@
                 <x-heroicon-o-chevron-right class="h-3.5 w-3.5" />
             </button>
         @endif
-        <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 text-gray-400" />
+        <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 {{ $enabled ? 'text-gray-400' : 'text-red-300' }}" />
         <span class="tree-node__label">
             {{ $node['name'] }}
+            @if (! $enabled)
+                <span class="tree-node__badge tree-node__badge--disabled">désactivée</span>
+            @endif
             <span class="tree-node__badge">{{ $node['product_count'] }}</span>
         </span>
         <div class="tree-node__actions">
+            <button type="button"
+                    class="tree-node__action {{ $enabled ? 'text-green-600 hover:text-green-800' : 'text-gray-400 hover:text-green-600' }}"
+                    title="{{ $enabled ? 'Désactiver la catégorie' : 'Activer la catégorie' }}"
+                    wire:click="toggleCollectionEnabled({{ $node['id'] }})">
+                @if ($enabled)
+                    <x-heroicon-o-eye class="h-4 w-4" />
+                @else
+                    <x-heroicon-o-eye-slash class="h-4 w-4" />
+                @endif
+            </button>
             <button type="button"
                     class="tree-node__action"
                     title="Ajouter une sous-catégorie"

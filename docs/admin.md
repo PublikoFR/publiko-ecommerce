@@ -54,6 +54,8 @@ Structure actuelle :
 
 **SortableJS cross-level drag** : les listes catégories racine (`data-sortable="collections"`) et enfants (`data-sortable="collection-children"`) partagent le même groupe SortableJS `{ name: 'collections-tree', pull: true, put: true }`. Cela permet le reparenting drag-and-drop entre niveaux (racine ↔ enfant, enfant ↔ autre parent). Même pattern côté valeurs de caractéristiques avec le groupe `features-values`.
 
+**Toggle activation catégorie** : chaque nœud de l'arbre dispose d'un bouton œil (actif) / œil barré (désactivé) → `wire:click="toggleCollectionEnabled($id)"`. La désactivation cascade automatiquement à tous les descendants (nestedset `_lft/_rgt`) et invalide le cache storefront nav. Nœuds désactivés rendus en `opacity-50` + badge « désactivée ». Le même toggle est accessible depuis la fiche d'édition Collection (ResourceExtension `CollectionEnabledExtension` → section « Visibilité »). Voir `docs/packages/storefront.md` pour l'impact côté front.
+
 **FeatureFamilyResource** : `shouldRegisterNavigation()` retourne `false`. Resource toujours enregistrée (URLs actives), juste absente du sidebar.
 
 ### Media Library — `tomatophp/filament-media-manager`
