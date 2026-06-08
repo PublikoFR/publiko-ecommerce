@@ -32,9 +32,25 @@ Seeder : migration `2026_04_11_140000_add_pko_seo_collection_attributes.php` —
 
 Bascule npm envisageable si une 2ᵉ page admin a besoin de la même lib — créer alors `resources/js/admin.js` + `FilamentAsset::register()` dans `AppServiceProvider::boot()`.
 
-### 7.ter.5 Hors scope
+### 7.ter.5 Toggle activation/désactivation catégorie
 
-- Sélecteur `CollectionGroup` (la page utilise le premier groupe par ID — le projet nen a quun en pratique)
+**Colonne** : `pko_enabled BOOLEAN NOT NULL DEFAULT 1` sur `lunar_collections` (migration `2026_06_08_120000_add_pko_enabled_to_lunar_collections.php`, index ajouté). Ne pas modifier les migrations Lunar publiées.
+
+**Comportement** :
+- Désactiver → (a) collection masquée du menu front, (b) sa page `/collections/{slug}` renvoie 404, (c) cascade nestedset : toutes les sous-catégories (`_lft > parent._lft AND _rgt < parent._rgt`) passent aussi à `pko_enabled=false`, (d) les produits dont c'est la **seule** collection visible sont masqués.
+- Réactiver → **uniquement le nœud lui-même** (`pko_enabled=true`). Les enfants gardent leur état.
+
+**Back-office — TreeManager** :
+- `collectionsTree()` expose `pko_enabled` dans chaque nœud.
+- Bouton toggle (œil / œil barré) dans `tree-node__actions` → `wire:click="toggleCollectionEnabled($id)"`.
+- Nœuds désactivés rendus en `opacity-50` + icône dossier en rouge + badge « désactivée ».
+- `toggleCollectionEnabled()` : transaction SQL + cascade nestedset sur disable + `Cache::forget('pko.storefront.nav.roots.v3')` + `unset($this->collectionsTree)`.
+
+**Back-office — fiche Collection** :
+- Extension `CollectionEnabledExtension` (enregistrée sur `CollectionResource` dans `AppServiceProvider`) injecte un `Toggle('pko_enabled')` dans une section « Visibilité » collapsée quand activée.
+
+**Hors scope** :
+- Sélecteur `CollectionGroup` (la page utilise le premier groupe par ID — le projet n'en a qu'un en pratique)
 - Image ou SEO sur `FeatureFamily` / `FeatureValue` (décision : caractéristiques restent purement fonctionnelles)
 - Authorization fine : réutilise la policy Shield `page_TreeManager` générée automatiquement, rattachée au rôle `admin`. À régénérer via `make artisan CMD='shield:generate --panel=lunar'` après déploiement.
 

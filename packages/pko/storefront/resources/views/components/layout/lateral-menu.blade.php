@@ -2,18 +2,22 @@
 use Illuminate\Support\Facades\Cache;
 use Lunar\Models\Collection;
 
-// TODO pko_enabled: ajouter ->where('pko_enabled', true) aux trois niveaux quand la feature catégories désactivées sera activée
-$lateralCollections = Cache::remember('pko.storefront.nav.roots.v2', 3600, function () {
+$lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, function () {
     return Collection::with([
         'defaultUrl',
         'children' => fn ($q) => $q
+            ->where('pko_enabled', true)
             ->with([
                 'defaultUrl',
-                'children' => fn ($q2) => $q2->with('defaultUrl')->orderBy('_lft'),
+                'children' => fn ($q2) => $q2
+                    ->where('pko_enabled', true)
+                    ->with('defaultUrl')
+                    ->orderBy('_lft'),
             ])
             ->orderBy('_lft'),
     ])
     ->whereIsRoot()
+    ->where('pko_enabled', true)
     ->orderBy('_lft')
     ->get();
 });

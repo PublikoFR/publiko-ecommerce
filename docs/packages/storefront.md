@@ -72,10 +72,29 @@ Inclus dans : `storefront.blade.php` (avant `x-layout.header`)
 
 **Données** :
 - Source : `Lunar\Models\Collection` avec relations `defaultUrl`, `children.defaultUrl`, `children.children.defaultUrl`
-- Cache : `pko.storefront.nav.roots.v1` (3600 s) — même clé que l'ancien dropdown header
-- `TODO pko_enabled` marqué en commentaire : ajouter `->where('pko_enabled', true)` aux 3 niveaux quand la feature catégories désactivées sera activée
+- Cache : `pko.storefront.nav.roots.v3` (3600 s) — clé bumpée v3 pour intégrer le filtre `pko_enabled`. Invalidée par `TreeManager::toggleCollectionEnabled()`.
+- Filtre activé : `->where('pko_enabled', true)` appliqué aux L1, L2 et L3. Cache désactivé sur les nœuds ayant un ancêtre désactivé par l'effet du cascade (nestedset).
 
 **État Alpine** : `{ open, l1, l2 }` — `l1` = id Collection L1 sélectionnée, `l2` = id Collection L2 sélectionnée. Réinitialisés à la fermeture.
+
+### Filtrage storefront — catégories et produits désactivés
+
+**Scopes Eloquent** (macros enregistrées dans `AppServiceProvider::boot()`) :
+
+| Macro | Modèle cible | Comportement |
+|---|---|---|
+| `navVisible()` | `Lunar\Models\Collection` | `pko_enabled=true` ET aucun ancêtre nestedset désactivé (sous-requête EXISTS sur `_lft/_rgt`). |
+| `storefrontVisible()` | `Lunar\Models\Product` | EXISTS au moins une collection navVisible via `lunar_collection_product`. Sous-requête indexée (pas de N+1). |
+
+**Appliqué dans** :
+- `Navigation::getCollectionsProperty()` — nav header
+- `CollectionsIndexPage::render()` — page index catégories + new arrivals
+- `CollectionPage::mount()` — abort 404 si la collection cible est désactivée (ou a un ancêtre désactivé)
+- `CollectionPage::baseQuery()` — produits dans la collection filtrés `storefrontVisible`
+- `ProductPage::mount()` — abort 404 si le produit n'a plus aucune collection navVisible
+- `SearchPage::baseQuery()` — résultats de recherche filtrés `storefrontVisible`
+- `SearchAutocomplete::render()` — suggestions collections (`navVisible`) + produits (`storefrontVisible`)
+- `lateral-menu.blade.php` — L1/L2/L3 filtrés `->where('pko_enabled', true)` (redondant avec cascade, mais explicite)
 
 **Accessibilité** : `role="dialog" aria-modal` sur le conteneur, `role="menu/menuitem"` sur les listes, `aria-expanded` sur les chevrons, focus géré via fermeture Esc, `overflow-hidden` sur `body` quand ouvert.
 

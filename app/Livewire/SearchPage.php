@@ -79,7 +79,7 @@ class SearchPage extends Component
      */
     private function baseQuery(): Builder
     {
-        $q = Product::query();
+        $q = Product::query()->storefrontVisible();
         $term = trim((string) $this->term);
 
         if ($term !== '' && strlen($term) >= 2) {
