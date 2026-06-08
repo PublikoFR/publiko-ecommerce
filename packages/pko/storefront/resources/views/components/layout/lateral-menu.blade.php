@@ -142,7 +142,7 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
                                     <x-ui.icon
                                         name="chevron-right"
                                         class="w-4 h-4 text-neutral-400 transition-transform duration-200"
-                                        :class="{ 'rotate-90 text-primary-500': l1 === {{ $col->id }} }"
+                                        x-bind:class="{ 'rotate-90 text-primary-500': l1 === {{ $col->id }} }"
                                     />
                                 </button>
                             @endif
@@ -222,7 +222,7 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
                                                         <x-ui.icon
                                                             name="chevron-right"
                                                             class="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-transform duration-200"
-                                                            :class="{ 'rotate-90 text-primary-500': l2 === {{ $child->id }} }"
+                                                            x-bind:class="{ 'rotate-90 text-primary-500': l2 === {{ $child->id }} }"
                                                         />
                                                     </button>
                                                 @endif

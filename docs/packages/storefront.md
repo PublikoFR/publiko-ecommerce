@@ -56,14 +56,16 @@ Le `CheckoutPage` du starter kit visait Livewire 2 et était cassé sur ce proje
 ### Menu latéral off-canvas (`x-layout.lateral-menu`)
 
 Composant : `packages/pko/storefront/resources/views/components/layout/lateral-menu.blade.php`  
-Inclus dans : `storefront.blade.php` (avant `x-layout.header`)
+Inclus dans : **`resources/views/layouts/storefront.blade.php`** (layout projet, avant `x-layout.header`) — c'est celui réellement utilisé par toutes les pages Livewire full-page (`config/livewire.php` → `layout => 'layouts.storefront'`). Le composant `x-layout.storefront` du package l'inclut aussi mais n'est branché sur aucune route.
 
 **Comportement** : overlay sombre + panneau off-canvas slide-in depuis la gauche. Remplace le mega-menu dropdown "Tous nos produits" de la secondary nav.
 
 **Déclencheurs** :
-- Bouton "Tous nos produits" dans la secondary nav (`$dispatch('open-lateral-menu')`)
+- Bouton burger "Tous nos produits" dans la secondary nav (`$dispatch('open-lateral-menu')`) — déclencheur unique ; ne pas redupliquer une entrée "Tous nos produits" dans `config('storefront.nav.secondary')` sinon doublon (lien mort `<a href="#">`).
 - Burger mobile dans le header (`$dispatch('open-modal-mobile-nav')`)
 - Fermeture : croix, clic overlay, touche Esc
+
+**Gotcha Blade ⚠️** : une directive Alpine `:class="{...}"` posée sur un **composant Blade** (`<x-ui.icon …>`) est interprétée par Blade comme une expression PHP (préfixe `:`) → erreur de compilation `unexpected token "{"`. Sur un composant, utiliser `x-bind:class="{...}"` (transmis littéralement au `<svg>` via `$attributes->merge`). Sur un élément HTML natif (`<div>`, `<button>`), `:class` passe sans souci.
 
 **Structure panneaux** :
 - **L1** (toujours visible) — catégories racines avec vignette image (`getFirstMediaUrl('images', 'small')`), nom (lien), chevron si enfants. Sur mobile : accordéon inline au clic du chevron. Sur desktop : clic chevron révèle le panneau L2 à droite.
