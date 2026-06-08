@@ -6,9 +6,11 @@ namespace Pko\ShippingCommon;
 
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\ServiceProvider;
+use Lunar\Base\ShippingModifiers;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
+use Pko\ShippingCommon\Modifiers\FreeShippingModifier;
 use Pko\ShippingCommon\Observers\OrderShipmentObserver;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
@@ -45,5 +47,9 @@ class ShippingCommonServiceProvider extends ServiceProvider
         }
 
         Order::observe(OrderShipmentObserver::class);
+
+        /** @var ShippingModifiers $modifiers */
+        $modifiers = $this->app->make(ShippingModifiers::class);
+        $modifiers->add(FreeShippingModifier::class);
     }
 }

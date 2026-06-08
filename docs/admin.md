@@ -143,5 +143,13 @@ Voir `docs/product-edit-unified-page.md`. En résumé :
 - Historique : `spatie/laravel-activitylog` (déjà actif sur les modèles Lunar via trait `LogsActivity`).
 - Pas d'autosave : save explicite uniquement. Indicateur visuel basé sur `$isDirty` Livewire.
 
+## Champ produit — Frais de port offert (dropshipping)
+
+`Toggle('pko_free_shipping')` injecté via `ProductFreeShippingExtension` (extension Filament `extendForm`), enregistrée dans `AppServiceProvider::LunarPanel::extensions()` sur `PkoProductResource`.
+
+- Section "Livraison / Logistique" collapsible (collapsée si `pko_free_shipping = false`).
+- Colonne source : `lunar_products.pko_free_shipping` (boolean, NOT NULL DEFAULT 0, index).
+- Effet checkout : cf. [shipping.md §5.8](shipping.md#58-frais-de-port-offert-par-produit--dropshipping-2026-06).
+
 ---
 
