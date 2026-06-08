@@ -31,12 +31,13 @@ class AiImporterServiceProvider extends ServiceProvider
 
         ActionRegistry::bootDefaults();
 
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                ImportPsConfigCommand::class,
-                PreviewConfigCommand::class,
-                RunScheduledImportsCommand::class,
-            ]);
-        }
+        // Enregistrées inconditionnellement : la page Filament CreateImportJob
+        // appelle ai-importer:import-ps-config via Artisan::call() en contexte
+        // HTTP, où runningInConsole() est false.
+        $this->commands([
+            ImportPsConfigCommand::class,
+            PreviewConfigCommand::class,
+            RunScheduledImportsCommand::class,
+        ]);
     }
 }
