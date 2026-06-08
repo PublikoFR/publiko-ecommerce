@@ -25,11 +25,11 @@ class Navigation extends Component
     ];
 
     /**
-     * Return the collections in a tree.
+     * Return the nav-visible collections in a tree.
      */
     public function getCollectionsProperty()
     {
-        return Collection::with(['defaultUrl'])->get()->toTree();
+        return Collection::with(['defaultUrl'])->navVisible()->get()->toTree();
     }
 
     public function render(): View

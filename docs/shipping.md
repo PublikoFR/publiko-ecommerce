@@ -132,6 +132,30 @@ Voir [packages/transporters.md](packages/transporters.md) pour les détails (col
 
 Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_methods_rates` (assertions type `countries` + méthodes schedulées).
 
+### 5.8 Frais de port offert par produit — dropshipping (2026-06)
+
+**Cas d'usage** : le fournisseur expédie directement au client final et les frais de port sont inclus dans le prix d'achat. Les produits concernés sont flaggés `pko_free_shipping = true` en base.
+
+**Stockage** : colonne `pko_free_shipping BOOLEAN NOT NULL DEFAULT 0` sur `lunar_products`, ajoutée via migration custom `2026_06_08_100000_add_pko_free_shipping_to_lunar_products.php` (index présent pour les requêtes efficients).
+
+**Logique checkout** :
+
+| Panier | Comportement |
+|--------|-------------|
+| 100% flaggés | `FreeShippingModifier` ajoute 1 option "Livraison offerte" (0 €). Les carriers skippent naturellement car `fromCartTaxable()` = 0. |
+| Mixte | Carriers calculent le poids/prix sur les lignes non-flaggées uniquement (`WeightCalculator::fromCartTaxable()`). Aucune option "free" injectée. |
+| Aucun flaggé | Comportement standard inchangé. |
+
+**Composants modifiés** :
+
+- `WeightCalculator::fromCartTaxable(Cart)` — nouveau, filtre les lignes `pko_free_shipping = true`.
+- `WeightCalculator::allLinesFreeShipping(Cart)` — nouveau, retourne `true` si toutes les lignes sont flaggées.
+- `AbstractCarrierModifier::handle()` — utilise désormais `fromCartTaxable()` au lieu de `fromCart()`.
+- `FreeShippingModifier` — enregistré dans `ShippingCommonServiceProvider`, injecte l'option gratuite quand applicable.
+- `ProductFreeShippingExtension` — extension Filament (section "Livraison / Logistique" dans la fiche produit).
+
+**Front** : badge "Livraison offerte" (vert) sur la fiche produit storefront quand `pko_free_shipping = true`, remplace "Livraison 24/48h".
+
 ### 5.7 Hors scope shipping
 
 - Points relais (`BPR` Colissimo, `Chrono Relais`)

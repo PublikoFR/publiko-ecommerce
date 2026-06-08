@@ -16,11 +16,13 @@ class CollectionsIndexPage extends Component
         $collections = CollectionModel::query()
             ->with(['defaultUrl', 'thumbnail'])
             ->whereIsRoot()
+            ->navVisible()
             ->orderBy('_lft')
             ->get();
 
         $newArrivals = Product::query()
             ->with(['thumbnail', 'brand', 'defaultUrl', 'variants.basePrices'])
+            ->storefrontVisible()
             ->latest()
             ->limit(8)
             ->get();

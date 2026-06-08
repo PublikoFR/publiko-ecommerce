@@ -53,6 +53,51 @@ Le `CheckoutPage` du starter kit visait Livewire 2 et était cassé sur ce proje
 - **Navigation** : `Navigation::getCollectionsProperty()` charge toutes les collections en arbre à chaque requête — à mettre en cache si le catalogue explose.
 - **UI** : starter kit basique non-production ready, sera amené à être refondu (Inertia+Vue kit à surveiller).
 
+### Menu latéral off-canvas (`x-layout.lateral-menu`)
+
+Composant : `packages/pko/storefront/resources/views/components/layout/lateral-menu.blade.php`  
+Inclus dans : `storefront.blade.php` (avant `x-layout.header`)
+
+**Comportement** : overlay sombre + panneau off-canvas slide-in depuis la gauche. Remplace le mega-menu dropdown "Tous nos produits" de la secondary nav.
+
+**Déclencheurs** :
+- Bouton "Tous nos produits" dans la secondary nav (`$dispatch('open-lateral-menu')`)
+- Burger mobile dans le header (`$dispatch('open-modal-mobile-nav')`)
+- Fermeture : croix, clic overlay, touche Esc
+
+**Structure panneaux** :
+- **L1** (toujours visible) — catégories racines avec vignette image (`getFirstMediaUrl('images', 'small')`), nom (lien), chevron si enfants. Sur mobile : accordéon inline au clic du chevron. Sur desktop : clic chevron révèle le panneau L2 à droite.
+- **L2** (desktop `lg+` seulement) — enfants du nœud L1 sélectionné. Clic item avec enfants révèle L3.
+- **L3** (desktop `lg+` seulement) — petits-enfants du nœud L2 sélectionné.
+
+**Données** :
+- Source : `Lunar\Models\Collection` avec relations `defaultUrl`, `children.defaultUrl`, `children.children.defaultUrl`
+- Cache : `pko.storefront.nav.roots.v3` (3600 s) — clé bumpée v3 pour intégrer le filtre `pko_enabled`. Invalidée par `TreeManager::toggleCollectionEnabled()`.
+- Filtre activé : `->where('pko_enabled', true)` appliqué aux L1, L2 et L3. Cache désactivé sur les nœuds ayant un ancêtre désactivé par l'effet du cascade (nestedset).
+
+**État Alpine** : `{ open, l1, l2 }` — `l1` = id Collection L1 sélectionnée, `l2` = id Collection L2 sélectionnée. Réinitialisés à la fermeture.
+
+### Filtrage storefront — catégories et produits désactivés
+
+**Scopes Eloquent** (macros enregistrées dans `AppServiceProvider::boot()`) :
+
+| Macro | Modèle cible | Comportement |
+|---|---|---|
+| `navVisible()` | `Lunar\Models\Collection` | `pko_enabled=true` ET aucun ancêtre nestedset désactivé (sous-requête EXISTS sur `_lft/_rgt`). |
+| `storefrontVisible()` | `Lunar\Models\Product` | EXISTS au moins une collection navVisible via `lunar_collection_product`. Sous-requête indexée (pas de N+1). |
+
+**Appliqué dans** :
+- `Navigation::getCollectionsProperty()` — nav header
+- `CollectionsIndexPage::render()` — page index catégories + new arrivals
+- `CollectionPage::mount()` — abort 404 si la collection cible est désactivée (ou a un ancêtre désactivé)
+- `CollectionPage::baseQuery()` — produits dans la collection filtrés `storefrontVisible`
+- `ProductPage::mount()` — abort 404 si le produit n'a plus aucune collection navVisible
+- `SearchPage::baseQuery()` — résultats de recherche filtrés `storefrontVisible`
+- `SearchAutocomplete::render()` — suggestions collections (`navVisible`) + produits (`storefrontVisible`)
+- `lateral-menu.blade.php` — L1/L2/L3 filtrés `->where('pko_enabled', true)` (redondant avec cascade, mais explicite)
+
+**Accessibilité** : `role="dialog" aria-modal` sur le conteneur, `role="menu/menuitem"` sur les listes, `aria-expanded` sur les chevrons, focus géré via fermeture Esc, `overflow-hidden` sur `body` quand ouvert.
+
 ### Impact back-office
 - Aucun. `/admin` (Filament + Shield) inchangé, routes et middlewares séparés.
 

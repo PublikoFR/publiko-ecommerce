@@ -48,7 +48,7 @@ abstract class AbstractCarrierModifier extends ShippingModifier
             return $next($cart);
         }
 
-        $weightKg = WeightCalculator::fromCart($cart);
+        $weightKg = WeightCalculator::fromCartTaxable($cart);
         if ($weightKg <= 0) {
             return $next($cart);
         }

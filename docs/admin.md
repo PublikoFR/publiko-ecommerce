@@ -54,6 +54,8 @@ Structure actuelle :
 
 **SortableJS cross-level drag** : les listes catégories racine (`data-sortable="collections"`) et enfants (`data-sortable="collection-children"`) partagent le même groupe SortableJS `{ name: 'collections-tree', pull: true, put: true }`. Cela permet le reparenting drag-and-drop entre niveaux (racine ↔ enfant, enfant ↔ autre parent). Même pattern côté valeurs de caractéristiques avec le groupe `features-values`.
 
+**Toggle activation catégorie** : chaque nœud de l'arbre dispose d'un bouton œil (actif) / œil barré (désactivé) → `wire:click="toggleCollectionEnabled($id)"`. La désactivation cascade automatiquement à tous les descendants (nestedset `_lft/_rgt`) et invalide le cache storefront nav. Nœuds désactivés rendus en `opacity-50` + badge « désactivée ». Le même toggle est accessible depuis la fiche d'édition Collection (ResourceExtension `CollectionEnabledExtension` → section « Visibilité »). Voir `docs/packages/storefront.md` pour l'impact côté front.
+
 **FeatureFamilyResource** : `shouldRegisterNavigation()` retourne `false`. Resource toujours enregistrée (URLs actives), juste absente du sidebar.
 
 ### Media Library — `tomatophp/filament-media-manager`
@@ -142,6 +144,14 @@ Voir `docs/product-edit-unified-page.md`. En résumé :
 - Caractéristiques techniques : source = `pko_feature_families` / `pko_feature_values` (package CatalogFeatures), pas `attribute_data` Lunar.
 - Historique : `spatie/laravel-activitylog` (déjà actif sur les modèles Lunar via trait `LogsActivity`).
 - Pas d'autosave : save explicite uniquement. Indicateur visuel basé sur `$isDirty` Livewire.
+
+## Champ produit — Frais de port offert (dropshipping)
+
+`Toggle('pko_free_shipping')` injecté via `ProductFreeShippingExtension` (extension Filament `extendForm`), enregistrée dans `AppServiceProvider::LunarPanel::extensions()` sur `PkoProductResource`.
+
+- Section "Livraison / Logistique" collapsible (collapsée si `pko_free_shipping = false`).
+- Colonne source : `lunar_products.pko_free_shipping` (boolean, NOT NULL DEFAULT 0, index).
+- Effet checkout : cf. [shipping.md §5.8](shipping.md#58-frais-de-port-offert-par-produit--dropshipping-2026-06).
 
 ---
 

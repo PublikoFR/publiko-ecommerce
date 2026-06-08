@@ -24,6 +24,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -131,6 +132,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'id' => $node->id,
                     'name' => (string) ($node->translateAttribute('name', self::LOCALE) ?? '—'),
                     'product_count' => $node->products_count ?? 0,
+                    'pko_enabled' => (bool) $node->pko_enabled,
                     'children' => $build($node->id),
                 ];
             })->values()->all();
@@ -280,6 +282,45 @@ class TreeManager extends BasePage implements HasActions, HasForms
         });
 
         $this->skipRender();
+    }
+
+    // =========================================================================
+    // Collection enable/disable toggle
+    // =========================================================================
+
+    /**
+     * Flip pko_enabled on a collection.
+     *
+     * Disabling cascades to all nestedset descendants (children, grandchildren…).
+     * Re-enabling only affects the node itself — descendants keep their own state.
+     */
+    public function toggleCollectionEnabled(int $id): void
+    {
+        /** @var LunarCollection $node */
+        $node = LunarCollection::query()->findOrFail($id);
+        $enabling = ! $node->pko_enabled;
+
+        DB::transaction(function () use ($node, $enabling): void {
+            $node->pko_enabled = $enabling;
+            $node->save();
+
+            if (! $enabling) {
+                // Cascade disable to all descendants via nestedset
+                LunarCollection::query()
+                    ->where('_lft', '>', $node->_lft)
+                    ->where('_rgt', '<', $node->_rgt)
+                    ->update(['pko_enabled' => false]);
+            }
+        });
+
+        Cache::forget('pko.storefront.nav.roots.v3');
+
+        unset($this->collectionsTree);
+
+        Notification::make()
+            ->title($enabling ? 'Catégorie activée' : 'Catégorie désactivée')
+            ->success()
+            ->send();
     }
 
     // =========================================================================

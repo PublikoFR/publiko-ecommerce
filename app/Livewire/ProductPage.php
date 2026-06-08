@@ -39,6 +39,15 @@ class ProductPage extends Component
             abort(404);
         }
 
+        // Abort if all of the product's collections are disabled.
+        $hasVisibleCollection = $this->url->element->collections()
+            ->navVisible()
+            ->exists();
+
+        if (! $hasVisibleCollection) {
+            abort(404);
+        }
+
         $this->selectedOptionValues = $this->productOptions->mapWithKeys(function ($data) {
             return [$data['option']->id => $data['values']->first()->id];
         })->toArray();
