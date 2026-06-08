@@ -3,7 +3,7 @@ use Illuminate\Support\Facades\Cache;
 use Lunar\Models\Collection;
 
 // TODO pko_enabled: ajouter ->where('pko_enabled', true) aux trois niveaux quand la feature catégories désactivées sera activée
-$lateralCollections = Cache::remember('pko.storefront.nav.roots.v1', 3600, function () {
+$lateralCollections = Cache::remember('pko.storefront.nav.roots.v2', 3600, function () {
     return Collection::with([
         'defaultUrl',
         'children' => fn ($q) => $q
@@ -196,27 +196,31 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v1', 3600, funct
                                         @php $childHasChildren = $child->children->isNotEmpty(); @endphp
                                         <li role="none">
                                             <div
-                                                class="flex items-center px-4 py-2.5 hover:bg-white transition cursor-pointer"
+                                                class="flex items-center px-4 py-2.5 hover:bg-white transition"
                                                 :class="{ 'bg-white': l2 === {{ $child->id }} }"
-                                                @if ($childHasChildren)
-                                                    @click="l2 = (l2 === {{ $child->id }} ? null : {{ $child->id }})"
-                                                @endif
                                             >
                                                 <a
                                                     href="{{ $child->defaultUrl?->slug ? route('collection.view', $child->defaultUrl->slug) : '#' }}"
                                                     class="flex-1 text-sm text-neutral-700 hover:text-primary-600 transition"
                                                     :class="{ 'text-primary-600 font-semibold': l2 === {{ $child->id }} }"
-                                                    @if ($childHasChildren) @click.stop @endif
                                                     role="menuitem"
                                                 >
                                                     {{ $child->translateAttribute('name') }}
                                                 </a>
                                                 @if ($childHasChildren)
-                                                    <x-ui.icon
-                                                        name="chevron-right"
-                                                        class="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-colors"
-                                                        :class="{ 'text-primary-500': l2 === {{ $child->id }} }"
-                                                    />
+                                                    <button
+                                                        type="button"
+                                                        @click="l2 = (l2 === {{ $child->id }} ? null : {{ $child->id }})"
+                                                        class="shrink-0 p-1 rounded hover:bg-primary-100 transition"
+                                                        :aria-expanded="(l2 === {{ $child->id }}).toString()"
+                                                        aria-label="Sous-catégories de {{ $child->translateAttribute('name') }}"
+                                                    >
+                                                        <x-ui.icon
+                                                            name="chevron-right"
+                                                            class="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-transform duration-200"
+                                                            :class="{ 'rotate-90 text-primary-500': l2 === {{ $child->id }} }"
+                                                        />
+                                                    </button>
                                                 @endif
                                             </div>
                                         </li>
