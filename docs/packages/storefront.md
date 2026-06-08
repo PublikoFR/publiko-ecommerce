@@ -53,6 +53,32 @@ Le `CheckoutPage` du starter kit visait Livewire 2 et était cassé sur ce proje
 - **Navigation** : `Navigation::getCollectionsProperty()` charge toutes les collections en arbre à chaque requête — à mettre en cache si le catalogue explose.
 - **UI** : starter kit basique non-production ready, sera amené à être refondu (Inertia+Vue kit à surveiller).
 
+### Menu latéral off-canvas (`x-layout.lateral-menu`)
+
+Composant : `packages/pko/storefront/resources/views/components/layout/lateral-menu.blade.php`  
+Inclus dans : `storefront.blade.php` (avant `x-layout.header`)
+
+**Comportement** : overlay sombre + panneau off-canvas slide-in depuis la gauche. Remplace le mega-menu dropdown "Tous nos produits" de la secondary nav.
+
+**Déclencheurs** :
+- Bouton "Tous nos produits" dans la secondary nav (`$dispatch('open-lateral-menu')`)
+- Burger mobile dans le header (`$dispatch('open-modal-mobile-nav')`)
+- Fermeture : croix, clic overlay, touche Esc
+
+**Structure panneaux** :
+- **L1** (toujours visible) — catégories racines avec vignette image (`getFirstMediaUrl('images', 'small')`), nom (lien), chevron si enfants. Sur mobile : accordéon inline au clic du chevron. Sur desktop : clic chevron révèle le panneau L2 à droite.
+- **L2** (desktop `lg+` seulement) — enfants du nœud L1 sélectionné. Clic item avec enfants révèle L3.
+- **L3** (desktop `lg+` seulement) — petits-enfants du nœud L2 sélectionné.
+
+**Données** :
+- Source : `Lunar\Models\Collection` avec relations `defaultUrl`, `children.defaultUrl`, `children.children.defaultUrl`
+- Cache : `pko.storefront.nav.roots.v1` (3600 s) — même clé que l'ancien dropdown header
+- `TODO pko_enabled` marqué en commentaire : ajouter `->where('pko_enabled', true)` aux 3 niveaux quand la feature catégories désactivées sera activée
+
+**État Alpine** : `{ open, l1, l2 }` — `l1` = id Collection L1 sélectionnée, `l2` = id Collection L2 sélectionnée. Réinitialisés à la fermeture.
+
+**Accessibilité** : `role="dialog" aria-modal` sur le conteneur, `role="menu/menuitem"` sur les listes, `aria-expanded` sur les chevrons, focus géré via fermeture Esc, `overflow-hidden` sur `body` quand ouvert.
+
 ### Impact back-office
 - Aucun. `/admin` (Filament + Shield) inchangé, routes et middlewares séparés.
 
