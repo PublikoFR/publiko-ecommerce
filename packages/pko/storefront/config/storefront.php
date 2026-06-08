@@ -39,7 +39,9 @@ return [
 
     'nav' => [
         'secondary' => [
-            ['label' => 'Tous nos produits', 'route' => null, 'mega' => true],
+            // « Tous nos produits » est rendu par le bouton burger dédié du
+            // header (déclencheur du menu latéral off-canvas) — ne pas le
+            // redupliquer ici, sinon il apparaît en double sous forme de lien mort.
             ['label' => 'Nouveautés', 'route' => null, 'href' => '/collections#nouveautes'],
             ['label' => 'Exclusivités', 'route' => null, 'href' => '/collections'],
             ['label' => 'Nos magasins', 'route' => null, 'href' => '/magasins'],
