@@ -85,6 +85,57 @@ final class ProductFieldCatalog
 
     public static function label(string $key): string
     {
-        return self::flat()[$key] ?? $key;
+        return self::flat()[$key] ?? self::LEGACY_LABELS[$key] ?? $key;
     }
+
+    /**
+     * Libellés amis pour les clés PrestaShop sans équivalent canonique Lunar
+     * (conservées telles quelles dans le mapping — le remappage vers une clé
+     * canonique se fait au write via `LunarProductWriter::normalizeLegacyKeys()`).
+     * Sert à afficher « Prix HT » plutôt que `price_tex` dans le blueprint.
+     *
+     * @var array<string, string>
+     */
+    public const LEGACY_LABELS = [
+        'id' => 'ID PrestaShop',
+        'mpn' => 'MPN',
+        'upc' => 'UPC',
+        'ean13' => 'EAN-13',
+        'price_tex' => 'Prix HT',
+        'wholesale_price' => 'Prix d\'achat',
+        'quantity' => 'Quantité',
+        'manufacturer' => 'Marque',
+        'supplier' => 'Fournisseur',
+        'supplier_reference' => 'Réf. fournisseur',
+        'reference' => 'Référence',
+        'category' => 'Catégories',
+        'link_rewrite' => 'URL (slug)',
+        'image' => 'Images',
+        'image_alt' => 'Alt images',
+        'width' => 'Largeur',
+        'height' => 'Hauteur',
+        'depth' => 'Profondeur',
+        'weight' => 'Poids',
+        'active' => 'Actif (0/1)',
+        'on_sale' => 'En promo (0/1)',
+        'show_price' => 'Afficher le prix (0/1)',
+        'visibility' => 'Visibilité',
+        'condition' => 'État du produit',
+        'unity' => 'Unité',
+        'ecotax' => 'Éco-taxe',
+        'unit_price' => 'Prix unitaire',
+        'reduction_price' => 'Remise (montant)',
+        'reduction_percent' => 'Remise (%)',
+        'reduction_from' => 'Remise du',
+        'reduction_to' => 'Remise au',
+        'id_tax_rules_group' => 'Règle de taxe (ID)',
+        'minimal_quantity' => 'Quantité minimale',
+        'low_stock_threshold' => 'Seuil stock bas',
+        'available_now' => 'Dispo (en stock)',
+        'available_later' => 'Dispo (sur commande)',
+        'delivery_in_stock' => 'Livraison (en stock)',
+        'delivery_out_stock' => 'Livraison (rupture)',
+        'delete_existing_images' => 'Supprimer images existantes',
+        'additional_shipping_cost' => 'Frais de port additionnels',
+    ];
 }

@@ -19,6 +19,7 @@ use Pko\AiImporter\Actions\Types\ConditionAction;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Support\ActionPalette;
+use Pko\AiImporter\Support\PipelineSummary;
 use Pko\AiImporter\Support\ProductFieldCatalog;
 
 /**
@@ -119,14 +120,36 @@ class ImporterConfigResource extends BaseResource
                     Forms\Components\Tabs\Tab::make('JSON brut')
                         ->icon('heroicon-o-code-bracket')
                         ->schema([
-                            Forms\Components\Textarea::make('config_data')
+                            // The raw editor lives on its own `config_json` scratch
+                            // key — never on `config_data` — so it does not collide
+                            // with the visual editor's `config_data.*` fields on the
+                            // same Livewire state path (that collision rendered the
+                            // textarea as « [object Object] » and wiped the mapping).
+                            Forms\Components\Actions::make([
+                                Forms\Components\Actions\Action::make('regenerateJson')
+                                    ->label('Régénérer depuis l\'éditeur visuel')
+                                    ->icon('heroicon-m-arrow-path')
+                                    ->color('gray')
+                                    ->action(function (Get $get, Forms\Set $set): void {
+                                        $canonical = self::dehydrateVisual(['config_data' => $get('config_data')])['config_data'] ?? [];
+                                        $set('config_json', json_encode($canonical, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                                    }),
+                            ]),
+                            Forms\Components\Textarea::make('config_json')
                                 ->label('Configuration JSON')
                                 ->rows(28)
-                                ->required()
+                                ->dehydrated(false)
+                                ->live(onBlur: true)
                                 ->columnSpanFull()
-                                ->helperText('Édition directe du JSON. Se synchronise avec l\'éditeur visuel en sauvegardant.')
-                                ->formatStateUsing(fn ($state): string => $state ? json_encode(self::arrayify($state), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '{}')
-                                ->dehydrateStateUsing(fn ($state): array => is_string($state) ? (json_decode($state, true) ?? []) : (array) $state)
+                                ->helperText('Édition directe du JSON. En quittant le champ, l\'éditeur visuel se met à jour. Le bouton ci-dessus régénère le JSON depuis l\'éditeur visuel.')
+                                ->afterStateUpdated(function (?string $state, Forms\Set $set): void {
+                                    $decoded = json_decode((string) $state, true);
+                                    if (! is_array($decoded)) {
+                                        return; // JSON invalide → on laisse l'éditeur visuel intact.
+                                    }
+                                    $expanded = self::hydrateVisual(['config_data' => $decoded])['config_data'] ?? [];
+                                    $set('config_data', $expanded);
+                                })
                                 ->rules(['json']),
                         ]),
                 ]),
@@ -259,39 +282,51 @@ class ImporterConfigResource extends BaseResource
 
     private static function mappingSection(): Forms\Components\Section
     {
-        $fieldOptions = ProductFieldCatalog::groupedOptions();
-
         return Forms\Components\Section::make('Mapping des colonnes')
             ->icon('heroicon-o-arrows-right-left')
-            ->description('Un champ produit cible par ligne. « Configurer » ouvre le pipeline d\'actions.')
+            ->description('Une colonne cible par ligne. « Configurer » ouvre la source (feuille / colonne / défaut) et le pipeline d\'actions.')
             ->schema([
+                // En-tête blueprint : recherche + masquer colonnes vides (filtre
+                // client-side Alpine sur les items du repeater frère, voir la vue).
+                Forms\Components\View::make('pko-ai-importer::filament.mapping-toolbar')
+                    ->columnSpanFull(),
+
                 Forms\Components\Repeater::make('config_data.mapping_repeater')
                     ->hiddenLabel()
+                    ->extraAttributes(['data-mapping-repeater' => 'true'])
                     ->schema([
                         Forms\Components\Select::make('key')
-                            ->label('Champ cible')
-                            ->options($fieldOptions)
+                            ->label('Colonne cible')
+                            // Catalogue Lunar + préservation des clés sources
+                            // (PrestaShop, etc.) hors catalogue : la valeur courante
+                            // est toujours proposée, donc jamais perdue à la sauvegarde.
+                            ->options(function (Get $get): array {
+                                $options = ProductFieldCatalog::groupedOptions();
+                                $current = (string) $get('key');
+                                if ($current !== '' && ! array_key_exists($current, ProductFieldCatalog::flat())) {
+                                    $options['Autres (source d\'origine)'] = [$current => ProductFieldCatalog::label($current)];
+                                }
+
+                                return $options;
+                            })
                             ->searchable()
                             ->required()
                             ->columnSpan(2),
-                        Forms\Components\TextInput::make('col')
-                            ->label('Colonne source')
-                            ->placeholder('En-tête ou lettre (M, AA…)'),
-                        Forms\Components\TextInput::make('sheet')
-                            ->label('Feuille')
-                            ->placeholder('Principale si vide'),
-                        Forms\Components\TextInput::make('default')
-                            ->label('Valeur par défaut')
-                            ->placeholder('—'),
                         Forms\Components\Placeholder::make('pipeline_summary')
-                            ->label('Pipeline')
-                            ->content(fn (Get $get): HtmlString => self::summarizePipeline((array) $get('actions'))),
+                            ->label('Configuration')
+                            ->content(fn (Get $get): HtmlString => PipelineSummary::render([
+                                'col' => $get('col'),
+                                'sheet' => $get('sheet'),
+                                'default' => $get('default'),
+                                'actions' => (array) $get('actions'),
+                            ]))
+                            ->columnSpan(3),
                     ])
-                    ->columns(6)
+                    ->columns(5)
                     ->extraItemActions([
                         self::configurePipelineAction(),
                     ])
-                    ->addActionLabel('+ Ajouter un champ')
+                    ->addActionLabel('+ Ajouter une colonne')
                     ->reorderableWithButtons()
                     ->cloneable()
                     ->itemLabel(fn (array $state): string => ProductFieldCatalog::label((string) ($state['key'] ?? '')))
@@ -301,8 +336,10 @@ class ImporterConfigResource extends BaseResource
     }
 
     /**
-     * « Configurer » modal action attached to each mapping row — edits the
-     * `actions` pipeline of that row in a wide modal.
+     * « Configurer » modal action attached to each mapping row — faithful to the
+     * PrestaShop modal : FEUILLE / COLONNE / VALEUR PAR DÉFAUT at the top, then
+     * the action pipeline builder. Edits `col` / `sheet` / `default` / `actions`
+     * of that row (none of which are inline components of the dense table row).
      */
     private static function configurePipelineAction(): Forms\Components\Actions\Action
     {
@@ -311,13 +348,39 @@ class ImporterConfigResource extends BaseResource
             ->icon('heroicon-m-cog-6-tooth')
             ->color('primary')
             ->modalWidth('5xl')
-            ->modalHeading('Pipeline d\'actions')
-            ->fillForm(function (array $arguments, Forms\Components\Repeater $component): array {
-                $item = $component->getItemState($arguments['item']);
+            ->modalHeading(function (array $arguments, Forms\Components\Repeater $component): string {
+                $item = $component->getRawItemState($arguments['item']);
 
-                return ['actions' => $item['actions'] ?? []];
+                return 'Colonne : '.ProductFieldCatalog::label((string) ($item['key'] ?? ''));
+            })
+            ->fillForm(function (array $arguments, Forms\Components\Repeater $component): array {
+                // `getRawItemState()` (et non `getItemState()`) : `col`/`sheet`/
+                // `default`/`actions` ne sont PAS des composants du repeater de mapping
+                // (édités uniquement dans ce modal), donc `getItemState()` — qui
+                // reconstruit l'état depuis les composants enfants — les écarte →
+                // modal systématiquement vide. Le raw state conserve ces clés.
+                $item = $component->getRawItemState($arguments['item']);
+
+                return [
+                    'col' => $item['col'] ?? null,
+                    'sheet' => $item['sheet'] ?? null,
+                    'default' => $item['default'] ?? null,
+                    'actions' => $item['actions'] ?? [],
+                ];
             })
             ->form([
+                Forms\Components\Grid::make(3)
+                    ->schema([
+                        Forms\Components\TextInput::make('sheet')
+                            ->label('Feuille')
+                            ->placeholder('Principale si vide'),
+                        Forms\Components\TextInput::make('col')
+                            ->label('Colonne source')
+                            ->placeholder('En-tête ou lettre (M, AA…)'),
+                        Forms\Components\TextInput::make('default')
+                            ->label('Valeur par défaut')
+                            ->placeholder('—'),
+                    ]),
                 Forms\Components\Placeholder::make('pipeline_help')
                     ->hiddenLabel()
                     ->content(new HtmlString('Les actions s\'exécutent de haut en bas sur la valeur de la colonne. Utilisez <strong>Condition</strong> pour brancher SI / ALORS / SINON.')),
@@ -325,7 +388,12 @@ class ImporterConfigResource extends BaseResource
             ])
             ->action(function (array $data, array $arguments, Forms\Components\Repeater $component): void {
                 $state = $component->getState();
-                $state[$arguments['item']]['actions'] = $data['actions'] ?? [];
+                $item = $state[$arguments['item']] ?? [];
+                $item['col'] = $data['col'] ?? null;
+                $item['sheet'] = $data['sheet'] ?? null;
+                $item['default'] = $data['default'] ?? null;
+                $item['actions'] = $data['actions'] ?? [];
+                $state[$arguments['item']] = $item;
                 $component->state($state);
             });
     }
@@ -515,25 +583,6 @@ class ImporterConfigResource extends BaseResource
             ->columnSpanFull();
     }
 
-    private static function summarizePipeline(array $actions): HtmlString
-    {
-        if ($actions === []) {
-            return new HtmlString('<span class="text-gray-400 text-sm">— aucune action —</span>');
-        }
-
-        $labels = array_map(
-            static fn (array $a): string => e(ActionPalette::label((string) ($a['type'] ?? ''))),
-            array_values($actions),
-        );
-
-        $count = count($labels);
-        $badges = implode(' → ', $labels);
-
-        return new HtmlString(
-            '<span class="text-sm"><strong>'.$count.'</strong> action'.($count > 1 ? 's' : '').' · '.$badges.'</span>'
-        );
-    }
-
     /**
      * JSON → form scratch keys (called on fill).
      *
@@ -543,6 +592,10 @@ class ImporterConfigResource extends BaseResource
     public static function hydrateVisual(array $data): array
     {
         $config = self::arrayify($data['config_data'] ?? []);
+
+        // Miroir canonique pour l'onglet « JSON brut » (clé scratch dédiée, jamais
+        // confondue avec `config_data` que pilotent les champs de l'éditeur visuel).
+        $data['config_json'] = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         // sheets{} → sheets_repeater[]
         $sheetsRepeater = [];
@@ -702,7 +755,7 @@ class ImporterConfigResource extends BaseResource
                 $out[] = self::baseItem('llm_transform') + [
                     'llm_config_id' => isset($a['llm_config_id']) ? (int) $a['llm_config_id'] : null,
                     'prompt' => (string) ($a['prompt'] ?? ''),
-                    'input_columns' => array_values(array_map('strval', (array) ($a['input_columns'] ?? []))),
+                    'input_columns' => self::normalizeColumns($a['input_columns'] ?? []),
                     'output_format' => (string) ($a['output_format'] ?? 'string'),
                     'output_json_key' => isset($a['output_json_key']) ? (string) $a['output_json_key'] : null,
                     'additional_context' => isset($a['additional_context']) ? (string) $a['additional_context'] : null,
@@ -809,10 +862,7 @@ class ImporterConfigResource extends BaseResource
                 if ($prompt !== '') {
                     $action['prompt'] = $prompt;
                 }
-                $columns = array_values(array_filter(
-                    array_map('strval', (array) ($item['input_columns'] ?? [])),
-                    static fn (string $c): bool => $c !== '',
-                ));
+                $columns = self::normalizeColumns($item['input_columns'] ?? []);
                 if ($columns !== []) {
                     $action['input_columns'] = $columns;
                 }
@@ -868,6 +918,29 @@ class ImporterConfigResource extends BaseResource
         }
 
         return is_scalar($value) ? (string) $value : (string) json_encode($value, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Normalise une liste de colonnes vers des chaînes plates. Accepte le format
+     * PrestaShop `[{col, label}, …]` (où `col` porte le nom réel) aussi bien que
+     * des chaînes brutes. Les entrées vides sont écartées.
+     *
+     * @return array<int, string>
+     */
+    private static function normalizeColumns(mixed $columns): array
+    {
+        $out = [];
+        foreach ((array) $columns as $col) {
+            if (is_array($col)) {
+                $col = $col['col'] ?? reset($col);
+            }
+            $col = is_scalar($col) ? (string) $col : '';
+            if ($col !== '') {
+                $out[] = $col;
+            }
+        }
+
+        return array_values($out);
     }
 
     /**
