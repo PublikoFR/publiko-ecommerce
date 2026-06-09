@@ -30,9 +30,10 @@ final class ProductImagePipeline
 
     /**
      * @param  string|array<int, string>|null  $urls
+     * @param  \Closure(string $url, 'added'|'skipped'|'error', string $error=''): void|null  $onResult
      * @return array{added:int, skipped:int, errors:int}
      */
-    public function syncImages(Product $product, mixed $urls): array
+    public function syncImages(Product $product, mixed $urls, ?\Closure $onResult = null): array
     {
         $list = $this->normaliseUrls($urls);
         if ($list === []) {
@@ -49,6 +50,7 @@ final class ProductImagePipeline
         foreach ($list as $i => $url) {
             if ($existing->has($url)) {
                 $skipped++;
+                $onResult?->__invoke($url, 'skipped');
 
                 continue;
             }
@@ -60,9 +62,11 @@ final class ProductImagePipeline
                     ])
                     ->toMediaCollection($this->collectionName);
                 $added++;
+                $onResult?->__invoke($url, 'added');
             } catch (\Throwable $e) {
                 $errors++;
                 report($e);
+                $onResult?->__invoke($url, 'error', $e->getMessage());
             }
         }
 

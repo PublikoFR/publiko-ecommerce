@@ -114,6 +114,9 @@ class ParseFileToStagingJob implements ShouldQueue
             $errors = 0;
             $stopped = false;
 
+            /** @var array<int, array<string, mixed>> Batch de logs INFO à insérer en bloc. */
+            $logBatch = [];
+
             foreach ($parser->iterateRows($primary, $startAfter) as $rowNumber => $row) {
                 if ($rowLimit !== null && $processed >= $rowLimit) {
                     break;
@@ -171,6 +174,17 @@ class ParseFileToStagingJob implements ShouldQueue
                     if ($record->wasRecentlyCreated) {
                         $stagingCount++;
                     }
+
+                    $ref = (string) ($mapped['reference'] ?? '');
+                    $name = (string) ($mapped['name'] ?? '');
+                    $totalLabel = $total !== null ? (string) $total : '?';
+                    $logBatch[] = [
+                        'import_job_id' => $job->id,
+                        'row_number' => $rowNumber,
+                        'level' => LogLevel::Info->value,
+                        'message' => "Ligne {$rowNumber}/{$totalLabel} : [{$ref}] {$name}",
+                        'context' => null,
+                    ];
                 } catch (\Throwable $e) {
                     $errors++;
                     $record = StagingRecord::updateOrCreate(
@@ -193,14 +207,18 @@ class ParseFileToStagingJob implements ShouldQueue
 
                 if ($halt) {
                     $stopped = true;
+                    $this->flushLogBatch($logBatch);
                     $this->persistProgress($job, $processed, $stagingCount, $total);
                     break;
                 }
 
                 if ($processed % $chunkEvery === 0) {
+                    $this->flushLogBatch($logBatch);
                     $this->persistProgress($job, $processed, $stagingCount, $total);
                 }
             }
+
+            $this->flushLogBatch($logBatch);
 
             if ($stopped) {
                 $job->update([
@@ -252,6 +270,19 @@ class ParseFileToStagingJob implements ShouldQueue
             'last_processed_row' => $processed,
         ]);
         ProgressCache::set($job, $processed, $total);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $batch
+     */
+    private function flushLogBatch(array &$batch): void
+    {
+        if ($batch === []) {
+            return;
+        }
+
+        DB::table('pko_ai_importer_logs')->insert($batch);
+        $batch = [];
     }
 
     private function fail(ImportJob $job, string $message): void
