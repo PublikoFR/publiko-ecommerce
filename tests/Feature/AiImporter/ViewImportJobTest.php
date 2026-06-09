@@ -98,7 +98,9 @@ class ViewImportJobTest extends TestCase
         ])
             ->callTableAction('edit', $staging, data: [
                 'status' => StagingStatus::Validated->value,
-                'data' => json_encode(['reference' => 'SKU1', 'name' => 'Renommé', 'price_cents' => 2500]),
+                // Formulaire champ par champ (refonte UX) : un field `data.<clé>`
+                // par clé de mapping, pas un blob JSON unique.
+                'data' => ['reference' => 'SKU1', 'name' => 'Renommé', 'price_cents' => 2500],
             ])
             ->assertHasNoTableActionErrors();
 
