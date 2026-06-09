@@ -51,7 +51,7 @@ class ImportStagingToLunarJob implements ShouldQueue
         $job = ImportJob::query()->findOrFail($this->importJobId);
 
         // Honore les options de job : update_mode / row_filter / join_column / columns_to_import.
-        $writer->configure($job->options);
+        $writer->configure($job->options)->setJobId($job->id);
 
         $job->update([
             'import_status' => ImportStatus::Importing,

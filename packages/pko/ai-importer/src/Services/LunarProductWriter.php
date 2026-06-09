@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\AiImporter\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Lunar\FieldTypes\Text;
 use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Brand;
@@ -106,9 +107,29 @@ final class LunarProductWriter
 
     private readonly ProductImagePipeline $imagePipeline;
 
+    /** ID du job courant — 0 = pas de logging granulaire. */
+    private int $jobId = 0;
+
+    /** Numéro de ligne en cours de traitement (renseigné à chaque write()). */
+    private int $currentRowNumber = 0;
+
+    /** @var array<int, array<string, mixed>> Logs en attente de flush batch. */
+    private array $pendingLogs = [];
+
     public function __construct(?ProductImagePipeline $imagePipeline = null)
     {
         $this->imagePipeline = $imagePipeline ?? new ProductImagePipeline;
+    }
+
+    /**
+     * Active le logging granulaire ligne par ligne pour ce writer.
+     * À appeler une fois par job, avant la boucle d'écriture.
+     */
+    public function setJobId(int $jobId): self
+    {
+        $this->jobId = $jobId;
+
+        return $this;
     }
 
     /**
@@ -148,6 +169,17 @@ final class LunarProductWriter
 
     public function write(StagingRecord $record): void
     {
+        $this->currentRowNumber = $record->row_number ?? 0;
+
+        try {
+            $this->doWrite($record);
+        } finally {
+            $this->flushPendingLogs();
+        }
+    }
+
+    private function doWrite(StagingRecord $record): void
+    {
         $data = $record->data instanceof \ArrayObject
             ? $record->data->getArrayCopy()
             : (array) $record->data;
@@ -162,9 +194,19 @@ final class LunarProductWriter
             return;
         }
 
+        $this->addLog(LogLevel::Debug, "Début importRow ligne {$this->currentRowNumber}");
+        $this->addLog(LogLevel::Debug, "Recherche produit existant (joinColumn: {$this->joinColumn})");
+        $this->addLog(LogLevel::Debug, "valeur clé = {$sku}");
+
         $variant = $this->findExistingVariant($data, $sku);
         $product = $variant?->product;
         $exists = $product !== null;
+
+        if ($exists) {
+            $this->addLog(LogLevel::Debug, "Produit trouvé id={$product->id}");
+        } else {
+            $this->addLog(LogLevel::Debug, 'Création produit');
+        }
 
         // row_filter — n'écrire que les produits absents / existants selon l'option.
         if (! $this->rowFilter->allows($exists)) {
@@ -214,6 +256,7 @@ final class LunarProductWriter
         } else {
             // Mise à jour : champs écrits selon update_mode.
             $wasCreate = false;
+            $this->addLog(LogLevel::Debug, "Mode update: {$this->updateMode->value}");
 
             if ($this->updateMode->writesFullRecord()) {
                 $product->update(array_filter([
@@ -333,7 +376,15 @@ final class LunarProductWriter
         }
 
         if (! empty($data['images'])) {
-            $this->imagePipeline->syncImages($product, $data['images']);
+            $this->imagePipeline->syncImages($product, $data['images'], function (string $url, string $status, string $error = ''): void {
+                if ($status === 'added') {
+                    $this->addLog(LogLevel::Debug, "Image téléchargée: {$url}");
+                } elseif ($status === 'skipped') {
+                    $this->addLog(LogLevel::Debug, "Image déjà existante, ignorée: {$url}");
+                } else {
+                    $this->addLog(LogLevel::Warning, "Erreur image: {$url} — {$error}");
+                }
+            });
         }
 
         if (! empty($data['videos'])) {
@@ -521,14 +572,49 @@ final class LunarProductWriter
             $parts[] = count($unresolved['features']).' feature(s)';
         }
 
-        ImportLog::query()->create([
-            'import_job_id' => $record->import_job_id,
-            'row_number' => $record->row_number,
-            'level' => LogLevel::Warning,
-            'message' => "[{$sku}] handle(s) introuvable(s) — ".implode(', ', $parts).' ignoré(s).',
-            'context' => array_filter($unresolved, static fn (array $v) => $v !== []),
-            'created_at' => now(),
-        ]);
+        $message = "[{$sku}] handle(s) introuvable(s) — ".implode(', ', $parts).' ignoré(s).';
+        $context = array_filter($unresolved, static fn (array $v) => $v !== []);
+
+        if ($this->jobId !== 0) {
+            $this->addLog(LogLevel::Warning, $message, $context);
+        } else {
+            ImportLog::query()->create([
+                'import_job_id' => $record->import_job_id,
+                'row_number' => $record->row_number,
+                'level' => LogLevel::Warning,
+                'message' => $message,
+                'context' => $context,
+                'created_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $context
+     */
+    private function addLog(LogLevel $level, string $message, ?array $context = null): void
+    {
+        if ($this->jobId === 0) {
+            return;
+        }
+
+        $this->pendingLogs[] = [
+            'import_job_id' => $this->jobId,
+            'row_number' => $this->currentRowNumber ?: null,
+            'level' => $level->value,
+            'message' => $message,
+            'context' => $context !== null ? json_encode($context) : null,
+        ];
+    }
+
+    private function flushPendingLogs(): void
+    {
+        if ($this->pendingLogs === []) {
+            return;
+        }
+
+        DB::table('pko_ai_importer_logs')->insert($this->pendingLogs);
+        $this->pendingLogs = [];
     }
 
     private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents): void
