@@ -10,15 +10,14 @@ use Filament\Forms\Get;
 use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Resources\BaseResource;
 use Pko\AdminNav\Filament\Clusters\PkoSystemDataCluster;
-use Pko\AiCore\Models\LlmConfig;
-use Pko\AiImporter\Actions\Types\ConditionAction;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages;
 use Pko\AiImporter\Models\ImporterConfig;
-use Pko\AiImporter\Support\ActionPalette;
+use Pko\AiImporter\Services\ActionPipeline;
 use Pko\AiImporter\Support\PipelineSummary;
 use Pko\AiImporter\Support\ProductFieldCatalog;
 
@@ -33,20 +32,26 @@ use Pko\AiImporter\Support\ProductFieldCatalog;
  *         related sheets (name, one/many relation, join column).
  *      2. « Configuration IA » : context-cache toggle + global AI context.
  *      3. « Mapping des colonnes » : a tabular Repeater of target product fields,
- *         each row carrying a compact summary of its pipeline and a « Configurer »
- *         modal opening the action-pipeline builder (categorised palette +
- *         SI/ALORS/SINON branching for the `condition` action).
+ *         each row carrying a compact server-rendered summary ({@see PipelineSummary})
+ *         and a « Configurer » modal that opens the custom pipeline editor.
  *  - **JSON brut** — a raw textarea escape hatch for advanced edits.
  *
+ * The « Configurer » modal embeds a self-contained JS editor
+ * (resources/js/pipeline-editor.js, lifted verbatim from the PrestaShop « Publiko
+ * AI Importer » module) reproducing its « Pipeline d'actions » UI trait-for-trait:
+ * coloured SI / ALORS / SINON / PUIS flow with vertical connectors on the left, a
+ * categorised action palette on the right. The editor serialises the column's
+ * {sheet, col, default, actions} into the hidden `pipeline_json` field; the action
+ * folds it back into that row's raw state.
+ *
  * Both modes serialise to the same `config_data` JSON column. The visual editor
- * uses `sheets_repeater` / `mapping_repeater` scratch keys during form state
- * that {@see self::dehydrateVisual()} folds back into the canonical
- * `sheets` / `mapping` shape on save (and {@see self::hydrateVisual()} expands
- * on fill). Most actions keep the proven `{type, params}` KeyValue
- * representation; `condition` gets a SI/ALORS/SINON branching editor,
- * `llm_transform` a named-fields IA-prompt editor, and `map` a dedicated
- * key/value lookup table — each with its own hydrate/dehydrate branch so no
- * existing action type regresses through the round-trip.
+ * uses `sheets_repeater` / `mapping_repeater` scratch keys during form state that
+ * {@see self::dehydrateVisual()} folds back into the canonical `sheets` / `mapping`
+ * shape on save (and {@see self::hydrateVisual()} expands on fill). Per-mapping
+ * `actions` are kept in their **canonical** `{type, …params}` / `{type, branches,
+ * else_actions}` shape end-to-end (the JS editor reads and writes exactly what
+ * {@see ActionPipeline} consumes), so no per-action
+ * hydration layer is needed.
  */
 class ImporterConfigResource extends BaseResource
 {
@@ -59,22 +64,6 @@ class ImporterConfigResource extends BaseResource
     protected static ?string $cluster = PkoSystemDataCluster::class;
 
     protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
-
-    /** @var array<string, string> */
-    private const RULE_OPERATORS = [
-        '=' => '= (égal)',
-        '!=' => '≠ (différent)',
-        '>' => '> (supérieur)',
-        '>=' => '≥',
-        '<' => '< (inférieur)',
-        '<=' => '≤',
-        'contains' => 'contient',
-        'not_contains' => 'ne contient pas',
-        'empty' => 'est vide',
-        'not_empty' => 'non vide',
-        'in' => 'dans la liste',
-        'not_in' => 'hors liste',
-    ];
 
     public static function getLabel(): string
     {
@@ -336,251 +325,79 @@ class ImporterConfigResource extends BaseResource
     }
 
     /**
-     * « Configurer » modal action attached to each mapping row — faithful to the
-     * PrestaShop modal : FEUILLE / COLONNE / VALEUR PAR DÉFAUT at the top, then
-     * the action pipeline builder. Edits `col` / `sheet` / `default` / `actions`
-     * of that row (none of which are inline components of the dense table row).
+     * « Configurer » modal action attached to each mapping row — opens the custom
+     * pipeline editor, a faithful reproduction of the PrestaShop « Pipeline
+     * d'actions » modal (coloured SI / ALORS / SINON / PUIS flow on the left,
+     * categorised action palette on the right). The editor is a self-contained JS
+     * engine (resources/js/pipeline-editor.js, lifted verbatim from the PS module)
+     * mounted in the modal content; it serialises the column's
+     * {sheet, col, default, actions} into the hidden `pipeline_json` field, which
+     * {@see action} folds back into that row's raw state on « Appliquer ».
      */
     private static function configurePipelineAction(): Forms\Components\Actions\Action
     {
+        $seedFrom = static function (array $arguments, Forms\Components\Repeater $component): array {
+            $item = $component->getRawItemState($arguments['item']);
+
+            return [
+                'sheet' => $item['sheet'] ?? null,
+                'col' => $item['col'] ?? null,
+                'default' => $item['default'] ?? null,
+                'actions' => array_values((array) ($item['actions'] ?? [])),
+            ];
+        };
+
         return Forms\Components\Actions\Action::make('configurePipeline')
             ->label('Configurer')
             ->icon('heroicon-m-cog-6-tooth')
             ->color('primary')
-            ->modalWidth('5xl')
+            ->modalWidth('7xl')
+            ->modalSubmitActionLabel('Appliquer')
+            ->modalCancelActionLabel('Annuler')
             ->modalHeading(function (array $arguments, Forms\Components\Repeater $component): string {
                 $item = $component->getRawItemState($arguments['item']);
 
                 return 'Colonne : '.ProductFieldCatalog::label((string) ($item['key'] ?? ''));
             })
-            ->fillForm(function (array $arguments, Forms\Components\Repeater $component): array {
-                // `getRawItemState()` (et non `getItemState()`) : `col`/`sheet`/
-                // `default`/`actions` ne sont PAS des composants du repeater de mapping
-                // (édités uniquement dans ce modal), donc `getItemState()` — qui
-                // reconstruit l'état depuis les composants enfants — les écarte →
-                // modal systématiquement vide. Le raw state conserve ces clés.
-                $item = $component->getRawItemState($arguments['item']);
-
-                return [
-                    'col' => $item['col'] ?? null,
-                    'sheet' => $item['sheet'] ?? null,
-                    'default' => $item['default'] ?? null,
-                    'actions' => $item['actions'] ?? [],
-                ];
+            // Le moteur JS pousse l'état complet dans ce champ caché (via les events
+            // input/change qu'il propage), que Filament transmet en `$data` au submit.
+            ->fillForm(function (array $arguments, Forms\Components\Repeater $component) use ($seedFrom): array {
+                return ['pipeline_json' => json_encode($seedFrom($arguments, $component), JSON_UNESCAPED_UNICODE)];
             })
             ->form([
-                Forms\Components\Grid::make(3)
-                    ->schema([
-                        Forms\Components\TextInput::make('sheet')
-                            ->label('Feuille')
-                            ->placeholder('Principale si vide'),
-                        Forms\Components\TextInput::make('col')
-                            ->label('Colonne source')
-                            ->placeholder('En-tête ou lettre (M, AA…)'),
-                        Forms\Components\TextInput::make('default')
-                            ->label('Valeur par défaut')
-                            ->placeholder('—'),
-                    ]),
-                Forms\Components\Placeholder::make('pipeline_help')
-                    ->hiddenLabel()
-                    ->content(new HtmlString('Les actions s\'exécutent de haut en bas sur la valeur de la colonne. Utilisez <strong>Condition</strong> pour brancher SI / ALORS / SINON.')),
-                self::actionsRepeater('actions', allowCondition: true),
+                Forms\Components\Hidden::make('pipeline_json')
+                    ->extraAttributes(['data-pko-pipeline-json' => '1']),
             ])
+            ->modalContent(function (array $arguments, Forms\Components\Repeater $component) use ($seedFrom): View {
+                $item = $component->getRawItemState($arguments['item']);
+
+                return view('pko-ai-importer::filament.pipeline-editor-modal', [
+                    'seed' => $seedFrom($arguments, $component),
+                    'label' => ProductFieldCatalog::label((string) ($item['key'] ?? '')),
+                ]);
+            })
             ->action(function (array $data, array $arguments, Forms\Components\Repeater $component): void {
+                $payload = json_decode((string) ($data['pipeline_json'] ?? ''), true);
+                if (! is_array($payload)) {
+                    return;
+                }
+
                 $state = $component->getState();
                 $item = $state[$arguments['item']] ?? [];
-                $item['col'] = $data['col'] ?? null;
-                $item['sheet'] = $data['sheet'] ?? null;
-                $item['default'] = $data['default'] ?? null;
-                $item['actions'] = $data['actions'] ?? [];
+                $item['sheet'] = self::blankToNull($payload['sheet'] ?? null);
+                $item['col'] = self::blankToNull($payload['col'] ?? null);
+                $item['default'] = self::blankToNull($payload['default'] ?? null);
+                $item['actions'] = array_values((array) ($payload['actions'] ?? []));
                 $state[$arguments['item']] = $item;
                 $component->state($state);
             });
     }
 
-    /**
-     * A pipeline of actions. The top level allows `condition`; nested branch
-     * pipelines do not (mirrors {@see ConditionAction}
-     * which never recurses into a nested condition).
-     */
-    private static function actionsRepeater(string $name, bool $allowCondition): Forms\Components\Repeater
+    private static function blankToNull(mixed $value): ?string
     {
-        return Forms\Components\Repeater::make($name)
-            ->hiddenLabel()
-            ->schema(self::actionItemSchema($allowCondition))
-            ->addActionLabel($allowCondition ? '+ Ajouter une action' : '+ Action')
-            ->reorderableWithButtons()
-            ->collapsible()
-            ->itemLabel(fn (array $state): string => ActionPalette::label((string) ($state['type'] ?? '')))
-            ->defaultItems(0);
-    }
+        $value = is_scalar($value) ? trim((string) $value) : '';
 
-    /**
-     * Schema of a single action item: a categorised type Select, the generic
-     * params KeyValue (for every non-`condition` type), and — only when
-     * `condition` is allowed and selected — the SI/ALORS/SINON branching editor.
-     *
-     * @return array<int, mixed>
-     */
-    private static function actionItemSchema(bool $allowCondition): array
-    {
-        $schema = [
-            Forms\Components\Select::make('type')
-                ->label('Type d\'action')
-                ->options(ActionPalette::groupedOptions($allowCondition))
-                ->searchable()
-                ->required()
-                ->live()
-                ->columnSpanFull(),
-
-            // Generic key/value editor for every action type that has no
-            // dedicated form below (`condition`, `llm_transform` and `map`
-            // each carry their own structured editor).
-            Forms\Components\KeyValue::make('params')
-                ->label('Paramètres')
-                ->keyLabel('Paramètre')
-                ->valueLabel('Valeur')
-                ->reorderable()
-                ->visible(fn (Get $get): bool => ! in_array($get('type'), ['condition', 'llm_transform', 'map'], true))
-                ->columnSpanFull(),
-
-            // Dedicated editor for the IA prompt action.
-            self::llmTransformFieldset(),
-
-            // Dedicated key/value editor for the lookup-table action.
-            self::mapFieldset(),
-        ];
-
-        if ($allowCondition) {
-            $schema[] = Forms\Components\Fieldset::make('Branches')
-                ->visible(fn (Get $get): bool => $get('type') === 'condition')
-                ->schema([
-                    Forms\Components\Repeater::make('branches')
-                        ->hiddenLabel()
-                        ->addActionLabel('+ SINON SI / branche')
-                        ->reorderableWithButtons()
-                        ->defaultItems(1)
-                        ->schema([
-                            Forms\Components\Select::make('logic')
-                                ->label('Logique entre règles')
-                                ->options(['AND' => 'TOUTES (ET)', 'OR' => 'AU MOINS UNE (OU)'])
-                                ->default('AND')
-                                ->columnSpanFull(),
-                            self::rulesRepeater(),
-                            Forms\Components\Section::make('ALORS exécuter')
-                                ->compact()
-                                ->schema([self::actionsRepeater('actions', allowCondition: false)]),
-                        ])
-                        ->columnSpanFull(),
-
-                    Forms\Components\Section::make('SINON (par défaut)')
-                        ->compact()
-                        ->schema([self::actionsRepeater('else_actions', allowCondition: false)])
-                        ->columnSpanFull(),
-                ])
-                ->columnSpanFull();
-        }
-
-        return $schema;
-    }
-
-    /**
-     * Structured editor for the `llm_transform` action — replaces the raw
-     * params KeyValue with named fields matching {@see LlmTransformAction}.
-     */
-    private static function llmTransformFieldset(): Forms\Components\Fieldset
-    {
-        return Forms\Components\Fieldset::make('Prompt IA')
-            ->visible(fn (Get $get): bool => $get('type') === 'llm_transform')
-            ->columns(4)
-            ->schema([
-                Forms\Components\Select::make('llm_config_id')
-                    ->label('Configuration LLM')
-                    ->options(fn (): array => LlmConfig::query()->orderBy('name')->pluck('name', 'id')->all())
-                    ->placeholder('Configuration par défaut')
-                    ->searchable()
-                    ->native(false)
-                    ->columnSpan(2),
-                Forms\Components\Select::make('output_format')
-                    ->label('Format de sortie')
-                    ->options(['string' => 'Texte', 'json' => 'JSON'])
-                    ->default('string')
-                    ->native(false)
-                    ->live()
-                    ->columnSpan(1),
-                Forms\Components\TextInput::make('output_json_key')
-                    ->label('Clé JSON de sortie')
-                    ->placeholder('ex: description')
-                    ->visible(fn (Get $get): bool => $get('output_format') === 'json')
-                    ->columnSpan(1),
-                Forms\Components\Textarea::make('prompt')
-                    ->label('Prompt')
-                    ->rows(3)
-                    ->columnSpanFull(),
-                Forms\Components\TagsInput::make('input_columns')
-                    ->label('Colonnes d\'entrée')
-                    ->placeholder('Ajouter une colonne')
-                    ->helperText('Colonnes de la ligne injectées dans le prompt.')
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('additional_context')
-                    ->label('Contexte additionnel')
-                    ->rows(2)
-                    ->columnSpanFull(),
-            ])
-            ->columnSpanFull();
-    }
-
-    /**
-     * Structured editor for the `map` action — a dedicated key/value table
-     * feeding the `values` param instead of hand-typed JSON.
-     */
-    private static function mapFieldset(): Forms\Components\Fieldset
-    {
-        return Forms\Components\Fieldset::make('Table de correspondance')
-            ->visible(fn (Get $get): bool => $get('type') === 'map')
-            ->columns(3)
-            ->schema([
-                Forms\Components\KeyValue::make('values')
-                    ->label('Correspondances')
-                    ->keyLabel('Valeur source')
-                    ->valueLabel('Valeur cible')
-                    ->reorderable()
-                    ->columnSpanFull(),
-                Forms\Components\TextInput::make('default')
-                    ->label('Valeur par défaut')
-                    ->placeholder('Vide = ignorer la valeur'),
-                Forms\Components\Toggle::make('multi_value')
-                    ->label('Valeurs multiples')
-                    ->live()
-                    ->inline(false),
-                Forms\Components\TextInput::make('separator')
-                    ->label('Séparateur')
-                    ->default(',')
-                    ->visible(fn (Get $get): bool => (bool) $get('multi_value')),
-            ])
-            ->columnSpanFull();
-    }
-
-    private static function rulesRepeater(): Forms\Components\Repeater
-    {
-        return Forms\Components\Repeater::make('rules')
-            ->label('SI')
-            ->addActionLabel('+ Règle')
-            ->defaultItems(1)
-            ->schema([
-                Forms\Components\TextInput::make('field')
-                    ->label('Champ')
-                    ->placeholder('col, FEUILLE:col, col_value'),
-                Forms\Components\Select::make('operator')
-                    ->label('Opérateur')
-                    ->options(self::RULE_OPERATORS)
-                    ->default('='),
-                Forms\Components\TextInput::make('value')
-                    ->label('Valeur')
-                    ->placeholder('valeur (CSV pour « dans la liste »)'),
-            ])
-            ->columns(3)
-            ->columnSpanFull();
+        return $value === '' ? null : $value;
     }
 
     /**
@@ -604,16 +421,16 @@ class ImporterConfigResource extends BaseResource
         }
         $config['sheets_repeater'] = $sheetsRepeater;
 
-        // mapping{} → mapping_repeater[]
+        // mapping{} → mapping_repeater[] : les `actions` restent dans leur forme
+        // canonique. Elles ne sont plus des composants Filament inline (édition
+        // exclusivement via le modal « Configurer » / l'éditeur de pipeline JS),
+        // donc aucune expansion form-shape n'est nécessaire — l'éditeur sérialise
+        // et relit directement le canonique consommé par ActionPipeline.
         $mappingRepeater = [];
         foreach ((array) ($config['mapping'] ?? []) as $key => $cfg) {
             $cfgArr = (array) $cfg;
-            $actions = self::hydrateActions((array) ($cfgArr['actions'] ?? []), allowCondition: true);
-            $mappingRepeater[] = array_merge(
-                ['key' => $key],
-                array_diff_key($cfgArr, ['actions' => true]),
-                ['actions' => $actions],
-            );
+            $cfgArr['actions'] = array_values((array) ($cfgArr['actions'] ?? []));
+            $mappingRepeater[] = array_merge(['key' => $key], $cfgArr);
         }
         $config['mapping_repeater'] = $mappingRepeater;
 
@@ -660,7 +477,7 @@ class ImporterConfigResource extends BaseResource
                     continue;
                 }
                 unset($item['key']);
-                $actions = self::dehydrateActions((array) ($item['actions'] ?? []), allowCondition: true);
+                $actions = array_values((array) ($item['actions'] ?? []));
                 unset($item['actions']);
                 if ($actions !== []) {
                     $item['actions'] = $actions;
@@ -703,286 +520,6 @@ class ImporterConfigResource extends BaseResource
         $config['ai'] = ['context_cache' => $cache] + ($global !== '' ? ['global_context' => $global] : []);
 
         return $config;
-    }
-
-    /**
-     * Canonical actions list → form items.
-     *
-     * @param  array<int, mixed>  $actions
-     * @return array<int, array<string, mixed>>
-     */
-    private static function hydrateActions(array $actions, bool $allowCondition): array
-    {
-        $out = [];
-        foreach ($actions as $a) {
-            $a = (array) $a;
-            $type = (string) ($a['type'] ?? '');
-            if ($type === '') {
-                continue;
-            }
-
-            if ($allowCondition && $type === 'condition') {
-                $branches = [];
-                foreach ((array) ($a['branches'] ?? []) as $b) {
-                    $b = (array) $b;
-                    $rules = [];
-                    foreach ((array) ($b['rules'] ?? []) as $r) {
-                        $r = (array) $r;
-                        $rules[] = [
-                            'field' => (string) ($r['field'] ?? ''),
-                            'operator' => (string) ($r['operator'] ?? '='),
-                            'value' => self::scalarToString($r['value'] ?? ''),
-                        ];
-                    }
-                    $branches[] = [
-                        'logic' => strtoupper((string) ($b['logic'] ?? 'AND')),
-                        'rules' => $rules,
-                        'actions' => self::hydrateActions((array) ($b['actions'] ?? []), allowCondition: false),
-                    ];
-                }
-
-                $out[] = [
-                    'type' => 'condition',
-                    'params' => [],
-                    'branches' => $branches,
-                    'else_actions' => self::hydrateActions((array) ($a['else_actions'] ?? []), allowCondition: false),
-                ];
-
-                continue;
-            }
-
-            if ($type === 'llm_transform') {
-                $out[] = self::baseItem('llm_transform') + [
-                    'llm_config_id' => isset($a['llm_config_id']) ? (int) $a['llm_config_id'] : null,
-                    'prompt' => (string) ($a['prompt'] ?? ''),
-                    'input_columns' => self::normalizeColumns($a['input_columns'] ?? []),
-                    'output_format' => (string) ($a['output_format'] ?? 'string'),
-                    'output_json_key' => isset($a['output_json_key']) ? (string) $a['output_json_key'] : null,
-                    'additional_context' => isset($a['additional_context']) ? (string) $a['additional_context'] : null,
-                ];
-
-                continue;
-            }
-
-            if ($type === 'map') {
-                $values = [];
-                foreach ((array) ($a['values'] ?? []) as $k => $v) {
-                    $values[(string) $k] = self::scalarToString($v);
-                }
-                $out[] = self::baseItem('map') + [
-                    'values' => $values,
-                    'default' => isset($a['default']) ? self::scalarToString($a['default']) : null,
-                    'multi_value' => (bool) ($a['multi_value'] ?? false),
-                    'separator' => (string) ($a['separator'] ?? ','),
-                ];
-
-                continue;
-            }
-
-            $out[] = [
-                'type' => $type,
-                'params' => self::stringifyParams(array_diff_key($a, ['type' => true])),
-                'branches' => [],
-                'else_actions' => [],
-            ];
-        }
-
-        return $out;
-    }
-
-    /**
-     * Empty form-item skeleton for an action with a dedicated editor: the
-     * generic params/branches keys stay present (but hidden) so every repeater
-     * item shares a uniform shape.
-     *
-     * @return array<string, mixed>
-     */
-    private static function baseItem(string $type): array
-    {
-        return ['type' => $type, 'params' => [], 'branches' => [], 'else_actions' => []];
-    }
-
-    /**
-     * Form items → canonical actions list.
-     *
-     * @param  array<int, mixed>  $items
-     * @return array<int, array<string, mixed>>
-     */
-    private static function dehydrateActions(array $items, bool $allowCondition): array
-    {
-        $out = [];
-        foreach ($items as $item) {
-            $item = (array) $item;
-            $type = (string) ($item['type'] ?? '');
-            if ($type === '') {
-                continue;
-            }
-
-            if ($allowCondition && $type === 'condition') {
-                $branches = [];
-                foreach ((array) ($item['branches'] ?? []) as $b) {
-                    $b = (array) $b;
-                    $rules = [];
-                    foreach ((array) ($b['rules'] ?? []) as $r) {
-                        $r = (array) $r;
-                        $field = (string) ($r['field'] ?? '');
-                        if ($field === '') {
-                            continue;
-                        }
-                        $rules[] = [
-                            'field' => $field,
-                            'operator' => (string) ($r['operator'] ?? '='),
-                            'value' => self::scalarToString($r['value'] ?? ''),
-                        ];
-                    }
-                    $branches[] = [
-                        'logic' => strtoupper((string) ($b['logic'] ?? 'AND')),
-                        'rules' => array_values($rules),
-                        'actions' => self::dehydrateActions((array) ($b['actions'] ?? []), allowCondition: false),
-                    ];
-                }
-
-                $out[] = [
-                    'type' => 'condition',
-                    'branches' => array_values($branches),
-                    'else_actions' => self::dehydrateActions((array) ($item['else_actions'] ?? []), allowCondition: false),
-                ];
-
-                continue;
-            }
-
-            if ($type === 'llm_transform') {
-                $action = ['type' => 'llm_transform'];
-
-                $llmId = $item['llm_config_id'] ?? null;
-                if ($llmId !== null && $llmId !== '') {
-                    $action['llm_config_id'] = (int) $llmId;
-                }
-                $prompt = trim((string) ($item['prompt'] ?? ''));
-                if ($prompt !== '') {
-                    $action['prompt'] = $prompt;
-                }
-                $columns = self::normalizeColumns($item['input_columns'] ?? []);
-                if ($columns !== []) {
-                    $action['input_columns'] = $columns;
-                }
-                $action['output_format'] = ($item['output_format'] ?? 'string') === 'json' ? 'json' : 'string';
-                if ($action['output_format'] === 'json') {
-                    $jsonKey = trim((string) ($item['output_json_key'] ?? ''));
-                    if ($jsonKey !== '') {
-                        $action['output_json_key'] = $jsonKey;
-                    }
-                }
-                $context = trim((string) ($item['additional_context'] ?? ''));
-                if ($context !== '') {
-                    $action['additional_context'] = $context;
-                }
-
-                $out[] = $action;
-
-                continue;
-            }
-
-            if ($type === 'map') {
-                $values = [];
-                foreach ((array) ($item['values'] ?? []) as $k => $v) {
-                    if ((string) $k === '') {
-                        continue;
-                    }
-                    $values[(string) $k] = self::scalarToString($v);
-                }
-                $default = $item['default'] ?? null;
-                $separator = (string) ($item['separator'] ?? ',');
-                $out[] = [
-                    'type' => 'map',
-                    'values' => $values,
-                    'default' => ($default === null || $default === '') ? null : self::scalarToString($default),
-                    'multi_value' => (bool) ($item['multi_value'] ?? false),
-                    'separator' => $separator !== '' ? $separator : ',',
-                ];
-
-                continue;
-            }
-
-            $params = is_array($item['params'] ?? null) ? self::typedParams($item['params']) : [];
-            $out[] = ['type' => $type] + $params;
-        }
-
-        return array_values($out);
-    }
-
-    private static function scalarToString(mixed $value): string
-    {
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-
-        return is_scalar($value) ? (string) $value : (string) json_encode($value, JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Normalise une liste de colonnes vers des chaînes plates. Accepte le format
-     * PrestaShop `[{col, label}, …]` (où `col` porte le nom réel) aussi bien que
-     * des chaînes brutes. Les entrées vides sont écartées.
-     *
-     * @return array<int, string>
-     */
-    private static function normalizeColumns(mixed $columns): array
-    {
-        $out = [];
-        foreach ((array) $columns as $col) {
-            if (is_array($col)) {
-                $col = $col['col'] ?? reset($col);
-            }
-            $col = is_scalar($col) ? (string) $col : '';
-            if ($col !== '') {
-                $out[] = $col;
-            }
-        }
-
-        return array_values($out);
-    }
-
-    /**
-     * KeyValue stores everything as strings. Restore bool / int / float / json.
-     *
-     * @param  array<string, string>  $params
-     * @return array<string, mixed>
-     */
-    private static function typedParams(array $params): array
-    {
-        $out = [];
-        foreach ($params as $k => $v) {
-            $out[$k] = match (true) {
-                is_string($v) && $v === 'true' => true,
-                is_string($v) && $v === 'false' => false,
-                is_string($v) && is_numeric($v) && ! str_contains($v, '.') => (int) $v,
-                is_string($v) && is_numeric($v) => (float) $v,
-                is_string($v) && str_starts_with(ltrim($v), '{') => json_decode($v, true) ?? $v,
-                is_string($v) && str_starts_with(ltrim($v), '[') => json_decode($v, true) ?? $v,
-                default => $v,
-            };
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  array<string, mixed>  $params
-     * @return array<string, string>
-     */
-    private static function stringifyParams(array $params): array
-    {
-        $out = [];
-        foreach ($params as $k => $v) {
-            $out[$k] = match (true) {
-                is_bool($v) => $v ? 'true' : 'false',
-                is_scalar($v) || $v === null => (string) $v,
-                default => (string) json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            };
-        }
-
-        return $out;
     }
 
     /**
