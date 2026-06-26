@@ -42,6 +42,10 @@ class ShippingCommonServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'pko-shipping-common');
+        // Route de la page de paiement des commandes sur devis (URL signée générée
+        // par OrderQuoteActionsExtension). Chargée par le package lui-même pour
+        // l'isolation/auto-discovery (cf. CLAUDE.md §3.2), pas par AppServiceProvider.
+        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-common');
         $this->publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-common')], 'pko-shipping-common-lang');
 

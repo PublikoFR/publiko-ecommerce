@@ -68,7 +68,7 @@ final class OrderQuoteActionsExtension extends ResourceExtension
                     return;
                 }
 
-                Mail::to($recipient)->send(new QuotePaymentLinkMail($order, $url, $transportCents));
+                Mail::to($recipient)->queue(new QuotePaymentLinkMail($order, $url, $transportCents));
 
                 Notification::make()
                     ->success()

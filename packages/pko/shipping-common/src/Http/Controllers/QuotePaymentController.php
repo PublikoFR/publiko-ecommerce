@@ -21,6 +21,7 @@ class QuotePaymentController extends Controller
     public function __invoke(Request $request, Order $order): Response
     {
         abort_unless($request->hasValidSignature(), 403, 'Lien de paiement invalide ou expiré.');
+        abort_if($order->status !== 'awaiting-quote', 410, 'Cette commande n\'est plus en attente de devis.');
 
         $transportCents = (int) $request->query('transport_cents', 0);
 
