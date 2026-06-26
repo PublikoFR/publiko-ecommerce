@@ -53,6 +53,10 @@ class ShippingOptionsTest extends TestCase
         $manifest = Mockery::mock(ShippingManifestInterface::class);
         $manifest->shouldReceive('getOptions')
             ->andReturn(new Collection($options));
+        // Le recalcul du panier (CartSession::current() via les computed properties
+        // du composant) interroge l'option d'expédition choisie sur le manifest.
+        $manifest->shouldReceive('getShippingOption')
+            ->andReturnNull();
 
         $this->app->instance(ShippingManifestInterface::class, $manifest);
     }
