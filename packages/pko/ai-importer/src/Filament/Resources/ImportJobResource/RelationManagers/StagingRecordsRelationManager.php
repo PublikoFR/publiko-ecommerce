@@ -144,7 +144,7 @@ class StagingRecordsRelationManager extends RelationManager
             $dynamicColumns[] = Tables\Columns\TextColumn::make("cell_{$key}")
                 ->label($label)
                 ->html()
-                ->state(fn (StagingRecord $r) use ($key): string => view(
+                ->state(fn (StagingRecord $r): string => view(
                     'pko-ai-importer::filament.components.staging-cell',
                     [
                         'value' => ((array) $r->data)[$key] ?? '',

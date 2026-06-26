@@ -45,6 +45,10 @@ class FreeShippingModifierTest extends TestCase
         $cart = Mockery::mock(Cart::class);
         $cart->shouldReceive('getAttribute')->with('lines')->andReturn(new Collection($lines));
         $cart->shouldReceive('getAttribute')->with('currency')->andReturn($currency);
+        // `$cart->currency ?? …` in the modifier triggers __isset → offsetExists on the mock.
+        $cart->shouldReceive('offsetExists')->andReturnUsing(
+            fn ($key): bool => in_array($key, ['lines', 'currency'], true),
+        );
 
         return $cart;
     }

@@ -53,6 +53,14 @@ final class LlmTransformAction extends Action
 
         $inputs = [];
         foreach ($this->input_columns as $col) {
+            // Tolère le format PrestaShop `{col, label}` en plus des chaînes plates.
+            if (is_array($col)) {
+                $col = $col['col'] ?? reset($col);
+            }
+            $col = is_scalar($col) ? (string) $col : '';
+            if ($col === '') {
+                continue;
+            }
             $inputs[$col] = $ctx->row[$col] ?? '';
         }
         if ($this->additional_context !== null) {
