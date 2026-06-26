@@ -31,6 +31,15 @@
                                     <p class="font-semibold text-neutral-900">{{ $line['description'] }}</p>
                                     <p class="text-xs text-neutral-500 mt-0.5">Réf. {{ $line['identifier'] }}</p>
                                     <p class="text-xs text-neutral-500">{{ $line['unit_price'] }} / unité</p>
+                                    @if (($line['availability']['status'] ?? '') === 'weklo')
+                                        <p class="text-xs text-success-700 font-medium mt-1">En stock Weklo — Expédition 24/48h</p>
+                                    @elseif (($line['availability']['status'] ?? '') === 'supplier')
+                                        <p class="text-xs text-amber-700 font-medium mt-1">Disponible sur commande fournisseur
+                                            @if (!empty($line['availability']['lead_min']) && !empty($line['availability']['lead_max']))
+                                                — Livraison estimée sous {{ $line['availability']['lead_min'] }} à {{ $line['availability']['lead_max'] }} jours ouvrés
+                                            @endif
+                                        </p>
+                                    @endif
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <button type="button" class="w-8 h-8 border border-neutral-300 rounded text-neutral-600 hover:border-primary-500 hover:text-primary-600" wire:click="updateQuantity({{ $line['id'] }}, {{ $line['quantity'] - 1 }})"><x-ui.icon name="minus" class="w-3 h-3 mx-auto" /></button>

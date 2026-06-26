@@ -210,6 +210,52 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 
 **Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier` (Chronopost injecte `chrono13` en premier). Le modifier retire l'option existante de `$manifest->options`, puis réinsère un `ShippingOption` identique (même identifier `chronopost.chrono13`, meta préservée + `'franco' => true`) à `price = 0`. La `taxClass` est réutilisée depuis l'option originale (évite un `TaxClass::getDefault()` qui tombait null en test sans DB).
 
+### 5.11 Front storefront — panier et fiche produit (Lot L4)
+
+#### Sélection par défaut dans le panier
+
+`App\Livewire\Components\ShippingOptions::mount()` présélectionne `chronopost.chrono13` si aucune option n'est déjà enregistrée sur l'adresse de livraison. Fallback : première option disponible si `chrono13` n'est pas dans le manifest.
+
+#### Cartes de sélection (3 modes)
+
+La vue `livewire/components/shipping-options.blade.php` affiche chaque option comme une carte radio avec :
+- Libellé long mappé par identifier (`serviceLabels` computed property)
+- Description courte du service
+- Prix HT (ou « Offert » si `meta['franco'] === true`)
+
+Mapping statique dans `ShippingOptions::getServiceLabelsProperty()` :
+| Identifier | Libellé | Description |
+|---|---|---|
+| `chronopost.chrono_relais` | Livraison économique — Chrono Relais | Point relais Pickup, jusqu'à 20 kg. |
+| `chronopost.chrono13` | Livraison standard — Chrono 13 | Livraison le lendemain avant 13h. |
+| `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. |
+
+#### Bandeaux dynamiques (panier)
+
+Trois bandeaux affichés conditionnellement dans `shipping-options.blade.php` :
+
+| Bandeau | Condition | Message |
+|---|---|---|
+| Franco (vert) | `isFrancoReached` | « Votre commande est éligible à la livraison standard offerte… » |
+| Exclusion (info) | `hasExcludedLines` | « Certains produits volumineux… peuvent faire l'objet de frais complémentaires. » |
+| Multi-colis (info) | `hasMultipleSources` | « Votre commande peut être expédiée en plusieurs colis… » |
+
+- `isFrancoReached` : `WeightCalculator::francoEligibleSubtotalHt(cart) >= threshold && !cartHasFrancoExcludedLine(cart)`.
+- `hasExcludedLines` : `WeightCalculator::cartHasFrancoExcludedLine(cart)`.
+- `hasMultipleSources` : au moins une ligne sans `pko_supplier_id` (stock Weklo) ET une ligne avec `pko_supplier_id` (fournisseur externe).
+
+#### Badge disponibilité
+
+**Fiche produit** (`livewire/product-page.blade.php`) — priorité descendante :
+1. `pko_free_shipping = true` → « Livraison offerte » (vert)
+2. `variant->stock > 0` → « En stock Weklo — Expédition 24/48h » (vert)
+3. `pko_supplier_id` renseigné → « Disponible sur commande fournisseur — Livraison estimée sous {lead_min} à {lead_max} jours ouvrés » (ambre)
+4. Sinon → « Livraison 24/48h » (neutre)
+
+Le supplier est chargé via `ProductPage::getSupplierProperty()` → `Supplier::find($product->pko_supplier_id)`.
+
+**Lignes panier** (`livewire/cart-page.blade.php`) — même logique via `CartPage::resolveAvailability()` qui alimente la clé `availability` du tableau `$lines`. NE PAS afficher « dropshipping » côté client.
+
 ### 5.7 Hors scope shipping
 
 - Sélection de point relais physique (Chrono Relais intégré en grille statique en L1, sans choix de point précis)
