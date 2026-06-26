@@ -17,6 +17,12 @@ class CarrierShipment extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const ORIGIN_WEKLO = 'weklo';
+
+    public const ORIGIN_SUPPLIER_DIRECT = 'supplier_direct';
+
+    public const ORIGIN_SUPPLIER_VIA_WEKLO = 'supplier_via_weklo';
+
     public const DELIVERY_UNKNOWN = 'unknown';
 
     public const DELIVERY_IN_TRANSIT = 'in_transit';

@@ -14,15 +14,15 @@ Framework d'intégration de transporteurs pour Lunar, porté par `packages/pko/s
 ## Flux runtime
 
 1. **Checkout** : chaque `AbstractCarrierModifier` (sous-classé par adapter) est injecté dans `ShippingModifiers`. Il extrait adresse, filtre la zone (France métropolitaine par défaut), calcule le poids panier, appelle le Client, et pousse un `ShippingOption` par service dans le manifest.
-2. **Post-paiement** : `OrderShipmentObserver` détecte `payment_status → paid` et dispatche `CreateCarrierShipmentJob(order_id, carrier, service_code)`.
-3. **Job async** : résout le Client via `app("pko.shipping.carrier.{$carrier}")`, persiste `CarrierShipment` (table `pko_carrier_shipments`), sauvegarde le PDF d'étiquette.
-4. **Admin** : resource Filament `CarrierShipmentResource` (groupe **Expédition**) liste les envois, pages config par transporteur sous le même groupe.
+2. **Post-paiement — multi-expédition (L6)** : `OrderShipmentObserver` détecte `payment_status → paid`, charge les lignes avec `purchasable.product` + map de `Supplier` par ID, délègue à `ShipmentSplitter::split()` qui retourne des `ShipmentGroup[]` (un par origine : `weklo`, `supplier_direct`, `supplier_via_weklo`). Seul le groupe `weklo` dispatche `CreateCarrierShipmentJob`. Les groupes fournisseur créent un `CarrierShipment(status=pending)` sans appel API.
+3. **Job async** : résout le Client via `app("pko.shipping.carrier.{$carrier}")`, persiste `CarrierShipment` (table `pko_carrier_shipments`, clé unique `(order_id, carrier, origin)`), sauvegarde le PDF d'étiquette.
+4. **Admin** : resource Filament `CarrierShipmentResource` (groupe **Expédition**) liste les envois. Action "Relancer" visible uniquement pour `origin=weklo`.
 
 ## Tables DB
 
 | Table | Rôle |
 |---|---|
-| `pko_carrier_shipments` | Envois créés, label, tracking, statut |
+| `pko_carrier_shipments` | Envois créés, label, tracking, statut, **origin** (`weklo` / `supplier_direct` / `supplier_via_weklo`) — clé unique `(order_id, carrier, origin)` |
 | `pko_carrier_services` | Services activables par transporteur (`chronopost.13`, `colissimo.DOM`…) — **éditable en admin** |
 | `pko_carrier_grids` | Paliers tarifaires `max_kg` / `price_cents` — **éditable en admin** |
 | `pko_secrets` | Credentials API chiffrés (via package `pko/lunar-secrets`) |
@@ -223,6 +223,34 @@ Pour un monitoring plus réactif (< 5 min vs 1 h), La Poste propose un webhook d
 | Credentials | `pko/lunar-secrets` avec toggle env/DB par module | Flexibilité sécurité vs ergonomie, choisi par l'opérateur |
 | Plugin Filament | Un seul (`TransportersPlugin`) auto-discovery via `CarrierRegistry` | Ajouter un transporteur ne nécessite aucune modif de `AppServiceProvider::LunarPanel` |
 | Branding | `pko-*` uniquement (plugin IDs, view namespaces) | Conformité CLAUDE.md §3.0 |
+
+## Multi-expédition par origine de stock (L6 2026-06)
+
+### `ShipmentSplitter`
+
+Service pur (`Pko\ShippingCommon\Shipping\ShipmentSplitter`) sans accès DB, testable avec des stdClass mocks. Prend une collection de lignes (avec `purchasable.product`) et une collection de `Supplier` keyés par ID. Retourne un tableau de `ShipmentGroup(origin, lineCount)`.
+
+**Algorithme de résolution d'origine** :
+- `pko_supplier_id === null` → `weklo`
+- `pko_supplier_id` défini mais supplier absent dans la map → `weklo` (fail-safe)
+- Supplier `bl_neutre = true` → `supplier_direct`
+- Supplier `bl_neutre = false` → `supplier_via_weklo`
+
+### Constantes d'origine sur `CarrierShipment`
+
+- `ORIGIN_WEKLO = 'weklo'`
+- `ORIGIN_SUPPLIER_DIRECT = 'supplier_direct'`
+- `ORIGIN_SUPPLIER_VIA_WEKLO = 'supplier_via_weklo'`
+
+### Commande sur devis
+
+**Nouveau statut Lunar** : `awaiting-quote` (label "En attente de devis", couleur ambre) dans `config/lunar/orders.php`.
+
+**Pipeline de création** : `MarkQuoteOrderAwaitingQuote` (dernier pipe de `creation`) bascule le statut si une ligne a `pko_quote_only = true`.
+
+**Extension Filament** : `OrderQuoteActionsExtension` (enregistrée sur `ManageOrder` dans `AppServiceProvider`) ajoute l'action **Envoyer lien de paiement** (visible si `status = awaiting-quote`). Modal avec saisie du montant transport. Génère `URL::signedRoute('pko.quote.pay', ...)` (7 jours) et envoie `QuotePaymentLinkMail`.
+
+**Route** : `GET /paiement-devis/{order}` (signed, middleware `signed`) → `QuotePaymentController`. Page de paiement stub (TODO : intégration Stripe).
 
 ## Resources back-office — Fournisseurs & suppléments (L3 2026-06)
 
