@@ -29,4 +29,19 @@ final class ZoneResolver
 
         return true;
     }
+
+    public static function isCorse(string $postcode, string $country = 'FR'): bool
+    {
+        if (strtoupper($country) !== 'FR') {
+            return false;
+        }
+
+        $postcode = preg_replace('/\s+/', '', $postcode) ?? '';
+
+        if (! preg_match('/^\d{5}$/', $postcode)) {
+            return false;
+        }
+
+        return str_starts_with($postcode, '20');
+    }
 }

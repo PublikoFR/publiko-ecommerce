@@ -15,6 +15,7 @@ use Lunar\Models\TaxClass;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Dto\QuoteRequest;
+use Pko\ShippingCommon\Models\ShippingSurcharge;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use Pko\ShippingCommon\Support\ZoneResolver;
 
@@ -87,7 +88,29 @@ abstract class AbstractCarrierModifier extends ShippingModifier
 
     protected function shouldQuote(string $country, string $postcode): bool
     {
-        return ZoneResolver::isMetropole($postcode, $country);
+        if (ZoneResolver::isMetropole($postcode, $country)) {
+            return true;
+        }
+
+        // Ouvre la Corse si un supplément auto 'corse' est actif — tous les carriers concernés.
+        if (ZoneResolver::isCorse($postcode, $country)) {
+            return $this->hasActiveCorseSurcharge();
+        }
+
+        return false;
+    }
+
+    private function hasActiveCorseSurcharge(): bool
+    {
+        return ShippingSurcharge::query()
+            ->where('enabled', true)
+            ->where('mode', 'auto')
+            ->where(function ($q): void {
+                $q->where('code', 'corse')
+                    ->orWhereJsonContains('rule->type', 'corse')
+                    ->orWhereJsonContains('rule->postcode_prefix', '20');
+            })
+            ->exists();
     }
 
     protected function resolveClient(): CarrierClient

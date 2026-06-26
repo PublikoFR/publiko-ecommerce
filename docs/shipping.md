@@ -210,6 +210,42 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 
 **Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier` (Chronopost injecte `chrono13` en premier). Le modifier retire l'option existante de `$manifest->options`, puis réinsère un `ShippingOption` identique (même identifier `chronopost.chrono13`, meta préservée + `'franco' => true`) à `price = 0`. La `taxClass` est réutilisée depuis l'option originale (évite un `TaxClass::getDefault()` qui tombait null en test sans DB).
 
+### 5.11 Suppléments transport (Lot L5)
+
+**Modèle** : `pko_shipping_surcharges` (créé en L1) — colonnes `code`, `label`, `amount_cents`, `mode enum(auto|quote|rebill)`, `rule json`, `enabled`.
+
+**SurchargeModifier** (`Pko\ShippingCommon\Modifiers\SurchargeModifier`) — enregistré en dernier dans `ShippingCommonServiceProvider`, après `FrancoModifier`. Lit tous les suppléments `enabled=true` et itère :
+
+| Mode | Comportement checkout |
+|---|---|
+| `auto` | Si la règle matche l'adresse de livraison → majore chaque option carrier du manifest de `amount_cents`. Ne touche pas aux options sentinel (`meta.quote=true`). |
+| `quote` | Si la règle matche → injecte une `ShippingOption` sentinel (`price=0`, `meta.quote=true`, `identifier=surcharge.<code>`). Le front (L4) et le checkout distinguent cette option par `meta.quote`. |
+| `rebill` | Ignoré au checkout (refacturation a posteriori hors flux panier). |
+
+**Évaluation des règles** (`rule` JSON) :
+
+| Clé | Exemple | Comportement |
+|---|---|---|
+| `type` | `{"type":"corse"}` | `ZoneResolver::isCorse()` sur le CP destinataire |
+| `postcode_prefix` | `{"postcode_prefix":"20"}` | `str_starts_with(cp, prefix)` |
+
+Extensible : ajouter un nouveau type de règle dans `SurchargeModifier::matchesAddress()`.
+
+**Ouverture conditionnelle Corse** :
+
+`ZoneResolver::isMetropole()` n'est pas modifiée (utilisée ailleurs). Deux ajouts :
+
+- `ZoneResolver::isCorse(string $postcode, string $country = 'FR'): bool` — pur, sans DB, retourne `true` si CP `20xxx` France.
+- `AbstractCarrierModifier::shouldQuote()` — étendu : accepte la Corse si `hasActiveCorseSurcharge()` retourne `true` (query `enabled=true AND mode=auto AND (code=corse OR rule->type=corse OR rule->postcode_prefix=20)`). Cela ouvre **tous les carriers** (Chronopost + Colissimo) pour la Corse quand le supplément est activé. Limites : si un carrier ne dessert pas physiquement la Corse, son Client ne retournera aucun `QuoteResponse` → option masquée silencieusement.
+
+**Ordre du pipeline** :
+```
+AbstractCarrierModifier (Chronopost, Colissimo) → FreeShippingModifier → FrancoModifier → SurchargeModifier
+```
+Résultat pour un panier Corse ≥ 350 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
+
+**Note importante** : sur une Corse ≥ 350 € HT, le franco passe chrono13 à 0 €, puis le SurchargeModifier majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
+
 ### 5.7 Hors scope shipping
 
 - Sélection de point relais physique (Chrono Relais intégré en grille statique en L1, sans choix de point précis)

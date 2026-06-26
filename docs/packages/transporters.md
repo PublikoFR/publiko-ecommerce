@@ -254,6 +254,31 @@ Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebil
 | `retour_expediteur` | rebill |
 | `transport_specifique` | quote |
 
+### SurchargeModifier — logique checkout (Lot L5)
+
+`Pko\ShippingCommon\Modifiers\SurchargeModifier` — dernier du pipeline (après FrancoModifier).
+
+**Comportement par mode** :
+
+| Mode | Action dans le manifest |
+|---|---|
+| `auto` | Majore chaque option carrier de `amount_cents` (reject + re-add, meta `surcharge_code`). Ne touche pas aux options sentinel (`meta.quote=true`). |
+| `quote` | Injecte une option sentinel (`price=0`, `identifier=surcharge.<code>`, `meta.quote=true`). Le front/checkout détecte cette option par `meta.quote`. |
+| `rebill` | Ignoré au checkout — refacturation post-livraison hors flux panier. |
+
+**Évaluation de la règle** (`rule` JSON) : `type=corse` → `ZoneResolver::isCorse()` ; `postcode_prefix=XX` → `str_starts_with(cp, XX)`. Extensible dans `SurchargeModifier::matchesAddress()`.
+
+**Ouverture zone Corse** : `AbstractCarrierModifier::shouldQuote()` accepte désormais la Corse si `hasActiveCorseSurcharge()` trouve une surcharge `enabled=true AND mode=auto AND (code=corse OR rule.type=corse OR rule.postcode_prefix=20)`. Cela ouvre **tous les carriers** (Chronopost + Colissimo). Si un carrier ne couvre pas physiquement la Corse, son `CarrierClient::quote()` retournera `[]` → masqué silencieusement.
+
+**Pipeline complet pour un panier Corse** :
+1. Carriers quotent (zone ouverte par `auto` surcharge) → options carrier dans le manifest.
+2. FrancoModifier : franco si seuil atteint → Chrono 13 à 0 €.
+3. SurchargeModifier : majore toutes les options de `amount_cents`. Résultat : client paie uniquement le supplément Corse (franco + surcharge cumulés).
+
+**Données seed** (`corse` en mode `quote` par défaut) : en production, l'admin peut basculer le mode vers `auto` et saisir `amount_cents` pour activer la livraison Corse tarifée. Sans surcharge `auto` active, les carriers skippent la Corse et seule l'option quote est visible.
+
+`ZoneResolver::isCorse(string $postcode, string $country = 'FR'): bool` — pur, sans DB, retourne true pour `20xxx` France. `ZoneResolver::isMetropole()` reste inchangée (toujours false pour Corse).
+
 ### Traductions
 
 Toutes les clés dans `packages/pko/shipping-common/lang/fr/admin.php`, namespace `pko-shipping-common::admin.*`. Le `ShippingCommonServiceProvider` charge le namespace via `loadTranslationsFrom`.
