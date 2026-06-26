@@ -801,9 +801,9 @@ class EditProductUnified extends Page implements HasForms
             $product->status = $this->status;
             $product->featured = $this->featured;
             $product->pko_free_shipping = $this->freeShipping;
-            $product->pko_logistics_class = $this->logisticsClass;
+            $product->pko_logistics_class = $this->logisticsClass ?: null;
             $product->pko_franco_eligible = $this->francoEligible;
-            $product->pko_transport_price_cents = $this->transportPriceCents !== null ? (int) $this->transportPriceCents : null;
+            $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $this->transportPriceCents !== null) ? (int) $this->transportPriceCents : null;
             $product->pko_quote_only = $this->quoteOnly;
             $product->pko_supplier_id = $this->supplierId;
             $product->save();
