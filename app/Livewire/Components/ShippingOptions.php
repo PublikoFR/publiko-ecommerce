@@ -72,7 +72,7 @@ class ShippingOptions extends Component
      */
     public function getShippingAddressProperty()
     {
-        return CartSession::getCart()->shippingAddress;
+        return CartSession::current()->shippingAddress;
     }
 
     /**
