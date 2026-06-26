@@ -12,6 +12,7 @@ use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
 use Pko\ShippingCommon\Modifiers\FrancoModifier;
 use Pko\ShippingCommon\Modifiers\FreeShippingModifier;
+use Pko\ShippingCommon\Modifiers\SurchargeModifier;
 use Pko\ShippingCommon\Observers\OrderShipmentObserver;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
@@ -59,5 +60,8 @@ class ShippingCommonServiceProvider extends ServiceProvider
         // FrancoModifier doit s'exécuter après les AbstractCarrierModifier
         // (Chronopost, Colissimo) pour trouver chrono13 déjà dans le manifest.
         $modifiers->add(FrancoModifier::class);
+        // SurchargeModifier s'exécute en dernier : il majore les prix déjà présents
+        // (y compris franco nuls) et injecte les options sur-devis.
+        $modifiers->add(SurchargeModifier::class);
     }
 }
