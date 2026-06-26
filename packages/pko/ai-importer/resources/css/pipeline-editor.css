@@ -1,0 +1,395 @@
+/*
+ * Éditeur de pipeline d'actions — reproduction fidèle du modal « Pipeline
+ * d'actions » du module PrestaShop « Publiko AI Importer », porté dans le
+ * back-office Lunar/Filament.
+ *
+ * Tout est scopé sous .pko-pipeline-editor : le moteur JS lifté suppose des
+ * classes Bootstrap (form-control, btn, alert, table…) absentes de Filament,
+ * on les ré-implémente ici sans polluer le reste de l'admin.
+ *
+ * Palette de couleurs sémantiques (identique au module PS) :
+ *   primaire/PUIS  #25b9d7 (cyan)   SI/condition #ff9800 (orange)
+ *   ALORS          #27ae60 (vert)   SINON        #e74c3c (rouge)
+ */
+.pko-pipeline-editor {
+    --pkoai-primary: #25b9d7;
+    --pkoai-primary-hover: #1a8a9e;
+    --pkoai-border: #e5e7eb;
+    --pkoai-border-hover: #d1d5db;
+    --pkoai-text-primary: #1f2937;
+    --pkoai-text-secondary: #6b7280;
+    --pkoai-radius-sm: 0.375rem;
+    --pkoai-radius-md: 0.5rem;
+    --pkoai-radius-lg: 0.75rem;
+    /* Couleur du fil conducteur (pastille + segment) — surchargée par bloc. */
+    --seg: var(--pkoai-primary);
+    /* Picto corbeille (heroicon « trash » mini), rendu en masque → prend currentColor. */
+    --pko-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z'/%3E%3C/svg%3E");
+
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-height: 460px;
+    color: var(--pkoai-text-primary);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* ── Panneaux ─────────────────────────────────────────────────────────── */
+.pko-pipeline-editor .pko-pe-left {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 4px 16px 4px 4px;
+    overflow-y: auto;
+}
+.pko-pipeline-editor .pko-pe-right {
+    width: 280px;
+    min-width: 280px;
+    align-self: flex-start;
+    background: #f9fafb;
+    border: 1px solid var(--pkoai-border);
+    border-radius: var(--pkoai-radius-lg);
+    padding: 14px 14px 16px;
+    margin-left: 14px;
+    overflow-y: auto;
+}
+.pko-pipeline-editor .pko-pe-panel-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--pkoai-text-secondary);
+    margin: 0 0 12px;
+}
+
+/* ── Champs source (FEUILLE / COL. / PAR DÉFAUT) ──────────────────────── */
+.pko-pipeline-editor .modal-source-fields {
+    display: flex;
+    gap: 12px;
+    background: #f9fafb;
+    border: 1px solid var(--pkoai-border);
+    border-radius: var(--pkoai-radius-lg);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+.pko-pipeline-editor .field-group { flex: 1; }
+.pko-pipeline-editor .field-group.field-col { flex: 0 0 80px; }
+.pko-pipeline-editor .field-group > label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #8a8f99;
+    margin-bottom: 4px;
+    letter-spacing: .02em;
+}
+
+/* ── Contrôles façon Bootstrap (scopés) ──────────────────────────────── */
+.pko-pipeline-editor .form-control {
+    display: block;
+    width: 100%;
+    height: 34px;
+    padding: 5px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #333;
+    background: #fff;
+    border: 1px solid var(--pkoai-border);
+    border-radius: var(--pkoai-radius-md);
+    box-sizing: border-box;
+    transition: border-color .15s, box-shadow .15s;
+}
+.pko-pipeline-editor .form-control:focus {
+    outline: 0;
+    border-color: var(--pkoai-primary);
+    box-shadow: 0 0 0 3px rgba(37, 185, 215, .15);
+}
+.pko-pipeline-editor textarea.form-control { height: auto; resize: vertical; }
+.pko-pipeline-editor .input-sm { height: 30px; padding: 3px 8px; font-size: 12px; }
+.pko-pipeline-editor select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 26px;
+}
+.pko-pipeline-editor label { font-weight: 600; }
+.pko-pipeline-editor .help-block { margin: 2px 0 0; }
+.pko-pipeline-editor .checkbox { position: relative; }
+.pko-pipeline-editor .checkbox label { font-weight: 400; padding-left: 2px; cursor: pointer; }
+
+/* ── Boutons ─────────────────────────────────────────────────────────── */
+.pko-pipeline-editor .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    border: 1px solid transparent;
+    border-radius: var(--pkoai-radius-md);
+    cursor: pointer;
+    user-select: none;
+    background: #fff;
+    transition: filter .12s, background .12s, border-color .12s;
+}
+.pko-pipeline-editor .btn:hover { filter: brightness(.97); }
+.pko-pipeline-editor .btn-xs { padding: 3px 7px; font-size: 11px; border-radius: var(--pkoai-radius-sm); }
+.pko-pipeline-editor .btn-default { color: #444; background: #fff; border-color: var(--pkoai-border); }
+.pko-pipeline-editor .btn-default:hover { background: #f3f4f6; border-color: var(--pkoai-border-hover); }
+.pko-pipeline-editor .btn-primary { color: #fff; background: var(--pkoai-primary); border-color: var(--pkoai-primary); }
+.pko-pipeline-editor .btn-primary:hover { background: var(--pkoai-primary-hover); }
+.pko-pipeline-editor .btn-danger { color: #fff; background: #e74c3c; border-color: #e74c3c; }
+.pko-pipeline-editor .btn-warning { color: #7a4a00; background: #ffd24d; border-color: #f6c343; }
+.pko-pipeline-editor .btn-success { color: #fff; background: #27ae60; border-color: #27ae60; }
+
+/* ── Suppression : picto corbeille Lunar (rouge), au lieu du pavé rouge ──── */
+/* Les boutons « supprimer » (action / bloc / règle / ligne) deviennent un
+   simple picto corbeille rouge sans fond ; seul « Tout effacer » garde son
+   bouton plein (icône en blanc, même picto propre). */
+.pko-pipeline-editor .btn-danger.btn-xs:not(.pko-pe-clear) {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: #ef4444;
+    padding: 3px;
+    min-width: 0;
+}
+.pko-pipeline-editor .btn-danger.btn-xs:not(.pko-pe-clear):hover {
+    background: rgba(239, 68, 68, .12);
+    border-color: transparent;
+    color: #dc2626;
+    filter: none;
+}
+/* Le glyphe × du moteur est masqué et remplacé par le picto corbeille
+   (masque SVG → prend la couleur du texte : rouge en ghost, blanc sur « Tout effacer »). */
+.pko-pipeline-editor .btn-danger i {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    background-color: currentColor;
+    -webkit-mask: var(--pko-trash) center / contain no-repeat;
+    mask: var(--pko-trash) center / contain no-repeat;
+}
+.pko-pipeline-editor .btn-danger i::before { content: none; }
+
+/* ── En-tête flow + zone vide ────────────────────────────────────────── */
+.pko-pipeline-editor #flow-area > label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+}
+.pko-pipeline-editor #pipeline-empty {
+    text-align: center;
+    color: #9aa0a6;
+    padding: 30px 15px;
+    border: 2px dashed var(--pkoai-border);
+    border-radius: 6px;
+    font-size: 12px;
+}
+.pko-pipeline-editor #pipeline-empty i { font-size: 20px; display: block; margin-bottom: 6px; }
+.pko-pipeline-editor .pko-pe-clear {
+    margin-top: 14px;
+    display: none;
+}
+
+/* ── Palette (sidebar) : en-têtes de groupe + boutons d'action ───────── */
+.pko-pipeline-editor #action-grid > div:first-child { margin-top: 0 !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Fil conducteur — modèle « timeline » à segments colorés PAR ÉTAPE.
+ *
+ * Chaque bloc porte SA pastille (::before, ancrée en haut, couleur du bloc via
+ * --seg) et SON segment de liaison qui descend vers le bloc suivant (::after,
+ * même couleur). Pas de ligne continue de conteneur → le fil suit la couleur de
+ * chaque étape. Le dernier bloc d'un niveau (:last-child) n'a pas de segment :
+ * aucun trait ne dépasse sous la dernière pastille (idem dans les sous-blocs).
+ * --dot-l / --seg-l : décalages horizontaux du gutter, hérités du flux courant
+ * (différents entre le flux principal et les sous-pipelines indentés).
+ * ══════════════════════════════════════════════════════════════════════ */
+.pko-pipeline-editor .pipeline-flow {
+    position: relative;
+    padding-left: 26px;
+    --dot-l: -22px;
+    --seg-l: -17px;
+}
+
+.pko-pipeline-editor .pipeline-node {
+    position: relative;
+    padding: 7px 10px 7px 14px;
+    margin-top: 12px;
+    background: #fff;
+    border: 1px solid var(--pkoai-border);
+    border-radius: var(--pkoai-radius-md);
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+}
+.pko-pipeline-editor .pipeline-node:first-child { margin-top: 0; }
+.pko-pipeline-editor .pipeline-node:hover { border-color: var(--seg); }
+
+.pko-pipeline-editor .pipeline-node-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.pko-pipeline-editor .pipeline-node-header .node-icon { color: var(--seg); }
+.pko-pipeline-editor .pipeline-node-header .node-title { flex: 1; }
+.pko-pipeline-editor .pipeline-node-header .node-summary { color: var(--pkoai-text-secondary); font-weight: 400; font-size: 11px; }
+.pko-pipeline-editor .pipeline-node-header .node-actions { display: flex; align-items: center; gap: 4px; }
+.pko-pipeline-editor .pipeline-node-params { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--pkoai-border); }
+.pko-pipeline-editor .pipeline-node.expanded .pipeline-node-params { display: block; }
+
+/* Couleur sémantique du fil (--seg) par type de bloc */
+.pko-pipeline-editor .condition-branch-block { --seg: #ff9800; }
+.pko-pipeline-editor .condition-sinon-block  { --seg: #e74c3c; }
+.pko-pipeline-editor .condition-puis-block   { --seg: #5bc0de; }
+.pko-pipeline-editor .condition-group > .btn-warning { --seg: #ff9800; position: relative; }
+/* Sous-pipelines : le fil prend la couleur de la branche (ALORS / SINON / PUIS) */
+.pko-pipeline-editor .condition-branch-block .condition-sub-pipeline > .pipeline-node { --seg: #27ae60; }
+.pko-pipeline-editor .condition-sinon-block  .condition-sub-pipeline > .pipeline-node { --seg: #e74c3c; }
+.pko-pipeline-editor .condition-puis-block   .condition-sub-pipeline > .pipeline-node { --seg: #5bc0de; }
+
+/* Pastille : centrée sur le trait, ancrée au HAUT du bloc, couleur du bloc */
+.pko-pipeline-editor .pipeline-node::before,
+.pko-pipeline-editor .condition-group > .btn-warning::before {
+    content: '';
+    position: absolute;
+    left: var(--dot-l, -22px);
+    top: 4px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--seg);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--seg);
+    z-index: 2;
+}
+/* Segment de liaison descendant vers le bloc suivant (même couleur) */
+.pko-pipeline-editor .pipeline-node::after,
+.pko-pipeline-editor .condition-group > .btn-warning::after {
+    content: '';
+    position: absolute;
+    left: var(--seg-l, -17px);
+    top: 10px;
+    bottom: -16px;
+    width: 2px;
+    background: var(--seg);
+    z-index: 1;
+}
+/* Aucun trait sous la dernière pastille d'un niveau */
+.pko-pipeline-editor #pipeline-list > .pipeline-node:last-child::after,
+.pko-pipeline-editor .condition-sub-pipeline > .pipeline-node:last-child::after,
+.pko-pipeline-editor .condition-puis-block::after { display: none; }
+
+/* Sous-pipelines indentés : gutter resserré */
+.pko-pipeline-editor .condition-group { position: relative; padding-left: 0; }
+.pko-pipeline-editor .condition-sub-pipeline {
+    padding-left: 22px;
+    --dot-l: -19px;
+    --seg-l: -14px;
+}
+.pko-pipeline-editor .condition-rule { align-items: center; }
+.pko-pipeline-editor .condition-rules-list { margin-bottom: 6px; }
+
+/* ── Encarts d'aide ──────────────────────────────────────────────────── */
+.pko-pipeline-editor .alert { border-radius: var(--pkoai-radius-md); border: 1px solid transparent; }
+.pko-pipeline-editor .alert-info { color: #1b6c7a; background: #e8f7fb; border-color: #bce6ef; }
+.pko-pipeline-editor .alert-warning { color: #8a6d3b; background: #fcf6e3; border-color: #f3e2b3; }
+.pko-pipeline-editor .alert code { background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 3px; }
+
+/* ── Tables (mapping colonnes / keyvalue) ────────────────────────────── */
+.pko-pipeline-editor .table { width: 100%; border-collapse: collapse; }
+.pko-pipeline-editor .table th,
+.pko-pipeline-editor .table td { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; vertical-align: middle; }
+.pko-pipeline-editor .table th { font-size: 11px; color: #777; font-weight: 600; }
+
+/* ── Sous-modal clé/valeur (overlay vanilla) ─────────────────────────── */
+#keyvalue-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(0, 0, 0, .4);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#keyvalue-modal .pko-kv-dialog {
+    background: #fff;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+    overflow: hidden;
+    font-size: 13px;
+}
+#keyvalue-modal .pko-kv-head,
+#keyvalue-modal .pko-kv-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+}
+#keyvalue-modal .pko-kv-head { border-bottom: 1px solid #eee; font-weight: 600; }
+#keyvalue-modal .pko-kv-foot { border-top: 1px solid #eee; gap: 8px; }
+#keyvalue-modal .pko-kv-body { padding: 14px 16px; max-height: 60vh; overflow-y: auto; }
+#keyvalue-modal .close { background: none; border: 0; font-size: 20px; line-height: 1; cursor: pointer; color: #999; }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Shim d'icônes : la webfont PrestaShop « icon-* » n'existe pas ici, on
+ * remplace chaque glyphe utilisé par un symbole Unicode (hérite la couleur
+ * inline posée par le moteur — orange/vert/rouge/cyan selon le bloc).
+ * ══════════════════════════════════════════════════════════════════════ */
+.pko-pipeline-editor i[class^="icon-"],
+.pko-pipeline-editor i[class*=" icon-"],
+#keyvalue-modal i[class^="icon-"] {
+    font-style: normal;
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols2", sans-serif;
+    display: inline-block;
+    line-height: 1;
+}
+.pko-pipeline-editor i.icon-cog::before,         #keyvalue-modal i.icon-cog::before { content: "\2699"; }       /* ⚙ */
+.pko-pipeline-editor i.icon-code-fork::before { content: "\2442"; }   /* ⑂ branche */
+.pko-pipeline-editor i.icon-asterisk::before { content: "\2731"; }    /* ✱ */
+.pko-pipeline-editor i.icon-columns::before { content: "\00F7"; }     /* ÷ diviser */
+.pko-pipeline-editor i.icon-plus::before,         #keyvalue-modal i.icon-plus::before { content: "\FF0B"; }    /* ＋ */
+.pko-pipeline-editor i.icon-plus-circle::before { content: "\2295"; } /* ⊕ */
+.pko-pipeline-editor i.icon-minus::before { content: "\2212"; }       /* − */
+.pko-pipeline-editor i.icon-dot-circle-o::before { content: "\25C9"; }/* ◉ arrondir */
+.pko-pipeline-editor i.icon-font::before { content: "A"; }
+.pko-pipeline-editor i.icon-text-height::before { content: "a"; }
+.pko-pipeline-editor i.icon-italic::before { content: "Aa"; font-style: italic; }
+.pko-pipeline-editor i.icon-eraser::before { content: "\232B"; }      /* ⌫ */
+.pko-pipeline-editor i.icon-link::before { content: "\1F517"; }       /* 🔗 */
+.pko-pipeline-editor i.icon-scissors::before { content: "\2702"; }    /* ✂ */
+.pko-pipeline-editor i.icon-exchange::before { content: "\21C4"; }    /* ⇄ */
+.pko-pipeline-editor i.icon-magic::before { content: "\2728"; }       /* ✨ */
+.pko-pipeline-editor i.icon-compress::before { content: "\2A01"; }    /* ⊕ concat */
+.pko-pipeline-editor i.icon-code::before { content: "\2039\2044\203A"; } /* ‹/› */
+.pko-pipeline-editor i.icon-indent::before { content: "\21E5"; }      /* ⇥ */
+.pko-pipeline-editor i.icon-copy::before { content: "\2398"; }        /* ⎘ */
+.pko-pipeline-editor i.icon-random::before { content: "\1F500"; }     /* 🔀 */
+.pko-pipeline-editor i.icon-sitemap::before { content: "\1F5C2"; }    /* 🗂 */
+.pko-pipeline-editor i.icon-question-circle::before { content: "\2370"; } /* ⍰ */
+.pko-pipeline-editor i.icon-calendar::before { content: "\1F4C5"; }   /* 📅 */
+.pko-pipeline-editor i.icon-barcode::before { content: "\2592"; }     /* ▒ */
+.pko-pipeline-editor i.icon-bolt::before { content: "\26A1"; }        /* ⚡ */
+.pko-pipeline-editor i.icon-th-list::before { content: "\2630"; }     /* ☰ */
+.pko-pipeline-editor i.icon-th::before { content: "\25A6"; }          /* ▦ */
+.pko-pipeline-editor i.icon-list-ol::before { content: "\2261"; }     /* ≡ */
+.pko-pipeline-editor i.icon-list::before,         #keyvalue-modal i.icon-list::before { content: "\2630"; }    /* ☰ */
+.pko-pipeline-editor i.icon-arrow-right::before { content: "\2192"; } /* → */
+.pko-pipeline-editor i.icon-arrow-down::before { content: "\2193"; }  /* ↓ */
+.pko-pipeline-editor i.icon-arrows::before { content: "\2725"; }      /* ✥ déplacer */
+.pko-pipeline-editor i.icon-times::before,        #keyvalue-modal i.icon-times::before { content: "\2715"; }   /* ✕ */
+.pko-pipeline-editor i.icon-check::before { content: "\2713"; }       /* ✓ */
+.pko-pipeline-editor i.icon-trash::before,        #keyvalue-modal i.icon-trash::before { content: "\1F5D1"; }  /* 🗑 */
+.pko-pipeline-editor i.icon-info-circle::before { content: "\2139"; } /* ℹ */
+.pko-pipeline-editor i.icon-lightbulb::before { content: "\1F4A1"; }  /* 💡 */
