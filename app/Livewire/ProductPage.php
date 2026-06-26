@@ -11,6 +11,7 @@ use Livewire\Component;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
 use Pko\ProductDocuments\Models\ProductDocument;
+use Pko\ShippingCommon\Models\Supplier;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductPage extends Component
@@ -123,6 +124,16 @@ class ProductPage extends Component
     /**
      * Documents téléchargeables groupés par catégorie — réservés aux clients connectés.
      */
+    /**
+     * Fournisseur externe lié au produit courant, ou null si stock Weklo.
+     */
+    public function getSupplierProperty(): ?Supplier
+    {
+        $supplierId = $this->product->pko_supplier_id;
+
+        return $supplierId !== null ? Supplier::find($supplierId) : null;
+    }
+
     public function getDocumentsProperty(): Collection
     {
         if (! auth()->check()) {

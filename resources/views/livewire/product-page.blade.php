@@ -87,8 +87,21 @@
                             <x-ui.icon name="truck" class="w-5 h-5 text-success-600" />
                             Livraison offerte
                         </div>
+                    @elseif ($this->variant->stock > 0)
+                        <div class="flex items-center gap-2 text-success-700 font-semibold">
+                            <x-ui.icon name="check" class="w-5 h-5 text-success-600" />
+                            En stock Weklo — Expédition 24/48h
+                        </div>
+                    @elseif ($this->supplier)
+                        <div class="flex items-center gap-2 text-amber-700">
+                            <x-ui.icon name="truck" class="w-5 h-5 text-amber-500" />
+                            Disponible sur commande fournisseur — Livraison estimée sous {{ $this->supplier->lead_time_min_days }} à {{ $this->supplier->lead_time_max_days }} jours ouvrés
+                        </div>
                     @else
-                        <div class="flex items-center gap-2 text-neutral-600"><x-ui.icon name="truck" class="w-5 h-5 text-primary-600" /> Livraison 24/48h</div>
+                        <div class="flex items-center gap-2 text-neutral-600">
+                            <x-ui.icon name="truck" class="w-5 h-5 text-primary-600" />
+                            Livraison 24/48h
+                        </div>
                     @endif
                     <div class="flex items-center gap-2 text-neutral-600"><x-ui.icon name="map-pin" class="w-5 h-5 text-primary-600" /> Retrait en magasin</div>
                     <div class="flex items-center gap-2 text-neutral-600"><x-ui.icon name="check" class="w-5 h-5 text-success-600" /> Support pro dédié</div>
