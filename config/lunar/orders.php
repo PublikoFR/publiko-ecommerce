@@ -7,6 +7,7 @@ use Lunar\Pipelines\Order\Creation\CreateOrderLines;
 use Lunar\Pipelines\Order\Creation\CreateShippingLine;
 use Lunar\Pipelines\Order\Creation\FillOrderFromCart;
 use Lunar\Pipelines\Order\Creation\MapDiscountBreakdown;
+use Pko\ShippingCommon\Pipelines\MarkQuoteOrderAwaitingQuote;
 
 return [
     /*
@@ -107,6 +108,14 @@ return [
             'favourite' => true,
         ],
 
+        'awaiting-quote' => [
+            'label' => 'En attente de devis',
+            'color' => '#f59e0b',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => true,
+        ],
+
     ],
 
     /*
@@ -129,6 +138,7 @@ return [
             CreateShippingLine::class,
             CleanUpOrderLines::class,
             MapDiscountBreakdown::class,
+            MarkQuoteOrderAwaitingQuote::class,
         ],
     ],
 

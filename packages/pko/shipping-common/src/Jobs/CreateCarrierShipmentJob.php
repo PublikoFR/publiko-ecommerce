@@ -36,6 +36,7 @@ class CreateCarrierShipmentJob implements ShouldQueue
         public readonly int $orderId,
         public readonly string $carrier,
         public readonly string $serviceCode,
+        public readonly string $origin = CarrierShipment::ORIGIN_WEKLO,
     ) {}
 
     public function handle(): void
@@ -46,6 +47,7 @@ class CreateCarrierShipmentJob implements ShouldQueue
             [
                 'order_id' => $order->id,
                 'carrier' => $this->carrier,
+                'origin' => $this->origin,
             ],
             [
                 'service_code' => $this->serviceCode,
@@ -155,6 +157,7 @@ class CreateCarrierShipmentJob implements ShouldQueue
         $shipment = CarrierShipment::query()
             ->where('order_id', $this->orderId)
             ->where('carrier', $this->carrier)
+            ->where('origin', $this->origin)
             ->first();
 
         if ($shipment === null) {

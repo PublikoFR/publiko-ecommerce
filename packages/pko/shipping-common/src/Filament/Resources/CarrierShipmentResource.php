@@ -164,13 +164,15 @@ class CarrierShipmentResource extends BaseResource
                     ->label('Relancer')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
-                    ->visible(fn (CarrierShipment $record): bool => $record->status === CarrierShipment::STATUS_FAILED)
+                    ->visible(fn (CarrierShipment $record): bool => $record->status === CarrierShipment::STATUS_FAILED
+                        && $record->origin === CarrierShipment::ORIGIN_WEKLO)
                     ->requiresConfirmation()
                     ->action(function (CarrierShipment $record) {
                         CreateCarrierShipmentJob::dispatch(
                             $record->order_id,
                             $record->carrier,
                             (string) $record->service_code,
+                            (string) $record->origin,
                         );
 
                         $record->update([

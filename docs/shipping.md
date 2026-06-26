@@ -47,9 +47,27 @@
 1. **Checkout** : les deux `ShippingModifier` custom (enregistrés via `ShippingModifiers::add()`) injectent des `ShippingOption` dans le manifest à partir des grilles statiques. Identifiers : `chronopost.{service}` / `colissimo.{service}`.
 2. **Zone** : `ZoneResolver::isMetropole()` filtre France métropolitaine uniquement (skip Corse `20*`, DOM `971`–`978`, étranger).
 3. **Poids** : `WeightCalculator::fromCart()` / `fromOrder()` normalise en **kg** (accepte `kg`/`g`/`lb`, throw sur unité inconnue).
-4. **Post-paiement** : `OrderShipmentObserver::updated()` observe `Order::payment_status` → transition vers `paid` → dispatche `CreateCarrierShipmentJob(order_id, carrier, service_code)`.
-5. **Job async** : `$tries = 5`, `$backoff = [60, 300, 900, 3600, 14400]`. Résout le `CarrierClient` via `app("mde.shipping.carrier.{$carrier}")`, persiste le `CarrierShipment` (table `pko_carrier_shipments`), sauvegarde le PDF dans `storage/app/labels/{order_id}/{carrier}-{tracking}.pdf`. Après 5 échecs → `status = 'failed'` + `error_message`.
-6. **Admin** : resource Filament `CarrierShipmentResource` (groupe **Expédition**) → liste, filtre par carrier/statut, action « Télécharger étiquette », action « Relancer » pour les échecs.
+4. **Post-paiement — multi-expédition (L6)** : `OrderShipmentObserver::updated()` observe `Order::payment_status` → transition vers `paid` → charge les lignes avec `purchasable.product`, construit une map de `Supplier` par `pko_supplier_id`, puis délègue à `ShipmentSplitter::split(Collection $lines, Collection $suppliers)` qui retourne des `ShipmentGroup[]` (un par origine). Pour chaque groupe :
+   - `weklo` (pas de `pko_supplier_id`) → dispatche `CreateCarrierShipmentJob(order_id, carrier, service_code, 'weklo')` comme avant.
+   - `supplier_direct` (supplier `bl_neutre=true`) → crée `CarrierShipment` directement (status `pending`), **pas d'appel API**.
+   - `supplier_via_weklo` (supplier `bl_neutre=false`) → idem, enregistrement pour suivi futur, **pas d'appel API immédiat**.
+5. **Job async** : `$tries = 5`, `$backoff = [60, 300, 900, 3600, 14400]`. Résout le `CarrierClient` via `app("pko.shipping.carrier.{$carrier}")`, persiste le `CarrierShipment` (table `pko_carrier_shipments`, clé unique `(order_id, carrier, origin)`), sauvegarde le PDF dans `storage/app/labels/{order_id}/{carrier}-{tracking}.pdf`. Après 5 échecs → `status = 'failed'` + `error_message`.
+6. **Admin** : resource Filament `CarrierShipmentResource` (groupe **Expédition**) → liste, filtre par carrier/statut/origin, action « Télécharger étiquette », action « Relancer » pour les échecs d'origine `weklo` uniquement.
+
+### 5.3 Commande sur devis (`awaiting-quote`)
+
+**Principe** : certains produits (`pko_quote_only=true`) ne peuvent pas être payés immédiatement (prix transport inconnu). À la création d'une commande contenant de tels produits, le statut est automatiquement basculé vers `awaiting-quote` via le pipeline `MarkQuoteOrderAwaitingQuote` (enregistré en dernier dans `config/lunar/orders.php → pipelines.creation`).
+
+**Flux opérateur** :
+1. Le client passe la commande → statut `awaiting-quote` (payment_status reste `unpaid`).
+2. L'opérateur consulte la commande dans Filament (page ManageOrder), voit l'action **Envoyer lien de paiement** (`OrderQuoteActionsExtension`).
+3. Il saisit le montant des frais de port HT (en centimes) et valide.
+4. Le système génère une URL signée (`URL::signedRoute('pko.quote.pay', ['order' => $id, 'transport_cents' => $cents])`, valide 7 jours) et envoie un e-mail via `QuotePaymentLinkMail`.
+5. Le client clique sur le lien → `GET /paiement-devis/{order}` (signé, contrôlé par `QuotePaymentController`).
+
+**TODO** : la page de paiement (`/paiement-devis/{order}`) est un stub — l'intégration Stripe avec injection du montant transport depuis l'URL signée reste à implémenter (hook dans `CheckoutPage` ou payment intent séparé).
+
+**Statut Lunar** : `awaiting-quote` (label "En attente de devis", couleur ambre). Ajouté dans `config/lunar/orders.php → statuses`.
 
 **Dépendances vendor** :
 
