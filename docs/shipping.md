@@ -189,6 +189,27 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 
 **Colissimo** : grille inchangée (null service_code, prix partagé entre DOM et DOS). Aucune donnée migrée côté Colissimo.
 
+### 5.10 Franco de port 350 € HT — Chrono 13 offert (Lot L2)
+
+**Modifier** : `Pko\ShippingCommon\Modifiers\FrancoModifier` (enregistré dans `ShippingCommonServiceProvider`, après `FreeShippingModifier`).
+
+**Règle métier** : si le sous-total HT (hors taxe) des lignes **franco-éligibles** du panier est ≥ 350 € et qu'**aucune ligne** n'est exclue, le modifier remplace l'option `chronopost.chrono13` dans le manifest par une version à 0 €. Chrono Relais et Chrono 10 restent payants.
+
+**Éligibilité d'une ligne** (les trois conditions sont cumulatives) :
+1. `product.pko_franco_eligible === true`
+2. `product.pko_logistics_class !== 'C'` (classe C = volumineux/spécifique → toujours hors franco)
+3. `product.pko_quote_only === false` (produit sur devis → hors franco)
+
+**Politique de blocage** : si **au moins une ligne** est non éligible, le franco n'est pas appliqué (grille pleine sur tout). Le raffinement multi-expédition (franco partiel) viendra en Lot L6.
+
+**Seuil paramétrable** : `config('shipping.franco.threshold_ht_cents')` — défaut 35 000 centimes (= 350 € HT). Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+
+**Helpers WeightCalculator** :
+- `WeightCalculator::francoEligibleSubtotalHt(Cart $cart): int` — somme HT (cents, ex-VAT via `subTotal->value`) des lignes éligibles.
+- `WeightCalculator::cartHasFrancoExcludedLine(Cart $cart): bool` — true si ≥ 1 ligne non éligible.
+
+**Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier` (Chronopost injecte `chrono13` en premier). Le modifier retire l'option existante de `$manifest->options`, puis réinsère un `ShippingOption` identique (même identifier `chronopost.chrono13`, meta préservée + `'franco' => true`) à `price = 0`. La `taxClass` est réutilisée depuis l'option originale (évite un `TaxClass::getDefault()` qui tombait null en test sans DB).
+
 ### 5.7 Hors scope shipping
 
 - Sélection de point relais physique (Chrono Relais intégré en grille statique en L1, sans choix de point précis)

@@ -10,6 +10,7 @@ use Lunar\Base\ShippingModifiers;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
+use Pko\ShippingCommon\Modifiers\FrancoModifier;
 use Pko\ShippingCommon\Modifiers\FreeShippingModifier;
 use Pko\ShippingCommon\Observers\OrderShipmentObserver;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
@@ -22,6 +23,8 @@ class ShippingCommonServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->mergeConfigFrom(__DIR__.'/../config/shipping.php', 'shipping');
+
         $this->app->singleton(CarrierRegistry::class);
         $this->app->singleton(CarrierGridRepository::class);
         $this->app->singleton(CarrierServiceRepository::class);
@@ -51,5 +54,8 @@ class ShippingCommonServiceProvider extends ServiceProvider
         /** @var ShippingModifiers $modifiers */
         $modifiers = $this->app->make(ShippingModifiers::class);
         $modifiers->add(FreeShippingModifier::class);
+        // FrancoModifier doit s'exécuter après les AbstractCarrierModifier
+        // (Chronopost, Colissimo) pour trouver chrono13 déjà dans le manifest.
+        $modifiers->add(FrancoModifier::class);
     }
 }

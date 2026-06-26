@@ -61,6 +61,52 @@ final class WeightCalculator
         return true;
     }
 
+    /**
+     * Sum of sub-total HT (cents, ex-VAT) for lines eligible for franco de port.
+     *
+     * Eligible = pko_franco_eligible is true AND pko_logistics_class !== 'C' AND pko_quote_only is false.
+     */
+    public static function francoEligibleSubtotalHt(Cart $cart): int
+    {
+        $total = 0;
+
+        foreach ($cart->lines as $line) {
+            $product = $line->purchasable?->product;
+            if (! self::isFrancoEligible($product)) {
+                continue;
+            }
+            $total += (int) ($line->subTotal?->value ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
+     * Returns true when at least one cart line is NOT eligible for franco de port.
+     */
+    public static function cartHasFrancoExcludedLine(Cart $cart): bool
+    {
+        foreach ($cart->lines as $line) {
+            $product = $line->purchasable?->product;
+            if (! self::isFrancoEligible($product)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function isFrancoEligible(mixed $product): bool
+    {
+        if ($product === null) {
+            return false;
+        }
+
+        return $product->pko_franco_eligible === true
+            && $product->pko_logistics_class !== 'C'
+            && $product->pko_quote_only === false;
+    }
+
     public static function fromOrder(Order $order): float
     {
         $total = 0.0;
