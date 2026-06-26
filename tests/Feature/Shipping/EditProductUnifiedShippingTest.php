@@ -8,6 +8,7 @@ use App\Filament\Resources\PkoProductResource\Pages\EditProductUnified;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Lunar\Admin\Models\Staff;
 use Lunar\Models\Product;
 use Pko\ShippingCommon\Models\Supplier;
 use Tests\TestCase;
@@ -20,6 +21,16 @@ class EditProductUnifiedShippingTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+
+        // La Page tourne dans le panel Filament 'lunar' qui utilise le guard
+        // 'staff' (cf. LunarPanelManager::defaultPanel ->authGuard('staff')).
+        // Le rendu énumère les resources Lunar -> BaseResource::canAccess ->
+        // Filament::auth()->user() résolu sur le guard 'staff' : il faut donc
+        // authentifier un Staff sur CE guard, pas un User sur le guard web.
+        /** @var Staff $admin */
+        $admin = Staff::query()->first();
+        $this->assertNotNull($admin, 'Un Staff admin seedé est requis.');
+        $this->actingAs($admin, 'staff');
     }
 
     public function test_saves_logistics_fields_on_product(): void
@@ -78,13 +89,16 @@ class EditProductUnifiedShippingTest extends TestCase
             'bl_neutre' => true,
         ]);
 
-        $product->update([
+        // Le modèle Lunar Product est guarded (['*']) : un update() en
+        // mass-assignment dropperait pko_supplier_id (colonne non fillable).
+        // forceFill()->save() persiste l'état du fixture de façon déterministe.
+        $product->forceFill([
             'pko_logistics_class' => 'A',
             'pko_franco_eligible' => true,
             'pko_transport_price_cents' => null,
             'pko_quote_only' => false,
             'pko_supplier_id' => $supplier->id,
-        ]);
+        ])->save();
 
         $component = Livewire::test(EditProductUnified::class, ['record' => $product->id]);
 

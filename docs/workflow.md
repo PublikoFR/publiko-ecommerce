@@ -55,6 +55,19 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 
 **Règle** : ajouter des tests pour tout pipeline critique (calcul de prix, stock, cycle de vie commande, création d'envoi transporteur).
 
+### Gotchas tests Filament / Lunar
+
+- **Auth des pages du panel `lunar`** : le panel Lunar Admin utilise `->authGuard('staff')` (cf. `LunarPanelManager::defaultPanel()`). Un `Livewire::test()` d'une Page du panel rend le chrome (sidebar) qui énumère les resources Lunar et appelle `BaseResource::canAccess()` → `Filament::auth()->user()` résolu **sur le guard `staff`**. Authentifier un Staff sur ce guard, pas un User sur le guard web :
+
+  ```php
+  $admin = \Lunar\Admin\Models\Staff::query()->first(); // seedé par PkoAdminUserSeeder
+  $this->actingAs($admin, 'staff');
+  ```
+
+  `actingAs($user)` (guard web par défaut) laisse `Filament::auth()->user()` null → `Call to a member function can() on null`.
+
+- **Fixtures sur modèles Lunar guarded** : `Lunar\Models\Product` est `$guarded = ['*']` avec un `$fillable` restreint (`attribute_data, product_type_id, status, brand_id`). Un `$model->update([...])` en mass-assignment **droppe silencieusement** les colonnes custom `pko_*` non fillable (ex. `pko_supplier_id`). Pour poser un état de fixture déterministe, utiliser `forceFill([...])->save()` (ou affecter les attributs en direct), pas `update()`.
+
 ---
 
 
