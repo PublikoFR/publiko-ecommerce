@@ -96,36 +96,33 @@ class LivePricingResolver
     }
 
     /**
-     * Pure grid-based pricing (current behaviour, no live call).
+     * Pure grid-based pricing resolved per service.
+     *
+     * For each enabled service, the price bracket is resolved from the service-specific
+     * rows first (preferred), then from null-service_code rows as a shared fallback
+     * (Colissimo-style grids). A service with no matching bracket at the requested weight
+     * is silently omitted — this is the natural masking mechanism (e.g. Chrono Relais
+     * disappears above 20 kg when no 30 kg bracket exists for it).
      *
      * @return list<QuoteResponse>
      */
     public function resolveFromGrid(string $carrier, QuoteRequest $request): array
     {
-        $grid = $this->grids->forCarrier($carrier);
-        if ($grid === []) {
-            return [];
-        }
-
-        $priceCents = null;
-        foreach ($grid as $bracket) {
-            if ($request->weightKg <= (float) $bracket['max_kg']) {
-                $priceCents = (int) $bracket['price'];
-                break;
-            }
-        }
-
-        if ($priceCents === null) {
-            return [];
-        }
-
         $enabledServices = array_filter(
             $this->services->enabledFor($carrier),
             fn (array $s): bool => $request->serviceCodes === [] || in_array($s['code'], $request->serviceCodes, true),
         );
 
+        if ($enabledServices === []) {
+            return [];
+        }
+
         $out = [];
         foreach ($enabledServices as $service) {
+            $priceCents = $this->resolvePriceForService($carrier, $service['code'], $request->weightKg);
+            if ($priceCents === null) {
+                continue;
+            }
             $out[] = new QuoteResponse(
                 serviceCode: $service['code'],
                 serviceLabel: $service['label'],
@@ -134,6 +131,37 @@ class LivePricingResolver
         }
 
         return $out;
+    }
+
+    /**
+     * Resolves the grid price for a single service at the given weight.
+     *
+     * Prefers a service-specific bracket over a null (shared) bracket. Takes the
+     * lowest max_kg bracket that satisfies max_kg >= weightKg for each type.
+     * Returns null when no bracket covers the weight (service should be masked).
+     */
+    private function resolvePriceForService(string $carrier, string $serviceCode, float $weightKg): ?int
+    {
+        $brackets = $this->grids->forCarrier($carrier, $serviceCode);
+
+        $specificPrice = null;
+        $fallbackPrice = null;
+
+        foreach ($brackets as $bracket) {
+            if ($weightKg > (float) $bracket['max_kg']) {
+                continue;
+            }
+            if ($bracket['service_code'] === $serviceCode && $specificPrice === null) {
+                $specificPrice = (int) $bracket['price'];
+            } elseif ($bracket['service_code'] === null && $fallbackPrice === null) {
+                $fallbackPrice = (int) $bracket['price'];
+            }
+            if ($specificPrice !== null && $fallbackPrice !== null) {
+                break;
+            }
+        }
+
+        return $specificPrice ?? $fallbackPrice;
     }
 
     /**
@@ -189,18 +217,16 @@ class LivePricingResolver
 
     protected function fallbackQuoteFromGrid(string $carrier, array $service, QuoteRequest $request): ?QuoteResponse
     {
-        $grid = $this->grids->forCarrier($carrier);
-        foreach ($grid as $bracket) {
-            if ($request->weightKg <= (float) $bracket['max_kg']) {
-                return new QuoteResponse(
-                    serviceCode: $service['code'],
-                    serviceLabel: $service['label'],
-                    priceCents: (int) $bracket['price'],
-                );
-            }
+        $priceCents = $this->resolvePriceForService($carrier, $service['code'], $request->weightKg);
+        if ($priceCents === null) {
+            return null;
         }
 
-        return null;
+        return new QuoteResponse(
+            serviceCode: $service['code'],
+            serviceLabel: $service['label'],
+            priceCents: $priceCents,
+        );
     }
 
     protected function cacheStore(string $carrier): Repository

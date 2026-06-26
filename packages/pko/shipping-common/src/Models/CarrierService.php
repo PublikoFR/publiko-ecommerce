@@ -10,7 +10,7 @@ class CarrierService extends Model
 {
     protected $table = 'pko_carrier_services';
 
-    protected $fillable = ['carrier_code', 'service_code', 'label', 'enabled', 'sort'];
+    protected $fillable = ['carrier_code', 'service_code', 'label', 'description', 'enabled', 'sort'];
 
     protected $casts = [
         'enabled' => 'boolean',
