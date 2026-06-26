@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             PkoCustomerGroupSeeder::class,
             // After customer groups: shipping methods are scheduled against them.
             PkoShippingSeeder::class,
+            PkoShippingSurchargesSeeder::class,
             PkoBrandSeeder::class,
             PkoCollectionSeeder::class,
             PkoProductTypeSeeder::class,

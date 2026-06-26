@@ -354,6 +354,63 @@
                     description="Expédié directement par le fournisseur (dropshipping), port inclus dans le prix d'achat. Les lignes concernées sont exclues du calcul de livraison."
                     model="freeShipping"
                 />
+
+                <hr class="border-gray-200 dark:border-white/10" />
+
+                {{-- Classe logistique --}}
+                <div>
+                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
+                    <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
+                        <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
+                        <option value="A">A — {{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
+                        <option value="B">B — {{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
+                        <option value="C">C — {{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
+                    </select>
+                </div>
+
+                {{-- Franco éligible --}}
+                <x-pko-product::switch-row
+                    :label="__('pko-shipping-common::admin.product.franco_eligible')"
+                    :description="__('pko-shipping-common::admin.product.franco_eligible_help')"
+                    model="francoEligible"
+                />
+
+                {{-- Prix transport dédié — visible uniquement si classe C --}}
+                @if ($logisticsClass === 'C')
+                    <div>
+                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.transport_price') }}</label>
+                        <div class="relative">
+                            <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                wire:model.blur="transportPriceCents"
+                                class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums"
+                                placeholder="0"
+                            />
+                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">cts</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">{{ __('pko-shipping-common::admin.product.transport_price_help') }}</p>
+                    </div>
+                @endif
+
+                {{-- Sur devis --}}
+                <x-pko-product::switch-row
+                    :label="__('pko-shipping-common::admin.product.quote_only')"
+                    :description="__('pko-shipping-common::admin.product.quote_only_help')"
+                    model="quoteOnly"
+                />
+
+                {{-- Fournisseur --}}
+                <div>
+                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.supplier') }}</label>
+                    <select wire:model="supplierId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
+                        <option value="">— {{ __('pko-shipping-common::admin.product.supplier_none') }} —</option>
+                        @foreach ($this->supplierOptions as $supplier)
+                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
             </x-pko-product::card>
 
             {{-- 7. Variantes --}}
