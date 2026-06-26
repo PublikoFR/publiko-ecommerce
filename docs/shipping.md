@@ -156,9 +156,42 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 
 **Front** : badge "Livraison offerte" (vert) sur la fiche produit storefront quand `pko_free_shipping = true`, remplace "Livraison 24/48h".
 
+### 5.9 Refonte frais de port 2026 — fondation (Lot L1)
+
+**Data-model produit** — nouvelles colonnes sur `lunar_products` (migration `2026_06_26_110000`) :
+
+| Colonne | Type | Défaut | Rôle |
+|---|---|---|---|
+| `pko_logistics_class` | `enum('A','B','C')` | `'A'` | Classe logistique (A=standard, B=fournisseur surcoût, C=volumineux/spécifique) |
+| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 350 € HT (false = exclu) |
+| `pko_transport_price_cents` | `int unsigned nullable` | `null` | Prix transport par produit (classe C uniquement) |
+| `pko_quote_only` | `boolean` | `false` | Produit « sur devis » — commande en attente de validation sans paiement auto |
+| `pko_supplier_id` | `bigint unsigned nullable FK` | `null` | Lien vers `pko_suppliers` (nullOnDelete) |
+
+**Nouvelles tables** :
+
+- `pko_suppliers` — fournisseurs (name, bl_neutre, lead_time_min/max_days, notes). Modèle `Pko\ShippingCommon\Models\Supplier`.
+- `pko_shipping_surcharges` — suppléments transport (code, label, amount_cents, mode enum auto|quote|rebill, rule JSON, enabled). Modèle `Pko\ShippingCommon\Models\ShippingSurcharge`.
+
+**Description longue sur les services** — colonne `description` (text nullable) ajoutée à `pko_carrier_services` (migration `2026_06_26_100200`). Exposée dans `CarrierService::$fillable`.
+
+**Grille Chronopost 3 services** — data-migration `2026_06_26_120000` remplace l'ancienne grille (1 grille partagée `service_code=null`) par 3 services avec grilles individuelles (prix en cents HT) :
+
+| max_kg | chrono_relais | chrono13 | chrono10 |
+|---|---|---|---|
+| 2  | 1490 | 1890 | 2490 |
+| 5  | 1790 | 2290 | 2890 |
+| 10 | 2290 | 2790 | 3490 |
+| 20 | 3290 | 3990 | 4990 |
+| 30 | *(absent → masqué >20 kg)* | 5490 | 6990 |
+
+**Correctif `LivePricingResolver::resolveFromGrid()`** — ancienne version appliquait un seul prix à tous les services (`forCarrier($carrier)` sans service_code). Nouvelle version boucle sur les services activés et résout le prix via `forCarrier($carrier, $service['code'])` pour chaque service individuellement. Préférence : bracket service-spécifique > bracket null. Service sans bracket couvrant le poids → masqué silencieusement (pas de `QuoteResponse` injecté). Rétro-compat garantie : grille 100% null (Colissimo) continue de fonctionner — les brackets null jouent le rôle de fallback partagé.
+
+**Colissimo** : grille inchangée (null service_code, prix partagé entre DOM et DOS). Aucune donnée migrée côté Colissimo.
+
 ### 5.7 Hors scope shipping
 
-- Points relais (`BPR` Colissimo, `Chrono Relais`)
+- Sélection de point relais physique (Chrono Relais intégré en grille statique en L1, sans choix de point précis)
 - Tracking webhook (polling ou push transporteur)
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (Corse, DOM, étranger)
