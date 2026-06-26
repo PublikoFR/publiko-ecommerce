@@ -8,6 +8,8 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
+use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
+use Pko\ShippingCommon\Filament\Resources\SupplierResource;
 
 /**
  * Unified plugin for all PKO carriers.
@@ -27,6 +29,8 @@ class TransportersPlugin implements Plugin
     {
         $panel->resources([
             CarrierShipmentResource::class,
+            SupplierResource::class,
+            ShippingSurchargeResource::class,
         ]);
 
         $registry = app(CarrierRegistry::class);

@@ -153,5 +153,19 @@ Toggle "Frais de port offert" rendu directement dans la **page d'édition produi
 - ⚠️ Tout nouveau champ produit doit être ajouté à `EditProductUnified` + son template Blade ; une extension `extendForm` serait ignorée.
 - Effet checkout : cf. [shipping.md §5.8](shipping.md#58-frais-de-port-offert-par-produit--dropshipping-2026-06).
 
+## Champs produit — Logistique & transport (L3 2026-06)
+
+Cinq champs ajoutés dans la carte « Inventaire & expédition » de `EditProductUnified` (même pattern props Livewire + mount + save) :
+
+| Champ DB | Prop Livewire | Type | Description |
+|---|---|---|---|
+| `pko_logistics_class` | `logisticsClass` | `?string` | Classe A/B/C : A Standard, B Fournisseur (surcoût), C Volumineux/spécifique |
+| `pko_franco_eligible` | `francoEligible` | `bool` | Le produit peut bénéficier du franco (coché par défaut) |
+| `pko_transport_price_cents` | `transportPriceCents` | `?int` | Frais dédiés en centimes — affiché seulement si classe = C |
+| `pko_quote_only` | `quoteOnly` | `bool` | Commande sur devis, sans paiement immédiat |
+| `pko_supplier_id` | `supplierId` | `?int` | FK → `pko_suppliers.id` |
+
+Traductions via `pko-shipping-common::admin.product.*` (lang `fr` dans `packages/pko/shipping-common/lang/fr/admin.php`).
+
 ---
 

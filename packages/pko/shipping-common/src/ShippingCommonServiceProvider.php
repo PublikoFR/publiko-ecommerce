@@ -42,6 +42,8 @@ class ShippingCommonServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'pko-shipping-common');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-common');
+        $this->publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-common')], 'pko-shipping-common-lang');
 
         if ($this->app->runningInConsole()) {
             $this->commands([

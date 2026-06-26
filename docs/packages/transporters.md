@@ -223,3 +223,38 @@ Pour un monitoring plus réactif (< 5 min vs 1 h), La Poste propose un webhook d
 | Credentials | `pko/lunar-secrets` avec toggle env/DB par module | Flexibilité sécurité vs ergonomie, choisi par l'opérateur |
 | Plugin Filament | Un seul (`TransportersPlugin`) auto-discovery via `CarrierRegistry` | Ajouter un transporteur ne nécessite aucune modif de `AppServiceProvider::LunarPanel` |
 | Branding | `pko-*` uniquement (plugin IDs, view namespaces) | Conformité CLAUDE.md §3.0 |
+
+## Resources back-office — Fournisseurs & suppléments (L3 2026-06)
+
+### SupplierResource
+
+CRUD Filament pour `pko_suppliers` (modèle `Pko\ShippingCommon\Models\Supplier`). Cluster **Expédition**, `navigationSort = 20`.
+
+Champs : `name`, `bl_neutre` (toggle "BL neutre / livraison directe fournisseur → client"), `lead_time_min_days`, `lead_time_max_days`, `notes`.
+
+Enregistré via `TransportersPlugin::register()` — pas besoin de toucher `AppServiceProvider`.
+
+### ShippingSurchargeResource
+
+CRUD Filament pour `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSurcharge`). Cluster **Expédition**, `navigationSort = 30`.
+
+Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebill`), `amount_cents` (nullable), `rule` (JSON, nullable), `enabled`.
+
+**Données de référence** (seedées par `PkoShippingSurchargesSeeder`) :
+
+| code | mode |
+|---|---|
+| `corse` | quote |
+| `zone_difficile` | quote |
+| `hors_normes` | quote |
+| `manutention` | quote |
+| `livraison_samedi` | auto |
+| `assurance` | rebill |
+| `correction_adresse` | rebill |
+| `retour_expediteur` | rebill |
+| `transport_specifique` | quote |
+
+### Traductions
+
+Toutes les clés dans `packages/pko/shipping-common/lang/fr/admin.php`, namespace `pko-shipping-common::admin.*`. Le `ShippingCommonServiceProvider` charge le namespace via `loadTranslationsFrom`.
+

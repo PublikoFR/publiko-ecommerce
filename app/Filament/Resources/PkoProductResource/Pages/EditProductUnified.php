@@ -37,6 +37,7 @@ use Pko\ProductDocuments\Services\ProductDocumentManager;
 use Pko\ProductVideos\Models\ProductVideo;
 use Pko\ProductVideos\Services\ProductVideoManager;
 use Pko\ProductVideos\Services\VideoUrlResolver;
+use Pko\ShippingCommon\Models\Supplier;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -108,6 +109,16 @@ class EditProductUnified extends Page implements HasForms
     public ?string $height = null;
 
     public bool $freeShipping = false;
+
+    public ?string $logisticsClass = null;
+
+    public bool $francoEligible = true;
+
+    public ?int $transportPriceCents = null;
+
+    public bool $quoteOnly = false;
+
+    public ?int $supplierId = null;
 
     // ------- Statut & visibilité
     public string $status = 'draft';
@@ -191,6 +202,11 @@ class EditProductUnified extends Page implements HasForms
         $this->status = (string) ($product->status ?? 'draft');
         $this->featured = (bool) ($product->featured ?? false);
         $this->freeShipping = (bool) ($product->pko_free_shipping ?? false);
+        $this->logisticsClass = $product->pko_logistics_class;
+        $this->francoEligible = (bool) ($product->pko_franco_eligible ?? true);
+        $this->transportPriceCents = $product->pko_transport_price_cents !== null ? (int) $product->pko_transport_price_cents : null;
+        $this->quoteOnly = (bool) ($product->pko_quote_only ?? false);
+        $this->supplierId = $product->pko_supplier_id !== null ? (int) $product->pko_supplier_id : null;
         $this->brandId = $product->brand_id;
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
         $this->tagInputs = $product->tags->pluck('value')->all();
@@ -785,6 +801,11 @@ class EditProductUnified extends Page implements HasForms
             $product->status = $this->status;
             $product->featured = $this->featured;
             $product->pko_free_shipping = $this->freeShipping;
+            $product->pko_logistics_class = $this->logisticsClass ?: null;
+            $product->pko_franco_eligible = $this->francoEligible;
+            $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $this->transportPriceCents !== null) ? (int) $this->transportPriceCents : null;
+            $product->pko_quote_only = $this->quoteOnly;
+            $product->pko_supplier_id = $this->supplierId;
             $product->save();
 
             $product->collections()->sync($this->collectionIds);
@@ -874,6 +895,11 @@ class EditProductUnified extends Page implements HasForms
     public function getBrandOptionsProperty(): Collection
     {
         return Brand::orderBy('name')->get(['id', 'name']);
+    }
+
+    public function getSupplierOptionsProperty(): Collection
+    {
+        return Supplier::orderBy('name')->get(['id', 'name']);
     }
 
     public function getFeatureFamiliesProperty(): Collection
