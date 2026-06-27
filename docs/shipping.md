@@ -295,6 +295,22 @@ Le supplier est chargé via `ProductPage::getSupplierProperty()` → `Supplier::
 
 Extensible : ajouter un nouveau type de règle dans `SurchargeModifier::matchesAddress()`.
 
+**Suppléments seedés** (`PkoShippingSurchargesSeeder`, idempotent via `updateOrCreate` sur `code`) — 9 suppléments de référence (cf. CR §5) :
+
+| code | label | mode | rule | amount_cents | enabled | Note |
+|---|---|---|---|---|---|---|
+| `corse` | Supplément Corse | `auto` | `{"type":"corse"}` | 800 | ✅ | Majoration géographique exploitable immédiatement (`ZoneResolver::isCorse`). |
+| `zone_difficile` | Zone difficile d'accès | `auto` | `{"type":"zone_difficile"}` | 500 | ❌ | Placeholder — `ZoneResolver::isZoneDifficile()` à implémenter. |
+| `livraison_samedi` | Livraison le samedi | `auto` | `{"match":"always"}` | 1500 | ❌ | Majore toutes les options ; activer selon accord transporteur. |
+| `hors_normes` | Colis hors normes | `quote` | `{"type":"hors_normes"}` | `null` | ❌ | Déclenché par le produit, pas l'adresse (matching produit à brancher). |
+| `manutention` | Manutention spéciale | `quote` | `{"type":"manutention"}` | `null` | ❌ | Idem, produit. |
+| `transport_specifique` | Transport spécifique produit | `quote` | `{"type":"transport_specifique"}` | `null` | ❌ | Option sur-devis sentinel. |
+| `assurance` | Assurance marchandise | `rebill` | `null` | `null` | ✅ | Refacturation a posteriori — ignoré au checkout. |
+| `correction_adresse` | Correction d'adresse | `rebill` | `null` | `null` | ✅ | Idem rebill. |
+| `retour_expediteur` | Retour à l'expéditeur | `rebill` | `null` | `null` | ✅ | Idem rebill. |
+
+Montants et flag `enabled` éditables via le back-office (`ShippingSurchargeResource`). Seuls `corse` (auto) et les 3 `rebill` sont enabled par défaut : les modes `auto`/`quote` sans implémentation complète sont livrés disabled pour ne pas altérer le checkout. Une `rule` à `null` ne matche jamais au checkout (les rebill sont de toute façon exclus par le modifier).
+
 **Ouverture conditionnelle Corse** :
 
 `ZoneResolver::isMetropole()` n'est pas modifiée (utilisée ailleurs). Deux ajouts :
