@@ -310,9 +310,52 @@ Résultat pour un panier Corse ≥ 350 € HT franco-éligible : Chrono 13 à 0 
 
 **Note importante** : sur une Corse ≥ 350 € HT, le franco passe chrono13 à 0 €, puis le SurchargeModifier majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
 
+### 5.13 Base de taxe HT/TTC configurable + sélection point relais (Lot F4)
+
+#### A) Base de taxe des frais de port — explicite et configurable
+
+Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base de taxe est désormais **explicite** via `config('shipping.tax.price_base')` (env `SHIPPING_TAX_PRICE_BASE`, défaut `'ht'`) :
+
+| `price_base` | Sens des prix de grille | Traitement dans `AbstractCarrierModifier` | TVA |
+|---|---|---|---|
+| `'ht'` (défaut) | nets (hors taxe) | prix injecté tel quel + `TaxClass::getDefault()` | ajoutée par-dessus (comportement historique, inchangé) |
+| `'ttc'` | TTC (taxe incluse) | reconverti en net `round(brut / (1 + taux))` puis `TaxClass::getDefault()` | correctement ventilée ; total payé = prix de grille |
+
+**Principe clé** : `price_base` décrit la **nature du nombre stocké**, pas le taux de TVA appliqué. En mode `ttc`, on ne pose **pas** une classe 0 % (qui fausserait la ventilation TVA sur un shop B2B où le client récupère la TVA) : on reconvertit la valeur en net via le **taux réel** de la TaxClass par défaut, puis on applique cette même classe. Résultat : une grille `1200` en `ttc` @ 20 % et une grille `1000` en `ht` produisent **la même ligne** (net 1000, TVA 200, total 1200).
+
+- Taux réel obtenu en sondant le moteur de taxe Lunar sur une base connue (`AbstractCarrierModifier::effectiveTaxRate()`), zone-aware (FR métropole en v1). Tolérant aux pannes : zone de taxe non résolue → reconversion neutralisée (prix laissé tel quel) plutôt qu'un crash.
+- Couvert par `tests/Unit/Shipping/CarrierTaxBaseTest` (reconversion + cas neutres).
+
+**Affichage panier** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (config `shipping.tax.display`, env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
+
+#### B) Sélection d'un point relais physique (Chrono Relais)
+
+Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point relais** devient obligatoire avant de continuer.
+
+**Abstraction** (`packages/pko/shipping-common`) :
+- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`).
+- DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, carrier, distanceKm, openingHours) + `toArray()` / `fromArray()`.
+- Implémentation V1 par défaut : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Le front bascule alors sur une **saisie manuelle simplifiée** (nom, adresse, CP, ville).
+
+**Brancher une vraie API** (ex. SOAP Chronopost « recherche point relais ») : il suffit de lier un autre provider au contrat dans un ServiceProvider, **sans toucher au front** :
+```php
+$this->app->bind(PickupPointProvider::class, ChronopostPickupPointProvider::class);
+```
+Le SDK `ladromelaboratoire/chronopostws` n'expose **pas** de service point-relais → aucun client SOAP n'est livré en F4 (pas de code spéculatif non testable). C'est la sortie « V1 simplifiée » prévue.
+
+**Front** (`App\Livewire\Components\ShippingOptions` + vue) :
+- Bloc relais affiché uniquement si `requiresPickupPoint` (service = `chronopost.chrono_relais`).
+- Champ code postal (prérempli depuis l'adresse) + bouton « Rechercher » → `searchPickupPoints()` interroge le provider et liste les points (radios). À défaut de résultat → champs de saisie manuelle.
+- `save()` : si Chrono Relais choisi, un point relais (liste **ou** saisie manuelle complète) est requis, sinon erreur de validation `pickupPointId`. Le point retenu est persisté dans le **meta du panier** (`cart.meta['pickup_point']`, réassignation complète du tableau pour le dirty-tracking). Changer pour un service hors relais **purge** ce meta.
+
+**Limite / follow-up (hors scope F4)** : le point relais est stocké sur le **panier** uniquement. La propagation vers l'`Order` (et donc vers l'expédition post-paiement, construite depuis l'Order par `OrderShipmentObserver`/`CreateCarrierShipmentJob`) n'est **pas** câblée — elle nécessiterait un pipeline de création de commande (`config/lunar/orders.php → pipelines.creation`) recopiant `cart.meta['pickup_point']` vers `order.meta`, ce qui touche au flux de placement de commande (Lot F3, explicitement hors scope ici). À traiter dans un lot dédié.
+
+Tests : `tests/Feature/Shipping/ShippingOptionsTest` (affichage HT/TTC, validation relais requise, persistance liste + saisie manuelle, purge au changement de service).
+
 ### 5.7 Hors scope shipping
 
-- Sélection de point relais physique (Chrono Relais intégré en grille statique en L1, sans choix de point précis)
+- Sélection automatique de point relais via API transporteur (front V1 = saisie manuelle, cf. §5.13.B ; le SDK Chronopost n'expose pas de service point-relais)
+- Propagation du point relais panier → Order → expédition (cf. follow-up §5.13.B)
 - Tracking webhook (polling ou push transporteur)
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)

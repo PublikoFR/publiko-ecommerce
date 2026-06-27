@@ -13,10 +13,13 @@ use Lunar\DataTypes\Price;
 use Lunar\DataTypes\ShippingOption;
 use Lunar\Facades\CartSession;
 use Lunar\Models\Cart;
+use Lunar\Models\Country;
 use Lunar\Models\Currency;
 use Lunar\Models\TaxClass;
 use Mockery;
 use Mockery\MockInterface;
+use Pko\ShippingCommon\Contracts\PickupPointProvider;
+use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\FrancoModifier;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use Tests\TestCase;
@@ -68,6 +71,43 @@ class ShippingOptionsTest extends TestCase
         CartSession::use($cart);
 
         return $cart;
+    }
+
+    private function makeCartWithAddress(string $postcode = '75001'): Cart
+    {
+        $currency = Currency::factory()->create(['default' => true]);
+        $country = Country::factory()->create(['iso2' => 'FR', 'iso3' => 'FRA']);
+        $cart = Cart::factory()->create(['currency_id' => $currency->id]);
+
+        $cart->shippingAddress()->create([
+            'type' => 'shipping',
+            'first_name' => 'Test',
+            'last_name' => 'Relais',
+            'line_one' => '1 rue de Test',
+            'city' => 'Paris',
+            'postcode' => $postcode,
+            'country_id' => $country->id,
+        ]);
+
+        CartSession::use($cart);
+
+        return $cart;
+    }
+
+    /**
+     * Lie un provider de points relais factice retournant un point connu.
+     */
+    private function bindPickupProviderWith(array $points): void
+    {
+        $this->app->bind(PickupPointProvider::class, fn () => new class($points) implements PickupPointProvider
+        {
+            public function __construct(private array $points) {}
+
+            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
+            {
+                return $this->points;
+            }
+        });
     }
 
     private function makeLine(bool $francoEligible, int $subtotalHtCents = 20000, ?int $supplierId = null): object
@@ -167,5 +207,113 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         $this->assertTrue(WeightCalculator::cartHasFrancoExcludedLine($cart));
+    }
+
+    // ── Affichage HT / TTC ────────────────────────────────────────────────────
+
+    public function test_affiche_prix_ht_et_ttc(): void
+    {
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('HT')
+            ->assertSee('TTC');
+    }
+
+    // ── Sélection point relais (Chrono Relais) ────────────────────────────────
+
+    public function test_point_relais_requis_quand_chrono_relais_choisi(): void
+    {
+        $cart = $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+            $this->makeOption('chronopost.chrono13', 1890),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->call('save')
+            ->assertHasErrors('pickupPointId');
+
+        $this->assertArrayNotHasKey('pickup_point', $cart->refresh()->meta?->toArray() ?? []);
+    }
+
+    public function test_point_relais_selectionne_dans_la_liste_est_persiste_en_meta(): void
+    {
+        $cart = $this->makeCartWithAddress('75001');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: 'PR123',
+                name: 'Relais du Centre',
+                address1: '2 rue de la Paix',
+                postcode: '75001',
+                city: 'Paris',
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->call('searchPickupPoints')
+            ->assertCount('pickupPoints', 1)
+            ->set('pickupPointId', 'PR123')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $point = $cart->refresh()->meta['pickup_point'] ?? null;
+        $this->assertIsArray($point);
+        $this->assertSame('PR123', $point['id']);
+        $this->assertSame('Relais du Centre', $point['name']);
+    }
+
+    public function test_saisie_manuelle_du_point_relais_est_persistee(): void
+    {
+        $cart = $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->set('manualPickupPoint.name', 'Point Manuel')
+            ->set('manualPickupPoint.address1', '3 rue Z')
+            ->set('manualPickupPoint.postcode', '34500')
+            ->set('manualPickupPoint.city', 'Béziers')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $point = $cart->refresh()->meta['pickup_point'] ?? null;
+        $this->assertIsArray($point);
+        $this->assertSame('Point Manuel', $point['name']);
+        $this->assertSame('34500', $point['postcode']);
+    }
+
+    public function test_changer_pour_un_service_sans_relais_purge_le_point_en_meta(): void
+    {
+        $cart = $this->makeCartWithAddress();
+        $cart->meta = ['pickup_point' => ['id' => 'OLD', 'name' => 'Ancien']];
+        $cart->save();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+            $this->makeOption('chronopost.chrono13', 1890),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono13')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertArrayNotHasKey('pickup_point', $cart->refresh()->meta?->toArray() ?? []);
     }
 }

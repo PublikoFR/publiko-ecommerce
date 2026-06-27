@@ -34,6 +34,7 @@
                     $identifier = $option->getIdentifier();
                     $labels = $this->serviceLabels[$identifier] ?? null;
                     $isFranco = ($option->meta['franco'] ?? false) === true;
+                    $prices = $this->optionPrices($option);
                 @endphp
                 <label wire:key="shipping_option_{{ $identifier }}"
                        class="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition
@@ -49,11 +50,18 @@
                             <span class="font-semibold text-neutral-900 text-sm">
                                 {{ $labels['title'] ?? $option->name }}
                             </span>
-                            <span class="font-bold text-sm {{ $isFranco ? 'text-success-700' : 'text-neutral-900' }}">
+                            <span class="text-right font-bold text-sm {{ $isFranco ? 'text-success-700' : 'text-neutral-900' }}">
                                 @if ($isFranco)
                                     Offert
                                 @else
-                                    {{ $option->getPrice()->formatted() }} HT
+                                    @if ($this->priceDisplay === 'ttc')
+                                        <span class="block">{{ $prices['ttc']->formatted() }} TTC</span>
+                                    @elseif ($this->priceDisplay === 'ht')
+                                        <span class="block">{{ $prices['ht']->formatted() }} HT</span>
+                                    @else
+                                        <span class="block">{{ $prices['ttc']->formatted() }} TTC</span>
+                                        <span class="block text-xs font-normal text-neutral-500">{{ $prices['ht']->formatted() }} HT</span>
+                                    @endif
                                 @endif
                             </span>
                         </div>
@@ -65,6 +73,78 @@
                     </div>
                 </label>
             @endforeach
+
+            {{-- Sélection du point relais (Chrono Relais) --}}
+            @if ($this->requiresPickupPoint)
+                <div class="mt-1 p-4 border-2 border-primary-200 bg-primary-50/40 rounded-lg space-y-3">
+                    <p class="text-sm font-semibold text-neutral-900">Choisissez votre point relais</p>
+
+                    <div class="flex items-end gap-2">
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-neutral-600 mb-1">Code postal</label>
+                            <input type="text"
+                                   wire:model="pickupSearchPostcode"
+                                   inputmode="numeric"
+                                   class="w-full rounded-lg border-neutral-300 text-sm"
+                                   placeholder="Ex : 75001" />
+                        </div>
+                        <x-ui.button type="button" variant="secondary" wire:click="searchPickupPoints">
+                            Rechercher
+                        </x-ui.button>
+                    </div>
+                    @error('pickupSearchPostcode')
+                        <p class="text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+
+                    @if (! empty($pickupPoints))
+                        <div class="space-y-2">
+                            @foreach ($pickupPoints as $point)
+                                <label wire:key="pickup_{{ $point['id'] }}"
+                                       class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer bg-white transition
+                                              {{ $pickupPointId === $point['id'] ? 'border-primary-500 ring-1 ring-primary-500' : 'border-neutral-200 hover:border-neutral-300' }}">
+                                    <input type="radio"
+                                           wire:model.live="pickupPointId"
+                                           value="{{ $point['id'] }}"
+                                           class="mt-1 text-primary-600 shrink-0" />
+                                    <div class="flex-1 min-w-0 text-sm">
+                                        <span class="font-semibold text-neutral-900">{{ $point['name'] }}</span>
+                                        <p class="text-xs text-neutral-500">{{ $point['address1'] }}, {{ $point['postcode'] }} {{ $point['city'] }}</p>
+                                        @if (! empty($point['distance_km']))
+                                            <p class="text-xs text-neutral-400">À {{ number_format((float) $point['distance_km'], 1, ',', ' ') }} km</p>
+                                        @endif
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+                    @else
+                        {{-- Saisie manuelle simplifiée (V1) — aucun point retourné automatiquement --}}
+                        <div class="space-y-2">
+                            <p class="text-xs text-neutral-500">Saisissez les coordonnées de votre point relais Chronopost / Pickup :</p>
+                            <input type="text" wire:model="manualPickupPoint.name"
+                                   class="w-full rounded-lg border-neutral-300 text-sm" placeholder="Nom du point relais" />
+                            <input type="text" wire:model="manualPickupPoint.address1"
+                                   class="w-full rounded-lg border-neutral-300 text-sm" placeholder="Adresse" />
+                            <div class="flex gap-2">
+                                <input type="text" wire:model="manualPickupPoint.postcode"
+                                       class="w-1/3 rounded-lg border-neutral-300 text-sm" placeholder="Code postal" />
+                                <input type="text" wire:model="manualPickupPoint.city"
+                                       class="flex-1 rounded-lg border-neutral-300 text-sm" placeholder="Ville" />
+                            </div>
+                        </div>
+                    @endif
+
+                    @if ($selectedPickupPoint)
+                        <div class="flex items-start gap-2 text-sm text-success-800 bg-success-50 border border-success-200 rounded-lg px-3 py-2">
+                            <x-ui.icon name="check" class="w-4 h-4 mt-0.5 text-success-600 shrink-0" />
+                            <span>Point relais retenu : <strong>{{ $selectedPickupPoint['name'] }}</strong> — {{ $selectedPickupPoint['postcode'] }} {{ $selectedPickupPoint['city'] }}</span>
+                        </div>
+                    @endif
+
+                    @error('pickupPointId')
+                        <p class="text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
         </div>
     @else
         <div class="px-5 py-4 text-sm text-neutral-500">
