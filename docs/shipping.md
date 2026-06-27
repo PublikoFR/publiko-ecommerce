@@ -58,6 +58,15 @@
 
 **Principe** : certains produits (`pko_quote_only=true`) ne peuvent pas être payés immédiatement (prix transport inconnu). À la création d'une commande contenant de tels produits, le statut est automatiquement basculé vers `awaiting-quote` via le pipeline `MarkQuoteOrderAwaitingQuote` (enregistré en dernier dans `config/lunar/orders.php → pipelines.creation`).
 
+**Flux client (interception checkout storefront)** : implémenté dans `app/Livewire/CheckoutPage.php`.
+
+- Propriété calculée `isQuoteOnlyCart` : `true` dès qu'une ligne du panier porte un produit `pko_quote_only`.
+- `CheckoutPage::checkout()` bifurque : si `isQuoteOnlyCart`, on appelle directement `$cart->createOrder()` (le pipeline pose le statut `awaiting-quote`) puis on marque la commande `placed_at`, **sans** passer par `Payments::cart()->authorize()`. Aucun PaymentIntent / encaissement n'est déclenché.
+- L'étape « Payment » du checkout (`resources/views/partials/checkout/payment.blade.php`) masque les options carte/espèces et affiche un bandeau « devis transport » + un bouton « Demander un devis ». La page de succès (`checkout-success-page.blade.php`) répète le message quand `order.status === 'awaiting-quote'`.
+- Message client : « Votre commande nécessite un devis transport. Vous recevrez un lien de paiement avec le montant final une fois les frais de port calculés. »
+- Un panier sans produit `pko_quote_only` suit le flux de paiement standard, inchangé.
+- Couverture : `tests/Feature/Shipping/CheckoutQuoteInterceptionTest.php` (bifurcation + absence de paiement) et `QuoteOrderTest.php` (pipeline statut).
+
 **Flux opérateur** :
 1. Le client passe la commande → statut `awaiting-quote` (payment_status reste `unpaid`).
 2. L'opérateur consulte la commande dans Filament (page ManageOrder), voit l'action **Envoyer lien de paiement** (`OrderQuoteActionsExtension`).

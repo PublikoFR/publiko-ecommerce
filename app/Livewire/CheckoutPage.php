@@ -7,6 +7,7 @@ namespace App\Livewire;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
+use Lunar\Exceptions\CartException;
 use Lunar\Facades\CartSession;
 use Lunar\Facades\Payments;
 use Lunar\Facades\ShippingManifest;
@@ -321,8 +322,40 @@ class CheckoutPage extends Component
         $this->determineCheckoutStep();
     }
 
-    public function checkout()
+    /**
+     * Whether the current cart contains at least one quote-only product line.
+     *
+     * A "quote-only" product (pko_quote_only = true) cannot be paid immediately:
+     * the operator must set the shipping cost and send a payment link.
+     */
+    public function getIsQuoteOnlyCartProperty(): bool
     {
+        if (! $this->cart) {
+            return false;
+        }
+
+        return $this->cart
+            ->lines
+            ->loadMissing('purchasable.product')
+            ->contains(fn ($line) => (bool) ($line->purchasable?->product?->pko_quote_only ?? false));
+    }
+
+    public function checkout(): mixed
+    {
+        if ($this->isQuoteOnlyCart) {
+            try {
+                $order = $this->cart->createOrder();
+            } catch (CartException $e) {
+                $this->addError('checkout', $e->getMessage());
+
+                return null;
+            }
+
+            $order->update(['placed_at' => now()]);
+
+            return redirect()->route('checkout-success.view');
+        }
+
         $payment = Payments::cart($this->cart)->withData([
             'payment_intent_client_secret' => $this->payment_intent_client_secret,
             'payment_intent' => $this->payment_intent,
@@ -331,7 +364,7 @@ class CheckoutPage extends Component
         if ($payment->success) {
             redirect()->route('checkout-success.view');
 
-            return;
+            return null;
         }
 
         return redirect()->route('checkout-success.view');
