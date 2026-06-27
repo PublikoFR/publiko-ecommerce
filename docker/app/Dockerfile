@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         exif \
         opcache \
         mbstring \
+        soap \
         xml \
         pcntl \
     && pecl install redis \
