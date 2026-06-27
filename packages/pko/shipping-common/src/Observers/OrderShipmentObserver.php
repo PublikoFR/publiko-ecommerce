@@ -13,13 +13,18 @@ use Pko\ShippingCommon\Shipping\ShipmentSplitter;
 
 class OrderShipmentObserver
 {
+    /** Lunar order statuses that mean the order has been paid. */
+    private const PAID_STATUSES = ['paid', 'payment-received'];
+
     public function updated(Order $order): void
     {
-        if (! $order->wasChanged('payment_status')) {
+        // Lunar stores the paid state in `status` (the Stripe addon maps a succeeded
+        // PaymentIntent to `payment-received`); there is no `payment_status` column.
+        if (! $order->wasChanged('status')) {
             return;
         }
 
-        if ($order->payment_status !== 'paid') {
+        if (! in_array($order->status, self::PAID_STATUSES, true)) {
             return;
         }
 

@@ -30,7 +30,17 @@
 - Migration dédiée : `lunar_stripe_payment_intents`
 - Page admin dédiée : `app/Filament/Pages/StripeConfig.php` (groupe **Configuration**) avec bouton « Tester la connexion » qui appelle `StripeClient::balance->retrieve()`.
 
-### 4.4 PayPal (phase 2)
+### 4.4 Paiement d'une commande sur devis (lien Stripe)
+
+Les commandes `awaiting-quote` (produits `pko_quote_only`, cf. `docs/shipping.md` §5.3) sont réglées via un **lien de paiement** hors checkout standard, géré par `Pko\ShippingCommon\Http\Controllers\QuotePaymentController` :
+
+- Réutilise l'addon `lunarphp/stripe` déjà en place (`\Stripe\PaymentIntent`), **pas** de nouveau driver ni de Cashier.
+- Le PaymentIntent est créé pour `total commande + frais de port final` (frais transmis dans l'URL signée, persistés dans `order.meta['quote_payment']`).
+- Le `return_url` Stripe (`pko.quote.pay.confirm`) vérifie le PaymentIntent côté serveur, enregistre une `Lunar\Models\Transaction` (driver `stripe`, type `capture`) et bascule la commande en `payment-received` → déclenche la création des expéditions.
+- Ce flux n'utilise **pas** le webhook `stripe/webhook` de l'addon (celui-ci est lié au flux cart→order). La confirmation passe par le `return_url` + vérification serveur de l'intent.
+- Tests : `tests/Feature/Shipping/QuotePaymentControllerTest.php` (mock via `Lunar\Stripe\Facades\Stripe::fake()`, aucun appel Stripe réel).
+
+### 4.5 PayPal (phase 2)
 
 `lunarphp/paypal` existe officiellement. À installer quand le besoin est confirmé côté front. **Attention** : il s'enregistre aussi sur le type `card`, ce qui entre en conflit avec Stripe. Options :
 
