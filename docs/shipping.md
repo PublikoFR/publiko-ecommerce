@@ -63,9 +63,16 @@
 2. L'opérateur consulte la commande dans Filament (page ManageOrder), voit l'action **Envoyer lien de paiement** (`OrderQuoteActionsExtension`).
 3. Il saisit le montant des frais de port HT (en centimes) et valide.
 4. Le système génère une URL signée (`URL::signedRoute('pko.quote.pay', ['order' => $id, 'transport_cents' => $cents])`, valide 7 jours) et envoie un e-mail via `QuotePaymentLinkMail`.
-5. Le client clique sur le lien → `GET /paiement-devis/{order}` (signé, contrôlé par `QuotePaymentController`).
+5. Le client clique sur le lien → `GET /paiement-devis/{order}` (signé, contrôlé par `QuotePaymentController::show`).
 
-**TODO** : la page de paiement (`/paiement-devis/{order}`) est un stub — l'intégration Stripe avec injection du montant transport depuis l'URL signée reste à implémenter (hook dans `CheckoutPage` ou payment intent séparé).
+**Flux de paiement Stripe** (`QuotePaymentController`, package `shipping-common`) :
+
+- **`show()`** (route `pko.quote.pay`, signée, middleware `web` + `signed`) : vérifie la signature + le statut `awaiting-quote` (sinon 403/410). Calcule `montant = order->total + transport_cents` (le `transport_cents` provient de l'URL signée, donc infalsifiable), crée (ou réutilise) un **Stripe PaymentIntent** via l'addon `lunarphp/stripe` existant (`\Stripe\PaymentIntent::create`, jamais Cashier — cf. CLAUDE.md), persiste son `intent_id` dans `order.meta['quote_payment']`, puis rend le **Stripe Payment Element** (`quote-payment.blade.php`, branding neutre via `brand_name()`).
+- **`confirm()`** (route `pko.quote.pay.confirm`, **non signée** : Stripe ajoute ses propres query params `payment_intent`/`redirect_status` qui casseraient la signature) : `return_url` de Stripe. Vérifie le PaymentIntent **côté serveur** (statut `succeeded`) — l'intent est lié à la commande en base, donc pas besoin de signature. Sur succès et si la commande est encore `awaiting-quote` (garde d'idempotence dans une transaction) : enregistre une `Lunar\Models\Transaction` (type `capture`, driver `stripe`), bascule la commande en `payment-received` et reporte `transport_cents` sur `shipping_total`/`total` (réconciliation montant chargé = montant commande).
+
+**Déclenchement des expéditions** : le passage en `payment-received` est capté par `OrderShipmentObserver` (voir ci-dessous), qui crée les `CarrierShipment` / dispatch `CreateCarrierShipmentJob` par origine.
+
+> ⚠️ **Correctif transverse** : `OrderShipmentObserver` réagissait à une colonne `payment_status` **inexistante** sur `lunar_orders` (seule `status` existe ; l'addon Stripe mappe un PaymentIntent réussi vers `payment-received`). L'observer écoute désormais `status` ∈ {`paid`, `payment-received`} — ce qui répare aussi la création d'expéditions du **checkout normal**, pas seulement du flux devis.
 
 **Statut Lunar** : `awaiting-quote` (label "En attente de devis", couleur ambre). Ajouté dans `config/lunar/orders.php → statuses`.
 
