@@ -95,11 +95,35 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 
 **Pourquoi pas `paratest`** : l'user `mde` ne peut pas créer les bases `testing_1`…`testing_N` nécessaires au parallélisme paratest — `SHOW GRANTS FOR 'mde'@'%'` confirme grants uniquement sur `mde` et `testing`.
 
-### Note : segfault "signal 11" — c'était un artefact de concurrence, pas xdebug
+### Note : segfault "signal 11" — DEUX causes distinctes
 
-Lors des tests du 2026-06-26, un "segfault signal 11" a été observé. **Piste xdebug = faux départ** : `docker compose exec app php -m` confirme que ni xdebug ni pcov ne sont chargés, et `XDEBUG_MODE` n'est pas défini → `XDEBUG_MODE=off` n'apporte rien.
+**Piste xdebug = faux départ** (commune aux deux) : `docker compose exec app php -m` confirme que ni xdebug ni pcov ne sont chargés, et `XDEBUG_MODE` n'est pas défini → `XDEBUG_MODE=off` n'apporte rien. Idem JIT : `opcache.enable_cli = Off` → le JIT ne tourne pas en CLI.
 
-Cause réelle : deux runs concurrents sur la même base `testing` → deadlock `DROP TABLE` → connexion zombie → PHP killé mid-query par MySQL → signal 11 apparent. Résolu par l'isolation de base ci-dessus. Si le crash réapparaît sur une base isolée (hors concurrence), investiguer Mockery sur modèles Eloquent Lunar (`Cart` en particulier dans `FrancoModifierTest`/`FreeShippingModifierTest`/`SurchargeModifierTest`) — remplacer les mocks par des factories réelles.
+**Cause 1 — concurrence (résolue par l'isolation de base ci-dessus)** : deux runs concurrents sur la même base `testing` → deadlock `DROP TABLE` → connexion zombie → PHP killé mid-query par MySQL → signal 11 apparent.
+
+**Cause 2 — accumulation cumulative dans un unique process PHP (résolue par le chunking, cf. section suivante)** : même sur base isolée (hors concurrence), `make test` plantait encore ~80% des runs complets — signal 11 (exit 139) OU hang (exit 124), en alternance, vers ~80% de la suite (zone `TreeManagerTest`/`LoyaltyManagerTest`/`OembedClientTest`/`ProductVideoManagerTest`). **Chaque test/fichier passe pourtant en isolation** (y compris les `*ModifierTest` avec mocks `Cart`, et `OembedClientTest` dont le HTTP est bien mocké) → le crash n'est ni un appel réseau réel, ni les mocks Mockery, ni la concurrence DB. C'est un effet purement **cumulatif** sur ~250+ tests dans le **même** process PHP : épuisement de la pile C / GC sur un graphe d'objets accumulé en fin de suite (`zend.max_allowed_stack_size = 0` → pas de protection stack-overflow sur la pile principale, segfault au lieu d'une `Error` catchable). Les pistes mémoire (`memory_limit = 512M`, déjà confortable) et extension C (redis/soap/pcntl) ont été écartées.
+
+---
+
+
+## Découpage de `make test` en chunks (anti-segfault cumulatif)
+
+**Problème** : voir « Cause 2 » ci-dessus — un unique process PHP exécutant les 316 tests accumule de l'état jusqu'au crash (~80% des runs).
+
+**Solution** : `make test` ne lance plus `php artisan test` en un seul process. Le script `scripts/run-tests-chunked.sh` découpe la suite en **plusieurs processus PHP successifs** (un *chunk* par dossier de tests). Chaque chunk = un `php artisan test <path>` neuf → l'état est borné par process, bien en-dessous du seuil de crash, et la suite redevient déterministe.
+
+**Chunks** (dynamiques, tout nouveau sous-dossier de `tests/Feature/` est pris en charge automatiquement) :
+1. `tests/Unit` (un seul chunk — tests légers, pas d'accumulation problématique)
+2. un chunk par sous-dossier de `tests/Feature/*/` (chacun ≤ ~46 tests)
+3. un chunk pour les fichiers `tests/Feature/*Test.php` à la racine
+
+Les chunks tournent **en série** et partagent la même base de test (un seul à la fois) → aucune isolation DB supplémentaire requise (orthogonal à l'isolation par worktree). `RefreshDatabase` re-migre la base au démarrage de chaque chunk ; surcoût mesuré modeste (chunk Feature/AiImporter complet : ~25s migration incluse).
+
+**Pourquoi pas `--process-isolation`** : un process PHP par *test* éliminerait aussi l'accumulation mais multiplie le temps par 3-5× ; avec des tests Feature déjà à ~15-18s pièce (seed complet en `setUp`), c'est rédhibitoire. Le chunking par dossier offre le même bénéfice anti-accumulation pour un surcoût négligeable.
+
+**Pourquoi pas `paratest`** : non installé, et l'user `mde` ne peut pas créer les bases `testing_1`…`testing_N` du parallélisme paratest (cf. ci-dessus). Le chunking série évite cette dépendance.
+
+**Validé** : 3 runs complets `make test` consécutifs verts (316 tests), aucun signal 11 ni hang.
 
 ---
 
