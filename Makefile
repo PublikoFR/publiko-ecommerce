@@ -123,10 +123,10 @@ test:
 			-v "$(MAIN_REPO)/bootstrap/cache:/var/www/html/bootstrap/cache" \
 			-e PKOS_WORKTREE=1 \
 			-e DB_DATABASE=$(WT_DB_NAME) \
-			ecom-laravel-app php artisan test ; \
+			ecom-laravel-app sh scripts/run-tests-chunked.sh ; \
 	else \
 		docker exec mde-laravel-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
-		$(EXEC) php artisan test ; \
+		$(EXEC) sh scripts/run-tests-chunked.sh ; \
 	fi
 
 lint:
