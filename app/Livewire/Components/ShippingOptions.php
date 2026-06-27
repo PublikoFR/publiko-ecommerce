@@ -7,17 +7,64 @@ namespace App\Livewire\Components;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
+use Lunar\DataTypes\Price;
+use Lunar\DataTypes\ShippingOption;
 use Lunar\Facades\CartSession;
 use Lunar\Facades\ShippingManifest;
+use Lunar\Facades\Taxes;
+use Lunar\Models\Currency;
+use Pko\ShippingCommon\Contracts\PickupPointProvider;
+use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\FrancoModifier;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
 class ShippingOptions extends Component
 {
     /**
+     * Identifier du service nécessitant la sélection d'un point relais.
+     */
+    public const PICKUP_OPTION_IDENTIFIER = 'chronopost.chrono_relais';
+
+    /**
      * The chosen shipping option.
      */
     public ?string $chosenOption = null;
+
+    /**
+     * Code postal de recherche des points relais (prérempli depuis l'adresse).
+     */
+    public string $pickupSearchPostcode = '';
+
+    /**
+     * Points relais retournés par le provider, sérialisés pour Livewire.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $pickupPoints = [];
+
+    /**
+     * Id du point relais sélectionné dans la liste.
+     */
+    public ?string $pickupPointId = null;
+
+    /**
+     * Point relais retenu (depuis la liste ou la saisie manuelle).
+     *
+     * @var array<string, mixed>|null
+     */
+    public ?array $selectedPickupPoint = null;
+
+    /**
+     * Saisie manuelle simplifiée (V1) quand aucun point n'est retourné par l'API.
+     *
+     * @var array{name:string,address1:string,postcode:string,city:string}
+     */
+    public array $manualPickupPoint = [
+        'name' => '',
+        'address1' => '',
+        'postcode' => '',
+        'city' => '',
+    ];
 
     public function mount(): void
     {
@@ -34,6 +81,55 @@ class ShippingOptions extends Component
                 ?? $options->first();
             $this->chosenOption = $default?->getIdentifier();
         }
+
+        $this->pickupSearchPostcode = (string) ($this->shippingAddress?->postcode ?? '');
+
+        // Restaure un point relais déjà choisi (meta panier).
+        $existing = CartSession::current()?->meta['pickup_point'] ?? null;
+        if (is_array($existing) && $existing !== []) {
+            $this->selectedPickupPoint = $existing;
+            $this->pickupPointId = isset($existing['id']) ? (string) $existing['id'] : null;
+        }
+    }
+
+    /**
+     * True si le service choisi exige un point relais.
+     */
+    public function getRequiresPickupPointProperty(): bool
+    {
+        return $this->chosenOption === self::PICKUP_OPTION_IDENTIFIER;
+    }
+
+    /**
+     * Recherche les points relais proches du code postal saisi.
+     */
+    public function searchPickupPoints(): void
+    {
+        $postcode = trim($this->pickupSearchPostcode);
+        if ($postcode === '') {
+            $this->addError('pickupSearchPostcode', 'Veuillez renseigner un code postal.');
+
+            return;
+        }
+
+        $country = (string) ($this->shippingAddress?->country?->iso2 ?? 'FR');
+
+        $points = app(PickupPointProvider::class)
+            ->search($postcode, $country, self::PICKUP_OPTION_IDENTIFIER);
+
+        $this->pickupPoints = array_map(
+            fn (PickupPoint $point) => $point->toArray(),
+            $points,
+        );
+    }
+
+    /**
+     * Mémorise le point relais sélectionné dans la liste.
+     */
+    public function updatedPickupPointId(?string $value): void
+    {
+        $this->selectedPickupPoint = collect($this->pickupPoints)
+            ->first(fn (array $p) => (string) ($p['id'] ?? '') === (string) $value);
     }
 
     /**
@@ -60,11 +156,122 @@ class ShippingOptions extends Component
     {
         $this->validate();
 
+        $cart = CartSession::current();
+
+        // Point relais obligatoire pour le service Chrono Relais.
+        if ($this->requiresPickupPoint) {
+            $point = $this->resolvePickupPoint();
+
+            if ($point === null) {
+                $this->addError('pickupPointId', 'Veuillez sélectionner ou saisir un point relais.');
+
+                return;
+            }
+
+            $this->persistPickupPoint($cart, $point);
+        } else {
+            // Service sans point relais → purge un éventuel point relais obsolète.
+            $this->persistPickupPoint($cart, null);
+        }
+
         $option = $this->shippingOptions->first(fn ($option) => $option->getIdentifier() == $this->chosenOption);
 
         CartSession::setShippingOption($option);
 
         $this->dispatch('selectedShippingOption');
+    }
+
+    /**
+     * Résout le point relais retenu : liste sélectionnée, sinon saisie manuelle complète.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolvePickupPoint(): ?array
+    {
+        if (is_array($this->selectedPickupPoint) && ($this->selectedPickupPoint['id'] ?? null)) {
+            return $this->selectedPickupPoint;
+        }
+
+        $manual = array_map('trim', $this->manualPickupPoint);
+        if ($manual['name'] !== '' && $manual['address1'] !== '' && $manual['postcode'] !== '' && $manual['city'] !== '') {
+            return PickupPoint::fromArray([
+                'id' => 'manual:'.$manual['postcode'].':'.$manual['name'],
+                'name' => $manual['name'],
+                'address1' => $manual['address1'],
+                'postcode' => $manual['postcode'],
+                'city' => $manual['city'],
+                'country_code' => (string) ($this->shippingAddress?->country?->iso2 ?? 'FR'),
+                'carrier' => 'chronopost',
+            ])->toArray();
+        }
+
+        return null;
+    }
+
+    /**
+     * Persiste (ou purge) le point relais dans le meta du panier.
+     *
+     * @param  array<string, mixed>|null  $point
+     */
+    private function persistPickupPoint($cart, ?array $point): void
+    {
+        if ($cart === null) {
+            return;
+        }
+
+        $meta = $cart->meta?->toArray() ?? [];
+
+        if ($point === null) {
+            unset($meta['pickup_point']);
+        } else {
+            $meta['pickup_point'] = $point;
+        }
+
+        $cart->meta = $meta;
+        $cart->save();
+    }
+
+    /**
+     * Prix HT et TTC d'une option d'expédition (zone-aware via le moteur de taxe).
+     *
+     * @return array{ht: Price, ttc: Price, has_tax: bool}
+     */
+    public function optionPrices(ShippingOption $option): array
+    {
+        $cart = CartSession::current();
+        $currency = $cart?->currency ?? Currency::getDefault();
+        $htCents = (int) $option->getPrice()->value;
+
+        $taxCents = 0;
+        if ($cart?->shippingAddress !== null) {
+            try {
+                $taxCents = (int) Taxes::setShippingAddress($cart->shippingAddress)
+                    ->setCurrency($currency)
+                    ->setPurchasable($option)
+                    ->getBreakdown($htCents)
+                    ->amounts
+                    ->sum('price.value');
+            } catch (\Throwable) {
+                // Zone de taxe non résolue (ex. config incomplète) → pas de TVA ventilée.
+                $taxCents = 0;
+            }
+        }
+
+        return [
+            'ht' => new Price($htCents, $currency, 1),
+            'ttc' => new Price($htCents + $taxCents, $currency, 1),
+            'has_tax' => $taxCents > 0,
+        ];
+    }
+
+    /**
+     * Mode d'affichage des prix d'expédition au panier ('both' | 'ht' | 'ttc').
+     */
+    public function getPriceDisplayProperty(): string
+    {
+        $mode = (string) config('shipping.tax.display', 'both');
+
+        return in_array($mode, ['both', 'ht', 'ttc'], true) ? $mode : 'both';
     }
 
     /**
