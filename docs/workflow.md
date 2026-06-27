@@ -71,6 +71,39 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 ---
 
 
+## Isolation de la base `testing` par worktree PKOS
+
+**Problème** : la base `testing` est partagée entre tous les agents qui tournent sur le même hôte Docker. Deux runs concurrents (deux worktrees) lancent `migrate:fresh` sur `testing` → deadlock sur `DROP TABLE`, erreur `1050 table already exists`, migrations corrompues, et éventuellement kill du process PHP (artefact de connexion zombie, historiquement confondu avec un segfault xdebug).
+
+**Solution** : `make test` depuis un worktree crée et utilise automatiquement une base isolée `testing_<slug>` (dérivée du task ID PKOS, 12 premiers chars sans tirets). Chaque worktree a sa propre base → zéro interférence.
+
+**Détail technique** :
+1. `phpunit.xml` déclare `<env name="DB_DATABASE" value="testing"/>` **sans** `force="true"` → une env var posée par `docker compose exec -e` prend la priorité.
+2. Le Makefile dérive `WT_DB_NAME := testing_$(shell basename $(CURDIR) | tr -d '-' | cut -c1-12)` en worktree.
+3. Avant le run : création + GRANT via root MySQL (l'user applicatif `mde` n'a pas `CREATE DATABASE`) :
+   ```sql
+   CREATE DATABASE IF NOT EXISTS `testing_<slug>` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   GRANT ALL PRIVILEGES ON `testing_<slug>`.* TO 'mde'@'%';
+   FLUSH PRIVILEGES;
+   ```
+   Mot de passe root : lu depuis `.env` (`DB_ROOT_PASSWORD`) ou valeur par défaut `root_password` (cf. `compose.yaml`).
+4. Avant le run : kill des processus `phpunit`/`artisan test` zombies dans le conteneur (`pkill -9 -f`) pour éviter la corruption par run précédent tué externalement.
+
+**Hors worktree** (repo principal) : `make test` utilise toujours `testing` comme avant.
+
+**Pourquoi pas SQLite in-memory** : le projet utilise des colonnes JSON (fulltext search Lunar) et des FK multi-table → non compatible SQLite.
+
+**Pourquoi pas `paratest`** : l'user `mde` ne peut pas créer les bases `testing_1`…`testing_N` nécessaires au parallélisme paratest — `SHOW GRANTS FOR 'mde'@'%'` confirme grants uniquement sur `mde` et `testing`.
+
+### Note : segfault "signal 11" — c'était un artefact de concurrence, pas xdebug
+
+Lors des tests du 2026-06-26, un "segfault signal 11" a été observé. **Piste xdebug = faux départ** : `docker compose exec app php -m` confirme que ni xdebug ni pcov ne sont chargés, et `XDEBUG_MODE` n'est pas défini → `XDEBUG_MODE=off` n'apporte rien.
+
+Cause réelle : deux runs concurrents sur la même base `testing` → deadlock `DROP TABLE` → connexion zombie → PHP killé mid-query par MySQL → signal 11 apparent. Résolu par l'isolation de base ci-dessus. Si le crash réapparaît sur une base isolée (hors concurrence), investiguer Mockery sur modèles Eloquent Lunar (`Cart` en particulier dans `FrancoModifierTest`/`FreeShippingModifierTest`/`SurchargeModifierTest`) — remplacer les mocks par des factories réelles.
+
+---
+
+
 ## Garde anti-wipe DB depuis les worktrees PKOS
 
 **Problème** : `compose.yaml` fige `container_name: mde-laravel-*`. Quand un agent PKOS lance `docker compose` depuis un worktree (`~/.pkos/worktrees/<id>/`), il n'a **pas** son propre conteneur isolé : il retombe sur le conteneur principal, donc sur la **base de dev `mde`** de Rom. Une commande destructive (`make fresh`, `make install`, ou `make artisan CMD='migrate:fresh'`) vide alors la vraie base de dev (staff, produits, configs). Incident constaté le 2026-06-02.

@@ -6,7 +6,23 @@
 WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))
 WT_ENV := $(if $(WORKTREE_GUARD),-e PKOS_WORKTREE=1,)
 
-DC=docker compose
+# Isolation DB par worktree : derive un nom de base unique depuis le task ID
+# (12 premiers chars du nom de dossier, sans tirets) → testing_<slug>.
+# Cree la base via root (seul l'user root peut CREATE DATABASE) + grante mde.
+# Sans worktree → base standard "testing".
+# L'user applicatif mde ne peut pas CREATE DATABASE (SHOW GRANTS confirme) →
+# GRANT obligatoire via root. Mot de passe lu depuis .env sinon defaut compose.yaml.
+WT_TASK_SLUG := $(if $(WORKTREE_GUARD),$(shell basename $(CURDIR) | tr -d '-' | cut -c1-12),)
+WT_DB_NAME   := $(if $(WORKTREE_GUARD),testing_$(WT_TASK_SLUG),testing)
+DB_ROOT_PWD  := $(or $(shell grep -s '^DB_ROOT_PASSWORD=' .env 2>/dev/null | cut -d= -f2),root_password)
+
+# Chemin du repo principal (pour partager vendor/ + .env dans docker run worktree).
+# vendor/ n'est pas tracke en git → non present dans le worktree.
+# Les symlinks vendor/pko/* → ../../packages/pko/* resolvent vers les packages
+# du worktree quand vendor est monte depuis le repo principal.
+MAIN_REPO := $(if $(WORKTREE_GUARD),$(shell git worktree list --porcelain 2>/dev/null | grep '^worktree' | head -1 | awk '{print $$2}'),)
+
+DC=docker compose -p ecom-laravel
 EXEC=$(DC) exec -u sail $(WT_ENV) app
 EXEC_ROOT=$(DC) exec $(WT_ENV) app
 
@@ -91,7 +107,27 @@ seed:
 	$(EXEC) php artisan db:seed
 
 test:
-	$(EXEC) php artisan test
+	@if [ -n "$(WORKTREE_GUARD)" ]; then \
+		echo "→ [worktree] DB isolee : $(WT_DB_NAME) | code : $(CURDIR)"; \
+		docker exec mde-laravel-mysql mysql -u root -p$(DB_ROOT_PWD) -e \
+			"CREATE DATABASE IF NOT EXISTS \`$(WT_DB_NAME)\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$(WT_DB_NAME)\`.* TO 'mde'@'%'; FLUSH PRIVILEGES;" ; \
+		docker exec mde-laravel-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		docker run --rm -u sail -w /var/www/html \
+			--network ecom-laravel_backend \
+			-v "$(CURDIR):/var/www/html" \
+			-v "$(MAIN_REPO)/vendor:/var/www/html/vendor" \
+			-v "$(MAIN_REPO)/.env:/var/www/html/.env:ro" \
+			-v "$(MAIN_REPO)/docker/app/php.ini:/usr/local/etc/php/conf.d/zz-mde.ini:ro" \
+			-v "$(MAIN_REPO)/public/build:/var/www/html/public/build:ro" \
+			-v "$(MAIN_REPO)/storage:/var/www/html/storage" \
+			-v "$(MAIN_REPO)/bootstrap/cache:/var/www/html/bootstrap/cache" \
+			-e PKOS_WORKTREE=1 \
+			-e DB_DATABASE=$(WT_DB_NAME) \
+			ecom-laravel-app php artisan test ; \
+	else \
+		docker exec mde-laravel-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		$(EXEC) php artisan test ; \
+	fi
 
 lint:
 	$(EXEC) ./vendor/bin/pint
