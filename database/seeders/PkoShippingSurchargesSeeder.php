@@ -32,78 +32,78 @@ class PkoShippingSurchargesSeeder extends Seeder
         $surcharges = [
             // ── Mode auto : majoration géographique ─────────────────────────
             [
-                'code'         => 'corse',
-                'label'        => 'Supplément Corse',
-                'mode'         => 'auto',
-                'rule'         => ['type' => 'corse'],
+                'code' => 'corse',
+                'label' => 'Supplément Corse',
+                'mode' => 'auto',
+                'rule' => ['type' => 'corse'],
                 'amount_cents' => 800,   // 8,00 € HT — modifiable via admin
-                'enabled'      => true,
+                'enabled' => true,
             ],
             [
-                'code'         => 'zone_difficile',
-                'label'        => 'Zone difficile d\'accès',
-                'mode'         => 'auto',
-                'rule'         => ['type' => 'zone_difficile'],  // ZoneResolver::isZoneDifficile() à implémenter
+                'code' => 'zone_difficile',
+                'label' => 'Zone difficile d\'accès',
+                'mode' => 'auto',
+                'rule' => ['type' => 'zone_difficile'],  // ZoneResolver::isZoneDifficile() à implémenter
                 'amount_cents' => 500,   // 5,00 € HT — placeholder, editable
-                'enabled'      => false, // désactivé jusqu'à l'implémentation ZoneResolver
+                'enabled' => false, // désactivé jusqu'à l'implémentation ZoneResolver
             ],
             [
-                'code'         => 'livraison_samedi',
-                'label'        => 'Livraison le samedi',
-                'mode'         => 'auto',
-                'rule'         => ['match' => 'always'],  // majore toutes les options carriers
+                'code' => 'livraison_samedi',
+                'label' => 'Livraison le samedi',
+                'mode' => 'auto',
+                'rule' => ['match' => 'always'],  // majore toutes les options carriers
                 'amount_cents' => 1500,  // 15,00 € HT
-                'enabled'      => false, // désactivé par défaut (activer selon accord transporteur)
+                'enabled' => false, // désactivé par défaut (activer selon accord transporteur)
             ],
             // ── Mode quote : options sentinel sur devis ──────────────────────
             [
-                'code'         => 'hors_normes',
-                'label'        => 'Colis hors normes',
-                'mode'         => 'quote',
-                'rule'         => ['type' => 'hors_normes'],  // déclenché par le produit, pas l'adresse
+                'code' => 'hors_normes',
+                'label' => 'Colis hors normes',
+                'mode' => 'quote',
+                'rule' => ['type' => 'hors_normes'],  // déclenché par le produit, pas l'adresse
                 'amount_cents' => null,
-                'enabled'      => false,
+                'enabled' => false,
             ],
             [
-                'code'         => 'manutention',
-                'label'        => 'Manutention spéciale',
-                'mode'         => 'quote',
-                'rule'         => ['type' => 'manutention'],
+                'code' => 'manutention',
+                'label' => 'Manutention spéciale',
+                'mode' => 'quote',
+                'rule' => ['type' => 'manutention'],
                 'amount_cents' => null,
-                'enabled'      => false,
+                'enabled' => false,
             ],
             [
-                'code'         => 'transport_specifique',
-                'label'        => 'Transport spécifique produit',
-                'mode'         => 'quote',
-                'rule'         => ['type' => 'transport_specifique'],
+                'code' => 'transport_specifique',
+                'label' => 'Transport spécifique produit',
+                'mode' => 'quote',
+                'rule' => ['type' => 'transport_specifique'],
                 'amount_cents' => null,
-                'enabled'      => false,
+                'enabled' => false,
             ],
             // ── Mode rebill : refacturation a posteriori ─────────────────────
             [
-                'code'         => 'assurance',
-                'label'        => 'Assurance marchandise',
-                'mode'         => 'rebill',
-                'rule'         => null,
+                'code' => 'assurance',
+                'label' => 'Assurance marchandise',
+                'mode' => 'rebill',
+                'rule' => null,
                 'amount_cents' => null,
-                'enabled'      => true,
+                'enabled' => true,
             ],
             [
-                'code'         => 'correction_adresse',
-                'label'        => 'Correction d\'adresse',
-                'mode'         => 'rebill',
-                'rule'         => null,
+                'code' => 'correction_adresse',
+                'label' => 'Correction d\'adresse',
+                'mode' => 'rebill',
+                'rule' => null,
                 'amount_cents' => null,
-                'enabled'      => true,
+                'enabled' => true,
             ],
             [
-                'code'         => 'retour_expediteur',
-                'label'        => 'Retour à l\'expéditeur',
-                'mode'         => 'rebill',
-                'rule'         => null,
+                'code' => 'retour_expediteur',
+                'label' => 'Retour à l\'expéditeur',
+                'mode' => 'rebill',
+                'rule' => null,
                 'amount_cents' => null,
-                'enabled'      => true,
+                'enabled' => true,
             ],
         ];
 

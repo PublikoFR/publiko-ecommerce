@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Shipping;
 
+use Database\Seeders\PkoShippingSurchargesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Lunar\Base\ShippingManifestInterface;
@@ -13,7 +14,6 @@ use Lunar\Facades\ShippingManifest;
 use Lunar\Models\Cart;
 use Lunar\Models\Currency;
 use Lunar\Models\TaxClass;
-use Database\Seeders\PkoShippingSurchargesSeeder;
 use Mockery;
 use Mockery\MockInterface;
 use Pko\ShippingCommon\Models\ShippingSurcharge;
@@ -281,5 +281,90 @@ class SurchargeModifierTest extends TestCase
         $this->assertFalse(ZoneResolver::isMetropole('20200'));
         $this->assertFalse(ZoneResolver::isMetropole('20000'));
         $this->assertTrue(ZoneResolver::isMetropole('75001'));
+    }
+
+    // ── Tests d'intégration : seed réel des 9 suppléments ────────────────────
+
+    public function test_seeder_seme_les_neuf_supplements_de_reference(): void
+    {
+        $this->seed(PkoShippingSurchargesSeeder::class);
+
+        $expected = [
+            'corse', 'zone_difficile', 'livraison_samedi',
+            'hors_normes', 'manutention', 'transport_specifique',
+            'assurance', 'correction_adresse', 'retour_expediteur',
+        ];
+
+        $this->assertSame(9, ShippingSurcharge::query()->count());
+        foreach ($expected as $code) {
+            $this->assertDatabaseHas('pko_shipping_surcharges', ['code' => $code]);
+        }
+
+        // Modes par défaut cohérents (cf. CR §5).
+        $this->assertSame('auto', ShippingSurcharge::query()->where('code', 'corse')->value('mode'));
+        $this->assertSame('quote', ShippingSurcharge::query()->where('code', 'transport_specifique')->value('mode'));
+        foreach (['assurance', 'correction_adresse', 'retour_expediteur'] as $code) {
+            $this->assertSame('rebill', ShippingSurcharge::query()->where('code', $code)->value('mode'));
+        }
+
+        // La règle 'corse' doit être exploitable par le modifier (type=corse).
+        $this->assertSame(['type' => 'corse'], ShippingSurcharge::query()->where('code', 'corse')->value('rule'));
+    }
+
+    public function test_seeder_est_idempotent(): void
+    {
+        $this->seed(PkoShippingSurchargesSeeder::class);
+        $this->seed(PkoShippingSurchargesSeeder::class);
+
+        $this->assertSame(9, ShippingSurcharge::query()->count());
+    }
+
+    public function test_integration_supplement_corse_seede_applique_pour_cp_20xxx(): void
+    {
+        $this->seed(PkoShippingSurchargesSeeder::class);
+
+        $cart = $this->makeCart('20200');
+        $options = $this->runModifier($cart, [
+            $this->makeCarrierOption('chronopost.chrono13', 1890),
+        ]);
+
+        $option = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono13');
+        $this->assertNotNull($option);
+        $this->assertSame(1890 + 800, $option->price->value, 'Le supplément Corse seedé (800) doit majorer le prix carrier');
+        $this->assertSame('corse', $option->meta['surcharge_code'] ?? null);
+    }
+
+    public function test_integration_aucun_supplement_seede_pour_cp_metropole(): void
+    {
+        $this->seed(PkoShippingSurchargesSeeder::class);
+
+        $cart = $this->makeCart('75001');
+        $options = $this->runModifier($cart, [
+            $this->makeCarrierOption('chronopost.chrono13', 1890),
+        ]);
+
+        $option = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono13');
+        $this->assertNotNull($option);
+        $this->assertSame(1890, $option->price->value, 'Aucun supplément auto enabled ne matche la métropole');
+    }
+
+    public function test_integration_supplements_rebill_ignores_au_checkout(): void
+    {
+        $this->seed(PkoShippingSurchargesSeeder::class);
+
+        // assurance/correction_adresse/retour_expediteur sont enabled mais en mode rebill :
+        // ils ne doivent jamais injecter d'option ni majorer le prix au checkout.
+        $cart = $this->makeCart('75001');
+        $options = $this->runModifier($cart, [
+            $this->makeCarrierOption('chronopost.chrono13', 1890),
+        ]);
+
+        foreach (['assurance', 'correction_adresse', 'retour_expediteur'] as $code) {
+            $this->assertNull(
+                $options->first(fn ($o) => $o->getIdentifier() === 'surcharge.'.$code),
+                "Le supplément rebill {$code} ne doit pas être injecté au checkout",
+            );
+        }
+        $this->assertSame(1890, $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono13')->price->value);
     }
 }
