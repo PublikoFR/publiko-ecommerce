@@ -13,6 +13,7 @@ use Lunar\Facades\ShippingManifest;
 use Lunar\Models\Cart;
 use Lunar\Models\Currency;
 use Lunar\Models\TaxClass;
+use Database\Seeders\PkoShippingSurchargesSeeder;
 use Mockery;
 use Mockery\MockInterface;
 use Pko\ShippingCommon\Models\ShippingSurcharge;

@@ -69,8 +69,16 @@ class SurchargeModifier extends ShippingModifier
     {
         $rule = $surcharge->rule ?? [];
 
-        if (isset($rule['type']) && $rule['type'] === 'corse') {
-            return ZoneResolver::isCorse($postcode, $country);
+        // Règle universelle : correspond à toutes les adresses.
+        if (isset($rule['match']) && $rule['match'] === 'always') {
+            return true;
+        }
+
+        if (isset($rule['type'])) {
+            return match ($rule['type']) {
+                'corse' => ZoneResolver::isCorse($postcode, $country),
+                default => false, // types non encore implémentés (zone_difficile, hors_normes…)
+            };
         }
 
         if (isset($rule['postcode_prefix'])) {
