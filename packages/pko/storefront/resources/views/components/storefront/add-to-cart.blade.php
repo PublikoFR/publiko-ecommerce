@@ -16,7 +16,7 @@ $target = $variant ?: $product?->variants?->first();
 
 @if (! $isPro)
     @if ($style === 'compact')
-        <a href="/connexion" class="flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-primary-600 rounded hover:bg-primary-700 transition" title="Connexion requise" aria-label="Connectez-vous pour commander">
+        <a href="/connexion" class="inline-flex items-center justify-center gap-1 px-3 h-9 text-xs font-semibold text-white bg-primary-600 rounded-md hover:bg-primary-700 transition" title="Connexion requise" aria-label="Connectez-vous pour commander">
             <x-ui.icon name="cart" class="w-4 h-4" /> Connexion
         </a>
     @else
@@ -24,7 +24,7 @@ $target = $variant ?: $product?->variants?->first();
     @endif
 @elseif ($variantsCount > 1 && $productUrl)
     @if ($style === 'compact')
-        <a href="{{ $productUrl }}" wire:navigate class="flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-primary-600 rounded hover:bg-primary-700 transition">
+        <a href="{{ $productUrl }}" wire:navigate class="inline-flex items-center justify-center gap-1 px-3 h-9 text-xs font-semibold text-white bg-primary-600 rounded-md hover:bg-primary-700 transition">
             <x-ui.icon name="cart" class="w-4 h-4" /> Choisir
         </a>
     @else

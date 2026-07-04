@@ -11,10 +11,10 @@ if ($user !== null) {
 }
 
 $sizeClasses = [
-    'sm' => 'text-base font-bold',
-    'md' => 'text-lg font-bold',
-    'lg' => 'text-2xl font-black',
-    'xl' => 'text-3xl font-black',
+    'sm' => 'font-display font-bold text-lg',
+    'md' => 'font-display font-bold text-2xl',
+    'lg' => 'font-display font-bold text-3xl',
+    'xl' => 'font-display font-bold text-4xl',
 ];
 $priceClass = $sizeClasses[$size] ?? $sizeClasses['md'];
 $ctaSize = $size === 'lg' || $size === 'xl' ? 'md' : 'sm';
@@ -31,9 +31,9 @@ if ($isPro) {
 
 @if ($isPro)
     @if (! empty($priced))
-        <div {{ $attributes->class(['text-primary-900', $priceClass]) }}>
+        <div {{ $attributes->class(['text-primary-600 leading-none', $priceClass]) }}>
             {{ $priced->price->formatted() }}
-            <span class="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide ml-1">HT</span>
+            <span class="text-[10px] font-sans font-semibold text-neutral-500 uppercase tracking-wide ml-1">HT</span>
         </div>
     @else
         <span class="text-sm text-neutral-500 italic">Prix sur demande</span>
