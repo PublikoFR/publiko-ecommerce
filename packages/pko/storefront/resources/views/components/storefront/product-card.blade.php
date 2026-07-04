@@ -11,6 +11,14 @@ $variantsCount = $product->variants->count();
 $isNew = optional($product->created_at)->gt(now()->subDays(30));
 $stock = (int) ($firstVariant?->stock ?? 0);
 
+// Client pro connecté ? (prix + achat réservés aux pros)
+$user = auth()->user();
+$isPro = false;
+if ($user !== null) {
+    $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
+    $isPro = $customer !== null && $customer->getAttribute('sirene_status') === 'active';
+}
+
 // Statut de stock → tonalité DS
 if ($stock <= 0) {
     $stockTone = 'neutral'; $stockLabel = 'Sur commande';
@@ -54,14 +62,25 @@ if ($stock <= 0) {
             @if ($variantsCount > 1)<span class="ml-2">· {{ $variantsCount }} variantes</span>@endif
         </div>
 
-        <div class="mt-auto pt-3 flex items-end justify-between gap-2">
-            <x-storefront.price-gate :product="$product" size="md" />
-            <div class="flex items-center gap-2 shrink-0">
-                <button type="button" class="inline-flex items-center justify-center w-9 h-9 text-neutral-600 border border-neutral-200 rounded-md hover:bg-neutral-50 hover:border-neutral-300 transition" title="Ajouter à une liste d'achat" aria-label="Ajouter à une liste d'achat">
-                    <x-ui.icon name="list" class="w-4 h-4" />
-                </button>
-                <x-storefront.add-to-cart :product="$product" :variant="$firstVariant" style="compact" />
-            </div>
+        <div class="mt-auto pt-3">
+            @if ($isPro)
+                <div class="flex items-end justify-between gap-2">
+                    <x-storefront.price-gate :product="$product" size="md" />
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" class="inline-flex items-center justify-center w-9 h-9 text-neutral-600 border border-neutral-200 rounded-md hover:bg-neutral-50 hover:border-neutral-300 transition" title="Ajouter à une liste d'achat" aria-label="Ajouter à une liste d'achat">
+                            <x-ui.icon name="list" class="w-4 h-4" />
+                        </button>
+                        <x-storefront.add-to-cart :product="$product" :variant="$firstVariant" style="compact" />
+                    </div>
+                </div>
+            @else
+                <div class="flex flex-col gap-2.5">
+                    <p class="text-xs text-neutral-500">Prix réservé aux professionnels</p>
+                    <a href="/connexion" class="inline-flex items-center justify-center gap-1.5 w-full h-9 text-xs font-semibold text-white bg-primary-600 rounded-md hover:bg-primary-700 transition">
+                        <x-ui.icon name="user" class="w-4 h-4" /> Se connecter
+                    </a>
+                </div>
+            @endif
         </div>
     </div>
 </article>

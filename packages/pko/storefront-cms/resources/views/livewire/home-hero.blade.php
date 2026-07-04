@@ -16,6 +16,8 @@
                         <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover opacity-90" />
                         <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
                     @endif
+                    <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 440px;"></span>
+                    <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 300px; --wk-decor-opacity: 0.08;"></span>
                     <div class="relative max-w-screen-xl mx-auto h-full flex items-center px-6 md:px-12 z-10">
                         <div class="max-w-xl">
                             <h2 class="font-display text-4xl md:text-5xl font-bold leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>
