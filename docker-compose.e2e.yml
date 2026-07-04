@@ -19,9 +19,9 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_DATABASE: weklo_e2e
-      DB_USERNAME: weklo_e2e
-      DB_PASSWORD: weklo_e2e_e2e
+      DB_DATABASE: pko_e2e
+      DB_USERNAME: pko_e2e
+      DB_PASSWORD: pko_e2e_secret
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CACHE_DRIVER: redis
@@ -53,9 +53,9 @@ services:
     command: --default-authentication-plugin=caching_sha2_password
     environment:
       MYSQL_ROOT_PASSWORD: e2e_root_secret
-      MYSQL_DATABASE: weklo_e2e
-      MYSQL_USER: weklo_e2e
-      MYSQL_PASSWORD: weklo_e2e_e2e
+      MYSQL_DATABASE: pko_e2e
+      MYSQL_USER: pko_e2e
+      MYSQL_PASSWORD: pko_e2e_secret
     volumes:
       - e2e_mysql_data:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-mde.cnf:ro

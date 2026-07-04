@@ -32,7 +32,7 @@ async function waitForApp(url: string, timeoutMs = 120_000): Promise<void> {
     const ready = await new Promise<boolean>(resolve => {
       const req = http.get(url, res => {
         res.resume();
-        resolve(res.statusCode !== undefined);
+        resolve(!!res.statusCode && res.statusCode < 500);
       });
       req.on('error', () => resolve(false));
       req.setTimeout(3000, () => { req.destroy(); resolve(false); });
@@ -55,7 +55,7 @@ async function waitForDb(projectName: string, env: Record<string, string>, timeo
       execFileSync('docker', [
         'compose', '-f', COMPOSE_FILE, '-p', projectName,
         'exec', '-T', 'app',
-        'php', '-r', "new PDO('mysql:host=mysql;port=3306;dbname=weklo_e2e', 'weklo_e2e', 'weklo_e2e_e2e');",
+        'php', '-r', "new PDO('mysql:host=mysql;port=3306;dbname=pko_e2e', 'pko_e2e', 'pko_e2e_secret');",
       ], { stdio: 'pipe', env: { ...process.env, ...env }, cwd: ROOT });
       process.stdout.write(' ready\n');
       return;
@@ -104,7 +104,7 @@ export default async function globalSetup(): Promise<void> {
   const appKey = process.env.E2E_APP_KEY ?? readAppKey(mainRepo);
 
   // COMPOSE_PROJECT_NAME: derived from the port for uniqueness
-  const projectName = `weklo-e2e-${e2ePort}`;
+  const projectName = `pko-e2e-${e2ePort}`;
 
   console.log(`\n→ E2E setup [project=${projectName}, port=${e2ePort}]`);
   console.log(`  main repo : ${mainRepo}`);
@@ -164,7 +164,7 @@ export default async function globalSetup(): Promise<void> {
   console.log('  Generating Shield policies...');
   execInAppRoot(projectName, composeEnv,
     'bash', '-c',
-    'php artisan shield:generate --all --panel=admin --no-interaction && chown -R sail:sail app/Policies',
+    'php artisan shield:generate --all --panel=admin --no-interaction',
   );
   execInApp(projectName, composeEnv, 'php', 'artisan', 'shield:super-admin', '--user=1', '--panel=admin');
   execInApp(projectName, composeEnv, 'php', 'artisan', 'optimize:clear');

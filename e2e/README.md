@@ -80,7 +80,7 @@ La `baseURL` est déjà configurée dans `playwright.config.ts` — utiliser des
 
 ## Isolation multi-worktrees (runs parallèles)
 
-Chaque worktree PKOS tourne avec un `E2E_PORT` différent → chaque run est totalement isolé (project compose `weklo-e2e-<port>`, volumes nommés par projet, pas de réseau partagé). Les stacks ne se voient pas.
+Chaque worktree PKOS tourne avec un `E2E_PORT` différent → chaque run est totalement isolé (project compose `pko-e2e-<port>`, volumes nommés par projet, pas de réseau partagé). Les stacks ne se voient pas.
 
 Prérequis : chaque worktree a son propre repo git (c'est le cas par défaut avec `pkos worktree`). Le `E2E_MAIN_REPO` est détecté automatiquement via `git worktree list`.
 
@@ -92,15 +92,15 @@ Prérequis : chaque worktree a son propre repo git (c'est le cas par défaut ave
 # Avec le port connu
 E2E_PORT=18042 bash scripts/e2e-down.sh
 
-# Ou lister tous les projets compose weklo-e2e-*
-docker ps --filter "label=com.docker.compose.project" --format '{{.Label "com.docker.compose.project"}}' | sort -u | grep weklo-e2e
+# Ou lister tous les projets compose pko-e2e-*
+docker ps --filter "label=com.docker.compose.project" --format '{{.Label "com.docker.compose.project"}}' | sort -u | grep pko-e2e
 # Puis pour chaque projet
-docker compose -f docker-compose.e2e.yml -p weklo-e2e-XXXX down --volumes
+docker compose -f docker-compose.e2e.yml -p pko-e2e-XXXX down --volumes
 ```
 
 ### Logs de la stack E2E
 
 ```bash
 # Après un e2e-up.sh (debug)
-docker compose -f docker-compose.e2e.yml -p weklo-e2e-18042 logs -f app
+docker compose -f docker-compose.e2e.yml -p pko-e2e-18042 logs -f app
 ```

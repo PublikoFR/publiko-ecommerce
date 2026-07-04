@@ -20,7 +20,7 @@ export E2E_MAIN_REPO
 E2E_APP_KEY=$(grep '^APP_KEY=' "$E2E_MAIN_REPO/.env" | cut -d= -f2-)
 export E2E_APP_KEY
 
-PROJECT="weklo-e2e-${E2E_PORT}"
+PROJECT="pko-e2e-${E2E_PORT}"
 echo "→ Lancement stack E2E [project=$PROJECT, port=$E2E_PORT]"
 echo "  main repo : $E2E_MAIN_REPO"
 

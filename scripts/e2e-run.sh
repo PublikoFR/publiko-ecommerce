@@ -18,4 +18,12 @@ fi
 export E2E_PORT
 
 echo "→ E2E_PORT=$E2E_PORT"
+
+# Installer les deps si absentes (worktree fraîchement checkout)
+if [ ! -d node_modules/@playwright ]; then
+  echo "  node_modules absent — npm ci..."
+  npm ci
+fi
+npx playwright install --with-deps chromium 2>/dev/null || npx playwright install chromium
+
 exec npx playwright test "$@"
