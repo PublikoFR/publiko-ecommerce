@@ -5,7 +5,7 @@
         ]" />
 
         <header class="mb-8">
-            <h1 class="text-3xl md:text-4xl font-black text-neutral-900">
+            <h1 class="font-display font-bold text-3xl md:text-4xl text-neutral-900">
                 {{ $this->collection->translateAttribute('name') }}
             </h1>
             @if ($this->collection->translateAttribute('description'))
@@ -19,9 +19,11 @@
         <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
             <aside>
                 <div class="lg:sticky lg:top-28 space-y-4">
-                    <div class="bg-white border border-neutral-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <h2 class="font-bold text-neutral-900 text-sm uppercase tracking-wider">Filtres</h2>
+                    <div class="bg-white border border-neutral-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="flex items-center gap-2 font-display font-bold text-neutral-900 text-base">
+                                <x-ui.icon name="sliders" class="w-[18px] h-[18px] text-primary-600" /> Filtres
+                            </h2>
                             @if (! empty($this->selectedValueIds) || ! empty(array_filter($selectedBrands)))
                                 <button type="button" wire:click="clearFilters" class="text-xs text-primary-600 hover:text-primary-700 font-semibold">Réinitialiser</button>
                             @endif
@@ -29,7 +31,7 @@
                     </div>
 
                     @if ($brands->isNotEmpty())
-                        <div x-data="{ open: true }" class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+                        <div x-data="{ open: true }" class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
                             <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-3 font-semibold text-sm text-neutral-900 hover:bg-neutral-50">
                                 <span>Marque</span>
                                 <x-ui.icon name="chevron-down" class="w-4 h-4 transition" x-bind:class="open ? 'rotate-180' : ''" />
@@ -39,7 +41,7 @@
                                     @php $checked = ! empty($selectedBrands[$brand->id]); @endphp
                                     <label class="flex items-center justify-between gap-2 cursor-pointer text-sm text-neutral-700 hover:text-primary-700">
                                         <span class="flex items-center gap-2">
-                                            <input type="checkbox" wire:click="toggleBrand({{ $brand->id }})" @checked($checked) class="rounded border-neutral-300 text-primary-600 focus:ring-primary-500" />
+                                            <input type="checkbox" wire:click="toggleBrand({{ $brand->id }})" @checked($checked) class="rounded border-neutral-300 text-accent-600 focus:ring-accent-500" />
                                             {{ $brand->name }}
                                         </span>
                                         <span class="text-xs text-neutral-400">{{ $brand->products_count }}</span>
@@ -50,7 +52,7 @@
                     @endif
 
                     @forelse ($families as $family)
-                        <div x-data="{ open: true }" class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+                        <div x-data="{ open: true }" class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
                             <button type="button" @click="open = !open" class="w-full flex items-center justify-between px-4 py-3 font-semibold text-sm text-neutral-900 hover:bg-neutral-50">
                                 <span>{{ $family->label }}</span>
                                 <x-ui.icon name="chevron-down" class="w-4 h-4 transition" x-bind:class="open ? 'rotate-180' : ''" />
@@ -62,7 +64,7 @@
                                     @php $checked = ! empty($selected[$family->id][$value->id]); @endphp
                                     <label class="flex items-center justify-between gap-2 cursor-pointer text-sm text-neutral-700 hover:text-primary-700">
                                         <span class="flex items-center gap-2">
-                                            <input type="checkbox" wire:click="toggleValue({{ $family->id }}, {{ $value->id }})" @checked($checked) class="rounded border-neutral-300 text-primary-600 focus:ring-primary-500" />
+                                            <input type="checkbox" wire:click="toggleValue({{ $family->id }}, {{ $value->id }})" @checked($checked) class="rounded border-neutral-300 text-accent-600 focus:ring-accent-500" />
                                             {{ $value->label }}
                                         </span>
                                         <span class="text-xs text-neutral-400">{{ $count }}</span>
@@ -87,7 +89,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <label for="sort" class="text-sm text-neutral-500">Trier :</label>
-                        <select id="sort" wire:model.live="sort" class="rounded-md border-neutral-300 text-sm focus:border-primary-500 focus:ring-primary-500">
+                        <select id="sort" wire:model.live="sort" class="rounded-md border-neutral-300 text-sm font-medium focus:border-accent-500 focus:ring-accent-500">
                             <option value="new">Nouveautés</option>
                             <option value="price-asc">Prix croissant</option>
                             <option value="price-desc">Prix décroissant</option>
