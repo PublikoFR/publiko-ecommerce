@@ -1,0 +1,50 @@
+/* ==========================================================================
+   Weklo — Habillage (brand decoration)
+   The concentric-ring motif abstracts the sigle (two quarter-circles + net).
+   Use it low-contrast, in corners / behind panels, as texture — never loud.
+   Source: uploads/Éléments d_habillages-*.svg → assets/habillage.svg
+   ========================================================================== */
+
+/* Tint-able mask element. Color it via `color` (currentColor) or by setting
+   --wk-decor-color / --wk-decor-opacity / --wk-decor-size inline on the element.
+   Drop one inside a position:relative container; it sits behind content.
+   (These custom props are consumed with fallbacks only — never declared here —
+   so they stay component-local knobs, not global design tokens.) */
+.wk-decor {
+  position: absolute;
+  width: var(--wk-decor-size, 420px);
+  height: var(--wk-decor-size, 420px);
+  background-color: var(--wk-decor-color, currentColor);
+  -webkit-mask: url('../assets/habillage.svg') center / contain no-repeat;
+          mask: url('../assets/habillage.svg') center / contain no-repeat;
+  opacity: var(--wk-decor-opacity, 0.06);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Corner anchors — the rings bleed off the edge from a corner. */
+.wk-decor--tl { top: 0;    left: 0;   transform: translate(-42%, -42%); }
+.wk-decor--tr { top: 0;    right: 0;  transform: translate( 42%, -42%); }
+.wk-decor--bl { bottom: 0; left: 0;   transform: translate(-42%,  42%); }
+.wk-decor--br { bottom: 0; right: 0;  transform: translate( 42%,  42%); }
+
+/* Contrast presets — concrete properties (no custom-prop declarations). */
+.wk-decor--on-dark  { background-color: var(--lime-400);   opacity: 0.12; }
+.wk-decor--on-light { background-color: var(--forest-600); opacity: 0.05; }
+.wk-decor--accent   { background-color: var(--lime-500); }
+
+/* Repeating background-image variant for wide texture fields (subtle). */
+.wk-habillage-field {
+  position: relative;
+}
+.wk-habillage-field::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('../assets/habillage.svg');
+  background-repeat: no-repeat;
+  background-position: right -80px top -80px;
+  background-size: 360px;
+  opacity: 0.05;
+  pointer-events: none;
+}

@@ -1,0 +1,103 @@
+<!-- @dsCard group="Ecommerce" viewport="1280x880" name="Boutique Pro — Accueil" subtitle="B2B ecommerce homepage, category & product flow" -->
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weklo — Boutique Pro</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: var(--surface-page); }
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+  #app > main { flex: 1; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.js"></script>
+  <script src="../../_ds_bundle.js"></script>
+
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="Header.jsx"></script>
+  <script type="text/babel" src="Footer.jsx"></script>
+  <script type="text/babel" src="CartDrawer.jsx"></script>
+  <script type="text/babel" src="HomePage.jsx"></script>
+  <script type="text/babel" src="CategoryPage.jsx"></script>
+  <script type="text/babel" src="ProductPage.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    // Header, Footer, CartDrawer, HomePage, CategoryPage, ProductPage are global
+    // function declarations from the sibling .jsx files loaded above.
+    function App() {
+      const [route, setRoute] = React.useState({ name: 'home' });
+      const [cart, setCart] = React.useState({});
+      const [cartOpen, setCartOpen] = React.useState(false);
+      const [query, setQuery] = React.useState('');
+      const scroller = React.useRef(null);
+
+      const go = (r) => { setRoute(r); window.scrollTo({ top: 0 }); };
+      const addToCart = (product, qty = 1) => {
+        setCart((c) => ({ ...c, [product.id]: { product, qty: (c[product.id]?.qty || 0) + qty } }));
+        setCartOpen(true);
+      };
+      const setQty = (id, qty) => setCart((c) => ({ ...c, [id]: { ...c[id], qty } }));
+      const removeItem = (id) => setCart((c) => { const n = { ...c }; delete n[id]; return n; });
+      const cartCount = Object.values(cart).reduce((s, l) => s + l.qty, 0);
+
+      const activeCat = route.name === 'category' ? route.catId : (route.name === 'product' ? route.product.cat : null);
+
+      return (
+        <div id="app-inner" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Header
+            cartCount={cartCount}
+            active={activeCat}
+            query={query}
+            onQuery={setQuery}
+            onCart={() => setCartOpen(true)}
+            onHome={() => go({ name: 'home' })}
+            onNav={(catId) => go({ name: 'category', catId })}
+          />
+          <main style={{ flex: 1 }}>
+            {route.name === 'home' && (
+              <HomePage
+                onNav={(catId) => go({ name: 'category', catId })}
+                onOpen={(product) => go({ name: 'product', product })}
+                onAdd={(p) => addToCart(p, 1)}
+              />
+            )}
+            {route.name === 'category' && (
+              <CategoryPage
+                catId={route.catId}
+                onHome={() => go({ name: 'home' })}
+                onOpen={(product) => go({ name: 'product', product })}
+                onAdd={(p) => addToCart(p, 1)}
+              />
+            )}
+            {route.name === 'product' && (
+              <ProductPage
+                product={route.product}
+                onHome={() => go({ name: 'home' })}
+                onNav={(catId) => go({ name: 'category', catId })}
+                onOpen={(product) => go({ name: 'product', product })}
+                onAdd={addToCart}
+              />
+            )}
+          </main>
+          <Footer />
+          <CartDrawer
+            open={cartOpen}
+            items={cart}
+            onClose={() => setCartOpen(false)}
+            onQty={setQty}
+            onRemove={removeItem}
+          />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+  </script>
+</body></html>

@@ -188,6 +188,44 @@ class PkoListProductTypes extends \Lunar\Admin\...\ListProductTypes
 
 S'applique aux Resources swappées via `$resources` reflection dans `AppServiceProvider::swapLunarResources()` (PkoProductResource, PkoProductTypeResource, PkoProductOptionResource, PkoAttributeGroupResource, PkoCollectionGroupResource).
 
+### 3.3 Design System (Front Office) — NON-NÉGOCIABLE
+
+**Tous les éléments du Front Office (storefront)** — pages, layouts, composants
+Blade, Livewire, e-mails transactionnels côté client — **DOIVENT** utiliser le
+**Weklo Design System** importé dans `design-system/` (source de vérité). Aucune
+UI front ne doit inventer ses propres couleurs, typo, espacements ou ombres.
+
+**Règles** :
+
+1. **Tokens uniquement** : couleurs via les classes Tailwind mappées sur le DS
+   (`primary` = forest `#00453e`, `accent`/`lime` = `#aac932`, `neutral`
+   green-tinted, `success`/`warning`/`danger`/`info`) ou les variables CSS de
+   `resources/css/app.css` (`var(--surface-*)`, `var(--text-*)`, `var(--shadow-*)`,
+   `var(--radius-*)`…). **Jamais** de hex en dur dans une vue front.
+2. **Typo** : `font-display` (Forno Waffle) pour les titres, `font-sans` (Hanken
+   Grotesk) pour le corps, `font-mono` (IBM Plex Mono) pour les données (réf.
+   produit, prix techniques). Les tokens sont dans `tailwind.config.js`.
+3. **Formes & ombres** : coins arrondis généreux (`rounded-md/xl/2xl`), ombres
+   forest-teintées (`shadow-sm/md/lg`, `shadow-accent` pour le CTA lime unique).
+4. **Accent lime = parcimonie** : `bg-accent-500` réservé à **un seul CTA fort
+   par vue** (le plus important). Le reste des actions = `primary` (forest).
+5. **Icônes** : Lucide, trait 2px arrondi, jamais d'emoji.
+6. **Composants réutilisables** : étendre les composants Blade existants
+   (`packages/pko/storefront/resources/views/components/ui/*` et `storefront/*`)
+   alignés sur les specs `design-system/components/*.prompt.md`. Ne pas dupliquer
+   un composant qui existe déjà.
+7. **Habillage** : motif de marque via `public/img/habillage.svg` + helpers
+   `.wk-decor*` (`app.css`), en filigrane (5–12 % d'opacité), jamais dominant.
+8. **Feature manquante dans le prototype** : si une page/feature du Front existe
+   mais n'est pas couverte par le prototype `design-system/ui_kits/ecommerce/`,
+   l'implémenter **en respectant le DS** (mêmes tokens/composants), sans réinventer
+   un style.
+9. **Branding dynamique préservé** (cf. §3.0) : le DS fournit le **thème visuel**,
+   mais nom/logo/tagline/coordonnées restent lus depuis `Setting`/`brand_name()`.
+   Ne jamais coder « Weklo » en dur dans une vue ou un `<title>`.
+
+Détails d'intégration et point de vigilance branding : `design-system/README.md`.
+
 ---
 
 ## 4. Workflow de commit
