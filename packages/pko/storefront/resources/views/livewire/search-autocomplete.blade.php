@@ -25,7 +25,7 @@
                     <div class="p-2">
                         <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Marques</p>
                         @foreach ($brands as $brand)
-                            <a href="/recherche?q={{ urlencode($brand->name) }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $brand->name }}</a>
+                            <a href="/recherche?term={{ urlencode($brand->name) }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $brand->name }}</a>
                         @endforeach
                     </div>
                 @endif
