@@ -38,7 +38,7 @@
             </x-ui.checkbox>
             @error('terms')<p class="text-sm text-danger-600 -mt-3">{{ $message }}</p>@enderror
 
-            <x-ui.button type="submit" variant="primary" size="lg" class="w-full">Créer mon compte pro</x-ui.button>
+            <x-ui.button type="submit" variant="accent" size="lg" fullWidth>Créer mon compte pro</x-ui.button>
         </form>
     </x-ui.card>
 

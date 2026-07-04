@@ -4,22 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paiement — commande #{{ $order->reference }} | {{ brand_name() }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; color: #1a1a1a; background: #f5f5f5; margin: 0; padding: 24px; }
-        .card { background: #fff; border-radius: 8px; max-width: 560px; margin: 0 auto; padding: 32px;
-                box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-        .brand { font-size: 14px; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: .04em; }
-        h1 { font-size: 20px; margin: 8px 0 16px; }
-        .lines { font-size: 14px; color: #444; border-top: 1px solid #eee; padding-top: 16px; }
+        /* Weklo Design System (page autonome — tokens en dur) */
+        body { font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #16201d; background: #f6f8f7; margin: 0; padding: 24px; }
+        .card { background: #fff; border-radius: 20px; max-width: 560px; margin: 0 auto; padding: 32px;
+                border: 1px solid #e0e4e2; box-shadow: 0 4px 12px rgba(0,33,30,.08); }
+        .brand { font-size: 12px; font-weight: 600; color: #6a841d; text-transform: uppercase; letter-spacing: .08em; }
+        h1 { font-size: 22px; font-weight: 700; margin: 8px 0 16px; color: #16201d; }
+        .lines { font-size: 14px; color: #586460; border-top: 1px solid #eef1f0; padding-top: 16px; }
         .lines div { display: flex; justify-content: space-between; padding: 4px 0; }
-        .total { font-size: 22px; font-weight: 700; color: #1a1a1a; border-top: 2px solid #eee;
+        .total { font-size: 24px; font-weight: 700; color: #00453e; border-top: 2px solid #eef1f0;
                  padding-top: 12px; margin-top: 8px; }
         #payment-element { margin: 24px 0; }
-        .btn { width: 100%; background: #f59e0b; color: #fff; border: none; font-size: 16px;
-               font-weight: 600; padding: 14px; border-radius: 6px; cursor: pointer; }
+        .btn { width: 100%; background: #00453e; color: #fff; border: none; font-size: 16px;
+               font-weight: 600; padding: 14px; border-radius: 10px; cursor: pointer; transition: background .2s; }
+        .btn:hover { background: #003a34; }
         .btn:disabled { opacity: .5; cursor: not-allowed; }
-        #message { color: #b91c1c; font-size: 14px; margin-top: 12px; min-height: 18px; }
-        .footer { font-size: 12px; color: #888; margin-top: 24px; text-align: center; }
+        #message { color: #9c2a2a; font-size: 14px; margin-top: 12px; min-height: 18px; }
+        .footer { font-size: 12px; color: #76817d; margin-top: 24px; text-align: center; }
     </style>
 </head>
 <body>
