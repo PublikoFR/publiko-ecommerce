@@ -10,7 +10,7 @@
                 @if ($post->published_at)
                     <p class="text-sm text-neutral-500 mb-2">{{ $post->published_at->format('d F Y') }}</p>
                 @endif
-                <h1 class="text-3xl md:text-4xl font-black text-neutral-900 leading-tight">{{ $post->title }}</h1>
+                <h1 class="text-3xl md:text-4xl font-display font-bold text-neutral-900 leading-tight">{{ $post->title }}</h1>
                 @if ($post->excerpt)
                     <p class="mt-3 text-lg text-neutral-600 leading-relaxed">{{ $post->excerpt }}</p>
                 @endif

@@ -1,6 +1,6 @@
 <div>
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-black text-neutral-900">Connexion pro</h1>
+        <h1 class="font-display font-bold text-3xl text-neutral-900">Connexion pro</h1>
         <p class="mt-2 text-sm text-neutral-600">Accédez à votre espace revendeur.</p>
     </div>
 
@@ -17,7 +17,7 @@
 
             <x-ui.checkbox wire:model="remember" label="Se souvenir de moi" />
 
-            <x-ui.button type="submit" variant="primary" size="lg" class="w-full">Se connecter</x-ui.button>
+            <x-ui.button type="submit" variant="accent" size="lg" fullWidth>Se connecter</x-ui.button>
         </form>
     </x-ui.card>
 

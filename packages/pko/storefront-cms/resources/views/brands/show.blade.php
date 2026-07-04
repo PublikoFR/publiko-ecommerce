@@ -4,7 +4,7 @@
             <x-ui.breadcrumb :items="[['label' => $brand->name]]" class="mb-4" />
 
             <header class="mb-8">
-                <h1 class="text-3xl md:text-4xl font-black text-neutral-900 leading-tight">
+                <h1 class="text-3xl md:text-4xl font-display font-bold text-neutral-900 leading-tight">
                     {{ $brand->name }}
                 </h1>
             </header>

@@ -1,6 +1,6 @@
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-black text-neutral-900">Mes factures</h1>
+        <h1 class="text-2xl font-display font-bold text-neutral-900">Mes factures</h1>
         <p class="text-neutral-600 mt-1 text-sm">Téléchargez vos factures au format PDF.</p>
     </div>
 

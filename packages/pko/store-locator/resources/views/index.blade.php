@@ -6,7 +6,7 @@
     <section class="py-8 md:py-12">
         <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
             <x-ui.breadcrumb :items="[['label' => 'Nos magasins']]" class="mb-4" />
-            <h1 class="text-3xl md:text-4xl font-black text-neutral-900 mb-2">Nos magasins</h1>
+            <h1 class="text-3xl md:text-4xl font-display font-bold text-neutral-900 mb-2">Nos magasins</h1>
             <p class="text-neutral-600 mb-8">Plus de 80 points de vente partout en France.</p>
 
             @if ($stores->isEmpty())

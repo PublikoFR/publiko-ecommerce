@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-black text-neutral-900">Mes listes d'achat</h1>
+            <h1 class="text-2xl font-display font-bold text-neutral-900">Mes listes d'achat</h1>
             <p class="text-neutral-600 mt-1 text-sm">Organisez vos fréquences d'achat en listes réutilisables.</p>
         </div>
     </div>

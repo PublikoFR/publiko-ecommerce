@@ -1,6 +1,6 @@
 <div>
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-black text-neutral-900">Mot de passe oublié</h1>
+        <h1 class="text-3xl font-display font-bold text-neutral-900">Mot de passe oublié</h1>
         <p class="mt-2 text-sm text-neutral-600">Nous vous enverrons un lien pour en définir un nouveau.</p>
     </div>
 

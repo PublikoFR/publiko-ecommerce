@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-black text-neutral-900">Mes adresses</h1>
+            <h1 class="text-2xl font-display font-bold text-neutral-900">Mes adresses</h1>
             <p class="text-neutral-600 mt-1 text-sm">Adresses de facturation et livraison enregistrées.</p>
         </div>
         <x-ui.button variant="primary" icon="plus" disabled title="Fonctionnalité bientôt disponible">Ajouter</x-ui.button>

@@ -1,28 +1,28 @@
 <form wire:submit="saveAddress('{{ $type }}')"
-      class="bg-white border border-gray-100 rounded-xl">
-    <div class="flex items-center justify-between h-16 px-6 border-b border-gray-100">
+      class="bg-white border border-neutral-100 rounded-xl">
+    <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
         <h3 class="text-lg font-medium">
             {{ ucfirst($type) }} Details
         </h3>
 
         @if ($type == 'shipping' && $step == $currentStep)
-            <label class="flex items-center p-2 rounded-lg cursor-pointer hover:bg-gray-50">
-                <input class="w-5 h-5 text-green-600 border-gray-100 rounded"
+            <label class="flex items-center p-2 rounded-lg cursor-pointer hover:bg-neutral-50">
+                <input class="w-5 h-5 text-green-600 border-neutral-100 rounded"
                        type="checkbox"
                        value="1"
                        wire:model.live="shippingIsBilling" />
 
                 <span class="ml-2 text-xs font-medium">
-                    Same as billing
+                    Identique à la facturation
                 </span>
             </label>
         @endif
 
         @if ($currentStep > $step)
-            <button class="px-5 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-700"
+            <button class="px-5 py-2 text-sm font-medium text-neutral-600 rounded-lg hover:bg-neutral-100 hover:text-neutral-700"
                     type="button"
                     wire:click.prevent="$set('currentStep', {{ $step }})">
-                Edit
+                Modifier
             </button>
         @endif
     </div>
@@ -32,7 +32,7 @@
             @if ($step == $currentStep)
                 <div class="grid grid-cols-6 gap-4">
                     <x-input.group class="col-span-3"
-                                   label="First name"
+                                   label="Prénom"
                                    :errors="$errors->get($type . '.first_name')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.first_name"
@@ -40,7 +40,7 @@
                     </x-input.group>
 
                     <x-input.group class="col-span-3"
-                                   label="Last name"
+                                   label="Nom"
                                    :errors="$errors->get($type . '.last_name')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.last_name"
@@ -48,19 +48,19 @@
                     </x-input.group>
 
                     <x-input.group class="col-span-6"
-                                   label="Company name"
+                                   label="Raison sociale"
                                    :errors="$errors->get($type . '.company_name')">
                         <x-input.text wire:model.live="{{ $type }}.company_name" />
                     </x-input.group>
 
                     <x-input.group class="col-span-6 sm:col-span-3"
-                                   label="Contact phone"
+                                   label="Téléphone de contact"
                                    :errors="$errors->get($type . '.contact_phone')">
                         <x-input.text wire:model.live="{{ $type }}.contact_phone" />
                     </x-input.group>
 
                     <x-input.group class="col-span-6 sm:col-span-3"
-                                   label="Contact email"
+                                   label="E-mail de contact"
                                    :errors="$errors->get($type . '.contact_email')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.contact_email"
@@ -69,11 +69,11 @@
                     </x-input.group>
 
                     <div class="col-span-6">
-                        <hr class="h-px my-4 bg-gray-100 border-none">
+                        <hr class="h-px my-4 bg-neutral-100 border-none">
                     </div>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="Address line 1"
+                                   label="Adresse ligne 1"
                                    :errors="$errors->get($type . '.line_one')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.line_one"
@@ -81,19 +81,19 @@
                     </x-input.group>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="Address line 2"
+                                   label="Adresse ligne 2"
                                    :errors="$errors->get($type . '.line_two')">
                         <x-input.text wire:model.live="{{ $type }}.line_two" />
                     </x-input.group>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="Address line 3"
+                                   label="Adresse ligne 3"
                                    :errors="$errors->get($type . '.line_three')">
                         <x-input.text wire:model.live="{{ $type }}.line_three" />
                     </x-input.group>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="City"
+                                   label="Ville"
                                    :errors="$errors->get($type . '.city')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.city"
@@ -101,13 +101,13 @@
                     </x-input.group>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="State / Province"
+                                   label="Région / Département"
                                    :errors="$errors->get($type . '.state')">
                         <x-input.text wire:model.live="{{ $type }}.state" />
                     </x-input.group>
 
                     <x-input.group class="col-span-3 sm:col-span-2"
-                                   label="Postcode"
+                                   label="Code postal"
                                    :errors="$errors->get($type . '.postcode')"
                                    required>
                         <x-input.text wire:model.live="{{ $type }}.postcode"
@@ -115,11 +115,11 @@
                     </x-input.group>
 
                     <x-input.group class="col-span-6"
-                                   label="Country"
+                                   label="Pays"
                                    required>
-                        <select class="w-full p-3 border border-gray-200 rounded-lg sm:text-sm"
+                        <select class="w-full p-3 border border-neutral-200 rounded-lg sm:text-sm"
                                 wire:model.live="{{ $type }}.country_id">
-                            <option value>Select a country</option>
+                            <option value>Sélectionnez un pays</option>
                             @foreach ($this->countries as $country)
                                 <option value="{{ $country->id }}"
                                         wire:key="country_{{ $country->id }}">
@@ -182,7 +182,7 @@
 
                     <div>
                         <dt class="font-medium">
-                            Address
+                            Adresse
                         </dt>
 
                         <dd class="mt-0.5">
@@ -208,14 +208,14 @@
 
             @if ($step == $currentStep)
                 <div class="mt-6 text-right">
-                    <button class="px-5 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500"
+                    <button class="px-5 py-3 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
                             type="submit"
                             wire:key="submit_btn"
                             wire:loading.attr="disabled"
                             wire:target="saveAddress">
                         <span wire:loading.remove
                               wire:target="saveAddress">
-                            Save Address
+                            Enregistrer l'adresse
                         </span>
 
                         <span wire:loading

@@ -1,6 +1,6 @@
 <div>
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-black text-neutral-900">Créer un compte pro</h1>
+        <h1 class="text-3xl font-display font-bold text-neutral-900">Créer un compte pro</h1>
         <p class="mt-2 text-sm text-neutral-600">Réservé aux installateurs et entreprises du bâtiment.</p>
     </div>
 
