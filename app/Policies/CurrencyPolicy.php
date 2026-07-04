@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Currency;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class CurrencyPolicy
 {
@@ -15,7 +15,7 @@ class CurrencyPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_pko::currency');
+        return $staff->can('view_any_currency');
     }
 
     /**
@@ -23,7 +23,7 @@ class CurrencyPolicy
      */
     public function view(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('view_pko::currency');
+        return $staff->can('view_currency');
     }
 
     /**
@@ -31,7 +31,7 @@ class CurrencyPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_pko::currency');
+        return $staff->can('create_currency');
     }
 
     /**
@@ -39,7 +39,7 @@ class CurrencyPolicy
      */
     public function update(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('update_pko::currency');
+        return $staff->can('update_currency');
     }
 
     /**
@@ -47,7 +47,7 @@ class CurrencyPolicy
      */
     public function delete(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('delete_pko::currency');
+        return $staff->can('delete_currency');
     }
 
     /**
@@ -55,7 +55,7 @@ class CurrencyPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_pko::currency');
+        return $staff->can('delete_any_currency');
     }
 
     /**
@@ -63,7 +63,7 @@ class CurrencyPolicy
      */
     public function forceDelete(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('force_delete_pko::currency');
+        return $staff->can('force_delete_currency');
     }
 
     /**
@@ -71,7 +71,7 @@ class CurrencyPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_pko::currency');
+        return $staff->can('force_delete_any_currency');
     }
 
     /**
@@ -79,7 +79,7 @@ class CurrencyPolicy
      */
     public function restore(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('restore_pko::currency');
+        return $staff->can('restore_currency');
     }
 
     /**
@@ -87,7 +87,7 @@ class CurrencyPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_pko::currency');
+        return $staff->can('restore_any_currency');
     }
 
     /**
@@ -95,7 +95,7 @@ class CurrencyPolicy
      */
     public function replicate(Staff $staff, Currency $currency): bool
     {
-        return $staff->can('replicate_pko::currency');
+        return $staff->can('replicate_currency');
     }
 
     /**
@@ -103,6 +103,6 @@ class CurrencyPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_pko::currency');
+        return $staff->can('reorder_currency');
     }
 }

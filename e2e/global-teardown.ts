@@ -34,4 +34,12 @@ export default async function globalTeardown(): Promise<void> {
   }
 
   rmSync(STATE_FILE, { force: true });
+
+  // Purge les app/Policies/*.php régénérés (réordonnancement cosmétique par
+  // Shield:generate via bind mount Docker) pour éviter un git dirty après chaque run.
+  try {
+    execFileSync('git', ['checkout', '--', 'app/Policies/'], { cwd: ROOT, stdio: 'ignore' });
+  } catch {
+    // pas de repo git / rien à restaurer : non bloquant.
+  }
 }

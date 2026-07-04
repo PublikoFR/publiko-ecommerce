@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Pko\StorefrontCms\Models\HomeOffer;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class HomeOfferPolicy
 {

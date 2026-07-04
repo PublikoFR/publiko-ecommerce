@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Language;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class LanguagePolicy
 {
@@ -15,7 +15,7 @@ class LanguagePolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_pko::language');
+        return $staff->can('view_any_language');
     }
 
     /**
@@ -23,7 +23,7 @@ class LanguagePolicy
      */
     public function view(Staff $staff, Language $language): bool
     {
-        return $staff->can('view_pko::language');
+        return $staff->can('view_language');
     }
 
     /**
@@ -31,7 +31,7 @@ class LanguagePolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_pko::language');
+        return $staff->can('create_language');
     }
 
     /**
@@ -39,7 +39,7 @@ class LanguagePolicy
      */
     public function update(Staff $staff, Language $language): bool
     {
-        return $staff->can('update_pko::language');
+        return $staff->can('update_language');
     }
 
     /**
@@ -47,7 +47,7 @@ class LanguagePolicy
      */
     public function delete(Staff $staff, Language $language): bool
     {
-        return $staff->can('delete_pko::language');
+        return $staff->can('delete_language');
     }
 
     /**
@@ -55,7 +55,7 @@ class LanguagePolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_pko::language');
+        return $staff->can('delete_any_language');
     }
 
     /**
@@ -63,7 +63,7 @@ class LanguagePolicy
      */
     public function forceDelete(Staff $staff, Language $language): bool
     {
-        return $staff->can('force_delete_pko::language');
+        return $staff->can('force_delete_language');
     }
 
     /**
@@ -71,7 +71,7 @@ class LanguagePolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_pko::language');
+        return $staff->can('force_delete_any_language');
     }
 
     /**
@@ -79,7 +79,7 @@ class LanguagePolicy
      */
     public function restore(Staff $staff, Language $language): bool
     {
-        return $staff->can('restore_pko::language');
+        return $staff->can('restore_language');
     }
 
     /**
@@ -87,7 +87,7 @@ class LanguagePolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_pko::language');
+        return $staff->can('restore_any_language');
     }
 
     /**
@@ -95,7 +95,7 @@ class LanguagePolicy
      */
     public function replicate(Staff $staff, Language $language): bool
     {
-        return $staff->can('replicate_pko::language');
+        return $staff->can('replicate_language');
     }
 
     /**
@@ -103,6 +103,6 @@ class LanguagePolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_pko::language');
+        return $staff->can('reorder_language');
     }
 }

@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Tag;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class TagPolicy
 {
@@ -15,7 +15,7 @@ class TagPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_pko::tag');
+        return $staff->can('view_any_tag');
     }
 
     /**
@@ -23,7 +23,7 @@ class TagPolicy
      */
     public function view(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('view_pko::tag');
+        return $staff->can('view_tag');
     }
 
     /**
@@ -31,7 +31,7 @@ class TagPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_pko::tag');
+        return $staff->can('create_tag');
     }
 
     /**
@@ -39,7 +39,7 @@ class TagPolicy
      */
     public function update(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('update_pko::tag');
+        return $staff->can('update_tag');
     }
 
     /**
@@ -47,7 +47,7 @@ class TagPolicy
      */
     public function delete(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('delete_pko::tag');
+        return $staff->can('delete_tag');
     }
 
     /**
@@ -55,7 +55,7 @@ class TagPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_pko::tag');
+        return $staff->can('delete_any_tag');
     }
 
     /**
@@ -63,7 +63,7 @@ class TagPolicy
      */
     public function forceDelete(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('force_delete_pko::tag');
+        return $staff->can('force_delete_tag');
     }
 
     /**
@@ -71,7 +71,7 @@ class TagPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_pko::tag');
+        return $staff->can('force_delete_any_tag');
     }
 
     /**
@@ -79,7 +79,7 @@ class TagPolicy
      */
     public function restore(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('restore_pko::tag');
+        return $staff->can('restore_tag');
     }
 
     /**
@@ -87,7 +87,7 @@ class TagPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_pko::tag');
+        return $staff->can('restore_any_tag');
     }
 
     /**
@@ -95,7 +95,7 @@ class TagPolicy
      */
     public function replicate(Staff $staff, Tag $tag): bool
     {
-        return $staff->can('replicate_pko::tag');
+        return $staff->can('replicate_tag');
     }
 
     /**
@@ -103,6 +103,6 @@ class TagPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_pko::tag');
+        return $staff->can('reorder_tag');
     }
 }
