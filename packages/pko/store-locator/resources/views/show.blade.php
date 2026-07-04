@@ -9,7 +9,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8">
                 <div>
-                    <h1 class="text-3xl md:text-4xl font-black text-neutral-900 mb-2">{{ $store->name }}</h1>
+                    <h1 class="text-3xl md:text-4xl font-display font-bold text-neutral-900 mb-2">{{ $store->name }}</h1>
                     <address class="not-italic text-neutral-700 text-lg">
                         {{ $store->address_line_1 }}@if ($store->address_line_2), {{ $store->address_line_2 }}@endif<br>
                         {{ $store->postcode }} {{ $store->city }}

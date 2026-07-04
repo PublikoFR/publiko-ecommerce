@@ -1,6 +1,6 @@
 <div>
     <div class="text-center mb-8">
-        <h1 class="text-3xl font-black text-neutral-900">Nouveau mot de passe</h1>
+        <h1 class="text-3xl font-display font-bold text-neutral-900">Nouveau mot de passe</h1>
     </div>
 
     <x-ui.card padding="lg">

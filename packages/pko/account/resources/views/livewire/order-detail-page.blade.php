@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div>
         <a href="{{ route('account.orders') }}" class="text-sm text-primary-600 hover:text-primary-700 font-semibold">← Mes commandes</a>
-        <h1 class="text-2xl font-black text-neutral-900 mt-1">Commande #{{ $order->reference ?? $order->id }}</h1>
+        <h1 class="text-2xl font-display font-bold text-neutral-900 mt-1">Commande #{{ $order->reference ?? $order->id }}</h1>
         <p class="text-sm text-neutral-500 mt-1">{{ optional($order->placed_at)->format('d/m/Y H:i') }} · <x-ui.badge variant="primary">{{ $order->status }}</x-ui.badge></p>
     </div>
 
@@ -23,7 +23,7 @@
             <div class="flex justify-between"><span class="text-neutral-500">Sous-total</span><span>{{ $order->sub_total?->formatted() }}</span></div>
             <div class="flex justify-between"><span class="text-neutral-500">Livraison</span><span>{{ $order->shipping_total?->formatted() }}</span></div>
             <div class="flex justify-between"><span class="text-neutral-500">TVA</span><span>{{ $order->tax_total?->formatted() }}</span></div>
-            <div class="flex justify-between pt-2 border-t border-neutral-200 text-lg font-black"><span>Total TTC</span><span>{{ $order->total?->formatted() }}</span></div>
+            <div class="flex justify-between pt-2 border-t border-neutral-200 text-lg font-display font-bold"><span>Total TTC</span><span>{{ $order->total?->formatted() }}</span></div>
         </div>
     </x-ui.card>
 

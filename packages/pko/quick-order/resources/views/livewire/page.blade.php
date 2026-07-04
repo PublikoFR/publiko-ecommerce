@@ -1,6 +1,6 @@
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-black text-neutral-900">Achat rapide</h1>
+        <h1 class="text-2xl font-display font-bold text-neutral-900">Achat rapide</h1>
         <p class="text-neutral-600 mt-1 text-sm">Saisissez vos références et quantités, ou collez un tableau Excel.</p>
     </div>
 

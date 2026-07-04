@@ -1,6 +1,96 @@
+/* Hanken Grotesk (UI/body) + IBM Plex Mono (data) — @import must precede other rules */
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==========================================================================
+   Weklo Design System — brand font (Forno Waffle) + design tokens
+   Mirrored from /design-system/tokens/*.css (source of truth).
+   Drop the two woff2 files into public/fonts/ (FornoWaffle-Regular/Bold.woff2).
+   ========================================================================== */
+@font-face {
+    font-family: 'Forno Waffle';
+    src: url('/fonts/FornoWaffle-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Forno Waffle';
+    src: url('/fonts/FornoWaffle-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    /* Brand */
+    --brand-primary: #00453e;
+    --brand-primary-hover: #003a34;
+    --brand-primary-active: #002e29;
+    --brand-accent: #aac932;
+    --brand-accent-hover: #8aa922;
+    --brand-accent-active: #6a841d;
+
+    /* Surfaces */
+    --surface-page: #f6f8f7;
+    --surface-card: #ffffff;
+    --surface-sunken: #eef1f0;
+    --surface-inverse: #00453e;
+    --surface-accent-soft: #f6faea;
+    --surface-brand-soft: #eef5f3;
+
+    /* Text */
+    --text-primary: #16201d;
+    --text-secondary: #586460;
+    --text-muted: #76817d;
+    --text-on-brand: #ffffff;
+    --text-on-accent: #00453e;
+    --text-brand: #00453e;
+    --text-accent: #6a841d;
+    --text-link: #00453e;
+
+    /* Borders */
+    --border-subtle: #e0e4e2;
+    --border-default: #c5ccc9;
+    --border-strong: #9aa3a0;
+    --border-brand: #00453e;
+    --border-accent: #aac932;
+    --focus-ring: #aac932;
+
+    /* Radius */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-2xl: 28px;
+    --radius-3xl: 40px;
+    --radius-full: 9999px;
+
+    /* Shadows (forest-tinted) */
+    --shadow-xs: 0 1px 2px rgba(0, 33, 30, 0.06);
+    --shadow-sm: 0 1px 3px rgba(0, 33, 30, 0.08), 0 1px 2px rgba(0, 33, 30, 0.04);
+    --shadow-md: 0 4px 12px rgba(0, 33, 30, 0.08), 0 2px 4px rgba(0, 33, 30, 0.04);
+    --shadow-lg: 0 12px 28px rgba(0, 33, 30, 0.10), 0 4px 8px rgba(0, 33, 30, 0.05);
+    --shadow-xl: 0 24px 48px rgba(0, 33, 30, 0.14), 0 8px 16px rgba(0, 33, 30, 0.06);
+    --shadow-accent: 0 8px 22px rgba(170, 201, 50, 0.34);
+    --shadow-brand: 0 8px 22px rgba(0, 69, 62, 0.22);
+
+    /* Type families */
+    --font-display: 'Forno Waffle', 'Hanken Grotesk', system-ui, sans-serif;
+    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+    /* Motion */
+    --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-emphasis: cubic-bezier(0.34, 1.4, 0.64, 1);
+    --duration-fast: 120ms;
+    --duration-base: 200ms;
+    --duration-slow: 320ms;
+}
 
 @layer base {
     html {
@@ -10,6 +100,18 @@
 
     body {
         @apply font-sans text-neutral-900 bg-neutral-50;
+    }
+
+    /* Display face for storefront headings */
+    .font-display,
+    .prose :where(h1, h2, h3):not(:where([class~='not-prose'] *)) {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+    }
+
+    ::selection {
+        background: #dbe9a3;
+        color: #003a34;
     }
 }
 
@@ -31,6 +133,27 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+
+    /* ---- Habillage (concentric-ring brand decoration) ---------------------
+       Drop inside a position:relative container; sits behind content.
+       Tune via inline --wk-decor-size / --wk-decor-color / --wk-decor-opacity. */
+    .wk-decor {
+        position: absolute;
+        width: var(--wk-decor-size, 420px);
+        height: var(--wk-decor-size, 420px);
+        background-color: var(--wk-decor-color, currentColor);
+        -webkit-mask: url('/img/habillage.svg') center / contain no-repeat;
+        mask: url('/img/habillage.svg') center / contain no-repeat;
+        opacity: var(--wk-decor-opacity, 0.06);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .wk-decor--tl { top: 0; left: 0; transform: translate(-42%, -42%); }
+    .wk-decor--tr { top: 0; right: 0; transform: translate(42%, -42%); }
+    .wk-decor--bl { bottom: 0; left: 0; transform: translate(-42%, 42%); }
+    .wk-decor--br { bottom: 0; right: 0; transform: translate(42%, 42%); }
+    .wk-decor--on-dark { background-color: #b8d24c; opacity: 0.12; }
+    .wk-decor--on-light { background-color: #00453e; opacity: 0.05; }
 }
 
 [x-cloak] {

@@ -1,12 +1,12 @@
 <section class="py-8 md:py-12">
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <x-ui.breadcrumb :items="[['label' => 'Mon panier']]" class="mb-4" />
-        <h1 class="text-2xl md:text-3xl font-black text-neutral-900 mb-8">Mon panier</h1>
+        <h1 class="font-display font-bold text-2xl md:text-3xl text-neutral-900 mb-8">Mon panier</h1>
 
         @if (empty($lines))
             <x-ui.card padding="lg" class="text-center py-16">
-                <x-ui.icon name="cart" class="w-16 h-16 text-neutral-300 mx-auto mb-4" />
-                <h2 class="text-xl font-bold text-neutral-900 mb-2">Votre panier est vide</h2>
+                <x-ui.icon name="package" class="w-16 h-16 text-neutral-300 mx-auto mb-4" strokeWidth="1.4" />
+                <h2 class="font-display font-bold text-xl text-neutral-900 mb-2">Votre panier est vide</h2>
                 <p class="text-neutral-500 mb-6">Parcourez notre catalogue pour ajouter des produits.</p>
                 <x-ui.button variant="primary" href="/" size="lg">Retour au catalogue</x-ui.button>
             </x-ui.card>
@@ -32,9 +32,9 @@
                                     <p class="text-xs text-neutral-500 mt-0.5">Réf. {{ $line['identifier'] }}</p>
                                     <p class="text-xs text-neutral-500">{{ $line['unit_price'] }} / unité</p>
                                     @if (($line['availability']['status'] ?? '') === 'weklo')
-                                        <p class="text-xs text-success-700 font-medium mt-1">En stock Weklo — Expédition 24/48h</p>
+                                        <p class="text-xs text-success-700 font-medium mt-1">En stock — expédition 24/48 h</p>
                                     @elseif (($line['availability']['status'] ?? '') === 'supplier')
-                                        <p class="text-xs text-amber-700 font-medium mt-1">Disponible sur commande fournisseur
+                                        <p class="text-xs text-warning-700 font-medium mt-1">Disponible sur commande fournisseur
                                             @if (!empty($line['availability']['lead_min']) && !empty($line['availability']['lead_max']))
                                                 — Livraison estimée sous {{ $line['availability']['lead_min'] }} à {{ $line['availability']['lead_max'] }} jours ouvrés
                                             @endif
@@ -54,16 +54,16 @@
                 </x-ui.card>
 
                 <aside class="lg:sticky lg:top-28 lg:self-start">
-                    <x-ui.card padding="lg">
-                        <h2 class="font-bold text-neutral-900 mb-4">Récapitulatif</h2>
+                    <x-ui.card padding="lg" accent>
+                        <h2 class="font-display font-bold text-neutral-900 mb-4">Récapitulatif</h2>
                         @if ($this->cart)
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between"><span class="text-neutral-600">Sous-total HT</span><span class="font-semibold">{{ $this->cart->subTotal?->formatted() ?? '—' }}</span></div>
                                 <div class="flex justify-between"><span class="text-neutral-600">TVA</span><span class="font-semibold">{{ $this->cart->taxTotal?->formatted() ?? '—' }}</span></div>
-                                <div class="flex justify-between text-lg font-black pt-3 border-t border-neutral-100"><span>Total TTC</span><span class="text-primary-700">{{ $this->cart->total?->formatted() ?? '—' }}</span></div>
+                                <div class="flex justify-between items-baseline pt-3 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $this->cart->total?->formatted() ?? '—' }}</span></div>
                             </div>
                         @endif
-                        <x-ui.button variant="primary" size="lg" href="/checkout" class="w-full justify-center mt-6">Passer la commande →</x-ui.button>
+                        <x-ui.button variant="accent" size="lg" href="/checkout" fullWidth iconRight="arrow-right" class="mt-6">Passer la commande</x-ui.button>
                         <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(config('storefront.shipping.free_threshold_cents', 12500) / 100, 0, ',', ' ') }} € HT</p>
                     </x-ui.card>
                 </aside>

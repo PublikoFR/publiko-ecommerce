@@ -1,9 +1,11 @@
-<div x-data="{ current: 0, count: {{ $slides->count() }}, timer: null, start() { if (this.count < 2) return; this.timer = setInterval(() => this.next(), 6000); }, next() { this.current = (this.current + 1) % this.count; }, prev() { this.current = (this.current - 1 + this.count) % this.count; }, go(i) { this.current = i; clearInterval(this.timer); this.start(); } }" x-init="start()" class="relative overflow-hidden rounded-lg">
+<div x-data="{ current: 0, count: {{ $slides->count() }}, timer: null, start() { if (this.count < 2) return; this.timer = setInterval(() => this.next(), 6000); }, next() { this.current = (this.current + 1) % this.count; }, prev() { this.current = (this.current - 1 + this.count) % this.count; }, go(i) { this.current = i; clearInterval(this.timer); this.start(); } }" x-init="start()" class="relative overflow-hidden rounded-2xl">
     @if ($slides->isEmpty())
-        <div class="bg-gradient-to-r from-primary-800 to-primary-600 text-white px-8 py-20 text-center">
-            <h2 class="text-4xl font-black mb-2">{{ brand_name() }}</h2>
+        <div class="relative bg-primary-600 text-white px-8 py-24 text-center overflow-hidden">
+            <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 520px;"></span>
+            <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 380px; --wk-decor-opacity: 0.08;"></span>
+            <h2 class="relative font-display font-bold text-4xl md:text-5xl mb-3">{{ brand_name() }}</h2>
             @if (brand_tagline())
-                <p class="text-lg text-primary-100">{{ brand_tagline() }}</p>
+                <p class="relative text-lg text-accent-300">{{ brand_tagline() }}</p>
             @endif
         </div>
     @else
@@ -14,9 +16,11 @@
                         <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover opacity-90" />
                         <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
                     @endif
+                    <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 440px;"></span>
+                    <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 300px; --wk-decor-opacity: 0.08;"></span>
                     <div class="relative max-w-screen-xl mx-auto h-full flex items-center px-6 md:px-12 z-10">
                         <div class="max-w-xl">
-                            <h2 class="text-4xl md:text-5xl font-black leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>
+                            <h2 class="font-display text-4xl md:text-5xl font-bold leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>
                             @if ($slide->subtitle)
                                 <p class="text-lg md:text-xl mb-6 opacity-90">{{ $slide->subtitle }}</p>
                             @endif
@@ -35,7 +39,7 @@
         @if ($slides->count() > 1)
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                 @foreach ($slides as $idx => $slide)
-                    <button type="button" @click="go({{ $idx }})" class="w-2.5 h-2.5 rounded-full transition" :class="current === {{ $idx }} ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'"></button>
+                    <button type="button" @click="go({{ $idx }})" class="h-2 rounded-full transition-all" :class="current === {{ $idx }} ? 'bg-accent-400 w-8' : 'bg-white/50 w-2 hover:bg-white/75'"></button>
                 @endforeach
             </div>
             <button type="button" @click="prev()" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center text-white transition z-20"><x-ui.icon name="chevron-left" class="w-5 h-5" /></button>

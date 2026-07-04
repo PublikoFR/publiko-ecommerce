@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div>
         <a href="{{ route('account.purchase-lists.index') }}" class="text-sm text-primary-600 hover:text-primary-700 font-semibold" wire:navigate>← Mes listes</a>
-        <h1 class="text-2xl font-black text-neutral-900 mt-1">{{ $list->name }}</h1>
+        <h1 class="text-2xl font-display font-bold text-neutral-900 mt-1">{{ $list->name }}</h1>
     </div>
 
     @if (session('status'))

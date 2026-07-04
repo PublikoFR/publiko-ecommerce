@@ -1,12 +1,12 @@
 <form wire:submit="saveShippingOption"
-      class="bg-white border border-gray-100 rounded-xl">
-    <div class="flex items-center justify-between h-16 px-6 border-b border-gray-100">
+      class="bg-white border border-neutral-100 rounded-xl">
+    <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
         <h3 class="font-medium">
             Shipping Options
         </h3>
 
         @if ($currentStep > $step)
-            <button class="px-5 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100 hover:text-gray-700"
+            <button class="px-5 py-2 text-sm font-medium text-neutral-600 rounded-lg hover:bg-neutral-100 hover:text-neutral-700"
                     type="button"
                     wire:click.prevent="$set('currentStep', {{ $step }})">
                 Edit
@@ -27,7 +27,7 @@
                                    value="{{ $option->getIdentifier() }}"
                                    id="{{ $option->getIdentifier() }}" />
 
-                            <label class="flex items-center justify-between p-4 text-sm font-medium border border-gray-100 rounded-lg shadow-sm cursor-pointer peer-checked:border-blue-500 hover:bg-gray-50 peer-checked:ring-1 peer-checked:ring-blue-500"
+                            <label class="flex items-center justify-between p-4 text-sm font-medium border border-neutral-100 rounded-lg shadow-sm cursor-pointer peer-checked:border-primary-600 hover:bg-neutral-50 peer-checked:ring-1 peer-checked:ring-primary-600"
                                    for="{{ $option->getIdentifier() }}">
                                 <p>
                                     {{ $option->getName() }}
@@ -60,7 +60,7 @@
 
             @if ($step == $currentStep)
                 <div class="mt-6 text-right">
-                    <button class="px-5 py-3 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500"
+                    <button class="px-5 py-3 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
                             type="submit"
                             wire:key="shipping_submit_btn">
                         <span wire:loading.remove.delay

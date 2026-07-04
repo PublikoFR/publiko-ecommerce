@@ -19,7 +19,7 @@ class HomeFeaturedProducts extends Component
         if ($slug !== '') {
             $collection = Collection::query()->whereHas('urls', fn ($q) => $q->where('slug', $slug))->first();
             if ($collection) {
-                $products = $collection->products()->with(['thumbnail', 'brand', 'defaultUrl', 'variants.basePrices'])->limit(6)->get();
+                $products = $collection->products()->with(['thumbnail', 'brand', 'defaultUrl', 'variants.basePrices'])->limit(4)->get();
             }
         }
 
@@ -27,7 +27,7 @@ class HomeFeaturedProducts extends Component
             $products = Product::query()
                 ->with(['thumbnail', 'brand', 'defaultUrl', 'variants.basePrices'])
                 ->latest()
-                ->limit(6)
+                ->limit(4)
                 ->get();
         }
 

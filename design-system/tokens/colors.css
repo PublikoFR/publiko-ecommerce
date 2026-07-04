@@ -1,0 +1,106 @@
+/* ==========================================================================
+   Weklo — Color Tokens
+   Brand source: Nuancier-RVB.ase
+     Forest (primary)  #00453e   ·   Lime (accent)  #aac932
+   Extended ramps + neutrals + semantics derived harmonically in oklch.
+   ========================================================================== */
+
+:root {
+  /* ---- Forest (primary) ------------------------------------------------ */
+  --forest-50:  #eef5f3;
+  --forest-100: #d6e7e3;
+  --forest-200: #abccc5;
+  --forest-300: #79aaa1;
+  --forest-400: #43847a;
+  --forest-500: #136356;
+  --forest-600: #00453e;   /* BRAND — Vert foncé */
+  --forest-700: #003a34;
+  --forest-800: #002e29;
+  --forest-900: #00211e;
+
+  /* ---- Lime (accent) --------------------------------------------------- */
+  --lime-50:  #f6faea;
+  --lime-100: #ecf4cf;
+  --lime-200: #dbe9a3;
+  --lime-300: #c8dd72;
+  --lime-400: #b8d24c;
+  --lime-500: #aac932;   /* BRAND — Vert clair */
+  --lime-600: #8aa922;
+  --lime-700: #6a841d;
+  --lime-800: #50641b;
+  --lime-900: #3c4b19;
+
+  /* ---- Neutrals (green-tinted gray) ------------------------------------ */
+  --neutral-0:   #ffffff;
+  --neutral-50:  #f6f8f7;
+  --neutral-100: #eef1f0;
+  --neutral-200: #e0e4e2;
+  --neutral-300: #c5ccc9;
+  --neutral-400: #9aa3a0;
+  --neutral-500: #76817d;
+  --neutral-600: #586460;
+  --neutral-700: #3f4a46;
+  --neutral-800: #283330;
+  --neutral-900: #16201d;
+
+  /* ---- Semantic hues --------------------------------------------------- */
+  --success-100: #d9f0e0;
+  --success-500: #2f9e57;
+  --success-700: #1f6e3c;
+
+  --warning-100: #fbeccb;
+  --warning-500: #e8a317;
+  --warning-700: #a36f08;
+
+  --danger-100:  #f9dcdc;
+  --danger-500:  #d64545;
+  --danger-700:  #9c2a2a;
+
+  --info-100:    #d6e9f3;
+  --info-500:    #2f80b8;
+  --info-700:    #1d5781;
+
+  /* =========================================================================
+     SEMANTIC ALIASES — reference these in product code
+     ========================================================================= */
+
+  /* Brand */
+  --brand-primary:        var(--forest-600);
+  --brand-primary-hover:  var(--forest-700);
+  --brand-primary-active: var(--forest-800);
+  --brand-accent:         var(--lime-500);
+  --brand-accent-hover:   var(--lime-600);
+  --brand-accent-active:  var(--lime-700);
+
+  /* Surfaces */
+  --surface-page:        var(--neutral-50);
+  --surface-card:        var(--neutral-0);
+  --surface-sunken:      var(--neutral-100);
+  --surface-inverse:     var(--forest-600);
+  --surface-accent-soft: var(--lime-50);
+  --surface-brand-soft:  var(--forest-50);
+
+  /* Text */
+  --text-primary:    var(--neutral-900);
+  --text-secondary:  var(--neutral-600);
+  --text-muted:      var(--neutral-500);
+  --text-on-brand:   var(--neutral-0);
+  --text-on-accent:  var(--forest-600);
+  --text-brand:      var(--forest-600);
+  --text-accent:     var(--lime-700);
+  --text-link:       var(--forest-600);
+
+  /* Borders */
+  --border-subtle:   var(--neutral-200);
+  --border-default:  var(--neutral-300);
+  --border-strong:   var(--neutral-400);
+  --border-brand:    var(--forest-600);
+  --border-accent:   var(--lime-500);
+  --focus-ring:      var(--lime-500);
+
+  /* Feedback */
+  --text-success: var(--success-700);
+  --text-warning: var(--warning-700);
+  --text-danger:  var(--danger-700);
+  --text-info:    var(--info-700);
+}

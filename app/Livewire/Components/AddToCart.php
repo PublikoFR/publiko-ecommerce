@@ -21,6 +21,11 @@ class AddToCart extends Component
      */
     public int $quantity = 1;
 
+    /**
+     * Rendu compact (carte produit) : simple bouton d'ajout, sans stepper.
+     */
+    public bool $compact = false;
+
     public function rules(): array
     {
         return [
@@ -33,7 +38,7 @@ class AddToCart extends Component
         $this->validate();
 
         if ($this->purchasable->stock < $this->quantity) {
-            $this->addError('quantity', 'The quantity exceeds the available stock.');
+            $this->addError('quantity', 'La quantité dépasse le stock disponible.');
 
             return;
         }

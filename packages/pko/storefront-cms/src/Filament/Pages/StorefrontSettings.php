@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\StorefrontCms\Filament\Pages;
 
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
@@ -63,6 +64,7 @@ class StorefrontSettings extends Page implements HasForms
 
         return [
             'brand_name' => Setting::get('brand.name', config('app.name')),
+            'brand_logo' => Setting::get('brand.logo'),
             'brand_tagline' => Setting::get('brand.tagline'),
             'brand_meta_description' => Setting::get('brand.meta_description'),
             'contact_phone' => Setting::get('contact.phone', $config['contact']['phone'] ?? null),
@@ -90,6 +92,15 @@ class StorefrontSettings extends Page implements HasForms
                     ->required()
                     ->maxLength(100)
                     ->helperText('Affiché dans le header, le titre des pages, les e-mails et le back-office.'),
+                FileUpload::make('brand_logo')
+                    ->label('Logo')
+                    ->image()
+                    ->disk('public')
+                    ->directory('brand')
+                    ->visibility('public')
+                    ->imageEditor()
+                    ->maxSize(2048)
+                    ->helperText('Affiché dans le header. PNG/SVG à fond transparent recommandé. Vide = logo textuel de repli.'),
                 TextInput::make('brand_tagline')
                     ->label('Accroche')
                     ->maxLength(150)
@@ -161,6 +172,7 @@ class StorefrontSettings extends Page implements HasForms
         $data = $this->form->getState();
 
         Setting::set('brand.name', $data['brand_name']);
+        Setting::set('brand.logo', $data['brand_logo'] ?? null);
         Setting::set('brand.tagline', $data['brand_tagline']);
         Setting::set('brand.meta_description', $data['brand_meta_description']);
         Setting::set('contact.phone', $data['contact_phone']);

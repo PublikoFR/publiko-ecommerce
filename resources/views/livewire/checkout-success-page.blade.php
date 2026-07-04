@@ -1,40 +1,34 @@
-<section class="bg-white">
-    <div class="max-w-screen-xl px-4 py-32 mx-auto sm:px-6 lg:px-8 lg:py-48">
-        <div class="max-w-xl mx-auto text-center">
-            <span class="text-xs font-medium text-center bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg">
-                This was a test order
-            </span>
+<section class="py-20 md:py-28">
+    <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success-100 text-success-700 mb-6">
+            <x-ui.icon name="check" class="w-8 h-8" />
+        </span>
 
-            <h1 class="mt-8 text-3xl font-extrabold sm:text-5xl">
-                <span class="block"
-                      role="img">
-                    🥳
-                </span>
+        <h1 class="font-display font-bold text-3xl md:text-4xl text-neutral-900">
+            Commande confirmée
+        </h1>
 
-                <span class="block mt-1 text-blue-500">
-                    Order Successful!
-                </span>
-            </h1>
+        <p class="mt-4 text-neutral-600">
+            Merci pour votre commande. Votre numéro de référence est
+            <strong class="font-mono text-primary-700">{{ $order->reference }}</strong>.
+        </p>
 
-            <p class="mt-4 font-medium sm:text-lg">
-                Your order reference number is
+        @if ($order->status === 'awaiting-quote')
+            <div class="mt-6 text-left">
+                <x-ui.card padding="md" class="!bg-warning-50 !border-warning-100">
+                    <div class="flex gap-3 text-sm text-warning-700">
+                        <x-ui.icon name="truck" class="w-5 h-5 shrink-0 text-warning-500" />
+                        <p>Votre commande nécessite un devis transport. Vous recevrez un lien de paiement avec le montant final une fois les frais de port calculés.</p>
+                    </div>
+                </x-ui.card>
+            </div>
+        @endif
 
-                <strong>
-                    {{ $order->reference }}
-                </strong>
-            </p>
-
-            @if ($order->status === 'awaiting-quote')
-                <div class="p-4 mt-6 text-sm text-amber-800 rounded-lg bg-amber-50 border border-amber-200">
-                    Votre commande nécessite un devis transport. Vous recevrez un lien de paiement
-                    avec le montant final une fois les frais de port calculés.
-                </div>
-            @endif
-
-            <a class="inline-block px-8 py-3 mt-8 text-sm font-medium text-center text-white bg-blue-600 rounded-lg hover:ring-1 hover:ring-blue-600"
-               href="{{ url('/') }}">
-                Back Home
-            </a>
+        <div class="mt-8 flex items-center justify-center gap-3">
+            <x-ui.button variant="primary" size="lg" href="{{ url('/') }}">Retour à l'accueil</x-ui.button>
+            @auth
+                <x-ui.button variant="secondary" size="lg" href="/compte/commandes">Mes commandes</x-ui.button>
+            @endauth
         </div>
     </div>
 </section>

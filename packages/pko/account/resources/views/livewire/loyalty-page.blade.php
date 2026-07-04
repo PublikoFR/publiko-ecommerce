@@ -1,6 +1,6 @@
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-black text-neutral-900">Programme fidélité</h1>
+        <h1 class="text-2xl font-display font-bold text-neutral-900">Programme fidélité</h1>
         <p class="text-neutral-600 mt-1 text-sm">Cumulez des points et débloquez des cadeaux exclusifs.</p>
     </div>
 
@@ -12,7 +12,7 @@
     @else
         <x-ui.card padding="lg">
             <div class="flex items-baseline gap-2 mb-1">
-                <span class="text-5xl font-black text-primary-700">{{ $snapshot['current_points'] ?? 0 }}</span>
+                <span class="text-5xl font-display font-bold text-primary-700">{{ $snapshot['current_points'] ?? 0 }}</span>
                 <span class="text-sm text-neutral-500">points</span>
             </div>
             @if (! empty($snapshot['current_tier']))

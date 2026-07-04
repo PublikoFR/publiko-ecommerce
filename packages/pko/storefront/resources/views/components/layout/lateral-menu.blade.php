@@ -54,7 +54,7 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
         x-transition:leave="transition-opacity duration-300 ease-in"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
-        class="fixed inset-0 bg-black/50 z-[60]"
+        class="fixed inset-0 bg-primary-900/40 backdrop-blur-sm z-[60]"
         @click="closeMenu()"
         aria-hidden="true"
         style="display: none;"
@@ -81,12 +81,12 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
             aria-label="Catégories niveau 1"
         >
             {{-- Header --}}
-            <div class="flex items-center justify-between px-4 py-3 bg-primary-700 text-white shrink-0">
-                <span class="font-bold text-sm uppercase tracking-wider">Tous nos produits</span>
+            <div class="flex items-center justify-between px-4 py-3.5 bg-primary-600 text-white shrink-0">
+                <span class="font-display font-bold text-base">Tous nos produits</span>
                 <button
                     type="button"
                     @click="closeMenu()"
-                    class="p-1.5 rounded hover:bg-primary-800 transition"
+                    class="p-1.5 rounded-md hover:bg-primary-700 transition"
                     aria-label="Fermer le menu"
                 >
                     <x-ui.icon name="close" class="w-5 h-5" />

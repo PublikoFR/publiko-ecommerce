@@ -5,11 +5,15 @@
     'icon' => null,
     'iconRight' => null,
     'loading' => false,
+    'fullWidth' => false,
 ])
 
 @php
+// Design System : `primary` = forest, `accent` = lime (le CTA le plus fort,
+// un seul par vue). `secondary`/`ghost` pour l'emphase basse.
 $variants = [
     'primary' => 'bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500 shadow-sm',
+    'accent' => 'bg-accent-500 text-primary-700 hover:bg-accent-600 focus-visible:ring-accent-500 shadow-accent',
     'secondary' => 'bg-white text-neutral-800 border border-neutral-300 hover:bg-neutral-50 focus-visible:ring-primary-500',
     'ghost' => 'text-neutral-700 hover:bg-neutral-100 focus-visible:ring-primary-500',
     'danger' => 'bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-danger-500 shadow-sm',
@@ -20,14 +24,15 @@ $variants = [
 
 $sizes = [
     'xs' => 'px-2 py-1 text-xs gap-1 rounded',
-    'sm' => 'px-3 py-1.5 text-sm gap-1.5 rounded-md',
-    'md' => 'px-4 py-2 text-sm gap-2 rounded-md',
-    'lg' => 'px-5 py-2.5 text-base gap-2 rounded-md',
-    'xl' => 'px-6 py-3 text-lg gap-2.5 rounded-lg',
+    'sm' => 'px-3.5 py-2 text-sm gap-1.5 rounded-md',
+    'md' => 'px-4 py-2.5 text-sm gap-2 rounded-md',
+    'lg' => 'px-5 py-3 text-base gap-2 rounded-md',
+    'xl' => 'px-6 py-3.5 text-lg gap-2.5 rounded-lg',
 ];
 
-$base = 'inline-flex items-center justify-center font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
-$classes = trim($base.' '.($variants[$variant] ?? $variants['primary']).' '.($sizes[$size] ?? $sizes['md']));
+$base = 'inline-flex items-center justify-center font-semibold transition active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
+$width = $fullWidth ? 'w-full' : '';
+$classes = trim($base.' '.$width.' '.($variants[$variant] ?? $variants['primary']).' '.($sizes[$size] ?? $sizes['md']));
 @endphp
 
 @if ($href)

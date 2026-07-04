@@ -2,7 +2,7 @@
     <section class="py-8 md:py-12">
         <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
             <x-ui.breadcrumb :items="[['label' => $postType->label]]" class="mb-4" />
-            <h1 class="text-3xl md:text-4xl font-black text-neutral-900 mb-8">{{ $postType->label }}</h1>
+            <h1 class="text-3xl md:text-4xl font-display font-bold text-neutral-900 mb-8">{{ $postType->label }}</h1>
 
             @if ($posts->isEmpty())
                 <p class="text-neutral-500 text-center py-12">Aucun contenu publié pour le moment.</p>
