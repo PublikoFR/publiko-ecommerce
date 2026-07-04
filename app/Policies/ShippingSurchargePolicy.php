@@ -3,10 +3,10 @@
 namespace App\Policies;
 
 use Lunar\Admin\Models\Staff;
-use Pko\StorefrontCms\Models\NewsletterSubscriber;
+use Pko\ShippingCommon\Models\ShippingSurcharge;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
-class NewsletterSubscriberPolicy
+class ShippingSurchargePolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class NewsletterSubscriberPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_newsletter::subscriber');
+        return $staff->can('view_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can view the model.
      */
-    public function view(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function view(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('view_newsletter::subscriber');
+        return $staff->can('view_shipping::surcharge');
     }
 
     /**
@@ -31,23 +31,23 @@ class NewsletterSubscriberPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_newsletter::subscriber');
+        return $staff->can('create_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can update the model.
      */
-    public function update(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function update(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('update_newsletter::subscriber');
+        return $staff->can('update_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can delete the model.
      */
-    public function delete(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function delete(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('delete_newsletter::subscriber');
+        return $staff->can('delete_shipping::surcharge');
     }
 
     /**
@@ -55,15 +55,15 @@ class NewsletterSubscriberPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_newsletter::subscriber');
+        return $staff->can('delete_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can permanently delete.
      */
-    public function forceDelete(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function forceDelete(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('force_delete_newsletter::subscriber');
+        return $staff->can('force_delete_shipping::surcharge');
     }
 
     /**
@@ -71,15 +71,15 @@ class NewsletterSubscriberPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_newsletter::subscriber');
+        return $staff->can('force_delete_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can restore.
      */
-    public function restore(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function restore(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('restore_newsletter::subscriber');
+        return $staff->can('restore_shipping::surcharge');
     }
 
     /**
@@ -87,15 +87,15 @@ class NewsletterSubscriberPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_newsletter::subscriber');
+        return $staff->can('restore_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can replicate.
      */
-    public function replicate(Staff $staff, NewsletterSubscriber $newsletterSubscriber): bool
+    public function replicate(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('replicate_newsletter::subscriber');
+        return $staff->can('replicate_shipping::surcharge');
     }
 
     /**
@@ -103,6 +103,6 @@ class NewsletterSubscriberPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_newsletter::subscriber');
+        return $staff->can('reorder_shipping::surcharge');
     }
 }

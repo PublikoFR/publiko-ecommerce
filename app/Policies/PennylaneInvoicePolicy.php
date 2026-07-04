@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Pko\Pennylane\Models\PennylaneInvoice;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class PennylaneInvoicePolicy
 {

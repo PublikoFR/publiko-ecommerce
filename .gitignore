@@ -28,3 +28,7 @@ yarn-error.log
 /_scaffold
 
 core
+
+# Playwright E2E artifacts
+/test-results/
+/playwright-report/

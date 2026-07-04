@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Channel;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class ChannelPolicy
 {
@@ -15,7 +15,7 @@ class ChannelPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_channel');
+        return $staff->can('view_any_pko::channel');
     }
 
     /**
@@ -23,7 +23,7 @@ class ChannelPolicy
      */
     public function view(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('view_channel');
+        return $staff->can('view_pko::channel');
     }
 
     /**
@@ -31,7 +31,7 @@ class ChannelPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_channel');
+        return $staff->can('create_pko::channel');
     }
 
     /**
@@ -39,7 +39,7 @@ class ChannelPolicy
      */
     public function update(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('update_channel');
+        return $staff->can('update_pko::channel');
     }
 
     /**
@@ -47,7 +47,7 @@ class ChannelPolicy
      */
     public function delete(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('delete_channel');
+        return $staff->can('delete_pko::channel');
     }
 
     /**
@@ -55,7 +55,7 @@ class ChannelPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_channel');
+        return $staff->can('delete_any_pko::channel');
     }
 
     /**
@@ -63,7 +63,7 @@ class ChannelPolicy
      */
     public function forceDelete(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('force_delete_channel');
+        return $staff->can('force_delete_pko::channel');
     }
 
     /**
@@ -71,7 +71,7 @@ class ChannelPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_channel');
+        return $staff->can('force_delete_any_pko::channel');
     }
 
     /**
@@ -79,7 +79,7 @@ class ChannelPolicy
      */
     public function restore(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('restore_channel');
+        return $staff->can('restore_pko::channel');
     }
 
     /**
@@ -87,7 +87,7 @@ class ChannelPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_channel');
+        return $staff->can('restore_any_pko::channel');
     }
 
     /**
@@ -95,7 +95,7 @@ class ChannelPolicy
      */
     public function replicate(Staff $staff, Channel $channel): bool
     {
-        return $staff->can('replicate_channel');
+        return $staff->can('replicate_pko::channel');
     }
 
     /**
@@ -103,6 +103,6 @@ class ChannelPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_channel');
+        return $staff->can('reorder_pko::channel');
     }
 }
