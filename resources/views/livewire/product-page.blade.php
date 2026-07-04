@@ -89,7 +89,7 @@
                                 <x-ui.icon name="badge-check" class="w-4 h-4 text-success-500" /> Tarif pro · remises dégressives par volume
                             </div>
                         @endauth
-                        <div class="mt-5 max-w-md">
+                        <div class="mt-5">
                             <x-storefront.add-to-cart :product="$this->product" :variant="$this->variant" />
                         </div>
                     </div>
