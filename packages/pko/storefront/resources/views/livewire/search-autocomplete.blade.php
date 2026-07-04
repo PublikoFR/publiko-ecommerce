@@ -1,26 +1,23 @@
 <div class="relative flex-1" x-data @click.away="$wire.close()">
-    <form wire:submit="submitSearch" class="flex" role="search">
-        <div class="relative flex-1">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-400">
-                <x-ui.icon name="search" class="w-5 h-5" />
-            </div>
-            <input
-                type="search"
-                wire:model.live.debounce.300ms="term"
-                placeholder="Rechercher un article, une marque, une référence…"
-                class="block w-full pl-10 pr-4 py-2.5 rounded-l-md border-r-0 border-neutral-300 focus:border-primary-500 focus:ring-primary-500 text-sm placeholder:text-neutral-400"
-                aria-label="Rechercher"
-                autocomplete="off"
-            />
-        </div>
-        <button type="submit" class="inline-flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white px-5 rounded-r-md font-semibold text-sm transition">
+    <form wire:submit="submitSearch" role="search"
+          class="flex items-center h-12 bg-neutral-50 border-[1.5px] border-neutral-300 rounded-full pl-4 pr-1.5 focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/40 transition">
+        <x-ui.icon name="search" class="w-5 h-5 text-neutral-400 shrink-0" />
+        <input
+            type="search"
+            wire:model.live.debounce.300ms="term"
+            placeholder="Rechercher un produit, une référence…"
+            class="flex-1 min-w-0 border-0 bg-transparent focus:ring-0 text-sm placeholder:text-neutral-400 px-3"
+            aria-label="Rechercher"
+            autocomplete="off"
+        />
+        <button type="submit" class="inline-flex items-center justify-center h-9 bg-primary-600 hover:bg-primary-700 text-white px-4 rounded-full font-semibold text-sm transition shrink-0">
             <span class="hidden sm:inline">Rechercher</span>
             <x-ui.icon name="search" class="w-5 h-5 sm:hidden" />
         </button>
     </form>
 
     @if ($open)
-        <div class="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-xl z-50 max-h-[32rem] overflow-y-auto">
+        <div class="absolute top-full left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-xl shadow-xl z-50 max-h-[32rem] overflow-y-auto">
             @if ($products->isEmpty() && $brands->isEmpty() && $collections->isEmpty())
                 <div class="p-6 text-center text-sm text-neutral-500">Aucun résultat pour "{{ $term }}".</div>
             @else

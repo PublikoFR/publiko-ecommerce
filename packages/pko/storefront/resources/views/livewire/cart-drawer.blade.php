@@ -4,7 +4,7 @@
         x-data
         x-show="$wire.open"
         x-transition.opacity.duration.200ms
-        class="fixed inset-0 bg-neutral-900/50 z-50 backdrop-blur-sm"
+        class="fixed inset-0 bg-primary-900/40 z-50 backdrop-blur-sm"
         wire:click="close"
         style="display: none;"
     ></div>
@@ -25,10 +25,10 @@
         aria-label="Panier"
     >
         {{-- Header --}}
-        <header class="flex items-center justify-between px-5 py-4 border-b border-neutral-200 bg-primary-700 text-white">
+        <header class="flex items-center justify-between px-5 py-4 border-b border-neutral-200 bg-primary-600 text-white">
             <div class="flex items-center gap-3">
-                <x-ui.icon name="cart" class="w-5 h-5" />
-                <h2 class="font-bold text-lg">Mon panier</h2>
+                <x-ui.icon name="cart" class="w-5 h-5 text-accent-400" />
+                <h2 class="font-display font-bold text-lg">Mon panier</h2>
                 @if ($linesCount > 0)
                     <span class="bg-white/20 text-xs font-bold px-2 py-0.5 rounded-full">{{ $linesCount }}</span>
                 @endif
@@ -41,7 +41,7 @@
         {{-- Body --}}
         @if ($linesCount === 0)
             <div class="flex-1 flex flex-col items-center justify-center text-center p-8">
-                <x-ui.icon name="cart" class="w-16 h-16 text-neutral-300 mb-4" />
+                <x-ui.icon name="package" class="w-16 h-16 text-neutral-300 mb-4" strokeWidth="1.4" />
                 <p class="text-neutral-600 font-semibold mb-1">Votre panier est vide</p>
                 <p class="text-sm text-neutral-500 mb-6">Ajoutez des produits depuis le catalogue.</p>
                 <x-ui.button variant="primary" href="/" wire:click="close">Voir le catalogue</x-ui.button>
@@ -85,12 +85,13 @@
                         <div class="flex justify-between text-neutral-600"><span>Sous-total HT</span><span>{{ $subTotal }}</span></div>
                     @endif
                     @if ($total)
-                        <div class="flex justify-between font-black text-lg pt-2 border-t border-neutral-100"><span>Total TTC</span><span class="text-primary-700">{{ $total }}</span></div>
+                        <div class="flex justify-between items-baseline pt-2 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $total }}</span></div>
                     @endif
                 </div>
-                <div class="grid grid-cols-2 gap-2 pt-2">
+                <x-ui.button variant="accent" href="/checkout" wire:click="close" fullWidth size="lg" iconRight="arrow-right">Valider la commande</x-ui.button>
+                <div class="grid grid-cols-2 gap-2">
                     <x-ui.button variant="secondary" href="/panier" wire:click="close" class="justify-center">Voir le panier</x-ui.button>
-                    <x-ui.button variant="primary" href="/checkout" wire:click="close" class="justify-center">Commander →</x-ui.button>
+                    <x-ui.button variant="ghost" href="/achat-rapide" wire:click="close" class="justify-center">Convertir en devis</x-ui.button>
                 </div>
             </footer>
         @endif
