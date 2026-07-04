@@ -24,6 +24,7 @@ services:
       DB_PASSWORD: pko_e2e_secret
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      CACHE_STORE: redis
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       QUEUE_CONNECTION: sync

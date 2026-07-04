@@ -32,7 +32,8 @@ async function waitForApp(url: string, timeoutMs = 120_000): Promise<void> {
     const ready = await new Promise<boolean>(resolve => {
       const req = http.get(url, res => {
         res.resume();
-        resolve(!!res.statusCode && res.statusCode < 500);
+        // Any HTTP response means the server is up; 5xx before migrations is expected
+        resolve(!!res.statusCode);
       });
       req.on('error', () => resolve(false));
       req.setTimeout(3000, () => { req.destroy(); resolve(false); });
@@ -143,11 +144,7 @@ export default async function globalSetup(): Promise<void> {
   mkdirSync(__dirname, { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify({ projectName, port: e2ePort, composeEnv }, null, 2));
 
-  // 3. Wait for app HTTP + MySQL user ready
-  await waitForApp(`http://localhost:${e2ePort}`);
-  await waitForDb(projectName, composeEnv);
-
-  // 4. Init storage + bootstrap/cache (named volumes start empty, owned by root)
+  // 3. Init storage + bootstrap/cache BEFORE first HTTP hit (named volumes start empty, owned by root)
   console.log('  Initializing storage directories...');
   execInAppRoot(projectName, composeEnv,
     'bash', '-c',
@@ -155,6 +152,10 @@ export default async function globalSetup(): Promise<void> {
     ' && chown -R sail:sail storage bootstrap/cache' +
     ' && chmod -R ug+rwX storage bootstrap/cache',
   );
+
+  // 4. Wait for app HTTP + MySQL user ready (storage must exist first to avoid boot 500)
+  await waitForApp(`http://localhost:${e2ePort}`);
+  await waitForDb(projectName, composeEnv);
 
   // 5. Migrate + seed (idempotent: fresh wipe each run)
   console.log('  Running migrate:fresh --seed...');
