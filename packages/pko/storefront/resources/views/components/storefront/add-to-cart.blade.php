@@ -32,6 +32,6 @@ $target = $variant ?: $product?->variants?->first();
     @endif
 @else
     @if ($target)
-        @livewire('components.add-to-cart', ['purchasable' => $target], key('atc-'.$target->id.'-'.$style))
+        @livewire('components.add-to-cart', ['purchasable' => $target, 'compact' => $style === 'compact'], key('atc-'.$target->id.'-'.$style))
     @endif
 @endif

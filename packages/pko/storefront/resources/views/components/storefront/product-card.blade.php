@@ -64,12 +64,9 @@ if ($stock <= 0) {
 
         <div class="mt-auto pt-3">
             @if ($isPro)
-                <div class="flex items-end justify-between gap-2">
-                    <x-storefront.price-gate :product="$product" size="md" />
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button type="button" class="inline-flex items-center justify-center w-9 h-9 text-neutral-600 border border-neutral-200 rounded-md hover:bg-neutral-50 hover:border-neutral-300 transition" title="Ajouter à une liste d'achat" aria-label="Ajouter à une liste d'achat">
-                            <x-ui.icon name="list" class="w-4 h-4" />
-                        </button>
+                <div class="flex items-end justify-between gap-3">
+                    <x-storefront.price-gate :product="$product" size="md" class="min-w-0" />
+                    <div class="shrink-0">
                         <x-storefront.add-to-cart :product="$product" :variant="$firstVariant" style="compact" />
                     </div>
                 </div>
