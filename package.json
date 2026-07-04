@@ -3,9 +3,14 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:e2e": "bash scripts/e2e-run.sh",
+        "test:e2e:debug": "bash scripts/e2e-run.sh --debug",
+        "test:e2e:ui": "bash scripts/e2e-run.sh --ui",
+        "test:e2e:smoke": "bash scripts/e2e-run.sh --grep smoke"
     },
     "devDependencies": {
+        "@playwright/test": "^1.61.1",
         "@ryangjchandler/alpine-clipboard": "^2.3.0",
         "@tailwindcss/forms": "^0.5.9",
         "@tailwindcss/typography": "^0.5.19",

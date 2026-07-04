@@ -29,7 +29,7 @@ class SearchAutocomplete extends Component
 
     public function submitSearch(): mixed
     {
-        return redirect('/recherche?q='.urlencode($this->term));
+        return redirect('/recherche?term='.urlencode($this->term));
     }
 
     public function render(): View

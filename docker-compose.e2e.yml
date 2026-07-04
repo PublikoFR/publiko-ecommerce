@@ -1,0 +1,83 @@
+# Stack E2E isolée — gérée par e2e/global-setup.ts et e2e/global-teardown.ts.
+# Ne pas lancer directement. Passer par : bash scripts/e2e-run.sh
+#
+# Variables d'environnement attendues (injectées par global-setup.ts) :
+#   E2E_PORT         Port hôte exposé pour l'app (ex: 18042)
+#   E2E_MAIN_REPO    Chemin absolu du repo principal (pour vendor/ et public/build/)
+#   E2E_APP_KEY      APP_KEY Laravel (lu depuis .env du repo principal)
+
+services:
+  app:
+    image: ecom-laravel-app
+    ports:
+      - "127.0.0.1:${E2E_PORT:-18080}:80"
+    environment:
+      APP_ENV: testing
+      APP_DEBUG: "true"
+      APP_KEY: "${E2E_APP_KEY}"
+      APP_URL: "http://localhost:${E2E_PORT:-18080}"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: pko_e2e
+      DB_USERNAME: pko_e2e
+      DB_PASSWORD: pko_e2e_secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: redis
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: log
+      FILESYSTEM_DISK: local
+      TELESCOPE_ENABLED: "false"
+      # Stripe — dummy keys (tests E2E ne passe pas par le paiement réel)
+      STRIPE_KEY: pk_test_dummy
+      STRIPE_SECRET: sk_test_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_dummy
+    volumes:
+      - ".:/var/www/html"
+      - "${E2E_MAIN_REPO}/vendor:/var/www/html/vendor:ro"
+      - "${E2E_MAIN_REPO}/public/build:/var/www/html/public/build:ro"
+      - e2e_storage:/var/www/html/storage
+      - e2e_bootstrap_cache:/var/www/html/bootstrap/cache
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - e2e_backend
+
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_ROOT_PASSWORD: e2e_root_secret
+      MYSQL_DATABASE: pko_e2e
+      MYSQL_USER: pko_e2e
+      MYSQL_PASSWORD: pko_e2e_secret
+    volumes:
+      - e2e_mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-mde.cnf:ro
+    networks:
+      - e2e_backend
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pe2e_root_secret"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - e2e_backend
+
+networks:
+  e2e_backend:
+    driver: bridge
+
+volumes:
+  e2e_mysql_data:
+  e2e_storage:
+  e2e_bootstrap_cache:

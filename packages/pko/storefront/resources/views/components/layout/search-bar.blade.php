@@ -7,8 +7,8 @@
         </div>
         <input
             type="search"
-            name="q"
-            value="{{ request('q') }}"
+            name="term"
+            value="{{ request('term') }}"
             placeholder="Rechercher un article, une marque, une référence…"
             class="block w-full pl-10 pr-4 py-2.5 rounded-l-md border-r-0 border-neutral-300 focus:border-primary-500 focus:ring-primary-500 text-sm placeholder:text-neutral-400"
             aria-label="Rechercher"
