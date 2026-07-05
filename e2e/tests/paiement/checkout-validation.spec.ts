@@ -7,7 +7,7 @@
  * et le paiement reste inatteignable.
  */
 import { test, expect } from '@playwright/test';
-import { loginAsPro, addFirstProductToCart } from './helpers';
+import { loginAsPro, addFirstProductToCart, openShippingAddressForm, waitForLivewire } from './helpers';
 
 test.describe('Checkout — garde de validation', () => {
   test('une adresse de livraison incomplète bloque l\'accès au paiement', async ({ page }) => {
@@ -16,16 +16,21 @@ test.describe('Checkout — garde de validation', () => {
     await loginAsPro(page);
     await addFirstProductToCart(page);
     await page.goto('/checkout');
-    await page.waitForLoadState('networkidle');
+    // Attend le montage du checkout (section adresse rendue).
+    await expect(page.getByRole('heading', { name: 'Shipping Details' })).toBeVisible({ timeout: 15_000 });
 
-    // Adresse pro pré-remplie partiellement mais line_one / city / postcode
-    // sont vides (pas d'adresse SIRENE seedée) → on soumet en l'état.
+    // Panier partagé (persisté par client en base) : garantir un formulaire
+    // éditable même si un test précédent a déjà enregistré une adresse.
+    await openShippingAddressForm(page);
+
+    // On vide line_one → l'adresse devient incomplète (champ requis).
     const lineOne = page.locator('[wire\\:model\\.live="shipping.line_one"]');
     await expect(lineOne).toBeVisible();
     await lineOne.fill('');
 
+    const livewire = waitForLivewire(page);
     await page.locator('button:has-text("Enregistrer l\'adresse")').first().click();
-    await page.waitForTimeout(2_000);
+    await livewire;
 
     // L'étape adresse reste active (le formulaire n'a pas basculé en récap) :
     // le champ d'adresse est toujours éditable → paiement non atteint.
