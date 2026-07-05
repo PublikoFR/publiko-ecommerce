@@ -51,6 +51,13 @@ npm run test:e2e:ui          # interface graphique Playwright
 Créer `e2e/tests/<feature>.spec.ts`. Utiliser des chemins relatifs :
 `page.goto('/catalogue')`, `page.goto('/admin/produits')`. Voir `e2e/README.md`.
 
+Les parcours volumineux vivent dans un sous-dossier avec leur `SKILL.md` et un
+`helpers.ts` local. Parcours existants :
+- `e2e/tests/compte-pro/` — inscription, connexion/déconnexion, espace pro
+  (société/SIRET), historique commandes. Comptes seedés par `PkoCustomerSeeder`
+  (groupe `installateurs`). Cf. `e2e/tests/compte-pro/SKILL.md`.
+  Lancer : `npm run test:e2e -- compte-pro`.
+
 ## Seeders disponibles
 
 Tous les seeders `database/seeders/Pko*Seeder.php` sont chargés :

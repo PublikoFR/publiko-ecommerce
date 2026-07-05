@@ -74,18 +74,22 @@ class RegisterPage extends Component
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);
         }
 
-        Auth::login($result['user']);
-        session()->regenerate();
-
+        // Un compte actif est connecté immédiatement et accède à l'espace pro.
         if ($result['sirene']->isActive()) {
+            Auth::login($result['user']);
+            session()->regenerate();
             session()->flash('status', 'Bienvenue ! Votre compte pro est actif.');
 
             return redirect('/compte');
         }
 
+        // Compte en attente de validation SIRET : on ne connecte PAS l'utilisateur.
+        // Le connecter puis rediriger vers /compte provoquerait une boucle de
+        // redirection (pro.customer renvoie les comptes non-actifs vers /connexion,
+        // que redirect.if.pro renvoie à son tour vers /compte pour un user authentifié).
         session()->flash('status', 'Compte créé. Nous finalisons la vérification de votre SIRET, vous serez notifié par e-mail dès activation.');
 
-        return redirect('/compte');
+        return redirect('/connexion');
     }
 
     #[Layout('customer-auth::layouts.auth')]
