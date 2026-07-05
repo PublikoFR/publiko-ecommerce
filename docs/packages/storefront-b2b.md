@@ -59,6 +59,14 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 - Si `Status::Inactive` → `DomainException` bloquante.
 - Si `Status::Pending` → compte créé mais `sirene_status='pending'` → middleware refuse tant que non promu active.
 
+`RegisterPage` (Livewire) après création :
+- `Status::Active` → `Auth::login()` + redirection `/compte` (accès immédiat).
+- `Status::Pending`/`Inactive` gérés en amont → **on ne connecte PAS** un compte pending :
+  redirection vers `/connexion` avec un message d'attente de validation. Connecter un
+  compte pending puis rediriger vers `/compte` provoquait une **boucle de redirection**
+  (`pro.customer` renvoie les non-actifs vers `/connexion`, que `redirect.if.pro` renvoie
+  vers `/compte` pour un user authentifié).
+
 Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_status` (indexed), `sirene_verified_at`, `naf_code`.
 
 Env requis pour INSEE : `INSEE_ENABLED=true`, `INSEE_API_KEY`, `INSEE_API_SECRET` (par défaut `INSEE_ENABLED=false` → fallback pending, admin valide manuellement).

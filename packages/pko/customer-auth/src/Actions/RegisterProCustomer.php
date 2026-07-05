@@ -33,8 +33,11 @@ class RegisterProCustomer
             $customer = Customer::create([
                 'company_name' => $data['company_name'] ?? $sirene->raisonSociale,
                 'tax_identifier' => $this->vatFromSiret($sirene->siret),
-                'first_name' => $data['first_name'] ?? null,
-                'last_name' => $data['last_name'] ?? null,
+                // lunar_customers.first_name / last_name sont NOT NULL : à l'inscription
+                // pro seul le SIRET est obligatoire (prénom/nom facultatifs), on
+                // retombe sur une chaîne vide plutôt que null pour éviter un 500.
+                'first_name' => $data['first_name'] ?? '',
+                'last_name' => $data['last_name'] ?? '',
                 'title' => null,
                 'meta' => [
                     'siret' => $sirene->siret,
