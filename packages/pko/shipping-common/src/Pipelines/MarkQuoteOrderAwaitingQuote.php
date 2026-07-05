@@ -15,20 +15,23 @@ use Lunar\Models\ProductVariant;
  *
  * Must be placed AFTER CreateOrderLines in config/lunar/orders.php pipelines.creation.
  *
- * Only ProductVariant lines are checked — shipping lines use ShippingOption
- * (a DataType, not an Eloquent model) as purchasable_type and cannot be resolved
- * via MorphTo without an ArgumentCountError.
+ * Uses a whereIn subquery on ProductVariant IDs instead of traversing the MorphTo
+ * relation — shipping lines have purchasable_type=ShippingOption (a DataType, not an
+ * Eloquent model), which triggers ArgumentCountError when Eloquent tries to resolve
+ * the polymorphic relation. whereHas on a MorphTo is also unsupported in Laravel.
  */
 final class MarkQuoteOrderAwaitingQuote
 {
     public function handle(Order $order, Closure $next): Order
     {
-        $hasQuoteOnly = $order->lines()
+        $quoteVariantIds = ProductVariant::whereHas(
+            'product',
+            fn ($q) => $q->where('pko_quote_only', true),
+        )->pluck('id');
+
+        $hasQuoteOnly = $quoteVariantIds->isNotEmpty() && $order->lines()
             ->where('purchasable_type', ProductVariant::class)
-            ->whereHas('purchasable', fn ($q) => $q->whereHas(
-                'product',
-                fn ($q) => $q->where('pko_quote_only', true),
-            ))
+            ->whereIn('purchasable_id', $quoteVariantIds)
             ->exists();
 
         if ($hasQuoteOnly) {

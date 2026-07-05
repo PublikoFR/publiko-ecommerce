@@ -134,7 +134,7 @@ class PkoProductSeeder extends Seeder
 
                 $sku = strtoupper(Str::random(4)).'-'.random_int(1000, 9999);
                 $basePriceCents = random_int(5000, 250000);
-                $stock = random_int(0, 50);
+                $stock = random_int(5, 50);
 
                 $variant = ProductVariant::query()->create([
                     'product_id' => $product->id,
