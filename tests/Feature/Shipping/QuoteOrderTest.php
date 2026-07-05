@@ -7,6 +7,7 @@ namespace Tests\Feature\Shipping;
 use Closure;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Lunar\DataTypes\ShippingOption;
 use Lunar\Models\Channel;
 use Lunar\Models\Currency;
 use Lunar\Models\Order;
@@ -65,6 +66,70 @@ class QuoteOrderTest extends TestCase
         $this->assertSame('awaiting-payment', $result->status);
     }
 
+    public function test_pipeline_does_not_crash_with_shipping_option_lines(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        $product->forceFill(['pko_quote_only' => false])->save();
+
+        $variant = $product->variants()->first();
+        $this->assertNotNull($variant);
+
+        $order = $this->makeMinimalOrder('awaiting-payment');
+
+        // Ligne ProductVariant normale
+        \DB::table('lunar_order_lines')->insert([
+            'order_id' => $order->id,
+            'purchasable_type' => ProductVariant::class,
+            'purchasable_id' => $variant->id,
+            'type' => 'physical',
+            'description' => 'Produit normal',
+            'identifier' => 'SKU-NORMAL',
+            'unit_price' => 2000,
+            'unit_quantity' => 100,
+            'quantity' => 1,
+            'sub_total' => 2000,
+            'discount_total' => 0,
+            'tax_breakdown' => '[]',
+            'tax_total' => 400,
+            'total' => 2400,
+            'notes' => null,
+            'meta' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Ligne de livraison (ShippingOption = DataType, pas un Model Eloquent)
+        // C'est ce type de ligne qui provoquait l'ArgumentCountError
+        \DB::table('lunar_order_lines')->insert([
+            'order_id' => $order->id,
+            'purchasable_type' => ShippingOption::class,
+            'purchasable_id' => 0,
+            'type' => 'shipping',
+            'description' => 'Livraison standard',
+            'identifier' => 'SHIPPING-STD',
+            'unit_price' => 590,
+            'unit_quantity' => 100,
+            'quantity' => 1,
+            'sub_total' => 590,
+            'discount_total' => 0,
+            'tax_breakdown' => '[]',
+            'tax_total' => 118,
+            'total' => 708,
+            'notes' => null,
+            'meta' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Le pipeline ne doit pas lever ArgumentCountError et le statut doit rester inchangé
+        $result = $this->runPipeline($order);
+
+        $this->assertSame('awaiting-payment', $result->fresh()->status);
+    }
+
     public function test_pipeline_sets_awaiting_quote_when_quote_only_line_exists(): void
     {
         /** @var Product $product */
@@ -101,6 +166,70 @@ class QuoteOrderTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $result = $this->runPipeline($order);
+
+        $this->assertSame('awaiting-quote', $result->fresh()->status);
+    }
+
+    public function test_pipeline_sets_awaiting_quote_with_mixed_shipping_and_quote_only_lines(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        $product->forceFill(['pko_quote_only' => true])->save();
+
+        $variant = $product->variants()->first();
+        $this->assertNotNull($variant);
+
+        $order = $this->makeMinimalOrder('awaiting-payment');
+
+        // Ligne produit quote_only
+        \DB::table('lunar_order_lines')->insert([
+            'order_id' => $order->id,
+            'purchasable_type' => ProductVariant::class,
+            'purchasable_id' => $variant->id,
+            'type' => 'physical',
+            'description' => 'Produit quote-only',
+            'identifier' => 'QUOTE-SKU',
+            'unit_price' => 5000,
+            'unit_quantity' => 100,
+            'quantity' => 1,
+            'sub_total' => 5000,
+            'discount_total' => 0,
+            'tax_breakdown' => '[]',
+            'tax_total' => 1000,
+            'total' => 6000,
+            'notes' => null,
+            'meta' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Ligne de livraison (ShippingOption = DataType, pas un Eloquent Model)
+        \DB::table('lunar_order_lines')->insert([
+            'order_id' => $order->id,
+            'purchasable_type' => ShippingOption::class,
+            'purchasable_id' => 0,
+            'type' => 'shipping',
+            'description' => 'Livraison',
+            'identifier' => 'SHIPPING-STD',
+            'unit_price' => 590,
+            'unit_quantity' => 100,
+            'quantity' => 1,
+            'sub_total' => 590,
+            'discount_total' => 0,
+            'tax_breakdown' => '[]',
+            'tax_total' => 118,
+            'total' => 708,
+            'notes' => null,
+            'meta' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // La présence de la ligne ShippingOption ne doit pas déclencher d'ArgumentCountError
+        // et le statut doit être positionné sur awaiting-quote car la ligne produit l'exige
         $result = $this->runPipeline($order);
 
         $this->assertSame('awaiting-quote', $result->fresh()->status);
