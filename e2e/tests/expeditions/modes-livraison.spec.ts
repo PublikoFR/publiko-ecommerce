@@ -37,24 +37,22 @@ test.describe('Expéditions — sélection du mode de livraison', () => {
   // l'opcache PHP partagé par toutes les routes). Sans ce warmup hors-budget,
   // c'est le tout premier test qui paie ce coût dans son propre timeout de 240 s.
   test.beforeAll(async ({ browser }) => {
-    // Le 1er rendu à froid de la stack (post `optimize:clear`) est très lent
-    // (recompilation opcache de Lunar + Filament + tous les packages pko). On lui
-    // donne une marge large et non-fatale : si le warmup n'aboutit pas, on laisse
-    // le premier test retenter dans son propre budget plutôt que de planter le bloc.
-    test.setTimeout(360_000);
+    // Sécurité redondante : le cold-start serveur est déjà absorbé par le warm-up
+    // de `global-setup` (requête /connexion après optimize:clear). Ce hook ne fait
+    // qu'une vérification légère d'hydratation. Timeout court et non-fatal → jamais
+    // de blocage prolongé si la chauffe infra a suffi (cas nominal).
+    test.setTimeout(90_000);
     const port = process.env.E2E_PORT ?? '18080';
     const page = await browser.newPage({ baseURL: `http://localhost:${port}` });
-    const started = Date.now();
     try {
-      await page.goto('/connexion', { waitUntil: 'domcontentloaded', timeout: 330_000 });
+      await page.goto('/connexion', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       await page
         .waitForFunction(() => (window as { Livewire?: unknown }).Livewire !== undefined, {
-          timeout: 60_000,
+          timeout: 30_000,
         })
         .catch(() => undefined);
-      console.log(`[warmup] cold-start /connexion prêt en ${((Date.now() - started) / 1000).toFixed(1)}s`);
-    } catch (error) {
-      console.log(`[warmup] échec/timeout après ${((Date.now() - started) / 1000).toFixed(1)}s — le 1er test retentera`);
+    } catch {
+      // Warm infra insuffisant : le 1er test retentera dans son propre budget.
     } finally {
       await page.close();
     }
