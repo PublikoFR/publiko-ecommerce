@@ -2,6 +2,7 @@
 @import './modules/media-library.css';
 @import './modules/media-picker.css';
 @import './modules/tiptap-editor.css';
+@import './modules/weklo-dashboard.css';
 
 @config 'tailwind.config.js';
 

@@ -1,0 +1,239 @@
+/* @import doit précéder toute autre règle — IBM Plex Mono pour les réf. produit.
+   Hanken Grotesk est déjà chargé par ->font('Hanken Grotesk') du panel. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ==========================================================================
+   Weklo — Dashboard back-office
+   Tokens du design system (mirroir de resources/css/app.css) scopés à .wk-dash
+   pour ne pas polluer le reste du panel Filament, + police display Forno Waffle
+   + helpers de la maquette (hover lignes, chips, tooltip ApexCharts).
+   ========================================================================== */
+
+@font-face {
+    font-family: 'Forno Waffle';
+    src: url('/fonts/FornoWaffle-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Forno Waffle';
+    src: url('/fonts/FornoWaffle-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+.wk-dash {
+    /* Forest (primary) */
+    --forest-50: #eef5f3;
+    --forest-100: #d6e7e3;
+    --forest-200: #abccc5;
+    --forest-300: #79aaa1;
+    --forest-400: #43847a;
+    --forest-500: #136356;
+    --forest-600: #00453e;
+    --forest-700: #003a34;
+    --forest-800: #002e29;
+    --forest-900: #00211e;
+
+    /* Lime (accent) */
+    --lime-50: #f6faea;
+    --lime-100: #ecf4cf;
+    --lime-200: #dbe9a3;
+    --lime-300: #c8dd72;
+    --lime-400: #b8d24c;
+    --lime-500: #aac932;
+    --lime-600: #8aa922;
+    --lime-700: #6a841d;
+    --lime-800: #50641b;
+    --lime-900: #3c4b19;
+
+    /* Neutrals */
+    --neutral-0: #ffffff;
+    --neutral-50: #f6f8f7;
+    --neutral-100: #eef1f0;
+    --neutral-200: #e0e4e2;
+    --neutral-300: #c5ccc9;
+    --neutral-400: #9aa3a0;
+    --neutral-500: #76817d;
+    --neutral-600: #586460;
+    --neutral-700: #3f4a46;
+    --neutral-800: #283330;
+    --neutral-900: #16201d;
+
+    /* Semantic */
+    --success-100: #d9f0e0;
+    --success-500: #2f9e57;
+    --success-700: #1f6e3c;
+    --warning-100: #fbeccb;
+    --warning-500: #e8a317;
+    --warning-700: #a36f08;
+    --danger-100: #f9dcdc;
+    --danger-500: #d64545;
+    --danger-700: #9c2a2a;
+    --info-100: #d6e9f3;
+    --info-500: #2f80b8;
+    --info-700: #1d5781;
+
+    /* Surfaces / text / borders */
+    --surface-page: #f6f8f7;
+    --surface-card: #ffffff;
+    --surface-sunken: #eef1f0;
+    --text-primary: #16201d;
+    --text-secondary: #586460;
+    --text-muted: #76817d;
+    --border-subtle: #e0e4e2;
+    --border-default: #c5ccc9;
+
+    /* Shadows (forest-tinted) */
+    --shadow-sm: 0 1px 3px rgba(0, 33, 30, 0.08), 0 1px 2px rgba(0, 33, 30, 0.04);
+    --shadow-md: 0 4px 12px rgba(0, 33, 30, 0.08), 0 2px 4px rgba(0, 33, 30, 0.04);
+    --shadow-lg: 0 12px 28px rgba(0, 33, 30, 0.1), 0 4px 8px rgba(0, 33, 30, 0.05);
+
+    /* Type + motion */
+    --font-display: 'Forno Waffle', 'Hanken Grotesk', system-ui, sans-serif;
+    --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-emphasis: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+
+    /* Rythme vertical entre les sections du dashboard (comme la maquette). */
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.dark .wk-dash {
+    --surface-page: #0c110f;
+    --surface-card: #16201d;
+    --surface-sunken: #1b2723;
+    --text-primary: #eef1f0;
+    --text-secondary: #c5ccc9;
+    --text-muted: #9aa3a0;
+    --border-subtle: #283330;
+    --border-default: #3f4a46;
+}
+
+.wk-dash .wk-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+}
+.wk-dash .wk-mono {
+    font-family: var(--font-mono);
+}
+
+.wk-dash .wk-row {
+    transition: background 0.15s var(--ease-standard);
+}
+.wk-dash .wk-row:hover {
+    background: var(--surface-sunken);
+}
+.wk-dash .wk-chip {
+    transition: border-color 0.15s var(--ease-standard);
+    cursor: pointer;
+}
+.wk-dash .wk-chip:hover {
+    border-color: var(--forest-400);
+}
+.wk-dash .wk-seg {
+    cursor: pointer;
+    transition: all 0.15s var(--ease-standard);
+}
+
+.wk-dash .apexcharts-tooltip {
+    border-radius: 10px !important;
+    box-shadow: var(--shadow-lg) !important;
+    border: 1px solid var(--border-subtle) !important;
+    font-family: var(--font-sans) !important;
+}
+.wk-dash .apexcharts-tooltip-title {
+    font-family: var(--font-sans) !important;
+    font-weight: 700 !important;
+    background: var(--surface-sunken) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+/* ==========================================================================
+   Chrome du panel (hors .wk-dash) — alignés sur la maquette Weklo.
+   Valeurs en hex car ces éléments sont rendus hors du scope .wk-dash.
+   ========================================================================== */
+
+/* --- Onglet actif de la sidebar : fond forest-50 + label forest + barre lime --- */
+.fi-sidebar-item.fi-active > .fi-sidebar-item-button {
+    background-color: #eef5f3;
+    position: relative;
+}
+.dark .fi-sidebar-item.fi-active > .fi-sidebar-item-button {
+    background-color: rgba(170, 201, 50, 0.1);
+}
+.fi-sidebar-item.fi-active > .fi-sidebar-item-button::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: #aac932;
+}
+.fi-sidebar-item.fi-active > .fi-sidebar-item-button .fi-sidebar-item-label {
+    color: #003a34;
+    font-weight: 600;
+}
+.dark .fi-sidebar-item.fi-active > .fi-sidebar-item-button .fi-sidebar-item-label {
+    color: #ecf4cf;
+}
+.fi-sidebar-item.fi-active > .fi-sidebar-item-button .fi-sidebar-item-icon {
+    color: #00453e;
+}
+.dark .fi-sidebar-item.fi-active > .fi-sidebar-item-button .fi-sidebar-item-icon {
+    color: #aac932;
+}
+
+/* --- Barre de recherche de la topbar : pastille arrondie fond sunken --- */
+.fi-topbar .fi-global-search-field {
+    width: 100%;
+    max-width: 440px;
+}
+.fi-topbar .fi-global-search-field .fi-input-wrp {
+    border-radius: 9999px;
+    background-color: #eef1f0;
+    box-shadow: inset 0 0 0 1px #e0e4e2;
+}
+.dark .fi-topbar .fi-global-search-field .fi-input-wrp {
+    background-color: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.fi-topbar .fi-global-search-field .fi-input-wrp .fi-input {
+    background-color: transparent;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+/* --- Identité utilisateur (nom + rôle) à gauche de l'avatar --- */
+.wk-user-identity {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    text-align: right;
+    margin-right: 2px;
+}
+.wk-user-identity .wk-user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #16201d;
+}
+.wk-user-identity .wk-user-role {
+    font-size: 11px;
+    color: #76817d;
+}
+.dark .wk-user-identity .wk-user-name {
+    color: #eef1f0;
+}
+.dark .wk-user-identity .wk-user-role {
+    color: #9aa3a0;
+}
