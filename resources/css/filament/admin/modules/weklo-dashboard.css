@@ -211,7 +211,7 @@
 /* --- Barre de recherche de la topbar : pastille arrondie fond sunken --- */
 .fi-topbar .fi-global-search-field {
     width: 100%;
-    max-width: 440px;
+    max-width: 620px;
 }
 .fi-topbar .fi-global-search-field .fi-input-wrp {
     border-radius: 9999px;
