@@ -88,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
                 ->path('admin')
                 ->brandName(brand_name())
                 ->brandLogo(fn (): string => asset('img/weklo-lockup.png'))
+                ->darkModeBrandLogo(fn (): string => asset('img/weklo-lockup.png'))
                 ->brandLogoHeight('2.5rem')
                 ->favicon(asset('img/weklo-mark.png'))
                 ->renderHook(

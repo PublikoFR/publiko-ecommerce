@@ -16,7 +16,7 @@
         {{-- ===================== EN-TÊTE PAGE ===================== --}}
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap">
             <div>
-                <h1 class="wk-display" style="font-weight:700;font-size:30px;margin:0;color:var(--forest-600)">Tableau de bord</h1>
+                <h1 class="wk-display" style="font-weight:700;font-size:30px;margin:0;color:var(--brand-ink)">Tableau de bord</h1>
                 <p style="margin:6px 0 0;color:var(--text-secondary);font-size:14px">
                     Vue d'ensemble de l'activité — <span style="font-weight:600;color:var(--text-primary)" x-text="d.periodLabel"></span>
                 </p>
@@ -26,7 +26,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
                     Exporter
                 </button>
-                <button type="button" @click="refresh()" style="display:flex;align-items:center;gap:8px;background:var(--forest-600);border:1px solid var(--forest-600);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font-sans)">
+                <button type="button" @click="refresh()" style="display:flex;align-items:center;gap:8px;background:var(--brand-solid);border:1px solid var(--brand-solid);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font-sans)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.5 4"/><path d="M20 5v5h-5"/></svg>
                     Actualiser
                 </button>
@@ -39,18 +39,18 @@
                 <template x-for="t in periodTabs" :key="t.key">
                     <span class="wk-seg" @click="period = t.key"
                         :style="period === t.key
-                            ? 'padding:7px 15px;border-radius:8px;font-size:13px;font-weight:600;color:#fff;background:var(--forest-600);box-shadow:var(--shadow-sm)'
+                            ? 'padding:7px 15px;border-radius:8px;font-size:13px;font-weight:600;color:#fff;background:var(--brand-solid);box-shadow:var(--shadow-sm)'
                             : 'padding:7px 15px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text-secondary);background:transparent'"
                         x-text="t.label"></span>
                 </template>
             </div>
             <div class="wk-chip" style="display:flex;align-items:center;gap:9px;color:var(--text-secondary);font-size:13px;border:1px solid var(--border-default);border-radius:10px;padding:8px 13px">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--forest-600)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
                 <span style="font-weight:600;color:var(--text-primary)" x-text="d.dateRange"></span>
             </div>
             <label style="display:flex;align-items:center;gap:10px;margin-left:auto;cursor:pointer" @click="compare = !compare">
                 <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">Comparer à la période précédente</span>
-                <span :style="'width:42px;height:24px;border-radius:9999px;position:relative;transition:background .2s var(--ease-standard);flex-shrink:0;background:' + (compare ? 'var(--forest-600)' : 'var(--neutral-300)')">
+                <span :style="'width:42px;height:24px;border-radius:9999px;position:relative;transition:background .2s var(--ease-standard);flex-shrink:0;background:' + (compare ? 'var(--brand-solid)' : 'var(--neutral-300)')">
                     <span :style="'position:absolute;top:2px;width:20px;height:20px;border-radius:9999px;background:#fff;box-shadow:var(--shadow-sm);transition:left .2s var(--ease-emphasis);left:' + (compare ? '20px' : '2px')"></span>
                 </span>
             </label>
@@ -62,7 +62,7 @@
                 <div style="background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:16px;box-shadow:var(--shadow-sm);padding:18px 20px;display:flex;flex-direction:column;gap:8px;min-width:0">
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
                         <span style="font-size:12px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--text-muted)" x-text="k.label"></span>
-                        <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--forest-50);color:var(--forest-600)" x-html="iconFor(k.icon)"></span>
+                        <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--forest-50);color:var(--brand-ink)" x-html="iconFor(k.icon)"></span>
                     </div>
                     <div class="wk-display" style="font-weight:700;font-size:27px;line-height:1.1;color:var(--text-primary)" x-text="k.value"></div>
                     <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;flex-wrap:wrap">
@@ -104,7 +104,7 @@
                         <p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Évolution sur la période — HT</p>
                     </div>
                     <div style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text-secondary)">
-                        <span style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:3px;border-radius:2px;background:var(--forest-600)"></span>Période</span>
+                        <span style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:3px;border-radius:2px;background:var(--brand-ink)"></span>Période</span>
                         <span x-show="compare" style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:3px;border-radius:2px;background:var(--neutral-400)"></span>Préc.</span>
                     </div>
                 </div>
@@ -142,7 +142,7 @@
                 <template x-for="(p, i) in d.bestSellers" :key="i">
                     <div class="wk-row" style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px 14px;align-items:center;font-size:13.5px;padding:10px 0;border-bottom:1px solid var(--border-subtle)">
                         <div style="display:flex;align-items:center;gap:11px;min-width:0">
-                            <span style="width:30px;height:30px;border-radius:8px;background:var(--forest-50);color:var(--forest-600);display:flex;align-items:center;justify-content:center;flex-shrink:0" x-html="iconFor('box')"></span>
+                            <span style="width:30px;height:30px;border-radius:8px;background:var(--forest-50);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0" x-html="iconFor('box')"></span>
                             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500" x-text="p.name"></span>
                         </div>
                         <span class="wk-mono" style="font-size:12px;color:var(--text-muted);text-align:center" x-text="p.sku"></span>
@@ -244,13 +244,13 @@
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                     <div>
                         <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">Devis en cours</h3>
-                        <p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Potentiel : <span style="font-weight:700;color:var(--forest-600)" x-text="d.devisTotal"></span></p>
+                        <p style="margin:3px 0 0;font-size:12.5px;color:var(--text-muted)">Potentiel : <span style="font-weight:700;color:var(--brand-ink)" x-text="d.devisTotal"></span></p>
                     </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:10px">
                     <template x-for="(v, i) in d.devis" :key="i">
                         <div class="wk-row" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border-subtle);border-radius:12px">
-                            <span style="width:36px;height:36px;border-radius:9999px;background:var(--forest-50);color:var(--forest-600);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0" x-text="v.initials"></span>
+                            <span style="width:36px;height:36px;border-radius:9999px;background:var(--forest-50);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0" x-text="v.initials"></span>
                             <div style="min-width:0;flex:1">
                                 <div style="font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="v.client"></div>
                                 <div style="font-size:11.5px;color:var(--text-muted)"><span x-text="v.ref"></span> · <span x-text="v.date"></span></div>
@@ -270,7 +270,7 @@
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px">
             <template x-for="p in d.promos" :key="p.key">
                 <div :style="p.variant === 'brand'
-                    ? 'background:var(--forest-600);border:1px solid var(--forest-600);border-radius:16px;box-shadow:var(--shadow-sm);padding:18px 20px'
+                    ? 'background:var(--brand-solid);border:1px solid var(--brand-solid);border-radius:16px;box-shadow:var(--shadow-sm);padding:18px 20px'
                     : 'background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:16px;box-shadow:var(--shadow-sm);padding:18px 20px'">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
                         <span :style="'width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;' + (p.variant === 'brand' ? 'background:rgba(255,255,255,.15);color:#fff' : 'background:var(--lime-100);color:var(--lime-700)')" x-html="iconFor(p.icon)"></span>
@@ -298,7 +298,7 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
                 <template x-for="f in orderFilters" :key="f.key">
                     <span class="wk-seg" @click="orderFilter = f.key"
-                        :style="'font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:9999px;border:1px solid;' + (orderFilter === f.key ? 'color:#fff;background:var(--forest-600);border-color:var(--forest-600)' : 'color:var(--text-secondary);background:var(--surface-card);border-color:var(--border-default)')">
+                        :style="'font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:9999px;border:1px solid;' + (orderFilter === f.key ? 'color:#fff;background:var(--brand-solid);border-color:var(--brand-ink)' : 'color:var(--text-secondary);background:var(--surface-card);border-color:var(--border-default)')">
                         <span x-text="f.label"></span> <span style="opacity:.7" x-text="f.count"></span>
                     </span>
                 </template>
@@ -310,7 +310,7 @@
                 <div style="min-width:760px">
                     <template x-for="(o, i) in filteredOrders" :key="i">
                         <div class="wk-row" style="display:grid;grid-template-columns:1.1fr 1.6fr 1fr 1.1fr .9fr .9fr;gap:14px;align-items:center;font-size:13.5px;padding:12px 4px;border-bottom:1px solid var(--border-subtle)">
-                            <span class="wk-mono" style="font-weight:600;color:var(--forest-600)" x-text="o.num"></span>
+                            <span class="wk-mono" style="font-weight:600;color:var(--brand-ink)" x-text="o.num"></span>
                             <div style="display:flex;align-items:center;gap:10px;min-width:0">
                                 <span style="width:28px;height:28px;border-radius:9999px;background:var(--surface-sunken);color:var(--text-secondary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0" x-text="o.initials"></span>
                                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="o.client"></span>
@@ -425,7 +425,7 @@
                     if (this.compare) series.push({ name: 'Période préc.', data: m.previous });
                     return {
                         chart: { type: 'area', height: 300, fontFamily: 'var(--font-sans)', toolbar: { show: false }, animations: { easing: 'easeout', speed: 400 }, parentHeightOffset: 0 },
-                        series: series, colors: ['#00453e', '#c5ccc9'],
+                        series: series, colors: [this.ink(), '#c5ccc9'],
                         stroke: { curve: 'smooth', width: [3, 2], dashArray: [0, 5] },
                         fill: { type: ['gradient', 'solid'], gradient: { shadeIntensity: 0.4, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 95] }, opacity: [1, 0] },
                         dataLabels: { enabled: false }, grid: { borderColor: '#eef1f0', strokeDashArray: 4, padding: { left: 6, right: 6 } },
@@ -438,7 +438,7 @@
                 donutOptions(labels, dataArr, colors) {
                     return {
                         chart: { type: 'donut', height: 190, fontFamily: 'var(--font-sans)' },
-                        series: dataArr.length ? dataArr : [1], labels: labels.length ? labels : ['—'], colors: colors && colors.length ? colors : ['#e0e4e2'],
+                        series: dataArr.length ? dataArr : [1], labels: labels.length ? labels : ['—'], colors: this.darkSafe(colors && colors.length ? colors : ['#e0e4e2']),
                         stroke: { width: 2, colors: ['#fff'] }, dataLabels: { enabled: false }, legend: { show: false },
                         plotOptions: { pie: { donut: { size: '68%', labels: { show: false } } } },
                         tooltip: { y: { formatter: v => this.fmt(v) } }, states: { hover: { filter: { type: 'darken', value: 0.9 } } },
@@ -448,7 +448,7 @@
                 barOptions(labels, dataArr) {
                     return {
                         chart: { type: 'bar', height: 290, fontFamily: 'var(--font-sans)', toolbar: { show: false } },
-                        series: [{ name: 'Commandes', data: dataArr }], colors: ['#00453e'],
+                        series: [{ name: 'Commandes', data: dataArr }], colors: [this.ink()],
                         plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '62%' } },
                         dataLabels: { enabled: true, textAnchor: 'start', offsetX: 6, style: { colors: ['#3f4a46'], fontSize: '11px', fontWeight: 700 }, formatter: v => v },
                         xaxis: { categories: labels, labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
@@ -460,6 +460,20 @@
                 fmt(n) { return Math.round(n).toLocaleString('fr-FR'); },
                 eur(n) { return Math.round(n).toLocaleString('fr-FR') + ' €'; },
 
+                // Couleur de marque effective (forest en clair, lime en sombre) lue
+                // sur le token CSS → les graphes restent lisibles dans les 2 thèmes.
+                isDark() { return document.documentElement.classList.contains('dark'); },
+                ink() {
+                    try {
+                        return getComputedStyle(this.$root).getPropertyValue('--brand-ink').trim() || '#00453e';
+                    } catch (e) { return '#00453e'; }
+                },
+                darkSafe(colors) {
+                    if (!this.isDark()) return colors;
+                    const map = { '#00453e': '#79aaa1', '#003a34': '#43847a' };
+                    return colors.map(c => map[(c || '').toLowerCase()] || c);
+                },
+
                 // -- helpers de teinte (badges/pastilles) --
                 toneSoft(tone) {
                     const m = {
@@ -467,7 +481,7 @@
                         warning: 'background:var(--warning-100);color:var(--warning-700)',
                         danger: 'background:var(--danger-100);color:var(--danger-700)',
                         info: 'background:var(--info-100);color:var(--info-700)',
-                        brand: 'background:var(--forest-50);color:var(--forest-700)',
+                        brand: 'background:var(--forest-50);color:var(--brand-ink)',
                         accent: 'background:var(--lime-100);color:var(--lime-700)',
                         muted: 'background:var(--surface-sunken);color:var(--text-secondary)',
                     };
@@ -476,7 +490,7 @@
                 toneText(tone) {
                     const m = {
                         success: 'var(--success-700)', warning: 'var(--warning-700)', danger: 'var(--danger-700)',
-                        info: 'var(--info-700)', brand: 'var(--forest-600)', accent: 'var(--lime-700)', muted: 'var(--text-secondary)',
+                        info: 'var(--info-700)', brand: 'var(--brand-ink)', accent: 'var(--lime-700)', muted: 'var(--text-secondary)',
                     };
                     return m[tone] || 'var(--text-secondary)';
                 },

@@ -86,6 +86,13 @@
     --border-subtle: #e0e4e2;
     --border-default: #c5ccc9;
 
+    /* Vert de marque, dédoublé par rôle :
+       --brand-ink   = texte / icônes / traits de courbe (foncé sur clair)
+       --brand-solid = fond plein sous texte blanc (bouton, pastille active)
+       Remappés en clair sur fond sombre (cf. .dark) pour la lisibilité. */
+    --brand-ink: var(--forest-600);
+    --brand-solid: var(--forest-600);
+
     /* Shadows (forest-tinted) */
     --shadow-sm: 0 1px 3px rgba(0, 33, 30, 0.08), 0 1px 2px rgba(0, 33, 30, 0.04);
     --shadow-md: 0 4px 12px rgba(0, 33, 30, 0.08), 0 2px 4px rgba(0, 33, 30, 0.04);
@@ -116,6 +123,13 @@
     --text-muted: #9aa3a0;
     --border-subtle: #283330;
     --border-default: #3f4a46;
+
+    /* Sur fond sombre le vert foncé devient illisible → texte/accents en vert
+       clair (lime), fond plein en forest-500 (contraste OK sous texte blanc),
+       et les pastilles forest-50 en teinte verte translucide. */
+    --brand-ink: #aac932;
+    --brand-solid: #136356;
+    --forest-50: rgba(170, 201, 50, 0.12);
 }
 
 .wk-dash .wk-display {
@@ -212,6 +226,14 @@
     background-color: transparent;
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
+}
+
+/* --- Logo Weklo en thème sombre : lockup vert foncé → blanc monochrome
+   (pas de variante claire du lockup dispo), sinon illisible sur fond sombre. --- */
+.dark .fi-logo,
+.dark .fi-logo img,
+.dark img.fi-logo {
+    filter: brightness(0) invert(1);
 }
 
 /* --- Identité utilisateur (nom + rôle) à gauche de l'avatar --- */
