@@ -22,6 +22,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\ActivityResource;
@@ -88,7 +89,9 @@ class AppServiceProvider extends ServiceProvider
                 ->path('admin')
                 ->brandName(brand_name())
                 ->brandLogo(fn (): string => asset('img/weklo-lockup.png'))
-                ->darkModeBrandLogo(fn (): string => asset('img/weklo-lockup.png'))
+                ->darkModeBrandLogo(fn (): HtmlString => new HtmlString(
+                    '<span class="wk-logo-dark">weklo</span>'
+                ))
                 ->brandLogoHeight('2.5rem')
                 ->favicon(asset('img/weklo-mark.png'))
                 ->renderHook(

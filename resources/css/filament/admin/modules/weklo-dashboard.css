@@ -228,12 +228,18 @@
     padding-bottom: 0.5rem;
 }
 
-/* --- Logo Weklo en thème sombre : lockup vert foncé → blanc monochrome
-   (pas de variante claire du lockup dispo), sinon illisible sur fond sombre. --- */
-.dark .fi-logo,
-.dark .fi-logo img,
-.dark img.fi-logo {
-    filter: brightness(0) invert(1);
+/* --- Logo Weklo en thème sombre : le lockup PNG est vert foncé (illisible sur
+   fond sombre) et n'a pas de variante claire. On rend donc le wordmark « weklo »
+   en Forno Waffle blanc (police de marque du wordmark) via darkModeBrandLogo. --- */
+.wk-logo-dark {
+    font-family: 'Forno Waffle', 'Hanken Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 1.7rem;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* --- Identité utilisateur (nom + rôle) à gauche de l'avatar --- */
