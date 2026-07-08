@@ -24,30 +24,59 @@ if (! function_exists('brand_name')) {
     }
 }
 
-if (! function_exists('brand_logo')) {
+if (! function_exists('brand_media_url')) {
     /**
-     * URL du logo de la boutique (Setting brand.logo), ou null pour retomber
-     * sur le logo textuel de repli. Chemin public ('/img/...') ou URL absolue.
+     * Résout une valeur de Setting média (logo/favicon) en URL affichable :
+     * URL absolue ou chemin public ('/img/...') tel quel, sinon URL du disque
+     * public (upload Filament). Retourne null si vide.
      */
-    function brand_logo(): ?string
+    function brand_media_url(mixed $raw): ?string
     {
-        $logo = brand_setting('brand.logo');
-
-        if (! is_string($logo) || $logo === '') {
+        if (! is_string($raw) || $raw === '') {
             return null;
         }
 
-        // URL absolue ou chemin public direct ('/img/...') → tel quel.
-        if (Str::startsWith($logo, ['http://', 'https://', '/'])) {
-            return $logo;
+        if (Str::startsWith($raw, ['http://', 'https://', '/'])) {
+            return $raw;
         }
 
-        // Sinon chemin relatif sur le disque public (upload Filament) → URL publique.
         try {
-            return Storage::disk('public')->url($logo);
+            return Storage::disk('public')->url($raw);
         } catch (Throwable) {
-            return '/'.ltrim($logo, '/');
+            return '/'.ltrim($raw, '/');
         }
+    }
+}
+
+if (! function_exists('brand_logo')) {
+    /**
+     * URL du logo (thème clair) de la boutique (Setting brand.logo), ou null
+     * pour retomber sur le logo textuel de repli.
+     */
+    function brand_logo(): ?string
+    {
+        return brand_media_url(brand_setting('brand.logo'));
+    }
+}
+
+if (! function_exists('brand_logo_dark')) {
+    /**
+     * URL du logo pour le thème sombre (Setting brand.logo_dark), ou null.
+     */
+    function brand_logo_dark(): ?string
+    {
+        return brand_media_url(brand_setting('brand.logo_dark'));
+    }
+}
+
+if (! function_exists('brand_favicon')) {
+    /**
+     * URL du favicon de la boutique (Setting brand.favicon), commun aux deux
+     * thèmes, ou null pour retomber sur le favicon par défaut.
+     */
+    function brand_favicon(): ?string
+    {
+        return brand_media_url(brand_setting('brand.favicon'));
     }
 }
 

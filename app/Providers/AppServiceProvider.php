@@ -9,6 +9,7 @@ use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
+use App\Filament\Pages\WekloDashboard;
 use App\Filament\Resources\PkoAttributeGroupResource;
 use App\Filament\Resources\PkoCollectionGroupResource;
 use App\Filament\Resources\PkoProductOptionResource;
@@ -17,9 +18,11 @@ use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\ActivityResource;
@@ -77,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->swapLunarResources();
+        $this->swapLunarPages();
         $this->registerSecretModules();
 
         LunarPanel::panel(function (Panel $panel): Panel {
@@ -84,6 +88,40 @@ class AppServiceProvider extends ServiceProvider
                 ->spa(false)
                 ->path('admin')
                 ->brandName(brand_name())
+                // Logos/favicon configurables depuis Storefront → Paramètres
+                // (Setting brand.logo / brand.logo_dark / brand.favicon), avec
+                // repli sur les assets Weklo. Closures → lecture DB à l'affichage.
+                ->brandLogo(fn (): string => brand_logo() ?? asset('img/weklo-lockup.png'))
+                ->darkModeBrandLogo(fn (): string|HtmlString => brand_logo_dark()
+                    ?? new HtmlString('<span class="wk-logo-dark">weklo</span>'))
+                ->brandLogoHeight('2.5rem')
+                ->favicon(fn (): string => brand_favicon() ?? asset('img/weklo-mark.png'))
+                ->renderHook(
+                    PanelsRenderHook::USER_MENU_BEFORE,
+                    fn (): string => view('filament.hooks.user-identity')->render(),
+                )
+                ->font('Hanken Grotesk')
+                ->colors([
+                    'primary' => [
+                        50 => '#eef5f3', 100 => '#d6e7e3', 200 => '#abccc5', 300 => '#79aaa1',
+                        400 => '#43847a', 500 => '#136356', 600 => '#00453e', 700 => '#003a34',
+                        800 => '#002e29', 900 => '#00211e', 950 => '#001512',
+                    ],
+                    'accent' => [
+                        50 => '#f6faea', 100 => '#ecf4cf', 200 => '#dbe9a3', 300 => '#c8dd72',
+                        400 => '#b8d24c', 500 => '#aac932', 600 => '#8aa922', 700 => '#6a841d',
+                        800 => '#50641b', 900 => '#3c4b19', 950 => '#232c10',
+                    ],
+                    'gray' => [
+                        50 => '#f6f8f7', 100 => '#eef1f0', 200 => '#e0e4e2', 300 => '#c5ccc9',
+                        400 => '#9aa3a0', 500 => '#76817d', 600 => '#586460', 700 => '#3f4a46',
+                        800 => '#283330', 900 => '#16201d', 950 => '#0c110f',
+                    ],
+                    'success' => ['500' => '#2f9e57', '600' => '#27894a', '700' => '#1f6e3c'],
+                    'warning' => ['500' => '#e8a317', '600' => '#c98a10', '700' => '#a36f08'],
+                    'danger' => ['500' => '#d64545', '600' => '#c23a3a', '700' => '#9c2a2a'],
+                    'info' => ['500' => '#2f80b8', '600' => '#276b9c', '700' => '#1d5781'],
+                ])
                 ->viteTheme('resources/css/filament/admin/theme.css')
                 ->pages([
                     StripeConfig::class,
@@ -317,5 +355,25 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $prop->setValue(null, $resources);
+    }
+
+    /**
+     * Swap le dashboard Lunar (grille de widgets) par WekloDashboard (page design
+     * custom), en conservant le slug `dashboard`. Même mécanisme de réflexion que
+     * swapLunarResources() — doit tourner AVANT LunarPanel::panel()->register().
+     */
+    private function swapLunarPages(): void
+    {
+        $prop = (new \ReflectionClass(LunarPanelManager::class))->getProperty('pages');
+
+        /** @var array<int, class-string> $pages */
+        $pages = $prop->getValue();
+
+        $idx = array_search(Dashboard::class, $pages, true);
+        if ($idx !== false) {
+            $pages[$idx] = WekloDashboard::class;
+        }
+
+        $prop->setValue(null, $pages);
     }
 }

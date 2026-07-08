@@ -65,6 +65,8 @@ class StorefrontSettings extends Page implements HasForms
         return [
             'brand_name' => Setting::get('brand.name', config('app.name')),
             'brand_logo' => Setting::get('brand.logo'),
+            'brand_logo_dark' => Setting::get('brand.logo_dark'),
+            'brand_favicon' => Setting::get('brand.favicon'),
             'brand_tagline' => Setting::get('brand.tagline'),
             'brand_meta_description' => Setting::get('brand.meta_description'),
             'contact_phone' => Setting::get('contact.phone', $config['contact']['phone'] ?? null),
@@ -92,15 +94,34 @@ class StorefrontSettings extends Page implements HasForms
                     ->required()
                     ->maxLength(100)
                     ->helperText('Affiché dans le header, le titre des pages, les e-mails et le back-office.'),
-                FileUpload::make('brand_logo')
-                    ->label('Logo')
+                Grid::make(2)->schema([
+                    FileUpload::make('brand_logo')
+                        ->label('Logo — thème clair')
+                        ->image()
+                        ->disk('public')
+                        ->directory('brand')
+                        ->visibility('public')
+                        ->imageEditor()
+                        ->maxSize(2048)
+                        ->helperText('Header du site + back-office en thème clair. PNG/SVG à fond transparent. Vide = logo textuel de repli.'),
+                    FileUpload::make('brand_logo_dark')
+                        ->label('Logo — thème sombre')
+                        ->image()
+                        ->disk('public')
+                        ->directory('brand')
+                        ->visibility('public')
+                        ->imageEditor()
+                        ->maxSize(2048)
+                        ->helperText('Back-office en thème sombre. Utilisez une version claire du logo (texte/traits clairs). Vide = logo textuel de repli.'),
+                ]),
+                FileUpload::make('brand_favicon')
+                    ->label('Favicon')
                     ->image()
                     ->disk('public')
                     ->directory('brand')
                     ->visibility('public')
-                    ->imageEditor()
-                    ->maxSize(2048)
-                    ->helperText('Affiché dans le header. PNG/SVG à fond transparent recommandé. Vide = logo textuel de repli.'),
+                    ->maxSize(1024)
+                    ->helperText('Icône de l\'onglet navigateur, commune aux deux thèmes. PNG/ICO carré (32×32 ou 64×64) recommandé.'),
                 TextInput::make('brand_tagline')
                     ->label('Accroche')
                     ->maxLength(150)
@@ -173,6 +194,8 @@ class StorefrontSettings extends Page implements HasForms
 
         Setting::set('brand.name', $data['brand_name']);
         Setting::set('brand.logo', $data['brand_logo'] ?? null);
+        Setting::set('brand.logo_dark', $data['brand_logo_dark'] ?? null);
+        Setting::set('brand.favicon', $data['brand_favicon'] ?? null);
         Setting::set('brand.tagline', $data['brand_tagline']);
         Setting::set('brand.meta_description', $data['brand_meta_description']);
         Setting::set('contact.phone', $data['contact_phone']);

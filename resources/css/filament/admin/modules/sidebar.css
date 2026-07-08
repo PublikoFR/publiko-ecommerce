@@ -1,0 +1,63 @@
+/* ==========================================================================
+   Weklo — Sidebar back-office
+   Remplace la scrollbar native (grise, épaisse) du menu latéral par une
+   scrollbar fine aux couleurs de la charte (forest / lime). Scopé à la nav
+   scrollable du sidebar Filament pour ne pas toucher les autres zones.
+   ========================================================================== */
+
+/* Firefox */
+.fi-sidebar-nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 69, 62, 0.28) transparent; /* forest-600 / piste transparente */
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+.fi-sidebar-nav::-webkit-scrollbar {
+    width: 8px;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 6px 0;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 69, 62, 0.28); /* forest-600, discret au repos */
+    border-radius: 9999px;
+    border: 2px solid transparent; /* creuse une gouttière → thumb visuellement fin */
+    background-clip: padding-box;
+    transition: background-color 0.2s ease;
+}
+
+.fi-sidebar-nav:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 69, 62, 0.5);
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background-color: #00453e; /* forest-600 plein au survol direct */
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb:active {
+    background-color: #8aa922; /* lime-600 pendant le drag */
+}
+
+/* Thème sombre : le forest foncé se fond dans le fond → passage au lime clair. */
+.dark .fi-sidebar-nav {
+    scrollbar-color: rgba(170, 201, 50, 0.3) transparent; /* lime-500 */
+}
+
+.dark .fi-sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: rgba(170, 201, 50, 0.3); /* lime-500 discret */
+}
+
+.dark .fi-sidebar-nav:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(170, 201, 50, 0.55);
+}
+
+.dark .fi-sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background-color: #aac932; /* lime-500 plein */
+}
+
+.dark .fi-sidebar-nav::-webkit-scrollbar-thumb:active {
+    background-color: #c8dd72; /* lime-300 pendant le drag */
+}

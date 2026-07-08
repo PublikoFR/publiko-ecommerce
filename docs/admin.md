@@ -106,6 +106,54 @@ resources/css/filament/admin/
 
 ---
 
+## Tableau de bord Weklo (page d'accueil `/admin`)
+
+Le dashboard Lunar (grille de widgets ApexChart) est **remplacé** par la page design
+Weklo — importée depuis le Claude Design System (projet `Dashboard Weklo`) et portée
+en Blade/Alpine/ApexCharts natif de la stack.
+
+**Fichiers** :
+| Fichier | Rôle |
+|---|---|
+| `app/Filament/Pages/WekloDashboard.php` | Page Filament, sous-classe de `Lunar\Admin\Filament\Pages\Dashboard`. Slug forcé à `dashboard` → route `filament.lunar.pages.dashboard` et URL `/admin` **inchangées** (la nav custom continue de pointer dessus). `$view` custom, `getWidgets()` vide. |
+| `resources/views/filament/pages/weklo-dashboard.blade.php` | Vue design complète : KPI, mini-stats, graphes CA/statuts/catégories/régions/clients, tunnel, stock, devis, promos, dernières commandes. Alpine pilote période/filtres/recherche **100 % côté client** (aucun aller-retour Livewire → évite le crash ApexCharts ↔ Livewire, cf. `DisableBrokenChartsExtension`). ApexCharts chargé via CDN. |
+| `app/Support/Dashboard/DashboardStats.php` | Service agrégeant les stats **réelles** depuis les tables Lunar (commandes, lignes, clients, variantes, paniers, remises, fidélité). `build($period)` retourne le payload d'une période ; la page pré-calcule les 4 périodes (`jour`/`7j`/`30j`/`12m`) et les sérialise pour Alpine. |
+| `resources/css/filament/admin/modules/weklo-dashboard.css` | Tokens DS (forest/lime/neutrals/semantics) **scopés à `.wk-dash`** + `@font-face` Forno Waffle + IBM Plex Mono + helpers (hover, tooltip ApexCharts). |
+
+**Swap de la page** : `AppServiceProvider::swapLunarPages()` remplace `Dashboard::class`
+par `WekloDashboard::class` dans `LunarPanelManager::$pages` par réflexion (même pattern
+que `swapLunarResources()`, doit tourner **avant** `LunarPanel::panel()->register()`).
+
+**Métriques sans source réelle** : le schéma n'a ni analytics web ni prix d'achat, donc
+**taux de conversion**, **étapes hautes du tunnel** (sessions / visiteurs / ajouts panier)
+et **marge brute** sont générés en pseudo-aléatoire déterministe (LCG Park-Miller, stable
+par période) et portent un badge **« stat à connecter »** (clé `simulated => true` dans le
+payload). Tout le reste est branché en vrai. Pour connecter réellement ces 3 métriques :
+brancher un tracking analytics (sessions/paniers) et stocker un prix d'achat sur la variante.
+
+**Branding du panel** : `AppServiceProvider` applique `->brandLogo()`,
+`->darkModeBrandLogo()`, `->favicon()`, `->brandLogoHeight('2.5rem')`,
+`->font('Hanken Grotesk')` et `->colors([...])` (ramps forest = primary, lime = accent,
+neutrals green-tinted = gray, + semantics).
+
+Logos/favicon **configurables** depuis **Storefront → Paramètres** (page
+`StorefrontSettings`), via les Settings `brand.logo` (clair), `brand.logo_dark`
+(sombre) et `brand.favicon` (commun). Les closures du panel lisent ces Settings à
+l'affichage (helpers `brand_logo()` / `brand_logo_dark()` / `brand_favicon()`, tous
+résolus par `brand_media_url()`), avec repli sur les assets Weklo
+(`public/img/weklo-lockup.png`, `public/img/weklo-mark.png`) et, pour le logo sombre
+non renseigné, sur le wordmark « weklo » rendu en Forno Waffle blanc (`.wk-logo-dark`).
+
+**Chrome du panel aligné sur la maquette** (module `weklo-dashboard.css`, styles hors
+scope `.wk-dash` car rendus dans le layout Filament) : onglet sidebar actif (fond
+forest-50 + barre lime à gauche + label forest), recherche globale de la topbar en
+pastille arrondie (fond sunken) avec placeholder FR override
+(`lang/vendor/filament-panels/fr/global-search.php`), et identité du staff connecté
+(nom + rôle) à gauche de l'avatar via `renderHook(PanelsRenderHook::USER_MENU_BEFORE)`
+→ `resources/views/filament/hooks/user-identity.blade.php`.
+
+---
+
 
 ## Liste produits admin — colonnes personnalisées
 
