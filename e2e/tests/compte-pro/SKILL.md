@@ -21,11 +21,11 @@ les clients pro reçoivent un `User` connectable** (les particuliers n'en ont pa
 
 | Constante (`helpers.ts`) | Valeur |
 |---|---|
-| `PRO_EMAIL` | `thierry.leroy@mde-distribution.test` |
+| `PRO_EMAIL` | `thierry.leroy@weklo.test` |
 | `PRO_PASSWORD` | `testing123` |
 | `PRO_COMPANY` | `Leroy Fermetures` |
 | `PRO_SIRET` | `12345678900015` |
-| `PRO_EMAIL_ALT` | `sophie.girard@mde-distribution.test` |
+| `PRO_EMAIL_ALT` | `sophie.girard@weklo.test` |
 
 SIRET synthétiques pour l'inscription (Luhn) : `35600000000043` (valide),
 `35600000000001` (14 chiffres mais Luhn invalide).
@@ -33,7 +33,7 @@ SIRET synthétiques pour l'inscription (Luhn) : `35600000000043` (valide),
 ## Cas limites & points d'attention
 
 - **Attribution aléatoire des commandes** : `PkoOrderSeeder` répartit ~20 commandes
-  (réf. `MDE-XXXXXX`) au hasard sur les 5 clients. Le compte pro de test peut donc
+  (réf. `WK-XXXXXX`) au hasard sur les 5 clients. Le compte pro de test peut donc
   avoir **0 commande** dans un run. Les tests gèrent les deux cas (liste vide OU
   peuplée) ; le test de détail se `skip()` proprement s'il n'y a aucune commande.
 - **INSEE désactivé en E2E** : aucune credential Sirene dans `docker-compose.e2e.yml`

@@ -5,13 +5,13 @@ import { expect, Page } from '@playwright/test';
  * Seuls les clients pro reçoivent un User connectable ; les particuliers non.
  * Mot de passe commun : "testing123".
  */
-export const PRO_EMAIL = 'thierry.leroy@mde-distribution.test';
+export const PRO_EMAIL = 'thierry.leroy@weklo.test';
 export const PRO_PASSWORD = 'testing123';
 export const PRO_COMPANY = 'Leroy Fermetures';
 export const PRO_SIRET = '12345678900015';
 
 /** Second compte pro seedé, utile si un test a besoin d'un client distinct. */
-export const PRO_EMAIL_ALT = 'sophie.girard@mde-distribution.test';
+export const PRO_EMAIL_ALT = 'sophie.girard@weklo.test';
 
 /**
  * Connecte un client pro via le formulaire /connexion et attend l'arrivée

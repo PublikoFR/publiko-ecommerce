@@ -38,7 +38,7 @@ class PkoOrderSeeder extends Seeder
         }
 
         for ($i = 1; $i <= 10; $i++) {
-            $reference = sprintf('MDE-%06d', $i);
+            $reference = sprintf('WK-%06d', $i);
 
             if (Order::query()->where('reference', $reference)->exists()) {
                 continue;
@@ -105,7 +105,7 @@ class PkoOrderSeeder extends Seeder
                     'purchasable_type' => ProductVariant::morphName(),
                     'purchasable_id' => $variant->id,
                     'type' => 'physical',
-                    'description' => optional($variant->product)->translateAttribute('name') ?? 'Produit MDE',
+                    'description' => optional($variant->product)->translateAttribute('name') ?? 'Produit Weklo',
                     'option' => null,
                     'identifier' => $variant->sku ?? Str::random(8),
                     'unit_price' => $line['unit_price'],

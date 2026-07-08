@@ -90,6 +90,6 @@ Aucune subclass custom créée pour Product/Collection/Brand. Aucune ligne dans 
 ### Points d'attention
 
 - **Spatie / Lunar Media natif** : le système reste techniquement accessible via `$product->getMedia(...)` (le trait `HasMedia` Spatie est toujours sur les modèles Lunar). Seul l'admin est caché. Le storefront doit migrer ses appels vers `$product->firstMediaUrl('gallery')` pour pointer sur `pko_mediables`.
-- **Données Lunar existantes** : aucune migration automatique de `media_has_models` → `pko_mediables`. Prévoir un artisan `mde:migrate-lunar-media` en phase 2 si besoin de conserver les galeries produits existantes.
+- **Données Lunar existantes** : aucune migration automatique de `media_has_models` → `pko_mediables`. Prévoir un artisan `pko:migrate-lunar-media` en phase 2 si besoin de conserver les galeries produits existantes.
 - **Upgrade Lunar** : la reflection sur `LunarPanelManager::$resources` et les overrides de `getDefault*()` dépendent de l'API interne. À revérifier à chaque upgrade Lunar majeur.
 

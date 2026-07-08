@@ -30,7 +30,7 @@ class PkoStorefrontCmsSeeder extends Seeder
         foreach ([
             ['title' => 'Les performances qui font la différence', 'subtitle' => 'Gamme outillage pro Milwaukee — jusqu\'à -30% sur sélection', 'bg_color' => '#0f172a', 'text_color' => '#ffffff', 'cta_label' => 'J\'en profite', 'cta_url' => '/collections/outillage', 'position' => 1],
             ['title' => 'Votre partenaire portails & automatismes', 'subtitle' => '60 000 références pros disponibles en 24h', 'bg_color' => '#1e40af', 'text_color' => '#ffffff', 'cta_label' => 'Découvrir le catalogue', 'cta_url' => '/collections/portails-coulissants', 'position' => 2],
-            ['title' => 'Exclusivités MDE 2026', 'subtitle' => 'Les nouveautés pour vos chantiers', 'bg_color' => '#0369a1', 'text_color' => '#ffffff', 'cta_label' => 'Voir les nouveautés', 'cta_url' => '/collections/nouveautes', 'position' => 3],
+            ['title' => 'Exclusivités Weklo 2026', 'subtitle' => 'Les nouveautés pour vos chantiers', 'bg_color' => '#0369a1', 'text_color' => '#ffffff', 'cta_label' => 'Voir les nouveautés', 'cta_url' => '/collections/nouveautes', 'position' => 3],
         ] as $slide) {
             HomeSlide::create($slide);
         }
@@ -59,20 +59,20 @@ class PkoStorefrontCmsSeeder extends Seeder
         DB::table('pko_posts')->delete();
 
         foreach ([
-            ['slug' => 'mde-partenaire-siam-sbh-2026', 'title' => 'SIAM SBH fait confiance à MDE pour son automatisme', 'excerpt' => 'Retour d\'expérience d\'un client historique sur l\'intégration de notre catalogue à leurs projets.', 'body' => '<p>Cas client détaillé à venir.</p>', 'status' => 'published', 'published_at' => now()->subDays(3)],
-            ['slug' => 'recrutement-techniciens-2026', 'title' => 'Découvrez nos offres d\'emploi', 'excerpt' => 'MDE recrute : techniciens, commerciaux, responsables dépôt.', 'body' => '<p>Postulez dès maintenant.</p>', 'status' => 'published', 'published_at' => now()->subDays(10)],
-            ['slug' => 'evenement-milwaukee-rome-2026', 'title' => 'MDE à l\'événement Milwaukee Rome 2026', 'excerpt' => 'Retour sur la conférence Milwaukee World of Solutions 2026.', 'body' => '<p>Retour détaillé à venir.</p>', 'status' => 'published', 'published_at' => now()->subWeeks(3)],
-            ['slug' => 'don-sang-mde', 'title' => 'Don du sang chez MDE', 'excerpt' => 'Une belle mobilisation pour la collecte de sang au sein de notre siège.', 'body' => '<p>Merci à tous les participants !</p>', 'status' => 'published', 'published_at' => now()->subWeeks(5)],
+            ['slug' => 'weklo-partenaire-siam-sbh-2026', 'title' => 'SIAM SBH fait confiance à Weklo pour son automatisme', 'excerpt' => 'Retour d\'expérience d\'un client historique sur l\'intégration de notre catalogue à leurs projets.', 'body' => '<p>Cas client détaillé à venir.</p>', 'status' => 'published', 'published_at' => now()->subDays(3)],
+            ['slug' => 'recrutement-techniciens-2026', 'title' => 'Découvrez nos offres d\'emploi', 'excerpt' => 'Weklo recrute : techniciens, commerciaux, responsables dépôt.', 'body' => '<p>Postulez dès maintenant.</p>', 'status' => 'published', 'published_at' => now()->subDays(10)],
+            ['slug' => 'evenement-milwaukee-rome-2026', 'title' => 'Weklo à l\'événement Milwaukee Rome 2026', 'excerpt' => 'Retour sur la conférence Milwaukee World of Solutions 2026.', 'body' => '<p>Retour détaillé à venir.</p>', 'status' => 'published', 'published_at' => now()->subWeeks(3)],
+            ['slug' => 'don-sang-weklo', 'title' => 'Don du sang chez Weklo', 'excerpt' => 'Une belle mobilisation pour la collecte de sang au sein de notre siège.', 'body' => '<p>Merci à tous les participants !</p>', 'status' => 'published', 'published_at' => now()->subWeeks(5)],
         ] as $post) {
             Post::create(array_merge($post, ['post_type_id' => $articleType->id]));
         }
 
         foreach ([
-            ['slug' => 'qui-sommes-nous', 'title' => 'Qui sommes-nous ?', 'body' => '<p>MDE Distribution est un distributeur professionnel français spécialisé dans les matériaux du bâtiment, les portails, volets, automatismes et solutions domotiques.</p><p>Notre mission : accompagner les installateurs et artisans avec un catalogue premium, des prix pros dégressifs, et un support commercial réactif.</p>', 'status' => 'published'],
-            ['slug' => 'cgv', 'title' => 'Conditions Générales de Vente', 'body' => '<p>Les présentes CGV régissent l\'ensemble des transactions commerciales conclues entre MDE Distribution et ses clients professionnels.</p><p><em>Document en cours de finalisation — version provisoire.</em></p>', 'status' => 'published'],
-            ['slug' => 'mentions-legales', 'title' => 'Mentions légales', 'body' => '<p>MDE Distribution — Distributeur professionnel — France.</p>', 'status' => 'published'],
+            ['slug' => 'qui-sommes-nous', 'title' => 'Qui sommes-nous ?', 'body' => '<p>Weklo est un distributeur professionnel français spécialisé dans les matériaux du bâtiment, les portails, volets, automatismes et solutions domotiques.</p><p>Notre mission : accompagner les installateurs et artisans avec un catalogue premium, des prix pros dégressifs, et un support commercial réactif.</p>', 'status' => 'published'],
+            ['slug' => 'cgv', 'title' => 'Conditions Générales de Vente', 'body' => '<p>Les présentes CGV régissent l\'ensemble des transactions commerciales conclues entre Weklo et ses clients professionnels.</p><p><em>Document en cours de finalisation — version provisoire.</em></p>', 'status' => 'published'],
+            ['slug' => 'mentions-legales', 'title' => 'Mentions légales', 'body' => '<p>Weklo — Distributeur professionnel — France.</p>', 'status' => 'published'],
             ['slug' => 'politique-cookies', 'title' => 'Politique cookies', 'body' => '<p>Ce site utilise des cookies essentiels au fonctionnement et à l\'amélioration de l\'expérience utilisateur.</p>', 'status' => 'published'],
-            ['slug' => 'politique-donnees', 'title' => 'Politique de données personnelles', 'body' => '<p>MDE Distribution respecte le RGPD et la CNIL.</p>', 'status' => 'published'],
+            ['slug' => 'politique-donnees', 'title' => 'Politique de données personnelles', 'body' => '<p>Weklo respecte le RGPD et la CNIL.</p>', 'status' => 'published'],
             ['slug' => 'nous-contacter', 'title' => 'Nous contacter', 'body' => '<p>Notre équipe commerciale est à votre disposition du lundi au vendredi, 8h-18h.</p>', 'status' => 'published'],
         ] as $page) {
             Post::create(array_merge($page, ['post_type_id' => $pageType->id]));

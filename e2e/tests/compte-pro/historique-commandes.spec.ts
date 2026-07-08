@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, logout, PRO_EMAIL, PRO_PASSWORD, expectNoServerError } from './helpers';
 
-// NOTE FIXTURES : PkoOrderSeeder crée 20 commandes (réf. MDE-XXXXXX) réparties
+// NOTE FIXTURES : PkoOrderSeeder crée 20 commandes (réf. WK-XXXXXX) réparties
 // ALÉATOIREMENT sur les 5 clients seedés (3 particuliers + 2 pro). Le compte pro
 // de test peut donc avoir 0 commande lors d'un run donné : les tests gèrent les
 // deux cas (liste vide OU peuplée) pour rester déterministes.
@@ -30,7 +30,7 @@ test.describe('Historique commandes pro', () => {
     if (count > 0) {
       await expect(rows.first()).toBeVisible();
       const firstRef = (await rows.first().textContent()) ?? '';
-      expect(firstRef).toMatch(/#|MDE-/);
+      expect(firstRef).toMatch(/#|WK-/);
     } else {
       await expect(page.getByText(/Aucune commande/i)).toBeVisible();
     }

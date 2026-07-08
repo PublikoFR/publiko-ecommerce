@@ -28,7 +28,7 @@ class PkoShippingSeeder extends Seeder
         $zone->countries()->syncWithoutDetaching([$france->id]);
 
         $standard = ShippingMethod::query()->updateOrCreate(
-            ['code' => 'mde-standard'],
+            ['code' => 'pko-standard'],
             [
                 'name' => 'Livraison standard',
                 'description' => 'Livraison en 3-5 jours ouvrables — tarif au poids',
@@ -39,10 +39,10 @@ class PkoShippingSeeder extends Seeder
         );
 
         $pickup = ShippingMethod::query()->updateOrCreate(
-            ['code' => 'mde-pickup'],
+            ['code' => 'pko-pickup'],
             [
                 'name' => 'Retrait entrepôt',
-                'description' => 'Retrait gratuit sur site MDE Distribution',
+                'description' => 'Retrait gratuit sur site Weklo',
                 'enabled' => true,
                 'driver' => 'collection',
                 'data' => [],
@@ -50,7 +50,7 @@ class PkoShippingSeeder extends Seeder
         );
 
         $free = ShippingMethod::query()->updateOrCreate(
-            ['code' => 'mde-free'],
+            ['code' => 'pko-free'],
             [
                 'name' => 'Livraison offerte',
                 'description' => 'Offerte dès 500 € HT sur toute la France métropolitaine',

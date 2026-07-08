@@ -14,7 +14,7 @@ class StaffPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_staff');
+        return $staff->can('view_any_pko::staff');
     }
 
     /**
@@ -22,7 +22,7 @@ class StaffPolicy
      */
     public function view(Staff $staff): bool
     {
-        return $staff->can('view_staff');
+        return $staff->can('view_pko::staff');
     }
 
     /**
@@ -30,7 +30,7 @@ class StaffPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_staff');
+        return $staff->can('create_pko::staff');
     }
 
     /**
@@ -38,7 +38,7 @@ class StaffPolicy
      */
     public function update(Staff $staff): bool
     {
-        return $staff->can('update_staff');
+        return $staff->can('update_pko::staff');
     }
 
     /**
@@ -46,7 +46,7 @@ class StaffPolicy
      */
     public function delete(Staff $staff): bool
     {
-        return $staff->can('delete_staff');
+        return $staff->can('delete_pko::staff');
     }
 
     /**
@@ -54,7 +54,7 @@ class StaffPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_staff');
+        return $staff->can('delete_any_pko::staff');
     }
 
     /**
@@ -62,7 +62,7 @@ class StaffPolicy
      */
     public function forceDelete(Staff $staff): bool
     {
-        return $staff->can('force_delete_staff');
+        return $staff->can('force_delete_pko::staff');
     }
 
     /**
@@ -70,7 +70,7 @@ class StaffPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_staff');
+        return $staff->can('force_delete_any_pko::staff');
     }
 
     /**
@@ -78,7 +78,7 @@ class StaffPolicy
      */
     public function restore(Staff $staff): bool
     {
-        return $staff->can('restore_staff');
+        return $staff->can('restore_pko::staff');
     }
 
     /**
@@ -86,7 +86,7 @@ class StaffPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_staff');
+        return $staff->can('restore_any_pko::staff');
     }
 
     /**
@@ -94,7 +94,7 @@ class StaffPolicy
      */
     public function replicate(Staff $staff): bool
     {
-        return $staff->can('replicate_staff');
+        return $staff->can('replicate_pko::staff');
     }
 
     /**
@@ -102,6 +102,6 @@ class StaffPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_staff');
+        return $staff->can('reorder_pko::staff');
     }
 }

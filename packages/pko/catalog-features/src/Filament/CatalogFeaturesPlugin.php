@@ -12,7 +12,7 @@ class CatalogFeaturesPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-catalog-features';
+        return 'pko-catalog-features';
     }
 
     public function register(Panel $panel): void

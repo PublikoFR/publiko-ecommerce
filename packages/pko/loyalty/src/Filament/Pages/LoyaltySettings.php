@@ -61,7 +61,7 @@ class LoyaltySettings extends BasePage implements HasForms
                 TextInput::make('admin_email')
                     ->label('Email admin (notifications)')
                     ->email()
-                    ->helperText('Destinataire de la notification quand un client débloque un palier. Surcharge MDE_LOYALTY_ADMIN_EMAIL.'),
+                    ->helperText('Destinataire de la notification quand un client débloque un palier. Surcharge LOYALTY_ADMIN_EMAIL.'),
             ])
             ->statePath('data');
     }

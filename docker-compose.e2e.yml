@@ -59,7 +59,7 @@ services:
       MYSQL_PASSWORD: pko_e2e_secret
     volumes:
       - e2e_mysql_data:/var/lib/mysql
-      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-mde.cnf:ro
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-weklo.cnf:ro
     networks:
       - e2e_backend
     healthcheck:

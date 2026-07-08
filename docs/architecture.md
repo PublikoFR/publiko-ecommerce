@@ -37,10 +37,10 @@ Stack technique, environnement Docker, mécanismes d'extension Lunar, gotchas, a
 
 **Services** (`compose.yaml`) :
 
-- `app` — PHP-FPM 8.3 + Nginx, exposé via Traefik sur `mde-laravel.localhost`
+- `app` — PHP-FPM 8.3 + Nginx, exposé via Traefik sur `weklo.localhost`
 - `mysql` — MySQL 8.0 avec healthcheck, volume persistant
 - `redis` — Redis 7-alpine
-- `phpmyadmin` — exposé via `pma.mde-laravel.localhost`
+- `phpmyadmin` — exposé via `pma.weklo.localhost`
 
 **Commandes raccourcies** dans `Makefile` :
 

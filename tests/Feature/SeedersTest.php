@@ -49,7 +49,7 @@ class SeedersTest extends TestCase
 
         // Methods must be scheduled against the customer groups, otherwise the
         // customer-group scope rejects every rate and no option is available.
-        $standardMethod = ShippingMethod::query()->where('code', 'mde-standard')->firstOrFail();
+        $standardMethod = ShippingMethod::query()->where('code', 'pko-standard')->firstOrFail();
         $this->assertTrue(
             $standardMethod->customerGroups()->count() > 0,
             'Shipping methods must be scheduled against customer groups.',
@@ -58,7 +58,7 @@ class SeedersTest extends TestCase
         $this->assertSame(3, ShippingMethod::query()->count());
         $this->assertSame(3, ShippingRate::query()->count());
 
-        $standard = ShippingMethod::query()->where('code', 'mde-standard')->firstOrFail();
+        $standard = ShippingMethod::query()->where('code', 'pko-standard')->firstOrFail();
         $this->assertSame('ship-by', $standard->driver);
         $this->assertSame('weight', $standard->data['charge_by']);
 
@@ -68,10 +68,10 @@ class SeedersTest extends TestCase
 
         $this->assertSame(4, $standardRate->prices()->count());
 
-        $pickup = ShippingMethod::query()->where('code', 'mde-pickup')->firstOrFail();
+        $pickup = ShippingMethod::query()->where('code', 'pko-pickup')->firstOrFail();
         $this->assertSame('collection', $pickup->driver);
 
-        $free = ShippingMethod::query()->where('code', 'mde-free')->firstOrFail();
+        $free = ShippingMethod::query()->where('code', 'pko-free')->firstOrFail();
         $this->assertSame('free-shipping', $free->driver);
         $this->assertSame(50000, $free->data['minimum_spend']['EUR']);
     }

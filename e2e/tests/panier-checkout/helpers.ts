@@ -1,12 +1,12 @@
 /**
  * Helpers partagés — suite panier & checkout
  *
- * Compte pro : thierry.leroy@mde-distribution.test / testing123
+ * Compte pro : thierry.leroy@weklo.test / testing123
  * Produit : premier produit visible sur /recherche (mono-variant, stock ≥ 5)
  */
 import { expect, type Page } from '@playwright/test';
 
-export const PRO_EMAIL    = 'thierry.leroy@mde-distribution.test';
+export const PRO_EMAIL    = 'thierry.leroy@weklo.test';
 export const PRO_PASSWORD = 'testing123';
 
 // ---------------------------------------------------------------------------

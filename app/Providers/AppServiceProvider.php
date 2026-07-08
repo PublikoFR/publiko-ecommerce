@@ -180,7 +180,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Garde anti-wipe : depuis un worktree PKOS (container_name fige dans
-        // compose.yaml → pas d'isolation, on tape sur la base de dev mde), on
+        // compose.yaml → pas d'isolation, on tape sur la base de dev weklo), on
         // interdit migrate:fresh / migrate:refresh / migrate:reset / db:wipe.
         // PKOS_WORKTREE est injecte par le Makefile (cible -e PKOS_WORKTREE=1).
         // On exclut l'env testing : la suite (RefreshDatabase) lance migrate:fresh

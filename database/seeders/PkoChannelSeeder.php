@@ -12,10 +12,10 @@ class PkoChannelSeeder extends Seeder
     public function run(): void
     {
         Channel::query()->updateOrCreate(
-            ['handle' => 'mde-distribution'],
+            ['handle' => 'weklo'],
             [
-                'name' => 'MDE Distribution',
-                'url' => 'https://mde-distribution.fr',
+                'name' => 'Weklo',
+                'url' => 'https://weklo.fr',
                 'default' => true,
             ],
         );

@@ -15,7 +15,7 @@ Suite Playwright couvrant le domaine **panier et tunnel de commande** du storefr
 
 | Rôle | Email | Mot de passe |
 |---|---|---|
-| Pro (installateur) | `thierry.leroy@mde-distribution.test` | `testing123` |
+| Pro (installateur) | `thierry.leroy@weklo.test` | `testing123` |
 
 Créé par `PkoCustomerSeeder`. Client lié à un `Customer` avec `sirene_status = active`, groupe `installateurs`.
 

@@ -44,7 +44,7 @@ use Pko\StorefrontCms\Filament\Resources\NewsletterSubscriberResource;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
 
 /**
- * Navigation custom du panel admin — layout « MDE » (sur-mesure Rom).
+ * Navigation custom du panel admin — layout « Weklo » (sur-mesure Rom).
  *
  * 1 raccourci (Tableau de bord) + 5 groupes : Ventes & Clients, Catalogue,
  * Marketing, Boutique, Configuration. Deux sous-menus IMBRIQUÉS animés dans la

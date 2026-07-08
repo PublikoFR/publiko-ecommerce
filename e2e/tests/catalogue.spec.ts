@@ -9,11 +9,11 @@
  *  - 5 collections (portails-coulissants, portails-battants, volets-roulants,
  *    motorisations, clotures), ~10 produits par collection (aléatoire).
  *  - 50 produits mono-variant, 5 marques (SOMFY, FAAC, BFT, NICE, CAME).
- *  - Pro : thierry.leroy@mde-distribution.test / testing123
+ *  - Pro : thierry.leroy@weklo.test / testing123
  */
 import { test, expect, type Page } from '@playwright/test';
 
-const PRO_EMAIL    = 'thierry.leroy@mde-distribution.test';
+const PRO_EMAIL    = 'thierry.leroy@weklo.test';
 const PRO_PASSWORD = 'testing123';
 
 // ---------------------------------------------------------------------------

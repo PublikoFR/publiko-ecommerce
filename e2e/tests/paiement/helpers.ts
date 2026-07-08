@@ -2,9 +2,9 @@
  * Helpers partagés — parcours Paiement.
  *
  * Comptes / fixtures (seed e2e) :
- *  - Pro connecté : thierry.leroy@mde-distribution.test / testing123
+ *  - Pro connecté : thierry.leroy@weklo.test / testing123
  *    (customer_id=4, groupe « installateurs », sirene_status=active).
- *  - Commandes seedées : ids 1..10, références MDE-000001..MDE-000010,
+ *  - Commandes seedées : ids 1..10, références WK-000001..WK-000010,
  *    statuts variés (awaiting-payment, payment-received, in-preparation,
  *    dispatched, delivered, cancelled). Aucune n'utilise `payment-offline`
  *    ni `awaiting-quote` → ces statuts identifient de façon unique une
@@ -15,7 +15,7 @@
  */
 import { expect, type Page, type APIRequestContext, type APIResponse } from '@playwright/test';
 
-export const PRO_EMAIL = 'thierry.leroy@mde-distribution.test';
+export const PRO_EMAIL = 'thierry.leroy@weklo.test';
 export const PRO_PASSWORD = 'testing123';
 
 /** Statut d'une commande réglée hors-ligne (cash-in-hand → offline driver). */

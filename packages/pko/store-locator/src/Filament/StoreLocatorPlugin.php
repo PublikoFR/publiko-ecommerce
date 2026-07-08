@@ -12,7 +12,7 @@ class StoreLocatorPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-store-locator';
+        return 'pko-store-locator';
     }
 
     public function register(Panel $panel): void

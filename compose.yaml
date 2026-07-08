@@ -6,16 +6,16 @@ services:
             args:
                 UID: ${UID:-1000}
                 GID: ${GID:-1000}
-        container_name: mde-laravel-app
+        container_name: weklo-app
         restart: unless-stopped
         working_dir: /var/www/html
         volumes:
             - .:/var/www/html
-            - ./docker/app/php.ini:/usr/local/etc/php/conf.d/zz-mde.ini:ro
+            - ./docker/app/php.ini:/usr/local/etc/php/conf.d/zz-weklo.ini:ro
         environment:
             APP_ENV: ${APP_ENV:-local}
             APP_DEBUG: ${APP_DEBUG:-true}
-            PHP_IDE_CONFIG: serverName=mde-laravel
+            PHP_IDE_CONFIG: serverName=weklo
         depends_on:
             mysql:
                 condition: service_healthy
@@ -27,23 +27,23 @@ services:
         labels:
             - traefik.enable=true
             - traefik.docker.network=traefik_network
-            - traefik.http.routers.mde-laravel.rule=Host(`mde-laravel.localhost`)
-            - traefik.http.routers.mde-laravel.entrypoints=web
-            - traefik.http.services.mde-laravel.loadbalancer.server.port=80
+            - traefik.http.routers.weklo.rule=Host(`weklo.localhost`)
+            - traefik.http.routers.weklo.entrypoints=web
+            - traefik.http.services.weklo.loadbalancer.server.port=80
 
     mysql:
         image: mysql:8.0
-        container_name: mde-laravel-mysql
+        container_name: weklo-mysql
         restart: unless-stopped
         command: --default-authentication-plugin=caching_sha2_password
         environment:
             MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
-            MYSQL_DATABASE: ${DB_DATABASE:-mde}
-            MYSQL_USER: ${DB_USERNAME:-mde}
+            MYSQL_DATABASE: ${DB_DATABASE:-weklo}
+            MYSQL_USER: ${DB_USERNAME:-weklo}
             MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
         volumes:
             - mysql_data:/var/lib/mysql
-            - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-mde.cnf:ro
+            - ./docker/mysql/my.cnf:/etc/mysql/conf.d/zz-weklo.cnf:ro
         networks:
             - backend
         healthcheck:
@@ -54,7 +54,7 @@ services:
 
     redis:
         image: redis:7-alpine
-        container_name: mde-laravel-redis
+        container_name: weklo-redis
         restart: unless-stopped
         volumes:
             - redis_data:/data
@@ -63,7 +63,7 @@ services:
 
     phpmyadmin:
         image: phpmyadmin:latest
-        container_name: mde-laravel-pma
+        container_name: weklo-pma
         restart: unless-stopped
         environment:
             PMA_HOST: mysql
@@ -79,9 +79,9 @@ services:
         labels:
             - traefik.enable=true
             - traefik.docker.network=traefik_network
-            - traefik.http.routers.mde-laravel-pma.rule=Host(`pma.mde-laravel.localhost`)
-            - traefik.http.routers.mde-laravel-pma.entrypoints=web
-            - traefik.http.services.mde-laravel-pma.loadbalancer.server.port=80
+            - traefik.http.routers.weklo-pma.rule=Host(`pma.weklo.localhost`)
+            - traefik.http.routers.weklo-pma.entrypoints=web
+            - traefik.http.services.weklo-pma.loadbalancer.server.port=80
 
 networks:
     backend:
