@@ -51,7 +51,7 @@ class PkoCustomerSeeder extends Seeder
             ]);
 
             if ($isPro) {
-                $email = strtolower($data['first_name'].'.'.$data['last_name']).'@mde-distribution.test';
+                $email = strtolower($data['first_name'].'.'.$data['last_name']).'@weklo.test';
                 $user = User::updateOrCreate(
                     ['email' => $email],
                     [

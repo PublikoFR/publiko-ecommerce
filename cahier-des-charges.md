@@ -1,4 +1,4 @@
-# Cahier des Charges — Plateforme E-Commerce MDE Distribution
+# Cahier des Charges — Plateforme E-Commerce Weklo
 ## Stack : Laravel + Lunar PHP + Filament
 
 **Version** : 1.0  
@@ -12,22 +12,22 @@
 
 ### 1.1 Contexte
 
-MDE Distribution est un distributeur B2B spécialisé dans les matériaux de construction, la domotique et les produits du bâtiment (portes, fenêtres, volets, portails, clôtures, automatismes). La clientèle se compose de particuliers et d'installateurs professionnels.
+Weklo est un distributeur B2B spécialisé dans les matériaux de construction, la domotique et les produits du bâtiment (portes, fenêtres, volets, portails, clôtures, automatismes). La clientèle se compose de particuliers et d'installateurs professionnels.
 
 La plateforme PrestaShop 8 actuelle présente des limitations architecturales majeures rendant le développement et la maintenance coûteux. L'objectif est de migrer vers une stack Laravel moderne, maintenable, extensible et IA-ready.
 
 ### 1.2 Objectifs
 
 - Remplacer le back-office PrestaShop par un back-office Filament/Lunar production-ready
-- Conserver 100% des fonctionnalités e-commerce réellement utilisées par MDE Distribution
+- Conserver 100% des fonctionnalités e-commerce réellement utilisées par Weklo
 - Supprimer tout ce qui n'est pas utilisé (multistore, blog, modules inutiles)
-- Préparer l'architecture pour l'intégration future des modules métier MDE (`packages/mde/*`)
+- Préparer l'architecture pour l'intégration future des modules métier Weklo (`packages/pko/*`)
 - Garantir la non-régression lors des mises à jour Lunar/Filament
 
 ### 1.3 Ce qui est hors périmètre (phase 1)
 
 - Front-office client (catalogue, panier, commande, compte client)
-- Modules métier custom MDE (import FAB-DIS, validation SIRET, enrichissement IA, pricing B2B avancé)
+- Modules métier custom Weklo (import FAB-DIS, validation SIRET, enrichissement IA, pricing B2B avancé)
 - Paiement en ligne
 - Emails transactionnels
 - API publique
@@ -58,7 +58,7 @@ La plateforme PrestaShop 8 actuelle présente des limitations architecturales ma
 - **Lunar conventions** : ne jamais modifier les fichiers du vendor, utiliser exclusivement les mécanismes d'extension fournis
 - **Filament conventions** : ResourceExtension pour étendre les ressources existantes, Filament Plugin pour les modules packagés
 - Toute personnalisation du panel passe par `LunarPanel::panel()` dans `AppServiceProvider`
-- Tous les modules MDE futurs vivront dans `packages/mde/` et s'enregistreront en tant que Filament Plugins
+- Tous les modules Weklo futurs vivront dans `packages/pko/` et s'enregistreront en tant que Filament Plugins
 
 ### 2.3 Structure des répertoires
 
@@ -69,10 +69,10 @@ app/
 ├── Models/                          ← extensions des modèles Lunar si nécessaire
 └── Admin/
     └── Filament/
-        └── Extensions/              ← ResourceExtensions MDE phase 2+
+        └── Extensions/              ← ResourceExtensions Weklo phase 2+
 
-packages/                            ← modules MDE (phase 2+, hors périmètre)
-└── mde/
+packages/                            ← modules Weklo (phase 2+, hors périmètre)
+└── pko/
     ├── fabdis-import/
     ├── b2b-pricing/
     ├── siret-validation/
@@ -101,7 +101,7 @@ resources/
 ```
 Niveau 1 : LunarPanel::panel() → ajouter pages, resources, navigation groups
 Niveau 2 : LunarPanel::extensions() → étendre resources existantes (ResourceExtension)
-Niveau 3 : Filament Plugin → fonctionnalités packagées (modules MDE)
+Niveau 3 : Filament Plugin → fonctionnalités packagées (modules Weklo)
 ```
 
 ### 3.2 Enregistrement des extensions
@@ -139,7 +139,7 @@ class MdeProductExtension extends \Lunar\Admin\Support\Extending\ResourceExtensi
     {
         return $form->schema([
             ...$form->getComponents(withHidden: true),
-            // champs additionnels MDE
+            // champs additionnels Weklo
         ]);
     }
 }
@@ -230,12 +230,12 @@ class MdeProductExtension extends \Lunar\Admin\Support\Extending\ResourceExtensi
 
 - Création et gestion des groupes clients (ex : Particuliers, Installateurs, Revendeurs)
 - Prix spécifique par groupe client et par produit/variante
-- Remise en pourcentage par groupe et par marque ou collection (base pour les modules MDE phase 2)
+- Remise en pourcentage par groupe et par marque ou collection (base pour les modules Weklo phase 2)
 - Tarification par paliers (ex : prix dégressif selon quantité)
 
 #### 4.2.3 Canaux de vente
 
-- Gestion d'un canal de vente principal (mde-distribution.fr)
+- Gestion d'un canal de vente principal (weklo.fr)
 - Activation/désactivation des produits par canal
 - Prix indépendants par canal si nécessaire
 
@@ -344,7 +344,7 @@ Statuts gérés :
 
 ### 4.10 Gestion des Canaux de Vente
 
-- Canal principal : mde-distribution.fr
+- Canal principal : weklo.fr
 - Configuration : nom, URL, devise par défaut, langue par défaut, timezone
 - Activation/désactivation de produits par canal
 
@@ -391,7 +391,7 @@ Statuts gérés :
 
 ## 5. Fonctionnalités Exclues (par rapport à PrestaShop)
 
-Les fonctionnalités suivantes ne sont **pas développées** dans cette phase, car non utilisées par MDE Distribution ou remplacées par des modules custom phase 2 :
+Les fonctionnalités suivantes ne sont **pas développées** dans cette phase, car non utilisées par Weklo ou remplacées par des modules custom phase 2 :
 
 | Fonctionnalité PrestaShop | Raison d'exclusion |
 |---|---|
@@ -405,10 +405,10 @@ Les fonctionnalités suivantes ne sont **pas développées** dans cette phase, c
 | Modules marketplace PS | Non applicable |
 | Gestion des retours automatisée | Phase ultérieure |
 | Multi-entrepôts | Phase ultérieure |
-| Devis B2B | Module custom MDE phase 2 |
-| Validation SIRET | Module custom MDE phase 2 |
-| Pricing rules B2B avancées | Module custom MDE phase 2 |
-| Enrichissement IA produits | Module custom MDE phase 2 |
+| Devis B2B | Module custom Weklo phase 2 |
+| Validation SIRET | Module custom Weklo phase 2 |
+| Pricing rules B2B avancées | Module custom Weklo phase 2 |
+| Enrichissement IA produits | Module custom Weklo phase 2 |
 | Front-office | Phase 2 |
 
 ---
@@ -435,7 +435,7 @@ lunar_attributes                lunar_attribute_groups
 lunar_media (via Spatie)        lunar_staff
 ```
 
-Les tables customs MDE seront préfixées `mde_` et définies dans les packages `packages/mde/*` lors de la phase 2.
+Les tables customs Weklo seront préfixées `pko_` et définies dans les packages `packages/pko/*` lors de la phase 2.
 
 ---
 
@@ -497,7 +497,7 @@ Les tables customs MDE seront préfixées `mde_` et définies dans les packages 
 
 ### 10.2 Données non migrées
 
-- Modules PS custom (refactorisés en packages MDE phase 2)
+- Modules PS custom (refactorisés en packages Weklo phase 2)
 - Templates Creative Elements (remplacés par Blade/Livewire phase 2)
 - Configurations PS spécifiques à l'ancienne plateforme
 

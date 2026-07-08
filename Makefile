@@ -1,6 +1,6 @@
 # Garde anti-wipe : detecte si make tourne depuis un worktree PKOS.
 # container_name est fige dans compose.yaml → un worktree retombe sur le
-# conteneur principal = base de dev mde. On bloque les commandes destructives
+# conteneur principal = base de dev weklo. On bloque les commandes destructives
 # et on propage PKOS_WORKTREE=1 dans le conteneur pour la garde framework
 # (DB::prohibitDestructiveCommands dans AppServiceProvider).
 WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))
@@ -8,9 +8,9 @@ WT_ENV := $(if $(WORKTREE_GUARD),-e PKOS_WORKTREE=1,)
 
 # Isolation DB par worktree : derive un nom de base unique depuis le task ID
 # (12 premiers chars du nom de dossier, sans tirets) → testing_<slug>.
-# Cree la base via root (seul l'user root peut CREATE DATABASE) + grante mde.
+# Cree la base via root (seul l'user root peut CREATE DATABASE) + grante weklo.
 # Sans worktree → base standard "testing".
-# L'user applicatif mde ne peut pas CREATE DATABASE (SHOW GRANTS confirme) →
+# L'user applicatif weklo ne peut pas CREATE DATABASE (SHOW GRANTS confirme) →
 # GRANT obligatoire via root. Mot de passe lu depuis .env sinon defaut compose.yaml.
 WT_TASK_SLUG := $(if $(WORKTREE_GUARD),$(shell basename $(CURDIR) | tr -d '-' | cut -c1-12),)
 WT_DB_NAME   := $(if $(WORKTREE_GUARD),testing_$(WT_TASK_SLUG),testing)
@@ -53,12 +53,12 @@ help:
 	@echo "  make permissions Corriger les permissions storage + bootstrap/cache"
 	@echo ""
 	@echo "URLs :"
-	@echo "  Back-office    http://mde-laravel.localhost/admin"
-	@echo "  phpMyAdmin     http://pma.mde-laravel.localhost"
+	@echo "  Back-office    http://weklo.localhost/admin"
+	@echo "  phpMyAdmin     http://pma.weklo.localhost"
 	@echo "  Mailpit        http://mailpit.localhost (shared)"
 
 install:
-	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(DC) up -d --build
 	$(EXEC) composer install
 	$(MAKE) permissions
@@ -95,7 +95,7 @@ migrate:
 	$(EXEC) php artisan migrate
 
 fresh:
-	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate:fresh --force
 	$(EXEC) php artisan lunar:install --no-interaction
@@ -109,15 +109,15 @@ seed:
 test:
 	@if [ -n "$(WORKTREE_GUARD)" ]; then \
 		echo "→ [worktree] DB isolee : $(WT_DB_NAME) | code : $(CURDIR)"; \
-		docker exec mde-laravel-mysql mysql -u root -p$(DB_ROOT_PWD) -e \
-			"CREATE DATABASE IF NOT EXISTS \`$(WT_DB_NAME)\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$(WT_DB_NAME)\`.* TO 'mde'@'%'; FLUSH PRIVILEGES;" ; \
-		docker exec mde-laravel-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		docker exec weklo-mysql mysql -u root -p$(DB_ROOT_PWD) -e \
+			"CREATE DATABASE IF NOT EXISTS \`$(WT_DB_NAME)\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$(WT_DB_NAME)\`.* TO 'weklo'@'%'; FLUSH PRIVILEGES;" ; \
+		docker exec weklo-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
 		docker run --rm -u sail -w /var/www/html \
 			--network ecom-laravel_backend \
 			-v "$(CURDIR):/var/www/html" \
 			-v "$(MAIN_REPO)/vendor:/var/www/html/vendor" \
 			-v "$(MAIN_REPO)/.env:/var/www/html/.env:ro" \
-			-v "$(MAIN_REPO)/docker/app/php.ini:/usr/local/etc/php/conf.d/zz-mde.ini:ro" \
+			-v "$(MAIN_REPO)/docker/app/php.ini:/usr/local/etc/php/conf.d/zz-weklo.ini:ro" \
 			-v "$(MAIN_REPO)/public/build:/var/www/html/public/build:ro" \
 			-v "$(MAIN_REPO)/storage:/var/www/html/storage" \
 			-v "$(MAIN_REPO)/bootstrap/cache:/var/www/html/bootstrap/cache" \
@@ -125,7 +125,7 @@ test:
 			-e DB_DATABASE=$(WT_DB_NAME) \
 			ecom-laravel-app sh scripts/run-tests-chunked.sh ; \
 	else \
-		docker exec mde-laravel-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		docker exec weklo-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
 		$(EXEC) sh scripts/run-tests-chunked.sh ; \
 	fi
 
@@ -139,7 +139,7 @@ ps:
 	$(DC) ps
 
 lunar:
-	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev mde). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan lunar:install
 
 shield:

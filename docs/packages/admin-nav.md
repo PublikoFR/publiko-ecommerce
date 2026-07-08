@@ -206,7 +206,7 @@ Les resources/pages Pko-natives référencent désormais `Pko\AdminNav\Filament\
 
 ---
 
-## Layout MDE (sur-mesure) — sous-menus imbriqués en sidebar (layout retenu)
+## Layout Weklo (sur-mesure) — sous-menus imbriqués en sidebar (layout retenu)
 
 Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
 1 raccourci **Tableau de bord** + 5 groupes :

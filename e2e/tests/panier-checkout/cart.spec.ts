@@ -8,7 +8,7 @@
  *  - vidage complet du panier (wire:confirm)
  *  - persistance panier après rechargement de page (session)
  *
- * Compte pro : thierry.leroy@mde-distribution.test / testing123
+ * Compte pro : thierry.leroy@weklo.test / testing123
  * Produit    : premier produit disponible sur /recherche (stock ≥ 5, mono-variant)
  */
 import { test, expect } from '@playwright/test';

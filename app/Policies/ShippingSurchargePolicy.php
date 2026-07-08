@@ -4,9 +4,9 @@ namespace App\Policies;
 
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
-use Lunar\Models\Tag;
+use Pko\ShippingCommon\Models\ShippingSurcharge;
 
-class TagPolicy
+class ShippingSurchargePolicy
 {
     use HandlesAuthorization;
 
@@ -15,15 +15,15 @@ class TagPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_pko::tag');
+        return $staff->can('view_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can view the model.
      */
-    public function view(Staff $staff, Tag $tag): bool
+    public function view(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('view_pko::tag');
+        return $staff->can('view_shipping::surcharge');
     }
 
     /**
@@ -31,23 +31,23 @@ class TagPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_pko::tag');
+        return $staff->can('create_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can update the model.
      */
-    public function update(Staff $staff, Tag $tag): bool
+    public function update(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('update_pko::tag');
+        return $staff->can('update_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can delete the model.
      */
-    public function delete(Staff $staff, Tag $tag): bool
+    public function delete(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('delete_pko::tag');
+        return $staff->can('delete_shipping::surcharge');
     }
 
     /**
@@ -55,15 +55,15 @@ class TagPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_pko::tag');
+        return $staff->can('delete_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can permanently delete.
      */
-    public function forceDelete(Staff $staff, Tag $tag): bool
+    public function forceDelete(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('force_delete_pko::tag');
+        return $staff->can('force_delete_shipping::surcharge');
     }
 
     /**
@@ -71,15 +71,15 @@ class TagPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_pko::tag');
+        return $staff->can('force_delete_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can restore.
      */
-    public function restore(Staff $staff, Tag $tag): bool
+    public function restore(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('restore_pko::tag');
+        return $staff->can('restore_shipping::surcharge');
     }
 
     /**
@@ -87,15 +87,15 @@ class TagPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_pko::tag');
+        return $staff->can('restore_any_shipping::surcharge');
     }
 
     /**
      * Determine whether the staff can replicate.
      */
-    public function replicate(Staff $staff, Tag $tag): bool
+    public function replicate(Staff $staff, ShippingSurcharge $shippingSurcharge): bool
     {
-        return $staff->can('replicate_pko::tag');
+        return $staff->can('replicate_shipping::surcharge');
     }
 
     /**
@@ -103,6 +103,6 @@ class TagPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_pko::tag');
+        return $staff->can('reorder_shipping::surcharge');
     }
 }

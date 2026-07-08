@@ -122,7 +122,7 @@ class PkoProductSeeder extends Seeder
                     'brand_id' => $brands[array_rand($brands)],
                     'attribute_data' => collect([
                         'name' => new Text($name),
-                        'description' => new Text("{$name} — produit professionnel distribué par MDE Distribution."),
+                        'description' => new Text("{$name} — produit professionnel distribué par Weklo."),
                     ]),
                 ]);
 

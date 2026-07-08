@@ -14,7 +14,7 @@ class AiImporterPlugin implements Plugin
 {
     public function getId(): string
     {
-        return 'mde-ai-importer';
+        return 'pko-ai-importer';
     }
 
     public function register(Panel $panel): void

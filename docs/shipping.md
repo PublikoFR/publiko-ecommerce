@@ -21,7 +21,7 @@
 **Seed de base** (`PkoShippingSeeder`) :
 
 - 1 zone `France métropolitaine` (type `country`, rattachée à FR)
-- 3 méthodes : `mde-standard` (ship-by par poids), `mde-pickup` (collection, retrait entrepôt), `mde-free` (free-shipping dès 500 €)
+- 3 méthodes : `pko-standard` (ship-by par poids), `pko-pickup` (collection, retrait entrepôt), `pko-free` (free-shipping dès 500 €)
 - 3 rates attachés avec brackets : 4 paliers pour le standard (690/990/1490/1990 cents), 1 bracket à 0 pour pickup + free
 
 ### 5.2 Phase 2 — Chronopost + Colissimo dynamiques

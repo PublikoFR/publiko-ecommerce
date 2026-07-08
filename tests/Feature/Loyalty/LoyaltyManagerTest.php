@@ -26,7 +26,7 @@ class LoyaltyManagerTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-        config()->set('loyalty.admin_email', 'admin@mde.test');
+        config()->set('loyalty.admin_email', 'admin@weklo.test');
     }
 
     public function test_points_ratio_falls_back_when_zero(): void

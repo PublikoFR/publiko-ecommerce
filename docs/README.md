@@ -1,6 +1,6 @@
 # Documentation technique — ecom-laravel
 
-Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (MDE Distribution, rebranding Publiko). Ce dossier remplace l'ancien `technical-choices.md` monolithique (1789 lignes) par une arborescence thématique.
+Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (Weklo, rebranding Publiko). Ce dossier remplace l'ancien `technical-choices.md` monolithique (1789 lignes) par une arborescence thématique.
 
 ## Point d'entrée — architecture
 
@@ -12,6 +12,7 @@ Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (MDE Di
 | [workflow.md](workflow.md) | Tests, Git, outils IA (MCP servers), RBAC |
 | [payments.md](payments.md) | Stripe, rejet Cashier |
 | [shipping.md](shipping.md) | Drivers Chronopost / Colissimo / table-rate |
+| [deployment.md](deployment.md) | Déploiement O2switch (rsync d'artefacts, PROD/DEV) — cf. `deploy/` |
 
 ## Packages PKO
 

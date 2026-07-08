@@ -32,3 +32,7 @@ core
 # Playwright E2E artifacts
 /test-results/
 /playwright-report/
+
+# Deploy — configs locales avec chemins/clés (les *.env.example restent versionnés)
+/deploy/*.env
+!/deploy/*.env.example

@@ -80,10 +80,10 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 **Détail technique** :
 1. `phpunit.xml` déclare `<env name="DB_DATABASE" value="testing"/>` **sans** `force="true"` → une env var posée par `docker compose exec -e` prend la priorité.
 2. Le Makefile dérive `WT_DB_NAME := testing_$(shell basename $(CURDIR) | tr -d '-' | cut -c1-12)` en worktree.
-3. Avant le run : création + GRANT via root MySQL (l'user applicatif `mde` n'a pas `CREATE DATABASE`) :
+3. Avant le run : création + GRANT via root MySQL (l'user applicatif `weklo` n'a pas `CREATE DATABASE`) :
    ```sql
    CREATE DATABASE IF NOT EXISTS `testing_<slug>` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   GRANT ALL PRIVILEGES ON `testing_<slug>`.* TO 'mde'@'%';
+   GRANT ALL PRIVILEGES ON `testing_<slug>`.* TO 'weklo'@'%';
    FLUSH PRIVILEGES;
    ```
    Mot de passe root : lu depuis `.env` (`DB_ROOT_PASSWORD`) ou valeur par défaut `root_password` (cf. `compose.yaml`).
@@ -93,7 +93,7 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 
 **Pourquoi pas SQLite in-memory** : le projet utilise des colonnes JSON (fulltext search Lunar) et des FK multi-table → non compatible SQLite.
 
-**Pourquoi pas `paratest`** : l'user `mde` ne peut pas créer les bases `testing_1`…`testing_N` nécessaires au parallélisme paratest — `SHOW GRANTS FOR 'mde'@'%'` confirme grants uniquement sur `mde` et `testing`.
+**Pourquoi pas `paratest`** : l'user `weklo` ne peut pas créer les bases `testing_1`…`testing_N` nécessaires au parallélisme paratest — `SHOW GRANTS FOR 'weklo'@'%'` confirme grants uniquement sur `weklo` et `testing`.
 
 ### Note : segfault "signal 11" — DEUX causes distinctes
 
@@ -121,7 +121,7 @@ Les chunks tournent **en série** et partagent la même base de test (un seul à
 
 **Pourquoi pas `--process-isolation`** : un process PHP par *test* éliminerait aussi l'accumulation mais multiplie le temps par 3-5× ; avec des tests Feature déjà à ~15-18s pièce (seed complet en `setUp`), c'est rédhibitoire. Le chunking par dossier offre le même bénéfice anti-accumulation pour un surcoût négligeable.
 
-**Pourquoi pas `paratest`** : non installé, et l'user `mde` ne peut pas créer les bases `testing_1`…`testing_N` du parallélisme paratest (cf. ci-dessus). Le chunking série évite cette dépendance.
+**Pourquoi pas `paratest`** : non installé, et l'user `weklo` ne peut pas créer les bases `testing_1`…`testing_N` du parallélisme paratest (cf. ci-dessus). Le chunking série évite cette dépendance.
 
 **Validé** : 3 runs complets `make test` consécutifs verts (316 tests), aucun signal 11 ni hang.
 
@@ -130,7 +130,7 @@ Les chunks tournent **en série** et partagent la même base de test (un seul à
 
 ## Garde anti-wipe DB depuis les worktrees PKOS
 
-**Problème** : `compose.yaml` fige `container_name: mde-laravel-*`. Quand un agent PKOS lance `docker compose` depuis un worktree (`~/.pkos/worktrees/<id>/`), il n'a **pas** son propre conteneur isolé : il retombe sur le conteneur principal, donc sur la **base de dev `mde`** de Rom. Une commande destructive (`make fresh`, `make install`, ou `make artisan CMD='migrate:fresh'`) vide alors la vraie base de dev (staff, produits, configs). Incident constaté le 2026-06-02.
+**Problème** : `compose.yaml` fige `container_name: weklo-*`. Quand un agent PKOS lance `docker compose` depuis un worktree (`~/.pkos/worktrees/<id>/`), il n'a **pas** son propre conteneur isolé : il retombe sur le conteneur principal, donc sur la **base de dev `weklo`** de Rom. Une commande destructive (`make fresh`, `make install`, ou `make artisan CMD='migrate:fresh'`) vide alors la vraie base de dev (staff, produits, configs). Incident constaté le 2026-06-02.
 
 **Garde — défense en profondeur** (zéro impact hors worktree) :
 

@@ -15,7 +15,7 @@ class ActivityPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_activity');
+        return $staff->can('view_any_pko::activity');
     }
 
     /**
@@ -23,7 +23,7 @@ class ActivityPolicy
      */
     public function view(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('view_activity');
+        return $staff->can('view_pko::activity');
     }
 
     /**
@@ -31,7 +31,7 @@ class ActivityPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_activity');
+        return $staff->can('create_pko::activity');
     }
 
     /**
@@ -39,7 +39,7 @@ class ActivityPolicy
      */
     public function update(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('update_activity');
+        return $staff->can('update_pko::activity');
     }
 
     /**
@@ -47,7 +47,7 @@ class ActivityPolicy
      */
     public function delete(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('delete_activity');
+        return $staff->can('delete_pko::activity');
     }
 
     /**
@@ -55,7 +55,7 @@ class ActivityPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_activity');
+        return $staff->can('delete_any_pko::activity');
     }
 
     /**
@@ -63,7 +63,7 @@ class ActivityPolicy
      */
     public function forceDelete(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('force_delete_activity');
+        return $staff->can('force_delete_pko::activity');
     }
 
     /**
@@ -71,7 +71,7 @@ class ActivityPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_activity');
+        return $staff->can('force_delete_any_pko::activity');
     }
 
     /**
@@ -79,7 +79,7 @@ class ActivityPolicy
      */
     public function restore(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('restore_activity');
+        return $staff->can('restore_pko::activity');
     }
 
     /**
@@ -87,7 +87,7 @@ class ActivityPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_activity');
+        return $staff->can('restore_any_pko::activity');
     }
 
     /**
@@ -95,7 +95,7 @@ class ActivityPolicy
      */
     public function replicate(Staff $staff, Activity $activity): bool
     {
-        return $staff->can('replicate_activity');
+        return $staff->can('replicate_pko::activity');
     }
 
     /**
@@ -103,6 +103,6 @@ class ActivityPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_activity');
+        return $staff->can('reorder_pko::activity');
     }
 }

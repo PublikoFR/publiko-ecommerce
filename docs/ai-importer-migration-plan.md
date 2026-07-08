@@ -372,7 +372,7 @@ Patterns validés sur TreeManager (500+ nœuds) réutilisés pour la preview sta
 
 ## Extension catalog-features
 
-Dépendance du package sur `mde/catalog-features` pour les caractéristiques filtrables. Après création/update produit :
+Dépendance du package sur `pko/lunar-catalog-features` pour les caractéristiques filtrables. Après création/update produit :
 
 ```php
 use Pko\CatalogFeatures\Facades\Features;

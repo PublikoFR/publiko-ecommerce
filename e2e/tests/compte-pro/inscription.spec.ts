@@ -17,7 +17,7 @@ interface FormOptions {
 
 async function fillRegisterForm(page: Page, opts: FormOptions = {}): Promise<void> {
   const siret = opts.siret ?? TEST_SIRET;
-  const email = opts.email ?? `test-pro-${Date.now()}-${Math.floor(Math.random() * 1e6)}@mde-distribution.test`;
+  const email = opts.email ?? `test-pro-${Date.now()}-${Math.floor(Math.random() * 1e6)}@weklo.test`;
   const password = opts.password ?? 'TestPro123!';
   const confirm = opts.confirm ?? password;
   const terms = opts.terms ?? true;
@@ -90,7 +90,7 @@ test.describe('Inscription pro', () => {
   });
 
   test('inscription complète (SIRET valide, INSEE pending) crée le compte et redirige vers /connexion', async ({ page }) => {
-    const uniqueEmail = `nouveau-pro-${Date.now()}-${Math.floor(Math.random() * 1e6)}@mde-distribution.test`;
+    const uniqueEmail = `nouveau-pro-${Date.now()}-${Math.floor(Math.random() * 1e6)}@weklo.test`;
     await fillRegisterForm(page, { email: uniqueEmail });
     await submit(page);
 

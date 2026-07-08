@@ -43,7 +43,7 @@ class PkoCollectionSeeder extends Seeder
                 'collection_group_id' => $group->id,
                 'attribute_data' => collect([
                     'name' => new Text($name),
-                    'description' => new Text("Catégorie {$name} MDE Distribution"),
+                    'description' => new Text("Catégorie {$name} Weklo"),
                 ]),
             ]);
         }

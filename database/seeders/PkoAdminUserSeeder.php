@@ -11,14 +11,14 @@ class PkoAdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = (string) env('ADMIN_EMAIL', 'admin@mde-distribution.fr');
+        $email = (string) env('ADMIN_EMAIL', 'admin@weklo.fr');
         $password = (string) env('ADMIN_PASSWORD', 'testing123');
 
         Staff::updateOrCreate(
             ['email' => $email],
             [
                 'first_name' => 'Admin',
-                'last_name' => 'MDE',
+                'last_name' => 'Weklo',
                 'admin' => true,
                 'password' => $password,
             ],

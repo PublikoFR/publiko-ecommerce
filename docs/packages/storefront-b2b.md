@@ -172,10 +172,10 @@ Nouveau groupe de navigation **Storefront** dans l'admin Filament avec 7 resourc
 
 | Resource / Page | Modèle | Fonctionnalités |
 |---|---|---|
-| **Slides accueil** | `HomeSlide` | CRUD modal, reorder drag-n-drop (`position`), color pickers fond/texte, dates début/fin, CTA. Cache `mde.home.slides.v1` flush au save. |
-| **Tuiles accueil** | `HomeTile` | 4 cards promotionnelles (titre, sous-titre, image, CTA, reorder). Cache `mde.home.tiles.v1`. |
-| **Offres du moment** | `HomeOffer` | Badge (ex. -25%), image, date fin, CTA. Cache `mde.home.offers.v1`. |
-| **Actualités** | `Post` | RichEditor Filament, slug auto depuis titre, cover, extrait, status draft/published, date publication. Cache `mde.home.posts.v1`. |
+| **Slides accueil** | `HomeSlide` | CRUD modal, reorder drag-n-drop (`position`), color pickers fond/texte, dates début/fin, CTA. Cache `pko.home.slides.v1` flush au save. |
+| **Tuiles accueil** | `HomeTile` | 4 cards promotionnelles (titre, sous-titre, image, CTA, reorder). Cache `pko.home.tiles.v1`. |
+| **Offres du moment** | `HomeOffer` | Badge (ex. -25%), image, date fin, CTA. Cache `pko.home.offers.v1`. |
+| **Actualités** | `Post` | RichEditor Filament, slug auto depuis titre, cover, extrait, status draft/published, date publication. Cache `pko.home.posts.v1`. |
 | **Pages CMS** | `Page` | RichEditor, slug unique, status (published/draft). Routes `/pages/{slug}` (CGV, mentions, FAQ, politique…). |
 | **Abonnés newsletter** | `NewsletterSubscriber` | Liste read-only (pas de create), bulk delete, search + sort. |
 | **Magasins** | `Store` | Sections Identité / Adresse / Contact / Horaires (`KeyValue` jour→plage), slug auto, coordonnées lat/lng. |
@@ -191,7 +191,7 @@ Policies Shield régénérées (`make artisan CMD='shield:generate --all --panel
 
 - **Scout Typesense** : upgrade du driver `database` → Typesense self-hosted pour performance + typo-tolerance sur 60k+ références.
 - **Pays checkout** : `CheckoutPage::getCountriesProperty()` hardcodé `[GBR, USA]` (hérité starter kit) à remplacer par France/UE.
-- **Cache Navigation versionné** : observer `Collection::saved` qui invalide `mde.storefront.nav.roots.v1`.
+- **Cache Navigation versionné** : observer `Collection::saved` qui invalide `pko.storefront.nav.roots.v1`.
 - **Factures PDF** : page `/compte/factures` = placeholder. Génération via Spatie Browsershot ou équivalent.
 - **Loyalty UI storefront** : `/compte/fidelite` est branché sur `LoyaltyManager::getCustomerSnapshot()` mais le rendu barre/cadeaux est minimal — design à finaliser.
 - **Adresses CRUD** : `/compte/adresses` liste les adresses mais le bouton Ajouter est désactivé (follow-up Livewire create/edit).
