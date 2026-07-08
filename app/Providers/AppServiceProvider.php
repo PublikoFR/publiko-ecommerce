@@ -88,12 +88,14 @@ class AppServiceProvider extends ServiceProvider
                 ->spa(false)
                 ->path('admin')
                 ->brandName(brand_name())
-                ->brandLogo(fn (): string => asset('img/weklo-lockup.png'))
-                ->darkModeBrandLogo(fn (): HtmlString => new HtmlString(
-                    '<span class="wk-logo-dark">weklo</span>'
-                ))
+                // Logos/favicon configurables depuis Storefront → Paramètres
+                // (Setting brand.logo / brand.logo_dark / brand.favicon), avec
+                // repli sur les assets Weklo. Closures → lecture DB à l'affichage.
+                ->brandLogo(fn (): string => brand_logo() ?? asset('img/weklo-lockup.png'))
+                ->darkModeBrandLogo(fn (): string|HtmlString => brand_logo_dark()
+                    ?? new HtmlString('<span class="wk-logo-dark">weklo</span>'))
                 ->brandLogoHeight('2.5rem')
-                ->favicon(asset('img/weklo-mark.png'))
+                ->favicon(fn (): string => brand_favicon() ?? asset('img/weklo-mark.png'))
                 ->renderHook(
                     PanelsRenderHook::USER_MENU_BEFORE,
                     fn (): string => view('filament.hooks.user-identity')->render(),

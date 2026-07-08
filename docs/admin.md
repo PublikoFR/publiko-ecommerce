@@ -131,10 +131,18 @@ par période) et portent un badge **« stat à connecter »** (clé `simulated =
 payload). Tout le reste est branché en vrai. Pour connecter réellement ces 3 métriques :
 brancher un tracking analytics (sessions/paniers) et stocker un prix d'achat sur la variante.
 
-**Branding du panel** : `AppServiceProvider` applique `->brandLogo(weklo-lockup.png)`,
-`->brandLogoHeight('2.5rem')`, `->font('Hanken Grotesk')` et `->colors([...])` (ramps
-forest = primary, lime = accent, neutrals green-tinted = gray, + semantics). Logo dans
-`public/img/weklo-lockup.png` (source `design-system/assets/logos/`).
+**Branding du panel** : `AppServiceProvider` applique `->brandLogo()`,
+`->darkModeBrandLogo()`, `->favicon()`, `->brandLogoHeight('2.5rem')`,
+`->font('Hanken Grotesk')` et `->colors([...])` (ramps forest = primary, lime = accent,
+neutrals green-tinted = gray, + semantics).
+
+Logos/favicon **configurables** depuis **Storefront → Paramètres** (page
+`StorefrontSettings`), via les Settings `brand.logo` (clair), `brand.logo_dark`
+(sombre) et `brand.favicon` (commun). Les closures du panel lisent ces Settings à
+l'affichage (helpers `brand_logo()` / `brand_logo_dark()` / `brand_favicon()`, tous
+résolus par `brand_media_url()`), avec repli sur les assets Weklo
+(`public/img/weklo-lockup.png`, `public/img/weklo-mark.png`) et, pour le logo sombre
+non renseigné, sur le wordmark « weklo » rendu en Forno Waffle blanc (`.wk-logo-dark`).
 
 **Chrome du panel aligné sur la maquette** (module `weklo-dashboard.css`, styles hors
 scope `.wk-dash` car rendus dans le layout Filament) : onglet sidebar actif (fond
