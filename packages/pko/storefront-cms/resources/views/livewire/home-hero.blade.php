@@ -1,8 +1,7 @@
 <div x-data="{ current: 0, count: {{ $slides->count() }}, timer: null, start() { if (this.count < 2) return; this.timer = setInterval(() => this.next(), 6000); }, next() { this.current = (this.current + 1) % this.count; }, prev() { this.current = (this.current - 1 + this.count) % this.count; }, go(i) { this.current = i; clearInterval(this.timer); this.start(); } }" x-init="start()" class="relative overflow-hidden rounded-2xl">
     @if ($slides->isEmpty())
         <div class="relative bg-primary-600 text-white px-8 py-24 text-center overflow-hidden">
-            <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 520px;"></span>
-            <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 380px; --wk-decor-opacity: 0.08;"></span>
+            <span class="wk-decor wk-decor--tr wk-decor--lime" style="--wk-decor-size: 520px;"></span>
             <h2 class="relative font-display font-bold text-4xl md:text-5xl mb-3">{{ brand_name() }}</h2>
             @if (brand_tagline())
                 <p class="relative text-lg text-accent-300">{{ brand_tagline() }}</p>
@@ -13,11 +12,12 @@
             @foreach ($slides as $idx => $slide)
                 <div x-show="current === {{ $idx }}" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="absolute inset-0" style="background-color: {{ $slide->bg_color }}; color: {{ $slide->text_color }};">
                     @if ($slide->image_url)
-                        <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover opacity-90" />
-                        <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
+                        <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover" />
+                        {{-- Dégradé = la couleur de fond du slide (même teinte), lisibilité côté texte --}}
+                        <div class="absolute inset-0" style="background-image: linear-gradient(95deg, {{ $slide->bg_color }} 0%, {{ $slide->bg_color }}cc 42%, {{ $slide->bg_color }}00 82%);"></div>
                     @endif
-                    <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 440px;"></span>
-                    <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 300px; --wk-decor-opacity: 0.08;"></span>
+                    {{-- Habillage toujours côté droit (le texte est aligné à gauche) --}}
+                    <span class="wk-decor wk-decor--{{ $idx % 2 === 0 ? 'tr' : 'br' }} wk-decor--lime" style="--wk-decor-size: 460px;"></span>
                     <div class="relative max-w-screen-xl mx-auto h-full flex items-center px-6 md:px-12 z-10">
                         <div class="max-w-xl">
                             <h2 class="font-display text-4xl md:text-5xl font-bold leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>

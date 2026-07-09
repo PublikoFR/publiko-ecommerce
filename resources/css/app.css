@@ -135,25 +135,33 @@
     }
 
     /* ---- Habillage (concentric-ring brand decoration) ---------------------
-       Drop inside a position:relative container; sits behind content.
-       Tune via inline --wk-decor-size / --wk-decor-color / --wk-decor-opacity. */
+       Real graphiste shape (public/img/habillage.svg) driven via CSS mask so
+       the color is controllable. Charte rule: PLEINE COULEUR, jamais de
+       transparence — the ring center sits pile-poil on the div corner
+       (translate ±50%). --wk-decor-opacity stays available (default 1) only for
+       the rare filigrane usages that opt in explicitly. */
     .wk-decor {
         position: absolute;
         width: var(--wk-decor-size, 420px);
         height: var(--wk-decor-size, 420px);
-        background-color: var(--wk-decor-color, currentColor);
+        background-color: var(--wk-decor-color, #aac932);
         -webkit-mask: url('/img/habillage.svg') center / contain no-repeat;
         mask: url('/img/habillage.svg') center / contain no-repeat;
-        opacity: var(--wk-decor-opacity, 0.06);
+        opacity: var(--wk-decor-opacity, 1);
         pointer-events: none;
         z-index: 0;
     }
-    .wk-decor--tl { top: 0; left: 0; transform: translate(-42%, -42%); }
-    .wk-decor--tr { top: 0; right: 0; transform: translate(42%, -42%); }
-    .wk-decor--bl { bottom: 0; left: 0; transform: translate(-42%, 42%); }
-    .wk-decor--br { bottom: 0; right: 0; transform: translate(42%, 42%); }
-    .wk-decor--on-dark { background-color: #b8d24c; opacity: 0.12; }
-    .wk-decor--on-light { background-color: #00453e; opacity: 0.05; }
+    .wk-decor--tl { top: 0; left: 0; transform: translate(-50%, -50%); }
+    .wk-decor--tr { top: 0; right: 0; transform: translate(50%, -50%); }
+    .wk-decor--bl { bottom: 0; left: 0; transform: translate(-50%, 50%); }
+    .wk-decor--br { bottom: 0; right: 0; transform: translate(50%, 50%); }
+    /* Solid brand fills — no baked opacity (charte: pleine couleur). */
+    .wk-decor--lime { background-color: #aac932; }
+    .wk-decor--forest { background-color: #00453e; }
+    .wk-decor--white { background-color: #ffffff; }
+    /* Legacy aliases kept for existing markup — now full color. */
+    .wk-decor--on-dark { background-color: #aac932; }
+    .wk-decor--on-light { background-color: #00453e; }
 }
 
 [x-cloak] {
