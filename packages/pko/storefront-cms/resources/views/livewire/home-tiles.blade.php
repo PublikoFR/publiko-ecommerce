@@ -8,10 +8,10 @@
                         <img src="{{ $tile->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                     @endif
                     {{-- Pastille forest en quart-de-cercle, coin haut-droite : porte le texte --}}
-                    <div class="pointer-events-none absolute top-0 right-0 w-[155%] aspect-square rounded-full bg-primary-800 translate-x-1/2 -translate-y-1/2"></div>
+                    <div class="pointer-events-none absolute top-0 right-0 w-[78%] aspect-square rounded-full bg-primary-800 translate-x-1/2 -translate-y-1/2"></div>
                     {{-- Anneaux lime pleine couleur, centre pile dans l'angle bas-gauche --}}
                     <span class="wk-decor wk-decor--bl wk-decor--lime" style="--wk-decor-size: 200px;"></span>
-                    <div class="relative z-10 p-5 flex flex-col items-end text-right">
+                    <div class="relative z-10 p-5 flex flex-col items-end text-right [text-shadow:0_1px_4px_rgba(0,0,0,0.55)]">
                         <h3 class="font-display font-bold text-lg leading-tight">{{ $tile->title }}</h3>
                         @if ($tile->subtitle)<p class="text-xs text-white/90 mt-1">{{ $tile->subtitle }}</p>@endif
                         @if ($tile->cta_label)
