@@ -48,6 +48,36 @@ async function waitForApp(url: string, timeoutMs = 120_000): Promise<void> {
   throw new Error(`App not ready after ${timeoutMs}ms`);
 }
 
+// Chauffe l'app en attendant la réponse COMPLÈTE d'une page (contrairement à
+// waitForApp qui se contente de la joignabilité avec un timeout court de 3 s).
+// Après `optimize:clear`, le tout premier rendu serveur d'une page Livewire
+// recompile l'opcache de la stack (Lunar + Filament + packages pko) et peut
+// prendre plus de 5 min à froid (I/O du bind-mount worktree). On paie ce coût
+// UNE fois ici, dans le setup, plutôt que dans le budget du premier test.
+// Non-fatal : un échec de warm ne doit pas casser tout le run.
+async function warmApp(url: string, timeoutMs = 480_000): Promise<void> {
+  const started = Date.now();
+  process.stdout.write(`  Warming ${url} (compile à froid, peut être long) `);
+  await new Promise<void>(resolve => {
+    const req = http.get(url, res => {
+      res.resume();
+      res.on('end', () => {
+        process.stdout.write(` ${res.statusCode} en ${((Date.now() - started) / 1000).toFixed(1)}s\n`);
+        resolve();
+      });
+    });
+    req.on('error', err => {
+      process.stdout.write(` échec (${err.message})\n`);
+      resolve();
+    });
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      process.stdout.write(` timeout ${timeoutMs}ms\n`);
+      resolve();
+    });
+  });
+}
+
 async function waitForDb(projectName: string, env: Record<string, string>, timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   process.stdout.write('Waiting for MySQL ');
@@ -169,6 +199,10 @@ export default async function globalSetup(): Promise<void> {
   );
   execInApp(projectName, composeEnv, 'php', 'artisan', 'shield:super-admin', '--user=1', '--panel=admin');
   execInApp(projectName, composeEnv, 'php', 'artisan', 'optimize:clear');
+
+  // 7. Warm-up : absorbe le compile serveur à froid ici (hors budget des tests).
+  //    /connexion chauffe l'opcache partagé + les vues du tunnel checkout.
+  await warmApp(`http://localhost:${e2ePort}/connexion`);
 
   console.log(`  E2E stack ready → http://localhost:${e2ePort}\n`);
 }
