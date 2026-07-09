@@ -19,7 +19,7 @@ test.describe('Smoke — storefront disponible', () => {
   test('admin login accessible', async ({ page }) => {
     const response = await page.goto('/admin/login');
     expect(response?.status()).toBeLessThan(500);
-    // Filament affiche un champ email de connexion
-    await expect(page.getByLabel(/email/i).first()).toBeVisible({ timeout: 10_000 });
+    // Filament affiche un champ email de connexion (label FR « Adresse e-mail »)
+    await expect(page.getByLabel(/e-?mail/i).first()).toBeVisible({ timeout: 10_000 });
   });
 });
