@@ -126,6 +126,7 @@ Le swap reflection est fragile par design. **Avant chaque mise à jour Lunar** (
    - `/admin` → menu complet avec raccourcis Pilotage
 4. **Points de casse connus** :
    - Ajout d'une Page dans `getDefaultPages()` d'une Resource Lunar → ma subclass n'a pas la page → route 404 (corriger en ajoutant l'entrée dans l'override Pko)
+   - **Header/table action Lunar qui hardcode `StaffResource::getUrl('acl')`** (ou toute `getUrl()` référençant la classe Lunar de base) → route `filament.lunar.resources.<slug>.<page>` introuvable après swap dans un cluster (les routes réelles sont préfixées par le slug du cluster, ex. `filament.lunar.systeme-donnees.resources.staff.acl`) → **500 au rendu de la page**, pas au boot. Corriger en overridant la méthode d'actions (`getDefaultHeaderActions()`) dans la Pko page pour repointer sur `PkoXResource::getUrl(...)`. Cf. `PkoStaffResource\Pages\PkoListStaff::getDefaultHeaderActions()`.
    - Rename d'une classe Page → `extends` casse → fatal (corriger le `use` et la classe parente)
    - Rename de propriété `$resources` sur `LunarPanelManager` ou `Panel` → reflection no-op silencieux → pages Lunar d'origine actives (détecté par smoke test)
    - Refactor namespace → tous les `use` cassent
