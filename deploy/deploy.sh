@@ -63,6 +63,14 @@ if [[ -n "$SSH_KEY" ]]; then
   SSH_KEY="${SSH_KEY/#\~/$HOME}"
 fi
 
+# --- commandes de build (paramétrables via le fichier env) -----------------
+# BUILD_COMPOSER / BUILD_NPM permettent de builder dans le conteneur Docker
+# (PHP = version serveur) plutôt que sur l'hôte, indispensable si l'hôte a un
+# PHP plus ancien qu'une contrainte du composer.lock. Défaut : binaires hôte.
+# Ex (ce projet) : BUILD_COMPOSER="docker compose -p ecom-laravel exec -T -u sail app composer"
+BUILD_COMPOSER="${BUILD_COMPOSER:-composer}"
+BUILD_NPM="${BUILD_NPM:-npm}"
+
 # --- multiplexage SSH (ControlMaster) --------------------------------------
 # On ouvre UNE connexion maître persistante que TOUT réutilise (rsync + chaque
 # ssh distant) → une seule authentification, pas de rafale de connexions.
@@ -178,6 +186,10 @@ RSYNC_EXCLUDES=(
   --exclude='/docker'
   --exclude='/storage'
   --exclude='/public/storage'
+  --exclude='/.well-known'
+  --exclude='/cgi-bin'
+  --exclude='/core'
+  --exclude='core'
 )
 run_rsync() {
   local -a flags=(-az --delete --human-readable "${RSYNC_EXCLUDES[@]}")
@@ -189,10 +201,11 @@ run_rsync() {
 # 1. BUILD LOCAL — rien ne se compile côté serveur
 # ===========================================================================
 log "Étape 1/3 — Build local (composer + assets Vite)"
-run_local composer install --no-dev --optimize-autoloader --no-interaction
+log "  composer : ${BUILD_COMPOSER}"
+run_local $BUILD_COMPOSER install --no-dev --optimize-autoloader --no-interaction
 ok "composer install --no-dev --optimize-autoloader"
-run_local npm ci
-run_local npm run build
+run_local $BUILD_NPM ci
+run_local $BUILD_NPM run build
 ok "Assets buildés (public/build)"
 echo
 
