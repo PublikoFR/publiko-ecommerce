@@ -3,6 +3,14 @@
 Déploiement SSH/rsync vers le mutualisé **O2switch** (cPanel), pour **PROD** et
 **DEV** (sous-domaine `dev.`).
 
+> **Deux fichiers `.env` distincts — ne pas confondre :**
+> - **`deploy/*.env`** = config de **déploiement** (hôte/user/chemin/clé SSH).
+>   Vit **uniquement en local** : gitignoré (jamais sur GitHub) + exclu du rsync
+>   (jamais sur le serveur). Seuls les `deploy/*.env.example` (sans secret) sont versionnés.
+> - **`.env` Laravel** = config de l'**application**. Le serveur a **le sien**
+>   (creds prod). Le rsync l'exclut pour ne pas écraser le `.env` prod par le
+>   `.env` local (qui pointe sur `weklo.localhost` + DB locale).
+
 ## Modèle = rsync d'artefacts (build local, push du résultat)
 
 On ne compile **rien côté serveur**. Tout est buildé en local puis poussé :
@@ -39,9 +47,9 @@ refusée en dur, même si elle est injectée dans le script.
 1. **Clé SSH** : générer une paire dédiée et installer la **clé publique** côté
    O2switch (cPanel → **SSH Access** → **Manage SSH Keys** → Import/Authorize) :
    ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/o2switch_weklo_deploy -C "weklo-deploy"
-   # puis autoriser ~/.ssh/o2switch_weklo_deploy.pub dans cPanel
-   ssh -i ~/.ssh/o2switch_weklo_deploy -o IdentitiesOnly=yes <SSH_USER>@<SSH_HOST>
+   ssh-keygen -t ed25519 -f ~/.ssh/weklo-o2switch -C "weklo-o2switch-deploy"
+   # puis autoriser ~/.ssh/weklo-o2switch.pub dans cPanel
+   ssh -i ~/.ssh/weklo-o2switch -o IdentitiesOnly=yes <SSH_USER>@<SSH_HOST>
    ```
 
 2. **Fichiers de config** : copier les `.example` et remplir les `TODO_*` :
@@ -54,14 +62,41 @@ refusée en dur, même si elle est injectée dans le script.
 3. **Document root cPanel** : pour chaque domaine/sous-domaine, pointer le
    *document root* sur `REMOTE_PATH/public` (Laravel sert depuis `/public`).
 
-4. **`.env` serveur** : poser **manuellement, une seule fois**, le `.env` Laravel
-   dans `REMOTE_PATH` :
-   - PROD : `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://weklo.fr`,
-     `APP_KEY=...`, creds DB O2switch.
-   - DEV  : `APP_URL=https://dev.weklo.fr` + config de l'environnement dev.
+4. **`.env` Laravel serveur (prod & dev, distincts)** — voir section dédiée ci-dessous.
 
-   ⚠️ Ce `.env` serveur **n'est pas géré par le script** : il vit côté serveur,
-   n'est ni transféré ni écrasé.
+## `.env` Laravel serveur — prod & dev (bases distinctes)
+
+Chaque environnement a **son propre `.env` Laravel** sur le serveur (base, URL,
+APP_KEY différents). Templates prêts à remplir : `deploy/laravel/env.{prod,dev}.example`
+(drivers adaptés au mutualisé : `file`/`sync`, pas de Redis).
+
+Workflow (une fois par environnement) :
+
+```bash
+# 1. Bases MySQL : dans cPanel → « Bases de données MySQL », créer une base +
+#    un utilisateur pour PROD et une autre paire pour DEV (préfixe goga8238_).
+
+# 2. Générer une APP_KEY (distincte prod/dev) — en local, sans toucher ton .env :
+docker compose -p ecom-laravel exec -u sail app php artisan key:generate --show
+#    → copie la valeur base64:... dans APP_KEY du template correspondant.
+
+# 3. Remplir les TODO du template (DB, APP_URL, mail, Stripe…) puis l'uploader
+#    RENOMMÉ « .env » dans le REMOTE_PATH de l'env (cPanel Gestionnaire de fichiers
+#    ou scp), une seule fois :
+scp -i ~/.ssh/weklo-o2switch deploy/laravel/env.prod \
+    goga8238@parc.o2switch.net:/home/goga8238/public_html/weklo/prod/.env
+scp -i ~/.ssh/weklo-o2switch deploy/laravel/env.dev \
+    goga8238@parc.o2switch.net:/home/goga8238/public_html/weklo/dev/.env
+```
+
+⚠️ Ces `.env` serveur **ne sont ni transférés ni écrasés** par `deploy.sh`
+(exclus du rsync). Les copies remplies locales (`deploy/laravel/env.prod`,
+`env.dev`) sont **gitignorées** ; seuls les `*.example` sont versionnés.
+
+> **Premier déploiement d'un env** : `deploy.sh` fait `migrate --force` (schéma)
+> mais **jamais** `db:seed` (garde-fou anti-wipe). Une base prod part donc vide
+> de contenu applicatif : prévoir le bootstrap minimal (Shield + super-admin +
+> réglages Storefront) hors pipeline — à cadrer avant la 1re mise en prod.
 
 ## Utilisation
 

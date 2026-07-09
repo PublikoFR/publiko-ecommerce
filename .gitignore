@@ -33,6 +33,7 @@ core
 /test-results/
 /playwright-report/
 
-# Deploy — configs locales avec chemins/clés (les *.env.example restent versionnés)
+# Deploy — configs locales avec secrets. Seuls les *.example sont versionnés.
 /deploy/*.env
-!/deploy/*.env.example
+/deploy/laravel/env.*
+!/deploy/**/*.example

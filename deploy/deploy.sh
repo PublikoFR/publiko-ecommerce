@@ -142,19 +142,24 @@ open_master() {
 }
 
 # rsync : exclusions IMPÉRATIVES.
-#   - .env            : creds serveur posés à la main, jamais écrasés/supprimés
+#   - .env / .env.*   : le .env LARAVEL local (APP_URL=weklo.localhost, DB locale)
+#                       ne doit JAMAIS écraser le .env prod du serveur. Le serveur
+#                       garde le sien, protégé par --delete sans --delete-excluded.
+#   - deploy          : config de DÉPLOIEMENT (deploy/*.env : secrets SSH). Ne quitte
+#                       jamais le local — exclue du rsync ET gitignorée. NB : distinct
+#                       du .env Laravel ci-dessus, ne pas confondre les deux fichiers.
 #   - .git/.github    : VCS / CI, inutiles en prod
 #   - node_modules    : non requis (build déjà fait → public/build)
-#   - deploy          : config de déploiement locale (clés/chemins)
 #   - tests / e2e     : pas en prod
 #   - design-system   : source du DS (compilée dans public/build), inutile en prod
 #   - docs / *.md     : documentation projet, hors prod
 #   - /storage        : uploads utilisateurs (storage/app) + logs → JAMAIS touchés
 #   - /public/storage : symlink recréé côté serveur par `artisan storage:link`
 # Note : --delete NE supprime PAS les chemins exclus côté serveur (pas de
-#        --delete-excluded), donc .env et storage/ sont protégés.
+#        --delete-excluded), donc storage/ et un éventuel .env manuel sont protégés.
 RSYNC_EXCLUDES=(
   --exclude='.env'
+  --exclude='.env.*'
   --exclude='.git'
   --exclude='.github'
   --exclude='node_modules'
