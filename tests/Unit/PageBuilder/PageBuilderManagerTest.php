@@ -203,6 +203,33 @@ final class PageBuilderManagerTest extends TestCase
         $this->assertSame('line', $this->normalizedBlock(['type' => 'separator', 'variant' => 'zigzag'])['variant']);
     }
 
+    public function test_block_catalog_examples_all_normalize_to_declared_type(): void
+    {
+        $catalog = PageBuilderManager::blockCatalog();
+        $this->assertNotEmpty($catalog);
+
+        foreach ($catalog as $entry) {
+            $normalized = $this->normalizedBlock($entry['example']);
+            // Chaque exemple du catalogue doit survivre à la normalisation
+            // (bloc non droppé) et conserver son type déclaré.
+            $this->assertSame(
+                $entry['type'],
+                $normalized['type'] ?? null,
+                "L'exemple du bloc {$entry['type']} ne se normalise pas correctement.",
+            );
+        }
+    }
+
+    public function test_example_content_is_normalized_and_non_empty(): void
+    {
+        $example = PageBuilderManager::exampleContent();
+        $this->assertArrayHasKey('heading', $example);
+        $this->assertArrayHasKey('sections', $example);
+        $this->assertNotEmpty($example['sections']);
+        // Idempotence : re-normaliser ne change rien.
+        $this->assertSame($example, PageBuilderManager::normalize($example));
+    }
+
     public function test_normalize_fills_default_values(): void
     {
         $out = PageBuilderManager::normalize([

@@ -105,6 +105,23 @@ Slide-over à droite rend `<x-page-builder::render :content="$this->tree" :with-
 - Layout responsive : `grid-cols-1 md:grid-cols-{N}` sur le wrapper colonnes
 - **JSON-LD FAQ (SEO)** : `Render::faqJsonLd()` agrège **tous** les blocs `accordion` de la page en un **unique** `<script type="application/ld+json">` `schema.org/FAQPage` (une seule entité FAQPage par page, comme recommandé par Google), émis en fin de composant. Ne garde que les paires Q/R complètes ; `null` (donc aucun script) si aucune. `JSON_HEX_TAG` neutralise `<`/`>` → pas de breakout de balise `<script>`. Invisible pour l'utilisateur.
 
+### Création par une IA — tools MCP (greffés sur laravel-boost)
+
+Plutôt qu'une API séparée, la création de pages par une IA se greffe sur le **serveur MCP existant** (`laravel-boost`, commande `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Deux tools :
+
+| Tool MCP | Rôle |
+|---|---|
+| `page_builder_catalog` (read-only) | Décrit tout le nécessaire : `post_types`, `section_layouts` (1col…6col), **catalogue des blocs** (champs + valeurs autorisées + exemple par bloc), `content_shape`, un `example_page` complet et des `notes`. Source : `PageBuilderManager::blockCatalog()` + `exampleContent()` → **jamais désynchronisé** du normaliseur (valeurs tirées des constantes). |
+| `create_cms_page` (destructive) | Crée un `Post` (page/article) depuis `{ post_type, title, heading?, slug?, status?, excerpt?, seo_*?, content, cover_media_id? }`. **Brouillon par défaut**. Retourne id, slug, `public_url`, `admin_edit_url`. |
+
+Implémentation :
+- Classes tools : `app/Mcp/Tools/PageBuilderCatalogTool.php` + `CreatePageTool.php` (étendent `Laravel\Mcp\Server\Tool`, nom via `protected string $name`).
+- Logique de création réutilisable et testable hors MCP : `Pko\StorefrontCms\Services\PageComposer::create(array): Post` — résout le post type (handle **ou** id), slug unique auto (`-2`, `-3`…), `content` passé par `PageBuilderManager::normalize` (blocs inconnus droppés, valeurs bornées → tolérant aux sorties LLM), H1 `content.heading` (défaut = `title`, surchargeable pour le SEO), statut `draft` par défaut. Ne lève que sur métadonnées obligatoires manquantes (type, titre).
+- **Sécurité / auth** : le serveur `boost:mcp` tourne dans le process applicatif (pas d'endpoint HTTP public ajouté) → pas de nouvelle surface exposée ni de token à gérer. Le contenu est assaini par `normalize` (HTMLPurifier sur le texte, allowlists URL/variantes).
+- Tests : `PageComposerTest` (création draft, H1 SEO, slug unique, publié, erreurs) + round-trip du catalogue dans `PageBuilderManagerTest` (chaque exemple de bloc se normalise vers son type déclaré).
+
+Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`.
+
 ### Permission Shield
 
 `manage_cms_pages` (guard `staff`) — créée par `CmsPermissionsSeeder`, assignée à `super_admin`. Attachée au Livewire pour futurs gatings spécifiques (ex: séparer page vs post).

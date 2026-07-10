@@ -86,6 +86,9 @@ final class PageBuilderManager
     /** Nombre de colonnes autorisées pour la galerie. */
     public const GALLERY_COLUMNS = [2, 3, 4];
 
+    /** Langages autorisés pour le bloc code. */
+    public const CODE_LANGUAGES = ['plain', 'php', 'js', 'ts', 'html', 'css', 'bash', 'json', 'sql', 'yaml'];
+
     /** @return array<int, string> */
     public static function allowedLayouts(): array
     {
@@ -413,10 +416,9 @@ final class PageBuilderManager
 
     private static function normalizeLanguage(mixed $value): string
     {
-        $allowed = ['plain', 'php', 'js', 'ts', 'html', 'css', 'bash', 'json', 'sql', 'yaml'];
         $value = is_string($value) ? $value : 'plain';
 
-        return in_array($value, $allowed, true) ? $value : 'plain';
+        return in_array($value, self::CODE_LANGUAGES, true) ? $value : 'plain';
     }
 
     private static function ensureId(mixed $value, string $prefix): string
@@ -456,5 +458,131 @@ final class PageBuilderManager
         }
 
         return self::normalizeBlock(['type' => $type]);
+    }
+
+    /**
+     * Catalogue auto-décrit des blocs disponibles, destiné à une IA qui compose
+     * une page. Les valeurs autorisées (variantes, layouts, langages…) sont
+     * tirées des constantes → jamais désynchronisé du normaliseur.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function blockCatalog(): array
+    {
+        return [
+            [
+                'type' => self::BLOCK_TEXT,
+                'label' => 'Texte',
+                'description' => 'Paragraphe(s) en HTML riche. Le HTML est assaini (balises de mise en forme et liens autorisés, scripts retirés).',
+                'fields' => ['html' => 'string (HTML)'],
+                'example' => ['type' => 'text', 'html' => '<p>Un paragraphe avec un <a href="/contact">lien</a>.</p>'],
+            ],
+            [
+                'type' => self::BLOCK_TITLE,
+                'label' => 'Titre',
+                'description' => 'Titre de section (H2 ou H3). Le H1 de la page est le champ `heading` du contenu, pas un bloc.',
+                'fields' => ['level' => self::TITLE_LEVELS, 'text' => 'string (≤200)'],
+                'example' => ['type' => 'title', 'level' => 'h2', 'text' => 'Nos services'],
+            ],
+            [
+                'type' => self::BLOCK_IMAGE,
+                'label' => 'Image',
+                'description' => 'Image unique. Fournir `media_id` (id média existant) ou `url` (URL absolue).',
+                'fields' => ['media_id' => 'int|null', 'url' => 'string|null', 'alt' => 'string'],
+                'example' => ['type' => 'image', 'media_id' => null, 'url' => 'https://exemple.test/photo.jpg', 'alt' => 'Description'],
+            ],
+            [
+                'type' => self::BLOCK_GALLERY,
+                'label' => 'Galerie',
+                'description' => 'Grille d’images (lightbox au clic côté front). `media_ids` = ids médias existants.',
+                'fields' => ['media_ids' => 'int[]', 'columns' => self::GALLERY_COLUMNS],
+                'example' => ['type' => 'gallery', 'media_ids' => [12, 13, 14], 'columns' => 3],
+            ],
+            [
+                'type' => self::BLOCK_VIDEO,
+                'label' => 'Vidéo',
+                'description' => 'Vidéo intégrée. `url` = lien YouTube/Vimeo/Dailymotion ou fichier .mp4 (http(s) uniquement).',
+                'fields' => ['url' => 'string (http(s))'],
+                'example' => ['type' => 'video', 'url' => 'https://youtu.be/xxxxxxxxxxx'],
+            ],
+            [
+                'type' => self::BLOCK_LIST,
+                'label' => 'Liste',
+                'description' => 'Liste à puces ou à coches. `items` = tableau de chaînes.',
+                'fields' => ['style' => self::LIST_STYLES, 'items' => 'string[]'],
+                'example' => ['type' => 'list', 'style' => 'check', 'items' => ['Livraison 48h', 'Garantie 2 ans']],
+            ],
+            [
+                'type' => self::BLOCK_QUOTE,
+                'label' => 'Citation',
+                'description' => 'Citation avec auteur/source optionnel.',
+                'fields' => ['text' => 'string', 'cite' => 'string'],
+                'example' => ['type' => 'quote', 'text' => 'La qualité avant tout.', 'cite' => 'Notre fondateur'],
+            ],
+            [
+                'type' => self::BLOCK_BUTTON,
+                'label' => 'Bouton',
+                'description' => 'Bouton d’action. `url` restreinte à http(s), lien interne /…, ancre #…, mailto:, tel:.',
+                'fields' => ['label' => 'string (≤80)', 'url' => 'string', 'variant' => self::BUTTON_VARIANTS],
+                'example' => ['type' => 'button', 'label' => 'Nous contacter', 'url' => '/contact', 'variant' => 'primary'],
+            ],
+            [
+                'type' => self::BLOCK_CALLOUT,
+                'label' => 'Encart',
+                'description' => 'Encart coloré avec picto : info (bleu), warning (orange), danger (rouge).',
+                'fields' => ['variant' => self::CALLOUT_VARIANTS, 'text' => 'string'],
+                'example' => ['type' => 'callout', 'variant' => 'info', 'text' => 'Livraison offerte dès 100€.'],
+            ],
+            [
+                'type' => self::BLOCK_ACCORDION,
+                'label' => 'Accordéon / FAQ',
+                'description' => 'Questions/réponses repliables. Génère automatiquement un JSON-LD FAQPage (SEO).',
+                'fields' => ['items' => 'array<{q: string, a: string}>'],
+                'example' => ['type' => 'accordion', 'items' => [['q' => 'Délai de livraison ?', 'a' => '48h ouvrées.']]],
+            ],
+            [
+                'type' => self::BLOCK_CODE,
+                'label' => 'Code',
+                'description' => 'Bloc de code monospace.',
+                'fields' => ['language' => self::CODE_LANGUAGES, 'content' => 'string'],
+                'example' => ['type' => 'code', 'language' => 'bash', 'content' => 'php artisan migrate'],
+            ],
+            [
+                'type' => self::BLOCK_SEPARATOR,
+                'label' => 'Séparateur',
+                'description' => 'Ligne de séparation ou espace vertical réglable.',
+                'fields' => ['variant' => self::SEPARATOR_VARIANTS],
+                'example' => ['type' => 'separator', 'variant' => 'space-md'],
+            ],
+        ];
+    }
+
+    /**
+     * Exemple complet d’un arbre `content` valide, à montrer à l’IA.
+     *
+     * @return array{heading: string, sections: array<int, array<string, mixed>>}
+     */
+    public static function exampleContent(): array
+    {
+        return self::normalize([
+            'heading' => 'Bienvenue chez nous',
+            'sections' => [
+                ['layout' => '1col', 'columns' => [['blocks' => [
+                    ['type' => 'title', 'level' => 'h2', 'text' => 'Notre mission'],
+                    ['type' => 'text', 'html' => '<p>Nous accompagnons les professionnels au quotidien.</p>'],
+                    ['type' => 'callout', 'variant' => 'info', 'text' => 'Livraison offerte dès 100€ d’achat.'],
+                ]]]],
+                ['layout' => '2col', 'columns' => [
+                    ['blocks' => [['type' => 'list', 'style' => 'check', 'items' => ['Devis en 24h', 'Support dédié', 'Garantie 2 ans']]]],
+                    ['blocks' => [['type' => 'button', 'label' => 'Demander un devis', 'url' => '/contact', 'variant' => 'accent']]],
+                ]],
+                ['layout' => '1col', 'columns' => [['blocks' => [
+                    ['type' => 'accordion', 'items' => [
+                        ['q' => 'Quels sont les délais ?', 'a' => 'Expédition sous 48h ouvrées.'],
+                        ['q' => 'Puis-je retourner un article ?', 'a' => 'Oui, sous 14 jours.'],
+                    ]],
+                ]]]],
+            ],
+        ]);
     }
 }
