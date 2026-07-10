@@ -13,13 +13,15 @@
                 <div x-show="current === {{ $idx }}" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="absolute inset-0" style="background-color: {{ $slide->bg_color }}; color: {{ $slide->text_color }};">
                     @if ($slide->image_url)
                         <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover" />
-                        {{-- Dégradé = la couleur de fond du slide (même teinte), lisibilité côté texte --}}
-                        <div class="absolute inset-0" style="background-image: linear-gradient(95deg, {{ $slide->bg_color }} 0%, {{ $slide->bg_color }}cc 42%, {{ $slide->bg_color }}00 82%);"></div>
+                        {{-- Voile noir très léger par-dessus l'image --}}
+                        <div class="absolute inset-0 bg-black/20"></div>
                     @endif
-                    {{-- Habillage toujours côté droit (le texte est aligné à gauche) --}}
-                    <span class="wk-decor wk-decor--{{ $idx % 2 === 0 ? 'tr' : 'br' }} wk-decor--lime" style="--wk-decor-size: 460px;"></span>
-                    <div class="relative max-w-screen-xl mx-auto h-full flex items-center px-6 md:px-12 z-10">
-                        <div class="max-w-xl">
+                    {{-- Quart de rond forest, coin haut-gauche : porte le texte --}}
+                    <div class="pointer-events-none absolute top-0 left-0 aspect-square w-[560px] md:w-[820px] lg:w-[1040px] rounded-full bg-primary-800 -translate-x-1/2 -translate-y-1/2"></div>
+                    {{-- Anneaux lime pleine couleur, centre pile dans l'angle bas-gauche --}}
+                    <span class="wk-decor wk-decor--bl wk-decor--lime" style="--wk-decor-size: 420px;"></span>
+                    <div class="relative max-w-screen-xl mx-auto h-full flex items-start px-6 md:px-12 pt-10 md:pt-14 z-10">
+                        <div class="max-w-lg">
                             <h2 class="font-display text-4xl md:text-5xl font-bold leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>
                             @if ($slide->subtitle)
                                 <p class="text-lg md:text-xl mb-6 opacity-90">{{ $slide->subtitle }}</p>
