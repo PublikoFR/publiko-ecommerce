@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Pko\LunarMediaCore\Concerns\HasMediaAttachments;
 
 /**
@@ -68,6 +69,12 @@ class Post extends Model
                     ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()));
             }
         });
+
+        // Flush du cache "derniers articles" de la home, quelle que soit la voie
+        // de sauvegarde (form Filament ou éditeur page-builder unifié).
+        $flush = static fn () => Cache::forget('pko.home.posts.v1');
+        static::saved($flush);
+        static::deleted($flush);
     }
 
     public function postType(): BelongsTo

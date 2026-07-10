@@ -11,8 +11,79 @@ final class PageBuilderManagerTest extends TestCase
 {
     public function test_normalize_empty_payload_returns_empty_sections(): void
     {
-        $this->assertSame(['sections' => []], PageBuilderManager::normalize(null));
-        $this->assertSame(['sections' => []], PageBuilderManager::normalize([]));
+        $this->assertSame(['heading' => '', 'sections' => []], PageBuilderManager::normalize(null));
+        $this->assertSame(['heading' => '', 'sections' => []], PageBuilderManager::normalize([]));
+    }
+
+    public function test_normalize_heading_strips_tags_trims_and_bounds(): void
+    {
+        $out = PageBuilderManager::normalize(['heading' => '  <b>Envoyez-nous un message</b>  ', 'sections' => []]);
+        $this->assertSame('Envoyez-nous un message', $out['heading']);
+
+        // Non-string → chaîne vide
+        $this->assertSame('', PageBuilderManager::normalize(['heading' => ['x'], 'sections' => []])['heading']);
+
+        // Borné à 250 caractères
+        $long = str_repeat('a', 300);
+        $this->assertSame(250, mb_strlen(PageBuilderManager::normalize(['heading' => $long, 'sections' => []])['heading']));
+    }
+
+    public function test_quote_block_normalizes_text_and_cite(): void
+    {
+        $block = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'quote', 'text' => '  <i>Citation</i>  ', 'cite' => '<b>Auteur</b>'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'][0];
+
+        $this->assertSame('quote', $block['type']);
+        $this->assertSame('Citation', $block['text']);
+        $this->assertSame('Auteur', $block['cite']);
+    }
+
+    public function test_button_block_sanitizes_url_and_variant(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'button', 'label' => 'Voir', 'url' => 'https://ok.test', 'variant' => 'accent'],
+                    ['type' => 'button', 'label' => 'Hack', 'url' => 'javascript:alert(1)', 'variant' => 'evil'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('https://ok.test', $blocks[0]['url']);
+        $this->assertSame('accent', $blocks[0]['variant']);
+        // javascript: neutralisé, variant inconnu → primary
+        $this->assertSame('', $blocks[1]['url']);
+        $this->assertSame('primary', $blocks[1]['variant']);
+    }
+
+    public function test_separator_block_normalizes_variant(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'separator', 'variant' => 'space'],
+                    ['type' => 'separator', 'variant' => 'zigzag'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('space', $blocks[0]['variant']);
+        $this->assertSame('line', $blocks[1]['variant']); // inconnu → line
+    }
+
+    public function test_new_block_helper_supports_new_types(): void
+    {
+        $this->assertSame('quote', PageBuilderManager::newBlock('quote')['type']);
+        $this->assertSame('primary', PageBuilderManager::newBlock('button')['variant']);
+        $this->assertSame('line', PageBuilderManager::newBlock('separator')['variant']);
     }
 
     public function test_normalize_fills_default_values(): void

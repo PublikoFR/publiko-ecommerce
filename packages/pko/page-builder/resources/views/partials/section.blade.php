@@ -36,6 +36,15 @@
                         @case('code')
                             @include('page-builder::partials.block-code', ['block' => $block])
                             @break
+                        @case('quote')
+                            @include('page-builder::partials.block-quote', ['block' => $block])
+                            @break
+                        @case('button')
+                            @include('page-builder::partials.block-button', ['block' => $block])
+                            @break
+                        @case('separator')
+                            @include('page-builder::partials.block-separator', ['block' => $block])
+                            @break
                     @endswitch
                 @endforeach
             </div>

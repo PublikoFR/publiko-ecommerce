@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Filament\Resources\PostResource\Pages;
 
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\MaxWidth;
-use Illuminate\Support\Facades\Cache;
 use Pko\StorefrontCms\Filament\Resources\PostResource;
 
 class EditPost extends EditRecord
@@ -21,13 +19,11 @@ class EditPost extends EditRecord
         return MaxWidth::Full;
     }
 
-    protected function getHeaderActions(): array
+    // Le header Filament est masqué (l'éditeur unifié fournit sa propre topbar
+    // avec titre/statut/aperçu/suppression). La sauvegarde et le flush cache
+    // sont portés par le composant Livewire + l'observer du modèle Post.
+    public function getBreadcrumbs(): array
     {
-        return [DeleteAction::make()];
-    }
-
-    protected function afterSave(): void
-    {
-        Cache::forget('pko.home.posts.v1');
+        return [];
     }
 }

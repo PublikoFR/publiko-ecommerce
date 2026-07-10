@@ -16,6 +16,7 @@ use Mews\Purifier\Facades\Purifier;
  * Shape (minimal) :
  *
  *   {
+ *     "heading": "Titre H1 on-page (peut différer du nom en base, SEO)",
  *     "sections": [
  *       {
  *         "id": "sec_*",
@@ -24,7 +25,7 @@ use Mews\Purifier\Facades\Purifier;
  *         "margin":  {"t":0,"b":0},
  *         "background_color": "#rrggbb" | null,
  *         "text_color": "#rrggbb" | null,
- *         "columns": [ { "blocks": [ { "id":"...", "type":"text|image|code", ... } ] } ]
+ *         "columns": [ { "blocks": [ { "id":"...", "type":"text|image|code|quote|button|separator", ... } ] } ]
  *       }
  *     ]
  *   }
@@ -42,6 +43,18 @@ final class PageBuilderManager
     public const BLOCK_IMAGE = 'image';
 
     public const BLOCK_CODE = 'code';
+
+    public const BLOCK_QUOTE = 'quote';
+
+    public const BLOCK_BUTTON = 'button';
+
+    public const BLOCK_SEPARATOR = 'separator';
+
+    /** Variantes visuelles autorisées pour le bloc bouton. */
+    public const BUTTON_VARIANTS = ['primary', 'accent', 'secondary'];
+
+    /** Variantes autorisées pour le bloc séparateur. */
+    public const SEPARATOR_VARIANTS = ['line', 'space'];
 
     /** @return array<int, string> */
     public static function allowedLayouts(): array
@@ -63,7 +76,7 @@ final class PageBuilderManager
      * sensible values, unknown keys are dropped. Never throws.
      *
      * @param  array<mixed>|null  $content
-     * @return array{sections: array<int, array<string, mixed>>}
+     * @return array{heading: string, sections: array<int, array<string, mixed>>}
      */
     public static function normalize(?array $content): array
     {
@@ -75,7 +88,24 @@ final class PageBuilderManager
             $sections[] = self::normalizeSection($raw);
         }
 
-        return ['sections' => $sections];
+        return [
+            'heading' => self::normalizeHeading($content['heading'] ?? null),
+            'sections' => $sections,
+        ];
+    }
+
+    /**
+     * Titre H1 « on-page » : texte brut (les tags sont retirés), trimmé et borné.
+     * Il peut différer du nom du contenu en base (SEO) et n'est jamais supprimable
+     * côté éditeur — c'est un champ dédié, pas un bloc du canvas.
+     */
+    public static function normalizeHeading(mixed $value): string
+    {
+        if (! is_string($value)) {
+            return '';
+        }
+
+        return Str::limit(trim(strip_tags($value)), 250, '');
     }
 
     /**
@@ -155,8 +185,44 @@ final class PageBuilderManager
                 'language' => self::normalizeLanguage($raw['language'] ?? null),
                 'content' => is_string($raw['content'] ?? null) ? $raw['content'] : '',
             ],
+            self::BLOCK_QUOTE => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_QUOTE,
+                'text' => is_string($raw['text'] ?? null) ? trim(strip_tags($raw['text'])) : '',
+                'cite' => is_string($raw['cite'] ?? null) ? trim(strip_tags($raw['cite'])) : '',
+            ],
+            self::BLOCK_BUTTON => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_BUTTON,
+                'label' => is_string($raw['label'] ?? null) ? Str::limit(trim(strip_tags($raw['label'])), 80, '') : '',
+                'url' => self::normalizeUrl($raw['url'] ?? null),
+                'variant' => in_array($raw['variant'] ?? null, self::BUTTON_VARIANTS, true) ? $raw['variant'] : 'primary',
+            ],
+            self::BLOCK_SEPARATOR => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_SEPARATOR,
+                'variant' => in_array($raw['variant'] ?? null, self::SEPARATOR_VARIANTS, true) ? $raw['variant'] : 'line',
+            ],
             default => null,
         };
+    }
+
+    /**
+     * N'autorise que des URLs sûres pour un href de bouton : http(s), lien
+     * interne (/…), ancre (#…), mailto: et tel:. Tout le reste (javascript:,
+     * data:, etc.) est neutralisé en chaîne vide.
+     */
+    private static function normalizeUrl(mixed $value): string
+    {
+        if (! is_string($value)) {
+            return '';
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        return preg_match('#^(https?://|/|\#|mailto:|tel:)#i', $value) === 1 ? $value : '';
     }
 
     /**

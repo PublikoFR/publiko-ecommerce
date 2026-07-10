@@ -1,3 +1,7 @@
+@if ($withHeading && trim($heading()) !== '')
+    <h1 class="pko-pb-heading text-3xl md:text-4xl font-display font-bold leading-tight text-neutral-900">{{ $heading() }}</h1>
+@endif
+
 @if ($hasSections())
     <div class="pko-page-builder">
         @foreach ($tree['sections'] as $section)
