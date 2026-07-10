@@ -105,6 +105,7 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
                         <div
                             class="flex items-center gap-3 px-3 py-2.5 transition-colors"
                             :class="{ 'bg-primary-50': l1 === {{ $col->id }} }"
+                            @mouseenter="if (window.innerWidth >= 1024) { l1 = {{ $colHasChildren ? $col->id : 'null' }}; l2 = null }"
                         >
                             {{-- Vignette --}}
                             <span class="shrink-0 w-10 h-10 rounded overflow-hidden bg-neutral-100 flex items-center justify-center">
@@ -179,8 +180,8 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
             </ul>
         </nav>
 
-        {{-- Panel L2 — desktop uniquement (wrappeur CSS, contenu Alpine) --}}
-        <div class="hidden lg:block w-64 bg-neutral-50 border-l border-neutral-200 h-full overflow-hidden">
+        {{-- Panel L2 — desktop uniquement (colonne masquée si aucune L1 active) --}}
+        <div class="hidden lg:block bg-neutral-50 border-neutral-200 h-full overflow-hidden transition-all duration-200" :class="l1 !== null ? 'lg:w-64 border-l' : 'lg:w-0'">
             <div x-show="l1 !== null" class="h-full flex flex-col overflow-hidden" style="display: none;">
                 <div class="flex-1 overflow-y-auto">
                     @foreach ($lateralCollections as $col)
@@ -202,6 +203,7 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
                                             <div
                                                 class="flex items-center px-4 py-2.5 hover:bg-white transition"
                                                 :class="{ 'bg-white': l2 === {{ $child->id }} }"
+                                                @mouseenter="l2 = {{ $childHasChildren ? $child->id : 'null' }}"
                                             >
                                                 <a
                                                     href="{{ $child->defaultUrl?->slug ? route('collection.view', $child->defaultUrl->slug) : '#' }}"
@@ -237,8 +239,8 @@ $lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, funct
             </div>
         </div>
 
-        {{-- Panel L3 — desktop uniquement (wrappeur CSS, contenu Alpine) --}}
-        <div class="hidden lg:block w-56 bg-white border-l border-neutral-200 h-full overflow-hidden">
+        {{-- Panel L3 — desktop uniquement (colonne masquée si aucune L2 active) --}}
+        <div class="hidden lg:block bg-white border-neutral-200 h-full overflow-hidden transition-all duration-200" :class="l2 !== null ? 'lg:w-56 border-l' : 'lg:w-0'">
             <div x-show="l2 !== null" class="h-full flex flex-col overflow-hidden" style="display: none;">
                 <div class="flex-1 overflow-y-auto">
                     @foreach ($lateralCollections as $col)
