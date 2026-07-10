@@ -22,6 +22,8 @@
         "kalnoy/nestedset": "6.0.7",
         "ladromelaboratoire/chronopostws": "^0.0.13",
         "laravel/framework": "^11.31",
+        "laravel/mcp": "^0.6.7",
+        "laravel/passport": "^13.7",
         "laravel/tinker": "^2.9",
         "lunarphp/lunar": "^1.0",
         "lunarphp/stripe": "^1.3",

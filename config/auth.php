@@ -42,6 +42,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Guard OAuth (Passport) pour le serveur MCP HTTP. Adossé au personnel
+        // back-office (Lunar Staff) via un provider dédié → n'interfère pas avec
+        // le guard `staff` du panel Filament (défini dynamiquement par Lunar).
+        'api' => [
+            'driver' => 'passport',
+            'provider' => 'oauth_staff',
+        ],
     ],
 
     /*
@@ -65,6 +73,13 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        // Personnel back-office pour l'OAuth MCP (sous-modèle avec HasApiTokens,
+        // même table `staff`). Distinct du provider `staff` de Lunar.
+        'oauth_staff' => [
+            'driver' => 'eloquent',
+            'model' => \App\Models\Staff::class,
         ],
 
         // 'users' => [
