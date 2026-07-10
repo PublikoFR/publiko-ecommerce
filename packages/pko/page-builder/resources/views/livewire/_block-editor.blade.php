@@ -86,4 +86,18 @@
             @endforeach
         </select>
     </div>
+
+@elseif ($type === 'callout')
+    @php($cv = $block['variant'] ?? 'info')
+    <div class="wk-blk-kicker">Encart · {{ ['info' => 'Info', 'warning' => 'Attention', 'danger' => 'Danger'][$cv] ?? 'Info' }}</div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        <select class="wk-sel" style="height:34px;width:180px"
+            wire:change="updateCalloutBlock('{{ $block['id'] }}', 'variant', $event.target.value)">
+            @foreach (['info' => 'Info (bleu)', 'warning' => 'Attention (orange)', 'danger' => 'Danger (rouge)'] as $v => $label)
+                <option value="{{ $v }}" @selected($cv === $v)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <textarea rows="2" class="wk-ta"
+            wire:change="updateCalloutBlock('{{ $block['id'] }}', 'text', $event.target.value)" placeholder="Message de l'encart…">{{ $block['text'] ?? '' }}</textarea>
+    </div>
 @endif

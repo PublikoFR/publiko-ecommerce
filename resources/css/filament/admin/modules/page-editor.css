@@ -27,6 +27,9 @@
     --success-500: #2f9e57;
     --success-700: #1f6e3c;
     --danger-500: #d64545;
+    --danger-600: #c23a3a;
+    --warning-600: #c98a10;
+    --info-600: #276b9c;
 
     /* Brand roles */
     --brand-primary: #00453e;
@@ -75,12 +78,19 @@
 
 /* En mode plein (édition d'un Post), on casse le padding + le header Filament
    pour que l'éditeur occupe toute la zone de contenu, à droite de la sidebar. */
+/* La zone de contenu Filament est figée à la hauteur du viewport (moins sa
+   topbar ≈ 4rem) et ne scrolle pas elle-même : seul le canvas interne scrolle.
+   Sans ça, un double-scroll laissait apparaître un espace au-dessus de la
+   topbar de l'éditeur en descendant. */
 .fi-main:has(.wk-editor--full) {
     padding: 0 !important;
     max-width: none !important;
+    height: calc(100vh - 4rem);
+    overflow: hidden !important;
 }
 .fi-page:has(.wk-editor--full) {
     gap: 0 !important;
+    height: 100%;
 }
 .fi-main:has(.wk-editor--full) .fi-header {
     display: none !important;
@@ -89,8 +99,13 @@
 .wk-editor--full {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 4rem); /* topbar Filament ≈ 4rem */
+    height: 100%;
     background: var(--surface-page);
+}
+.wk-editor--full .wk-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 6;
 }
 
 /* ---------- Topbar ---------- */
@@ -579,9 +594,12 @@
     gap: 14px;
     padding: 14px;
 }
-.wk-editor .wk-cols.c1 { grid-template-columns: 1fr; }
-.wk-editor .wk-cols.c2 { grid-template-columns: 1fr 1fr; }
-.wk-editor .wk-cols.c3 { grid-template-columns: 1fr 1fr 1fr; }
+.wk-editor .wk-cols.c1 { grid-template-columns: repeat(1, 1fr); }
+.wk-editor .wk-cols.c2 { grid-template-columns: repeat(2, 1fr); }
+.wk-editor .wk-cols.c3 { grid-template-columns: repeat(3, 1fr); }
+.wk-editor .wk-cols.c4 { grid-template-columns: repeat(4, 1fr); }
+.wk-editor .wk-cols.c5 { grid-template-columns: repeat(5, 1fr); }
+.wk-editor .wk-cols.c6 { grid-template-columns: repeat(6, 1fr); }
 .wk-editor .wk-col {
     min-height: 84px;
     display: flex;

@@ -17,6 +17,9 @@
     $gridCols = match ($section['layout']) {
         '2col' => 'grid-cols-1 md:grid-cols-2',
         '3col' => 'grid-cols-1 md:grid-cols-3',
+        '4col' => 'grid-cols-2 md:grid-cols-4',
+        '5col' => 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
+        '6col' => 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
         default => 'grid-cols-1',
     };
 @endphp
@@ -44,6 +47,9 @@
                             @break
                         @case('separator')
                             @include('page-builder::partials.block-separator', ['block' => $block])
+                            @break
+                        @case('callout')
+                            @include('page-builder::partials.block-callout', ['block' => $block])
                             @break
                     @endswitch
                 @endforeach

@@ -25,6 +25,9 @@
         <symbol id="wk-i-file" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/></symbol>
         <symbol id="wk-i-move" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
         <symbol id="wk-i-eye" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="wk-i-info" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></symbol>
+        <symbol id="wk-i-warning" viewBox="0 0 24 24" fill="none"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></symbol>
+        <symbol id="wk-i-danger" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3h.01"/></symbol>
     </defs></svg>
 
     {{-- ================================================================= --}}
@@ -95,12 +98,12 @@
                                 </button>
                                 <span style="font:600 13px var(--font-sans);color:var(--text-secondary)">Section {{ $sIndex + 1 }}</span>
 
-                                <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-                                    @foreach (['1col' => '1', '2col' => '2', '3col' => '3'] as $layoutKey => $n)
+                                <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+                                    @foreach ([1, 2, 3, 4, 5, 6] as $n)
                                         <button type="button"
-                                            wire:click="setSectionLayout({{ $sIndex }}, '{{ $layoutKey }}')"
-                                            @class(['wk-layout-btn', 'on' => $section['layout'] === $layoutKey])
-                                            title="{{ $n }} colonne{{ $n > 1 ? 's' : '' }}">{{ $n }} col.</button>
+                                            wire:click="setSectionLayout({{ $sIndex }}, '{{ $n }}col')"
+                                            @class(['wk-layout-btn', 'on' => $section['layout'] === $n.'col'])
+                                            title="{{ $n }} colonne{{ $n > 1 ? 's' : '' }}">{{ $n }}</button>
                                     @endforeach
                                     <button type="button" class="wk-btn-danger" style="border:none;background:none;cursor:pointer;padding:4px"
                                         wire:click="removeSection({{ $sIndex }})"
@@ -152,6 +155,9 @@
                                 'c1' => $section['layout'] === '1col',
                                 'c2' => $section['layout'] === '2col',
                                 'c3' => $section['layout'] === '3col',
+                                'c4' => $section['layout'] === '4col',
+                                'c5' => $section['layout'] === '5col',
+                                'c6' => $section['layout'] === '6col',
                             ])>
                                 @foreach ($section['columns'] as $cIndex => $column)
                                     <div class="wk-col" x-pb-drop data-drop-type="blocks"
@@ -308,6 +314,15 @@
                         <div class="wk-tile-sec" data-palette-type="section-3col" data-label="3 colonnes section">
                             <div class="wk-colbar"><i></i><i></i><i></i></div><span style="font:600 11px var(--font-sans)">3 col.</span>
                         </div>
+                        <div class="wk-tile-sec" data-palette-type="section-4col" data-label="4 colonnes section">
+                            <div class="wk-colbar"><i></i><i></i><i></i><i></i></div><span style="font:600 11px var(--font-sans)">4 col.</span>
+                        </div>
+                        <div class="wk-tile-sec" data-palette-type="section-5col" data-label="5 colonnes section">
+                            <div class="wk-colbar"><i></i><i></i><i></i><i></i><i></i></div><span style="font:600 11px var(--font-sans)">5 col.</span>
+                        </div>
+                        <div class="wk-tile-sec" data-palette-type="section-6col" data-label="6 colonnes section">
+                            <div class="wk-colbar"><i></i><i></i><i></i><i></i><i></i><i></i></div><span style="font:600 11px var(--font-sans)">6 col.</span>
+                        </div>
                     </div>
                 </div>
 
@@ -320,6 +335,9 @@
                         <div class="wk-tile-blk" data-palette-type="quote" data-label="Citation"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-quote"/></svg></span>Citation</div>
                         <div class="wk-tile-blk" data-palette-type="button" data-label="Bouton"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-button"/></svg></span>Bouton</div>
                         <div class="wk-tile-blk" data-palette-type="separator" data-label="Séparateur"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-sep"/></svg></span>Séparateur</div>
+                        <div class="wk-tile-blk" data-palette-type="callout-info" data-label="Info encart"><span class="ti" style="color:var(--info-600)"><svg class="wk-ico s16"><use href="#wk-i-info"/></svg></span>Info</div>
+                        <div class="wk-tile-blk" data-palette-type="callout-warning" data-label="Attention encart"><span class="ti" style="color:var(--warning-600)"><svg class="wk-ico s16"><use href="#wk-i-warning"/></svg></span>Attention</div>
+                        <div class="wk-tile-blk" data-palette-type="callout-danger" data-label="Danger encart"><span class="ti" style="color:var(--danger-600)"><svg class="wk-ico s16"><use href="#wk-i-danger"/></svg></span>Danger</div>
                     </div>
                 </div>
             </div>

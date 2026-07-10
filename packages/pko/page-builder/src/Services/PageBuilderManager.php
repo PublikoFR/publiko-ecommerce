@@ -38,6 +38,12 @@ final class PageBuilderManager
 
     public const LAYOUT_3COL = '3col';
 
+    public const LAYOUT_4COL = '4col';
+
+    public const LAYOUT_5COL = '5col';
+
+    public const LAYOUT_6COL = '6col';
+
     public const BLOCK_TEXT = 'text';
 
     public const BLOCK_IMAGE = 'image';
@@ -50,16 +56,24 @@ final class PageBuilderManager
 
     public const BLOCK_SEPARATOR = 'separator';
 
+    public const BLOCK_CALLOUT = 'callout';
+
     /** Variantes visuelles autorisées pour le bloc bouton. */
     public const BUTTON_VARIANTS = ['primary', 'accent', 'secondary'];
 
     /** Variantes autorisées pour le bloc séparateur. */
     public const SEPARATOR_VARIANTS = ['line', 'space'];
 
+    /** Variantes autorisées pour le bloc encart (callout). */
+    public const CALLOUT_VARIANTS = ['info', 'warning', 'danger'];
+
     /** @return array<int, string> */
     public static function allowedLayouts(): array
     {
-        return [self::LAYOUT_1COL, self::LAYOUT_2COL, self::LAYOUT_3COL];
+        return [
+            self::LAYOUT_1COL, self::LAYOUT_2COL, self::LAYOUT_3COL,
+            self::LAYOUT_4COL, self::LAYOUT_5COL, self::LAYOUT_6COL,
+        ];
     }
 
     public static function columnsForLayout(string $layout): int
@@ -67,6 +81,9 @@ final class PageBuilderManager
         return match ($layout) {
             self::LAYOUT_2COL => 2,
             self::LAYOUT_3COL => 3,
+            self::LAYOUT_4COL => 4,
+            self::LAYOUT_5COL => 5,
+            self::LAYOUT_6COL => 6,
             default => 1,
         };
     }
@@ -203,6 +220,12 @@ final class PageBuilderManager
                 'type' => self::BLOCK_SEPARATOR,
                 'variant' => in_array($raw['variant'] ?? null, self::SEPARATOR_VARIANTS, true) ? $raw['variant'] : 'line',
             ],
+            self::BLOCK_CALLOUT => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_CALLOUT,
+                'variant' => in_array($raw['variant'] ?? null, self::CALLOUT_VARIANTS, true) ? $raw['variant'] : 'info',
+                'text' => is_string($raw['text'] ?? null) ? trim(strip_tags($raw['text'])) : '',
+            ],
             default => null,
         };
     }
@@ -300,6 +323,16 @@ final class PageBuilderManager
      */
     public static function newBlock(string $type): ?array
     {
+        // Les tuiles callout de la palette encodent la variante dans le type
+        // (callout-info / callout-warning / callout-danger) pour insérer un
+        // encart pré-configuré sans param supplémentaire côté drag&drop.
+        if (str_starts_with($type, 'callout-')) {
+            return self::normalizeBlock([
+                'type' => self::BLOCK_CALLOUT,
+                'variant' => substr($type, strlen('callout-')),
+            ]);
+        }
+
         return self::normalizeBlock(['type' => $type]);
     }
 }

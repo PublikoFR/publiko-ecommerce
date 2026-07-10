@@ -225,6 +225,9 @@ class PageBuilder extends Component implements HasActions, HasForms
         $layout = match ($paletteType) {
             'section-2col' => PageBuilderManager::LAYOUT_2COL,
             'section-3col' => PageBuilderManager::LAYOUT_3COL,
+            'section-4col' => PageBuilderManager::LAYOUT_4COL,
+            'section-5col' => PageBuilderManager::LAYOUT_5COL,
+            'section-6col' => PageBuilderManager::LAYOUT_6COL,
             default => PageBuilderManager::LAYOUT_1COL,
         };
         $index = max(0, min(count($this->sections), $index));
@@ -435,6 +438,18 @@ class PageBuilder extends Component implements HasActions, HasForms
 
             return $block;
         }, renormalizeSection: true);
+    }
+
+    public function updateCalloutBlock(string $blockId, string $key, string $value): void
+    {
+        if (! in_array($key, ['text', 'variant'], true)) {
+            return;
+        }
+        $this->mutateBlock($blockId, 'callout', function (array $block) use ($key, $value): array {
+            $block[$key] = $value;
+
+            return $block;
+        }, renormalizeSection: $key === 'variant');
     }
 
     /**

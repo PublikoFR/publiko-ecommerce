@@ -10,7 +10,7 @@ Package `packages/pko/page-builder/` (namespace `Pko\PageBuilder\`), `PageBuilde
   "sections": [
     {
       "id": "sec_xxxx",
-      "layout": "1col" | "2col" | "3col",
+      "layout": "1col" … "6col",
       "padding": {"t":0,"r":0,"b":0,"l":0},
       "margin":  {"t":0,"b":0},
       "background_color": "#rrggbb" | null,
@@ -23,7 +23,8 @@ Package `packages/pko/page-builder/` (namespace `Pko\PageBuilder\`), `PageBuilde
             { "id": "blk_...", "type": "code", "language": "php", "content": "…" },
             { "id": "blk_...", "type": "quote", "text": "…", "cite": "Auteur" },
             { "id": "blk_...", "type": "button", "label": "Voir", "url": "/contact", "variant": "primary|accent|secondary" },
-            { "id": "blk_...", "type": "separator", "variant": "line|space" }
+            { "id": "blk_...", "type": "separator", "variant": "line|space" },
+            { "id": "blk_...", "type": "callout", "variant": "info|warning|danger", "text": "…" }
           ]
         }
       ]
@@ -33,7 +34,8 @@ Package `packages/pko/page-builder/` (namespace `Pko\PageBuilder\`), `PageBuilde
 ```
 
 - **`heading`** (top-level, optionnel) : titre **H1 on-page**. Peut différer du nom du contenu en base (`Post::$title`) pour le SEO — ex. record « Contact », H1 « Envoyez-nous un message ». Non supprimable côté éditeur (champ dédié, pas un bloc du canvas). Texte brut (tags retirés), borné à 250 caractères.
-- **Blocs** : `text`, `image`, `code`, plus `quote` (citation + source), `button` (label + url sûre + variante DS) et `separator` (ligne / espace). Les URL de bouton sont restreintes à `http(s)://`, lien interne `/…`, ancre `#…`, `mailto:`/`tel:` (le reste, dont `javascript:`, est neutralisé).
+- **Blocs** : `text`, `image`, `code`, plus `quote` (citation + source), `button` (label + url sûre + variante DS), `separator` (ligne / espace) et `callout` (encart `info` bleu / `warning` orange / `danger` rouge, picto + bordure gauche). Les URL de bouton sont restreintes à `http(s)://`, lien interne `/…`, ancre `#…`, `mailto:`/`tel:` (le reste, dont `javascript:`, est neutralisé). Les tuiles callout de la palette encodent la variante dans le `data-palette-type` (`callout-info|warning|danger`) → `newBlock()` la mappe.
+- **Colonnes** : les sections vont de **1 à 6 colonnes** (`1col`…`6col`). Front responsive (ex. `6col` = `grid-cols-2 md:grid-cols-3 lg:grid-cols-6`).
 
 JSON Schema draft-07 officiel : `packages/pko/page-builder/resources/schema/content.schema.json`. Référence cible pour les prompts IA (« Génère-moi une page blog conforme à ce schema »).
 

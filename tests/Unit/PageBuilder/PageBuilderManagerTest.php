@@ -86,6 +86,44 @@ final class PageBuilderManagerTest extends TestCase
         $this->assertSame('line', PageBuilderManager::newBlock('separator')['variant']);
     }
 
+    public function test_layout_supports_up_to_six_columns(): void
+    {
+        $this->assertCount(6, PageBuilderManager::allowedLayouts());
+        $this->assertSame(5, PageBuilderManager::columnsForLayout('5col'));
+        $this->assertSame(6, PageBuilderManager::columnsForLayout('6col'));
+
+        $out = PageBuilderManager::normalize(['sections' => [['layout' => '6col']]]);
+        $this->assertSame('6col', $out['sections'][0]['layout']);
+        $this->assertCount(6, $out['sections'][0]['columns']);
+    }
+
+    public function test_callout_block_normalizes_variant_and_text(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'callout', 'variant' => 'danger', 'text' => '  <b>Attention</b>  '],
+                    ['type' => 'callout', 'variant' => 'nope', 'text' => 'x'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('callout', $blocks[0]['type']);
+        $this->assertSame('danger', $blocks[0]['variant']);
+        $this->assertSame('Attention', $blocks[0]['text']);
+        $this->assertSame('info', $blocks[1]['variant']); // inconnu → info
+    }
+
+    public function test_new_block_callout_preset_maps_variant(): void
+    {
+        $this->assertSame('callout', PageBuilderManager::newBlock('callout-warning')['type']);
+        $this->assertSame('warning', PageBuilderManager::newBlock('callout-warning')['variant']);
+        $this->assertSame('danger', PageBuilderManager::newBlock('callout-danger')['variant']);
+        // 'callout' nu → variante par défaut info
+        $this->assertSame('info', PageBuilderManager::newBlock('callout')['variant']);
+    }
+
     public function test_normalize_fills_default_values(): void
     {
         $out = PageBuilderManager::normalize([
