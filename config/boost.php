@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use App\Mcp\Tools\CreatePageTool;
+use App\Mcp\Tools\PageBuilderCatalogTool;
 
 /*
  * Config Laravel Boost applicative. Fusionnée par-dessus les défauts du package
@@ -16,8 +18,8 @@ return [
         'tools' => [
             // Tools custom exposés à l'IA en plus des tools natifs de Boost.
             'include' => [
-                \App\Mcp\Tools\PageBuilderCatalogTool::class,
-                \App\Mcp\Tools\CreatePageTool::class,
+                PageBuilderCatalogTool::class,
+                CreatePageTool::class,
             ],
         ],
     ],

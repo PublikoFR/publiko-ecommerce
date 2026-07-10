@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Staff;
 use App\Models\User;
 
 return [
@@ -79,7 +80,7 @@ return [
         // même table `staff`). Distinct du provider `staff` de Lunar.
         'oauth_staff' => [
             'driver' => 'eloquent',
-            'model' => \App\Models\Staff::class,
+            'model' => Staff::class,
         ],
 
         // 'users' => [
