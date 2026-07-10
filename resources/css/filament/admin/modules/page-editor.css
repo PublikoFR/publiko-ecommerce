@@ -78,17 +78,19 @@
 
 /* En mode plein (édition d'un Post), on casse le padding + le header Filament
    pour que l'éditeur occupe toute la zone de contenu, à droite de la sidebar. */
-/* La zone de contenu Filament est figée à la hauteur du viewport (moins sa
-   topbar ≈ 4rem) et ne scrolle pas elle-même : seul le canvas interne scrolle.
-   Sans ça, un double-scroll laissait apparaître un espace au-dessus de la
-   topbar de l'éditeur en descendant. */
+/* La zone de contenu Filament ne scrolle pas elle-même : seul le canvas interne
+   scrolle. Sans ça, un double-scroll + le padding vertical de la page laissaient
+   un espace au-dessus de la topbar de l'éditeur. */
 .fi-main:has(.wk-editor--full) {
     padding: 0 !important;
     max-width: none !important;
-    height: calc(100vh - 4rem);
     overflow: hidden !important;
 }
-.fi-page:has(.wk-editor--full) {
+/* La page Filament enveloppe le contenu dans un <section class="… py-8 gap-y-8"> :
+   ce py-8 est la source de l'espace au-dessus de la topbar → on le neutralise. */
+.fi-page:has(.wk-editor--full),
+.fi-page:has(.wk-editor--full) > section {
+    padding: 0 !important;
     gap: 0 !important;
     height: 100%;
 }
@@ -99,7 +101,7 @@
 .wk-editor--full {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100vh - 4rem); /* topbar Filament ≈ 4rem */
     background: var(--surface-page);
 }
 .wk-editor--full .wk-topbar {
