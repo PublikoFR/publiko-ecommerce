@@ -103,6 +103,7 @@ Slide-over à droite rend `<x-page-builder::render :content="$this->tree" :with-
 - Blocs code : `<pre class="language-{X}">` prêt pour Prism.js en post-hook
 - Blocs `quote` / `button` / `separator` : partials `block-quote|block-button|block-separator.blade.php` (bouton stylé DS `primary|accent|secondary`)
 - Layout responsive : `grid-cols-1 md:grid-cols-{N}` sur le wrapper colonnes
+- **JSON-LD FAQ (SEO)** : `Render::faqJsonLd()` agrège **tous** les blocs `accordion` de la page en un **unique** `<script type="application/ld+json">` `schema.org/FAQPage` (une seule entité FAQPage par page, comme recommandé par Google), émis en fin de composant. Ne garde que les paires Q/R complètes ; `null` (donc aucun script) si aucune. `JSON_HEX_TAG` neutralise `<`/`>` → pas de breakout de balise `<script>`. Invisible pour l'utilisateur.
 
 ### Permission Shield
 

@@ -14,3 +14,8 @@
         {!! $fallback !!}
     </div>
 @endif
+
+{{-- JSON-LD FAQPage agrégé (SEO, invisible) — émis dès qu'un bloc accordéon a une paire Q/R. --}}
+@if ($faq = $faqJsonLd())
+    <script type="application/ld+json">{!! $faq !!}</script>
+@endif

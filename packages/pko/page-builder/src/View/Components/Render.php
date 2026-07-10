@@ -49,6 +49,48 @@ final class Render extends Component
         return $this->tree['heading'] ?? '';
     }
 
+    /**
+     * Agrège tous les blocs accordéon de la page en un unique JSON-LD FAQPage
+     * (schema.org) pour le référencement. Retourne null si aucune paire Q/R
+     * complète. Invisible pour l'utilisateur (rendu dans un <script ld+json>).
+     * JSON_HEX_TAG neutralise tout `<`/`>` → pas de breakout de balise script.
+     */
+    public function faqJsonLd(): ?string
+    {
+        $entities = [];
+        foreach ($this->tree['sections'] as $section) {
+            foreach ($section['columns'] as $column) {
+                foreach ($column['blocks'] as $block) {
+                    if (($block['type'] ?? null) !== 'accordion') {
+                        continue;
+                    }
+                    foreach (($block['items'] ?? []) as $item) {
+                        $q = trim((string) ($item['q'] ?? ''));
+                        $a = trim((string) ($item['a'] ?? ''));
+                        if ($q === '' || $a === '') {
+                            continue;
+                        }
+                        $entities[] = [
+                            '@type' => 'Question',
+                            'name' => $q,
+                            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $a],
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($entities === []) {
+            return null;
+        }
+
+        return json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'FAQPage',
+            'mainEntity' => $entities,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+    }
+
     public function render(): View
     {
         return view('page-builder::components.render');
