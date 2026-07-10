@@ -105,9 +105,28 @@ Slide-over à droite rend `<x-page-builder::render :content="$this->tree" :with-
 - Layout responsive : `grid-cols-1 md:grid-cols-{N}` sur le wrapper colonnes
 - **JSON-LD FAQ (SEO)** : `Render::faqJsonLd()` agrège **tous** les blocs `accordion` de la page en un **unique** `<script type="application/ld+json">` `schema.org/FAQPage` (une seule entité FAQPage par page, comme recommandé par Google), émis en fin de composant. Ne garde que les paires Q/R complètes ; `null` (donc aucun script) si aucune. `JSON_HEX_TAG` neutralise `<`/`>` → pas de breakout de balise `<script>`. Invisible pour l'utilisateur.
 
-### Création par une IA — tools MCP (greffés sur laravel-boost)
+### Création / édition / publication par une IA
 
-Plutôt qu'une API séparée, la création de pages par une IA se greffe sur le **serveur MCP existant** (`laravel-boost`, commande `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Deux tools :
+Deux surfaces partagent **la même logique** (`Pko\StorefrontCms\Services\PageComposer`), donc aucun drift :
+
+#### 1. API Platform — surface canonique (tous environnements, y compris prod)
+
+Les opérations d'écriture vivent dans **la même API que le reste du dashboard** (`/api/*`, API Platform), gated par le **même `auth:staff`** global. Rien de séparé :
+
+| Endpoint | Rôle |
+|---|---|
+| `POST /api/posts` | Créer une page/article. Champs (camelCase) + `post_type` (handle ou id, scalaire — plus simple qu'une IRI) + `content` `{heading?, sections[]}`. **Brouillon par défaut.** |
+| `PATCH /api/posts/{id}` | Modifier / **publier** une page (`status: "published"`). |
+
+- Processor : `App\ApiResource\Processor\PageWriteProcessor` — ne fait **jamais** confiance à l'objet hydraté par API Platform (anti mass-assignment) : il en extrait une liste blanche et délègue à `PageComposer::create/update`. En édition, il recharge une **copie fraîche par id** (hors global scope).
+- **Global scope** : `Post::pko_api_published_only` (published-only sur `/api/*`) est **exempté pour un staff authentifié** → l'écriture peut atteindre les brouillons. Un invité reste filtré (défense en profondeur).
+- Erreurs métier (type/titre manquant) → **422** (`InvalidArgumentException` mappé dans `config/api-platform.php`).
+- ⚠️ **Auth machine** : `auth:staff` est **session** (Filament). Pour un agent IA *headless* en prod, prévoir des **tokens Sanctum sur le guard `staff`** (à ajouter le moment venu). Le gating admin est volontairement identique au reste de l'API.
+- Tests : `PostApiWriteTest` (guest 401, staff crée un draft, patch/publish d'un draft, 422 sans titre).
+
+#### 2. Tools MCP laravel-boost — commodité de dev **local**
+
+En complément (local uniquement), la création se greffe sur le **serveur MCP existant** (`laravel-boost`, `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Deux tools :
 
 | Tool MCP | Rôle |
 |---|---|

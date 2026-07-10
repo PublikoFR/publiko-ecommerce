@@ -107,6 +107,8 @@ return [
     'exception_to_status' => [
         AuthenticationException::class => 401,
         AuthorizationException::class => 403,
+        // Erreurs métier de composition de page (type/titre manquant, etc.).
+        \InvalidArgumentException::class => 422,
     ],
 
     'redoc' => [

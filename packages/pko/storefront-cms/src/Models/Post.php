@@ -7,12 +7,16 @@ namespace Pko\StorefrontCms\Models;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post as ApiPost;
+use App\ApiResource\Processor\PageWriteProcessor;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Pko\LunarMediaCore\Concerns\HasMediaAttachments;
+use Pko\PageBuilder\Services\PageBuilderManager;
 
 /**
  * @property int $id
@@ -28,7 +32,15 @@ use Pko\LunarMediaCore\Concerns\HasMediaAttachments;
  * @property string $status
  * @property ?Carbon $published_at
  */
-#[ApiResource(operations: [new GetCollection, new Get])]
+#[ApiResource(operations: [
+    new GetCollection,
+    new Get,
+    // Écriture réservée au staff (middleware global auth:staff d'API Platform) :
+    // créer, modifier et publier une page passent par le même /api/posts que le
+    // reste du dashboard. Le PageWriteProcessor whiteliste + normalise.
+    new ApiPost(processor: PageWriteProcessor::class),
+    new Patch(processor: PageWriteProcessor::class),
+])]
 class Post extends Model
 {
     use HasMediaAttachments;
@@ -64,9 +76,20 @@ class Post extends Model
             if (app()->runningInConsole()) {
                 return;
             }
-            if (request()->is('api/*')) {
+            // Filtrage published-only pour l'API publique. Exempté pour un staff
+            // authentifié : les opérations d'écriture API Platform (créer/éditer/
+            // publier une page) doivent pouvoir accéder aux brouillons.
+            if (request()->is('api/*') && ! optional(auth('staff'))->check()) {
                 $query->where('status', 'published')
                     ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()));
+            }
+        });
+
+        // Défense en profondeur : toute écriture stocke un `content` normalisé,
+        // quelle que soit la voie (API Platform, éditeur Filament, tools).
+        static::saving(function (Post $post): void {
+            if (is_array($post->content)) {
+                $post->content = PageBuilderManager::normalize($post->content);
             }
         });
 

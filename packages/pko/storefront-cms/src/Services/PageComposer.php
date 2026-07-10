@@ -69,6 +69,71 @@ final class PageComposer
         return $post;
     }
 
+    /**
+     * Met à jour un contenu existant. Seules les clés présentes dans $data sont
+     * modifiées (patch partiel). "content" est re-normalisé, le slug re-vérifié
+     * unique. Publier = passer status à "published".
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Post $post, array $data): Post
+    {
+        if (array_key_exists('post_type', $data) && $data['post_type'] !== null && $data['post_type'] !== '') {
+            $post->post_type_id = $this->resolvePostType($data['post_type'])->id;
+        }
+
+        if (array_key_exists('title', $data)) {
+            $title = trim((string) $data['title']);
+            if ($title === '') {
+                throw new InvalidArgumentException('Le champ "title" ne peut pas être vide.');
+            }
+            $post->title = $title;
+        }
+
+        if (array_key_exists('slug', $data) && trim((string) $data['slug']) !== '') {
+            $post->slug = $this->uniqueSlug((string) $data['slug'], (int) $post->post_type_id, $post->getKey());
+        }
+
+        foreach (['excerpt', 'seo_title', 'seo_description'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $post->{$field} = $data[$field] !== null ? (string) $data[$field] : null;
+            }
+        }
+
+        if (array_key_exists('status', $data) && in_array($data['status'], ['draft', 'published'], true)) {
+            $post->status = (string) $data['status'];
+            if ($post->status === 'published' && $post->published_at === null) {
+                $post->published_at = now();
+            }
+        }
+
+        if (array_key_exists('published_at', $data)) {
+            $post->published_at = $this->resolvePublishedAt($post->status, $data['published_at']);
+        }
+
+        if (array_key_exists('content', $data) && is_array($data['content'])) {
+            $content = $data['content'];
+            if (isset($data['heading']) && is_string($data['heading']) && trim($data['heading']) !== '') {
+                $content['heading'] = $data['heading'];
+            }
+            $post->content = PageBuilderManager::normalize($content);
+        } elseif (array_key_exists('heading', $data) && is_string($data['heading'])) {
+            // Modifier seulement le H1 on-page sans toucher aux sections.
+            $tree = PageBuilderManager::normalize(is_array($post->content) ? $post->content : []);
+            $tree['heading'] = $data['heading'];
+            $post->content = PageBuilderManager::normalize($tree);
+        }
+
+        $post->save();
+
+        if (array_key_exists('cover_media_id', $data) && method_exists($post, 'syncMediaAttachments')) {
+            $ids = $data['cover_media_id'] ? [(int) $data['cover_media_id']] : [];
+            $post->syncMediaAttachments($ids, 'cover');
+        }
+
+        return $post;
+    }
+
     private function resolvePostType(mixed $ref): PostType
     {
         if ($ref === null || $ref === '') {
@@ -88,12 +153,17 @@ final class PageComposer
         return $type;
     }
 
-    private function uniqueSlug(string $base, int $postTypeId): string
+    private function uniqueSlug(string $base, int $postTypeId, ?int $ignoreId = null): string
     {
         $slug = Str::slug($base) ?: 'page';
         $candidate = $slug;
         $i = 2;
-        while (Post::query()->where('post_type_id', $postTypeId)->where('slug', $candidate)->exists()) {
+        while (Post::query()
+            ->where('post_type_id', $postTypeId)
+            ->where('slug', $candidate)
+            ->when($ignoreId !== null, fn ($q) => $q->whereKeyNot($ignoreId))
+            ->exists()
+        ) {
             $candidate = $slug.'-'.$i;
             $i++;
         }
