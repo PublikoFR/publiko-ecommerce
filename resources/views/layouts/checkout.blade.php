@@ -14,7 +14,7 @@
     >
     <link
         rel="icon"
-        href="{{ asset('favicon.svg') }}"
+        href="{{ brand_favicon() ?? asset('favicon.svg') }}"
     >
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
