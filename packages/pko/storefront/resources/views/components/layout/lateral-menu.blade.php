@@ -1,8 +1,9 @@
 @php
 use Illuminate\Support\Facades\Cache;
 use Lunar\Models\Collection;
+use Pko\Storefront\StorefrontServiceProvider;
 
-$lateralCollections = Cache::remember('pko.storefront.nav.roots.v3', 3600, function () {
+$lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 3600, function () {
     return Collection::with([
         'defaultUrl',
         'children' => fn ($q) => $q
