@@ -4,6 +4,11 @@
         <p class="mt-2 text-sm text-neutral-600">Accédez à votre espace revendeur.</p>
     </div>
 
+    <div class="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+        <a href="/connexion" wire:navigate class="rounded-lg py-2.5 text-center text-sm font-semibold bg-white text-primary-700 shadow-sm">Connexion</a>
+        <a href="/inscription" wire:navigate class="rounded-lg py-2.5 text-center text-sm font-semibold text-neutral-500 hover:text-neutral-700 transition">Inscription</a>
+    </div>
+
     <x-ui.card padding="lg">
         <form wire:submit="authenticate" class="space-y-5">
             <x-ui.input wire:model="email" label="Adresse e-mail" type="email" required autofocus :error="$errors->first('email')" />
@@ -23,6 +28,6 @@
 
     <p class="mt-6 text-center text-sm text-neutral-600">
         Pas encore de compte pro ?
-        <a href="/inscription" class="font-semibold text-primary-600 hover:text-primary-700" wire:navigate>Créer un compte installateur</a>
+        <a href="/inscription" class="font-semibold text-primary-600 hover:text-primary-700" wire:navigate>Créer un compte pro</a>
     </p>
 </div>

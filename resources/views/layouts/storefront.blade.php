@@ -6,7 +6,7 @@
     <title>@yield('title', brand_name().(brand_tagline() ? ' — '.brand_tagline() : ''))</title>
     <meta name="description" content="@yield('description', brand_meta_description())">
 
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" href="{{ brand_favicon() ?? asset('favicon.svg') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

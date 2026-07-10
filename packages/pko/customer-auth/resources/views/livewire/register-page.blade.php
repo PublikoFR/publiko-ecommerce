@@ -4,6 +4,11 @@
         <p class="mt-2 text-sm text-neutral-600">Réservé aux installateurs et entreprises du bâtiment.</p>
     </div>
 
+    <div class="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-neutral-100 p-1">
+        <a href="/connexion" wire:navigate class="rounded-lg py-2.5 text-center text-sm font-semibold text-neutral-500 hover:text-neutral-700 transition">Connexion</a>
+        <a href="/inscription" wire:navigate class="rounded-lg py-2.5 text-center text-sm font-semibold bg-white text-primary-700 shadow-sm">Inscription</a>
+    </div>
+
     <x-ui.card padding="lg">
         <form wire:submit="submit" class="space-y-5">
             <x-ui.alert variant="info">

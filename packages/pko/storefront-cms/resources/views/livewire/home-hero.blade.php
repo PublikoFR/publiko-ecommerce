@@ -1,8 +1,7 @@
 <div x-data="{ current: 0, count: {{ $slides->count() }}, timer: null, start() { if (this.count < 2) return; this.timer = setInterval(() => this.next(), 6000); }, next() { this.current = (this.current + 1) % this.count; }, prev() { this.current = (this.current - 1 + this.count) % this.count; }, go(i) { this.current = i; clearInterval(this.timer); this.start(); } }" x-init="start()" class="relative overflow-hidden rounded-2xl">
     @if ($slides->isEmpty())
         <div class="relative bg-primary-600 text-white px-8 py-24 text-center overflow-hidden">
-            <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 520px;"></span>
-            <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 380px; --wk-decor-opacity: 0.08;"></span>
+            <span class="wk-decor wk-decor--tr wk-decor--lime" style="--wk-decor-size: 520px;"></span>
             <h2 class="relative font-display font-bold text-4xl md:text-5xl mb-3">{{ brand_name() }}</h2>
             @if (brand_tagline())
                 <p class="relative text-lg text-accent-300">{{ brand_tagline() }}</p>
@@ -13,13 +12,16 @@
             @foreach ($slides as $idx => $slide)
                 <div x-show="current === {{ $idx }}" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="absolute inset-0" style="background-color: {{ $slide->bg_color }}; color: {{ $slide->text_color }};">
                     @if ($slide->image_url)
-                        <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover opacity-90" />
-                        <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
+                        <img src="{{ $slide->image_url }}" alt="" class="absolute inset-0 w-full h-full object-cover" />
+                        {{-- Voile noir très léger par-dessus l'image --}}
+                        <div class="absolute inset-0 bg-black/20"></div>
                     @endif
-                    <span class="wk-decor wk-decor--tr wk-decor--on-dark" style="--wk-decor-size: 440px;"></span>
-                    <span class="wk-decor wk-decor--bl wk-decor--on-dark" style="--wk-decor-size: 300px; --wk-decor-opacity: 0.08;"></span>
-                    <div class="relative max-w-screen-xl mx-auto h-full flex items-center px-6 md:px-12 z-10">
-                        <div class="max-w-xl">
+                    {{-- Quart de rond forest, coin haut-gauche : porte le texte --}}
+                    <div class="pointer-events-none absolute top-0 left-0 aspect-square w-[560px] md:w-[820px] lg:w-[1040px] rounded-full bg-primary-800 -translate-x-1/2 -translate-y-1/2"></div>
+                    {{-- Anneaux lime pleine couleur, centre pile dans l'angle bas-gauche --}}
+                    <span class="wk-decor wk-decor--bl wk-decor--lime" style="--wk-decor-size: 420px;"></span>
+                    <div class="relative max-w-screen-xl mx-auto h-full flex items-start px-6 md:px-12 pt-10 md:pt-14 z-10">
+                        <div class="max-w-lg">
                             <h2 class="font-display text-4xl md:text-5xl font-bold leading-tight mb-3" style="color: {{ $slide->text_color }};">{{ $slide->title }}</h2>
                             @if ($slide->subtitle)
                                 <p class="text-lg md:text-xl mb-6 opacity-90">{{ $slide->subtitle }}</p>
@@ -42,8 +44,8 @@
                     <button type="button" @click="go({{ $idx }})" class="h-2 rounded-full transition-all" :class="current === {{ $idx }} ? 'bg-accent-400 w-8' : 'bg-white/50 w-2 hover:bg-white/75'"></button>
                 @endforeach
             </div>
-            <button type="button" @click="prev()" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center text-white transition z-20"><x-ui.icon name="chevron-left" class="w-5 h-5" /></button>
-            <button type="button" @click="next()" class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center text-white transition z-20"><x-ui.icon name="chevron-right" class="w-5 h-5" /></button>
+            <button type="button" @click="prev()" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent-500 hover:bg-accent-400 rounded-full flex items-center justify-center text-primary-700 shadow-md transition z-20"><x-ui.icon name="chevron-left" class="w-5 h-5" /></button>
+            <button type="button" @click="next()" class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent-500 hover:bg-accent-400 rounded-full flex items-center justify-center text-primary-700 shadow-md transition z-20"><x-ui.icon name="chevron-right" class="w-5 h-5" /></button>
         @endif
     @endif
 </div>

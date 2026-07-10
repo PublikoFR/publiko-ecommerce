@@ -19,7 +19,7 @@ Front doit s'y référer.
 | Fonts (Forno Waffle / Hanken Grotesk / IBM Plex Mono) | `tailwind.config.js` (`fontFamily`) + `resources/css/app.css` (`@font-face` + `@import`) |
 | Radius / shadows | `tailwind.config.js` (`borderRadius`, `boxShadow`) |
 | Variables CSS (`--surface-*`, `--text-*`, `--shadow-*`, `--radius-*`…) | `resources/css/app.css` (`:root`) |
-| Habillage (motif concentrique) | `public/img/habillage.svg` + helpers `.wk-decor*` dans `app.css` |
+| Habillage (motif concentrique) | `public/img/habillage.svg` (vrai SVG graphiste, anneaux) + helpers `.wk-decor*` dans `app.css` |
 
 Classes Tailwind à utiliser côté front : `bg-primary-600` (forest), `bg-accent-500`
 (lime, **un seul CTA lime par vue**), `text-neutral-*`, `rounded-xl`, `shadow-md`,
@@ -39,6 +39,35 @@ Classes Tailwind à utiliser côté front : `bg-primary-600` (forest), `bg-accen
 - `assets/habillage.svg` — motif de marque.
 - `SKILL.md`, `readme.md` — guidelines de marque (voix, iconographie Lucide,
   couleurs, type, formes arrondies, motion).
+
+## Habillage `.wk-decor` — règles de rendu (charte)
+
+Le motif `public/img/habillage.svg` est le **vrai SVG du graphiste**
+(`design-system/assets/Éléments d_habillages-01.svg`) : trois anneaux
+concentriques centrés dans un viewBox `0 0 400 400`. Il est peint via un **mask
+CSS** (`.wk-decor` dans `resources/css/app.css`) pour que la couleur soit
+pilotable (`--wk-decor-color`, ou classes `--lime` / `--forest` / `--white`).
+
+Règles charte (issues des gabarits réseaux sociaux) :
+
+- **Pleine couleur, jamais de transparence** sur l'habillage décoratif fort
+  (slider, tuiles) → défaut `opacity: 1`. La variable `--wk-decor-opacity` reste
+  disponible **uniquement** pour un usage filigrane explicite et rare (ex. bandeau
+  compte pro).
+- **Centre du SVG pile dans l'angle** de la div : `translate(±50%, ±50%)` selon le
+  coin (`--tl/--tr/--bl/--br`) → on ne voit qu'un quart d'anneaux, comme la charte.
+- Couleur lime `#aac932` par défaut (`--wk-decor--lime`), forest `#00453e`, blanc.
+
+Câblage actuel :
+
+- **Slider** (`storefront-cms::livewire.home-hero`) : anneaux lime pleine couleur,
+  toujours côté droit (tr/br alterné) pour ne pas chevaucher le texte aligné à
+  gauche. Le dégradé posé sur l'image d'un slide reprend la **même teinte** que
+  `bg_color` du slide.
+- **Tuiles « Nos univers »** (`home-tiles`) : dispo gabarit charte — photo en fond,
+  pastille forest en **quart-de-cercle haut-droite** (cercle `bg-primary-800`
+  centré sur l'angle) portant le titre/CTA alignés à droite, + anneaux lime pleine
+  couleur en **bas-gauche**.
 
 ## Point de vigilance branding (règle projet §3.0)
 

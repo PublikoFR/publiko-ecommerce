@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? brand_name() }}</title>
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" href="{{ brand_favicon() ?? asset('favicon.svg') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     {{-- Fonts chargées via resources/css/app.css (Design System) --}}
@@ -13,6 +13,7 @@
     @stack('head')
 </head>
 <body class="min-h-screen flex flex-col bg-neutral-50 text-neutral-900 font-sans antialiased">
+    <x-layout.lateral-menu />
     <x-layout.header />
 
     <main class="flex-1 flex items-center justify-center py-12 px-4">
