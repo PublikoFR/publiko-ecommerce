@@ -294,9 +294,11 @@
                     <svg class="wk-ico s16" style="stroke:var(--text-muted)"><use href="#wk-i-move"/></svg>Glissez un élément vers le canvas
                 </div>
 
-                <div x-pb-palette>
+                {{-- x-pb-palette DOIT être le parent DIRECT des [data-palette-type]
+                     (SortableJS ne rend draggables que les enfants directs). --}}
+                <div>
                     <p class="wk-over">Sections</p>
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                    <div x-pb-palette style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
                         <div class="wk-tile-sec" data-palette-type="section-1col" data-label="1 colonne section">
                             <div class="wk-colbar"><i></i></div><span style="font:600 11px var(--font-sans)">1 col.</span>
                         </div>
@@ -307,15 +309,17 @@
                             <div class="wk-colbar"><i></i><i></i><i></i></div><span style="font:600 11px var(--font-sans)">3 col.</span>
                         </div>
                     </div>
+                </div>
 
-                    <p class="wk-over" style="margin-top:18px">Blocs</p>
-                    <div style="display:flex;flex-direction:column;gap:8px">
-                        <div class="wk-tile" data-palette-type="text" data-label="Texte"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-text"/></svg></span>Texte</div>
-                        <div class="wk-tile" data-palette-type="image" data-label="Image"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-image"/></svg></span>Image</div>
-                        <div class="wk-tile" data-palette-type="code" data-label="Code"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-code"/></svg></span>Code</div>
-                        <div class="wk-tile" data-palette-type="quote" data-label="Citation"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-quote"/></svg></span>Citation</div>
-                        <div class="wk-tile" data-palette-type="button" data-label="Bouton"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-button"/></svg></span>Bouton</div>
-                        <div class="wk-tile" data-palette-type="separator" data-label="Séparateur"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-sep"/></svg></span>Séparateur</div>
+                <div>
+                    <p class="wk-over">Blocs</p>
+                    <div x-pb-palette style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                        <div class="wk-tile-blk" data-palette-type="text" data-label="Texte"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-text"/></svg></span>Texte</div>
+                        <div class="wk-tile-blk" data-palette-type="image" data-label="Image"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-image"/></svg></span>Image</div>
+                        <div class="wk-tile-blk" data-palette-type="code" data-label="Code"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-code"/></svg></span>Code</div>
+                        <div class="wk-tile-blk" data-palette-type="quote" data-label="Citation"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-quote"/></svg></span>Citation</div>
+                        <div class="wk-tile-blk" data-palette-type="button" data-label="Bouton"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-button"/></svg></span>Bouton</div>
+                        <div class="wk-tile-blk" data-palette-type="separator" data-label="Séparateur"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-sep"/></svg></span>Séparateur</div>
                     </div>
                 </div>
             </div>
