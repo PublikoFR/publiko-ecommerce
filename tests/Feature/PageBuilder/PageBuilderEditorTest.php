@@ -129,12 +129,45 @@ class PageBuilderEditorTest extends TestCase
             ->call('insertBlock', 0, 0, 0, 'quote')
             ->call('insertBlock', 0, 0, 1, 'button')
             ->call('insertBlock', 0, 0, 2, 'separator')
+            ->call('insertBlock', 0, 0, 3, 'callout-danger')
+            ->call('insertBlock', 0, 0, 4, 'title')
+            ->call('insertBlock', 0, 0, 5, 'video')
+            ->call('insertBlock', 0, 0, 6, 'list')
+            ->call('insertBlock', 0, 0, 7, 'accordion')
+            ->call('insertBlock', 0, 0, 8, 'gallery')
             ->get('sections');
 
         $blocks = $sections[0]['columns'][0]['blocks'];
         $this->assertSame('quote', $blocks[0]['type']);
         $this->assertSame('button', $blocks[1]['type']);
         $this->assertSame('separator', $blocks[2]['type']);
+        $this->assertSame('callout', $blocks[3]['type']);
+        $this->assertSame('danger', $blocks[3]['variant']);
+        $this->assertSame('title', $blocks[4]['type']);
+        $this->assertSame('video', $blocks[5]['type']);
+        $this->assertSame('list', $blocks[6]['type']);
+        $this->assertSame('accordion', $blocks[7]['type']);
+        $this->assertSame('gallery', $blocks[8]['type']);
+    }
+
+    public function test_accordion_item_add_update_remove(): void
+    {
+        $post = $this->makePost();
+
+        $component = $this->editor($post)
+            ->call('addSection', '1col')
+            ->call('insertBlock', 0, 0, 0, 'accordion');
+        $blockId = $component->get('sections')[0]['columns'][0]['blocks'][0]['id'];
+
+        $component->call('addAccordionItem', $blockId)
+            ->call('updateAccordionItem', $blockId, 0, 'q', 'Délai ?')
+            ->call('updateAccordionItem', $blockId, 0, 'a', '48h');
+
+        $item = $component->get('sections')[0]['columns'][0]['blocks'][0]['items'][0];
+        $this->assertSame(['q' => 'Délai ?', 'a' => '48h'], $item);
+
+        $component->call('removeAccordionItem', $blockId, 0);
+        $this->assertCount(0, $component->get('sections')[0]['columns'][0]['blocks'][0]['items']);
     }
 
     public function test_brand_page_mode_has_no_meta(): void

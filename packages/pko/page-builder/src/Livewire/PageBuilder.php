@@ -95,6 +95,9 @@ class PageBuilder extends Component implements HasActions, HasForms
     /** Identifiant du bloc image en cours de sélection (pour le media picker). */
     public ?string $pickingImageBlockId = null;
 
+    /** Identifiant du bloc galerie en cours de sélection (media picker multiple). */
+    public ?string $pickingGalleryBlockId = null;
+
     /** @param  class-string<Model>  $modelClass */
     public function mount(string $modelClass, int $recordId, bool $withMeta = false, ?string $indexUrl = null): void
     {
@@ -452,6 +455,114 @@ class PageBuilder extends Component implements HasActions, HasForms
         }, renormalizeSection: $key === 'variant');
     }
 
+    public function updateTitleBlock(string $blockId, string $key, string $value): void
+    {
+        if (! in_array($key, ['level', 'text'], true)) {
+            return;
+        }
+        $this->mutateBlock($blockId, 'title', function (array $block) use ($key, $value): array {
+            $block[$key] = $value;
+
+            return $block;
+        }, renormalizeSection: $key === 'level');
+    }
+
+    public function updateVideoBlock(string $blockId, string $url): void
+    {
+        $this->mutateBlock($blockId, 'video', function (array $block) use ($url): array {
+            $block['url'] = $url;
+
+            return $block;
+        }, renormalizeSection: true);
+    }
+
+    public function updateListStyle(string $blockId, string $style): void
+    {
+        $this->mutateBlock($blockId, 'list', function (array $block) use ($style): array {
+            $block['style'] = $style;
+
+            return $block;
+        }, renormalizeSection: true);
+    }
+
+    /** Les items sont saisis un par ligne dans un textarea. */
+    public function updateListItems(string $blockId, string $text): void
+    {
+        $items = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $text) ?: [])));
+        $this->mutateBlock($blockId, 'list', function (array $block) use ($items): array {
+            $block['items'] = $items;
+
+            return $block;
+        }, renormalizeSection: true);
+    }
+
+    public function addAccordionItem(string $blockId): void
+    {
+        $this->mutateBlock($blockId, 'accordion', function (array $block): array {
+            $block['items'][] = ['q' => '', 'a' => ''];
+
+            return $block;
+        });
+    }
+
+    public function removeAccordionItem(string $blockId, int $index): void
+    {
+        $this->mutateBlock($blockId, 'accordion', function (array $block) use ($index): array {
+            if (isset($block['items'][$index])) {
+                unset($block['items'][$index]);
+                $block['items'] = array_values($block['items']);
+            }
+
+            return $block;
+        });
+    }
+
+    public function updateAccordionItem(string $blockId, int $index, string $key, string $value): void
+    {
+        if (! in_array($key, ['q', 'a'], true)) {
+            return;
+        }
+        $this->mutateBlock($blockId, 'accordion', function (array $block) use ($index, $key, $value): array {
+            if (isset($block['items'][$index])) {
+                $block['items'][$index][$key] = $value;
+            }
+
+            return $block;
+        }, renormalizeSection: true);
+    }
+
+    public function updateGalleryColumns(string $blockId, int $columns): void
+    {
+        $this->mutateBlock($blockId, 'gallery', function (array $block) use ($columns): array {
+            $block['columns'] = $columns;
+
+            return $block;
+        }, renormalizeSection: true);
+    }
+
+    public function openGalleryPicker(string $blockId): void
+    {
+        $this->pickingGalleryBlockId = $blockId;
+        $current = $this->findBlock($blockId)['media_ids'] ?? [];
+        $this->dispatch(
+            'open-media-picker-modal',
+            statePath: 'pko-page-builder-gallery',
+            multiple: true,
+            preselected: array_values($current),
+            mediagroup: 'page-builder',
+            folder: null,
+        );
+    }
+
+    public function removeGalleryImage(string $blockId, int $mediaId): void
+    {
+        $this->mutateBlock($blockId, 'gallery', function (array $block) use ($mediaId): array {
+            $block['media_ids'] = array_values(array_filter($block['media_ids'] ?? [], fn ($id) => (int) $id !== $mediaId));
+
+            return $block;
+        });
+    }
+
     /**
      * Applique $mutator au bloc ($blockId, $expectedType) et re-normalise
      * éventuellement la section porteuse pour ré-appliquer les allowlists.
@@ -561,6 +672,21 @@ class PageBuilder extends Component implements HasActions, HasForms
                 $this->coverMediaId = (int) ($first['id'] ?? 0) ?: null;
                 $this->coverUrl = (string) ($first['url'] ?? '') ?: null;
                 $this->isDirty = true;
+            }
+
+            return;
+        }
+
+        if ($statePath === 'pko-page-builder-gallery') {
+            if ($this->pickingGalleryBlockId !== null) {
+                $blockId = $this->pickingGalleryBlockId;
+                $this->pickingGalleryBlockId = null;
+                $mediaIds = array_values(array_map('intval', $ids));
+                $this->mutateBlock($blockId, 'gallery', function (array $block) use ($mediaIds): array {
+                    $block['media_ids'] = $mediaIds;
+
+                    return $block;
+                });
             }
 
             return;

@@ -72,7 +72,12 @@
         { "$ref": "#/definitions/blockQuote" },
         { "$ref": "#/definitions/blockButton" },
         { "$ref": "#/definitions/blockSeparator" },
-        { "$ref": "#/definitions/blockCallout" }
+        { "$ref": "#/definitions/blockCallout" },
+        { "$ref": "#/definitions/blockTitle" },
+        { "$ref": "#/definitions/blockVideo" },
+        { "$ref": "#/definitions/blockList" },
+        { "$ref": "#/definitions/blockAccordion" },
+        { "$ref": "#/definitions/blockGallery" }
       ]
     },
     "blockText": {
@@ -140,7 +145,7 @@
       "properties": {
         "id": { "type": "string" },
         "type": { "const": "separator" },
-        "variant": { "enum": ["line", "space"] }
+        "variant": { "enum": ["line", "space", "space-sm", "space-md", "space-lg", "space-xl"] }
       }
     },
     "blockCallout": {
@@ -152,6 +157,70 @@
         "type": { "const": "callout" },
         "variant": { "enum": ["info", "warning", "danger"], "description": "info = bleu, warning = orange, danger = rouge." },
         "text": { "type": "string", "description": "Message de l'encart (brut, sans HTML)." }
+      }
+    },
+    "blockTitle": {
+      "type": "object",
+      "required": ["id", "type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "title" },
+        "level": { "enum": ["h2", "h3"] },
+        "text": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "blockVideo": {
+      "type": "object",
+      "required": ["id", "type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "video" },
+        "url": { "type": "string", "description": "URL YouTube / Vimeo / Dailymotion / .mp4 (http(s) uniquement), résolue au rendu." }
+      }
+    },
+    "blockList": {
+      "type": "object",
+      "required": ["id", "type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "list" },
+        "style": { "enum": ["bullet", "check"] },
+        "items": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "blockAccordion": {
+      "type": "object",
+      "required": ["id", "type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "accordion" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["q", "a"],
+            "additionalProperties": false,
+            "properties": {
+              "q": { "type": "string", "description": "Question / titre du panneau." },
+              "a": { "type": "string", "description": "Réponse / contenu." }
+            }
+          }
+        }
+      }
+    },
+    "blockGallery": {
+      "type": "object",
+      "required": ["id", "type", "media_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "gallery" },
+        "media_ids": { "type": "array", "items": { "type": "integer" } },
+        "columns": { "enum": [2, 3, 4] }
       }
     }
   }

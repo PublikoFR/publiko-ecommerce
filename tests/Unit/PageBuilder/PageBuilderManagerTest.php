@@ -124,6 +124,85 @@ final class PageBuilderManagerTest extends TestCase
         $this->assertSame('info', PageBuilderManager::newBlock('callout')['variant']);
     }
 
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private function normalizedBlock(array $raw): array
+    {
+        return PageBuilderManager::normalize([
+            'sections' => [['layout' => '1col', 'columns' => [['blocks' => [$raw]]]]],
+        ])['sections'][0]['columns'][0]['blocks'][0] ?? [];
+    }
+
+    public function test_title_block_normalizes_level_and_text(): void
+    {
+        $b = $this->normalizedBlock(['type' => 'title', 'level' => 'h3', 'text' => '  <b>Nos services</b>  ']);
+        $this->assertSame('title', $b['type']);
+        $this->assertSame('h3', $b['level']);
+        $this->assertSame('Nos services', $b['text']);
+
+        // niveau inconnu → h2
+        $this->assertSame('h2', $this->normalizedBlock(['type' => 'title', 'level' => 'h1', 'text' => 'X'])['level']);
+    }
+
+    public function test_video_block_keeps_only_http_urls(): void
+    {
+        $ok = $this->normalizedBlock(['type' => 'video', 'url' => 'https://youtu.be/abc123']);
+        $this->assertSame('https://youtu.be/abc123', $ok['url']);
+
+        $bad = $this->normalizedBlock(['type' => 'video', 'url' => 'javascript:alert(1)']);
+        $this->assertSame('', $bad['url']);
+    }
+
+    public function test_list_block_filters_and_bounds_items(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'list',
+            'style' => 'check',
+            'items' => ['  Un  ', '', '<i>Deux</i>', 42, '   '],
+        ]);
+        $this->assertSame('check', $b['style']);
+        $this->assertSame(['Un', 'Deux'], $b['items']); // vides et non-string retirés
+
+        // style inconnu → bullet
+        $this->assertSame('bullet', $this->normalizedBlock(['type' => 'list', 'style' => 'x', 'items' => ['a']])['style']);
+    }
+
+    public function test_accordion_block_normalizes_items(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'accordion',
+            'items' => [
+                ['q' => '  Q1 ', 'a' => ' R1 '],
+                ['q' => '', 'a' => ''],   // vide → retiré
+                ['nope' => true],          // non conforme → retiré
+            ],
+        ]);
+        $this->assertSame('accordion', $b['type']);
+        $this->assertCount(1, $b['items']);
+        $this->assertSame(['q' => 'Q1', 'a' => 'R1'], $b['items'][0]);
+    }
+
+    public function test_gallery_block_dedupes_ids_and_bounds_columns(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'gallery',
+            'media_ids' => [3, 3, '5', 0, -2, 7],
+            'columns' => 4,
+        ]);
+        $this->assertSame([3, 5, 7], $b['media_ids']); // dédupe, >0, cast int
+        $this->assertSame(4, $b['columns']);
+
+        // colonnes hors [2,3,4] → 3
+        $this->assertSame(3, $this->normalizedBlock(['type' => 'gallery', 'media_ids' => [1], 'columns' => 9])['columns']);
+    }
+
+    public function test_separator_supports_height_variants(): void
+    {
+        $this->assertSame('space-lg', $this->normalizedBlock(['type' => 'separator', 'variant' => 'space-lg'])['variant']);
+        $this->assertSame('line', $this->normalizedBlock(['type' => 'separator', 'variant' => 'zigzag'])['variant']);
+    }
+
     public function test_normalize_fills_default_values(): void
     {
         $out = PageBuilderManager::normalize([

@@ -51,6 +51,21 @@
                         @case('callout')
                             @include('page-builder::partials.block-callout', ['block' => $block])
                             @break
+                        @case('title')
+                            @include('page-builder::partials.block-title', ['block' => $block])
+                            @break
+                        @case('video')
+                            @include('page-builder::partials.block-video', ['block' => $block])
+                            @break
+                        @case('list')
+                            @include('page-builder::partials.block-list', ['block' => $block])
+                            @break
+                        @case('accordion')
+                            @include('page-builder::partials.block-accordion', ['block' => $block])
+                            @break
+                        @case('gallery')
+                            @include('page-builder::partials.block-gallery', ['block' => $block])
+                            @break
                     @endswitch
                 @endforeach
             </div>

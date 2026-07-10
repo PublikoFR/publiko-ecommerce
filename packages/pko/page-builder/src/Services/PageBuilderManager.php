@@ -58,14 +58,33 @@ final class PageBuilderManager
 
     public const BLOCK_CALLOUT = 'callout';
 
+    public const BLOCK_TITLE = 'title';
+
+    public const BLOCK_VIDEO = 'video';
+
+    public const BLOCK_LIST = 'list';
+
+    public const BLOCK_ACCORDION = 'accordion';
+
+    public const BLOCK_GALLERY = 'gallery';
+
     /** Variantes visuelles autorisées pour le bloc bouton. */
     public const BUTTON_VARIANTS = ['primary', 'accent', 'secondary'];
 
-    /** Variantes autorisées pour le bloc séparateur. */
-    public const SEPARATOR_VARIANTS = ['line', 'space'];
+    /** Variantes autorisées pour le bloc séparateur (line + espaces réglables). */
+    public const SEPARATOR_VARIANTS = ['line', 'space', 'space-sm', 'space-md', 'space-lg', 'space-xl'];
 
     /** Variantes autorisées pour le bloc encart (callout). */
     public const CALLOUT_VARIANTS = ['info', 'warning', 'danger'];
+
+    /** Niveaux autorisés pour le bloc titre. */
+    public const TITLE_LEVELS = ['h2', 'h3'];
+
+    /** Styles autorisés pour le bloc liste. */
+    public const LIST_STYLES = ['bullet', 'check'];
+
+    /** Nombre de colonnes autorisées pour la galerie. */
+    public const GALLERY_COLUMNS = [2, 3, 4];
 
     /** @return array<int, string> */
     public static function allowedLayouts(): array
@@ -226,8 +245,111 @@ final class PageBuilderManager
                 'variant' => in_array($raw['variant'] ?? null, self::CALLOUT_VARIANTS, true) ? $raw['variant'] : 'info',
                 'text' => is_string($raw['text'] ?? null) ? trim(strip_tags($raw['text'])) : '',
             ],
+            self::BLOCK_TITLE => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_TITLE,
+                'level' => in_array($raw['level'] ?? null, self::TITLE_LEVELS, true) ? $raw['level'] : 'h2',
+                'text' => is_string($raw['text'] ?? null) ? Str::limit(trim(strip_tags($raw['text'])), 200, '') : '',
+            ],
+            self::BLOCK_VIDEO => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_VIDEO,
+                // Résolue au rendu par VideoUrlResolver ; on ne garde qu'une URL http(s).
+                'url' => (is_string($raw['url'] ?? null) && preg_match('#^https?://#i', trim($raw['url'])) === 1) ? trim($raw['url']) : '',
+            ],
+            self::BLOCK_LIST => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_LIST,
+                'style' => in_array($raw['style'] ?? null, self::LIST_STYLES, true) ? $raw['style'] : 'bullet',
+                'items' => self::normalizeStringList($raw['items'] ?? null, 50, 300),
+            ],
+            self::BLOCK_ACCORDION => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_ACCORDION,
+                'items' => self::normalizeAccordionItems($raw['items'] ?? null),
+            ],
+            self::BLOCK_GALLERY => [
+                'id' => self::ensureId($raw['id'] ?? null, 'blk_'),
+                'type' => self::BLOCK_GALLERY,
+                'media_ids' => self::normalizeIntList($raw['media_ids'] ?? null, 40),
+                'columns' => in_array((int) ($raw['columns'] ?? 3), self::GALLERY_COLUMNS, true) ? (int) ($raw['columns'] ?? 3) : 3,
+            ],
             default => null,
         };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function normalizeStringList(mixed $raw, int $max, int $itemMaxLen): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $v) {
+            if (! is_string($v)) {
+                continue;
+            }
+            $v = Str::limit(trim(strip_tags($v)), $itemMaxLen, '');
+            if ($v !== '') {
+                $out[] = $v;
+            }
+            if (count($out) >= $max) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, array{q: string, a: string}>
+     */
+    private static function normalizeAccordionItems(mixed $raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $it) {
+            if (! is_array($it)) {
+                continue;
+            }
+            $q = is_string($it['q'] ?? null) ? Str::limit(trim(strip_tags($it['q'])), 200, '') : '';
+            $a = is_string($it['a'] ?? null) ? trim(strip_tags($it['a'])) : '';
+            if ($q === '' && $a === '') {
+                continue;
+            }
+            $out[] = ['q' => $q, 'a' => $a];
+            if (count($out) >= 30) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private static function normalizeIntList(mixed $raw, int $max): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $v) {
+            $id = (int) $v;
+            if ($id > 0 && ! in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+            if (count($out) >= $max) {
+                break;
+            }
+        }
+
+        return $out;
     }
 
     /**

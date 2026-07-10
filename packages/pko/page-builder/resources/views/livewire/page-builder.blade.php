@@ -28,6 +28,11 @@
         <symbol id="wk-i-info" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></symbol>
         <symbol id="wk-i-warning" viewBox="0 0 24 24" fill="none"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></symbol>
         <symbol id="wk-i-danger" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3h.01"/></symbol>
+        <symbol id="wk-i-title" viewBox="0 0 24 24" fill="none"><path d="M6 4v16M18 4v16M6 12h12M4 4h4M16 4h4M4 20h4M16 20h4"/></symbol>
+        <symbol id="wk-i-video" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 9l5 3-5 3V9Z"/></symbol>
+        <symbol id="wk-i-list" viewBox="0 0 24 24" fill="none"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+        <symbol id="wk-i-accordion" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M17 7h.5M17 17h.5"/></symbol>
+        <symbol id="wk-i-gallery" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></symbol>
     </defs></svg>
 
     {{-- ================================================================= --}}
@@ -338,6 +343,11 @@
                         <div class="wk-tile-blk" data-palette-type="callout-info" data-label="Info encart"><span class="ti" style="color:var(--info-600)"><svg class="wk-ico s16"><use href="#wk-i-info"/></svg></span>Info</div>
                         <div class="wk-tile-blk" data-palette-type="callout-warning" data-label="Attention encart"><span class="ti" style="color:var(--warning-600)"><svg class="wk-ico s16"><use href="#wk-i-warning"/></svg></span>Attention</div>
                         <div class="wk-tile-blk" data-palette-type="callout-danger" data-label="Danger encart"><span class="ti" style="color:var(--danger-600)"><svg class="wk-ico s16"><use href="#wk-i-danger"/></svg></span>Danger</div>
+                        <div class="wk-tile-blk" data-palette-type="title" data-label="Titre"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-title"/></svg></span>Titre</div>
+                        <div class="wk-tile-blk" data-palette-type="video" data-label="Vidéo"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-video"/></svg></span>Vidéo</div>
+                        <div class="wk-tile-blk" data-palette-type="list" data-label="Liste"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-list"/></svg></span>Liste</div>
+                        <div class="wk-tile-blk" data-palette-type="accordion" data-label="Accordéon FAQ"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-accordion"/></svg></span>Accordéon</div>
+                        <div class="wk-tile-blk" data-palette-type="gallery" data-label="Galerie"><span class="ti"><svg class="wk-ico s16"><use href="#wk-i-gallery"/></svg></span>Galerie</div>
                     </div>
                 </div>
             </div>

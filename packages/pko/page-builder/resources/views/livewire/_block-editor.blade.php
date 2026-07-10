@@ -79,10 +79,10 @@
 @elseif ($type === 'separator')
     <div class="wk-blk-kicker">Séparateur</div>
     <div style="margin-top:8px">
-        <select class="wk-sel" style="height:34px;width:180px"
+        <select class="wk-sel" style="height:34px;width:200px"
             wire:change="updateSeparatorBlock('{{ $block['id'] }}', $event.target.value)">
-            @foreach (['line' => 'Ligne', 'space' => 'Espace'] as $v => $label)
-                <option value="{{ $v }}" @selected(($block['variant'] ?? 'line') === $v)>{{ $label }}</option>
+            @foreach (['line' => 'Ligne', 'space-sm' => 'Espace S', 'space-md' => 'Espace M', 'space-lg' => 'Espace L', 'space-xl' => 'Espace XL'] as $v => $label)
+                <option value="{{ $v }}" @selected(($block['variant'] ?? 'line') === $v || (($block['variant'] ?? '') === 'space' && $v === 'space-md'))>{{ $label }}</option>
             @endforeach
         </select>
     </div>
@@ -99,5 +99,92 @@
         </select>
         <textarea rows="2" class="wk-ta"
             wire:change="updateCalloutBlock('{{ $block['id'] }}', 'text', $event.target.value)" placeholder="Message de l'encart…">{{ $block['text'] ?? '' }}</textarea>
+    </div>
+
+@elseif ($type === 'title')
+    <div class="wk-blk-kicker">Titre</div>
+    <div style="margin-top:8px;display:flex;gap:8px">
+        <select class="wk-sel" style="height:38px;width:90px"
+            wire:change="updateTitleBlock('{{ $block['id'] }}', 'level', $event.target.value)">
+            @foreach (['h2' => 'H2', 'h3' => 'H3'] as $v => $label)
+                <option value="{{ $v }}" @selected(($block['level'] ?? 'h2') === $v)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <input type="text" class="wk-inp" style="flex:1" value="{{ $block['text'] ?? '' }}"
+            wire:change="updateTitleBlock('{{ $block['id'] }}', 'text', $event.target.value)" placeholder="Texte du titre" maxlength="200" />
+    </div>
+
+@elseif ($type === 'video')
+    <div class="wk-blk-kicker">Vidéo</div>
+    <div style="margin-top:8px">
+        <input type="text" class="wk-inp" style="height:34px" value="{{ $block['url'] ?? '' }}"
+            wire:change="updateVideoBlock('{{ $block['id'] }}', $event.target.value)" placeholder="URL YouTube, Vimeo, Dailymotion ou .mp4" />
+        <p class="wk-hint" style="margin-top:6px">La vidéo est intégrée automatiquement à partir de l'URL.</p>
+    </div>
+
+@elseif ($type === 'list')
+    @php($items = is_array($block['items'] ?? null) ? $block['items'] : [])
+    <div class="wk-blk-kicker">Liste</div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        <select class="wk-sel" style="height:34px;width:180px"
+            wire:change="updateListStyle('{{ $block['id'] }}', $event.target.value)">
+            @foreach (['bullet' => 'Puces', 'check' => 'Coches ✓'] as $v => $label)
+                <option value="{{ $v }}" @selected(($block['style'] ?? 'bullet') === $v)>{{ $label }}</option>
+            @endforeach
+        </select>
+        <textarea rows="4" class="wk-ta"
+            wire:change="updateListItems('{{ $block['id'] }}', $event.target.value)" placeholder="Un élément par ligne">{{ implode("\n", $items) }}</textarea>
+    </div>
+
+@elseif ($type === 'accordion')
+    @php($items = is_array($block['items'] ?? null) ? $block['items'] : [])
+    <div class="wk-blk-kicker">Accordéon / FAQ</div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:10px">
+        @foreach ($items as $i => $item)
+            <div wire:key="acc-{{ $block['id'] }}-{{ $i }}" style="border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;gap:6px;align-items:center">
+                    <input type="text" class="wk-inp" style="height:32px;flex:1" value="{{ $item['q'] ?? '' }}"
+                        wire:change="updateAccordionItem('{{ $block['id'] }}', {{ $i }}, 'q', $event.target.value)" placeholder="Question" />
+                    <button type="button" class="wk-btn-danger" style="border:none;background:none;cursor:pointer;padding:4px"
+                        wire:click="removeAccordionItem('{{ $block['id'] }}', {{ $i }})" title="Retirer">
+                        <svg class="wk-ico s16"><use href="#wk-i-trash"/></svg>
+                    </button>
+                </div>
+                <textarea rows="2" class="wk-ta"
+                    wire:change="updateAccordionItem('{{ $block['id'] }}', {{ $i }}, 'a', $event.target.value)" placeholder="Réponse">{{ $item['a'] ?? '' }}</textarea>
+            </div>
+        @endforeach
+        <button type="button" class="wk-btn wk-btn-sec sm" style="align-self:flex-start"
+            wire:click="addAccordionItem('{{ $block['id'] }}')">+ Ajouter une question</button>
+    </div>
+
+@elseif ($type === 'gallery')
+    @php($gids = is_array($block['media_ids'] ?? null) ? $block['media_ids'] : [])
+    <div class="wk-blk-kicker">Galerie</div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        @if (! empty($gids))
+            @php($gmedias = \Spatie\MediaLibrary\MediaCollections\Models\Media::query()->whereIn('id', $gids)->get()->keyBy('id'))
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+                @foreach ($gids as $gid)
+                    @php($gm = $gmedias->get($gid))
+                    @if ($gm)
+                        <div wire:key="gal-{{ $block['id'] }}-{{ $gid }}" style="position:relative">
+                            <img src="{{ $gm->getFullUrl() }}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--border-subtle)" alt="" />
+                            <button type="button" wire:click="removeGalleryImage('{{ $block['id'] }}', {{ $gid }})"
+                                style="position:absolute;top:2px;right:2px;background:#fff;border:1px solid var(--border-subtle);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--danger-500)" title="Retirer">×</button>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        @endif
+        <div style="display:flex;gap:8px;align-items:center">
+            <button type="button" class="wk-btn wk-btn-sec sm" wire:click="openGalleryPicker('{{ $block['id'] }}')">Ajouter des images</button>
+            <select class="wk-sel" style="height:34px;width:120px"
+                wire:change="updateGalleryColumns('{{ $block['id'] }}', parseInt($event.target.value))">
+                @foreach ([2 => '2 col.', 3 => '3 col.', 4 => '4 col.'] as $v => $label)
+                    <option value="{{ $v }}" @selected((int) ($block['columns'] ?? 3) === $v)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
     </div>
 @endif
