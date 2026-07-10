@@ -36,6 +36,7 @@ use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\CollectionGroup;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
+use Pko\Storefront\StorefrontServiceProvider;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TreeManager extends BasePage implements HasActions, HasForms
@@ -313,7 +314,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             }
         });
 
-        Cache::forget('pko.storefront.nav.roots.v3');
+        Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
 
         unset($this->collectionsTree);
 
@@ -1133,6 +1134,10 @@ class TreeManager extends BasePage implements HasActions, HasForms
             $walk($payload['tree'] ?? [], null);
             LunarCollection::fixTree();
         });
+
+        // Import de masse : vide le cache de nav une fois après commit
+        // (l'arbre a pu changer massivement, hors events unitaires).
+        Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
     }
 
     /**
