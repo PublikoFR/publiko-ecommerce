@@ -83,7 +83,9 @@ class UpdatePageTool extends Tool
     private function adminUrl(Post $post): ?string
     {
         try {
-            return PostResource::getUrl('edit', ['record' => $post->getKey()]);
+            // Passer le MODÈLE (pas la clé) : le back-office route par slug
+            // (Post::getRouteKeyName() = 'slug') → Filament utilise getRouteKey().
+            return PostResource::getUrl('edit', ['record' => $post]);
         } catch (Throwable) {
             return null;
         }
