@@ -44,8 +44,8 @@
                     <button type="button" @click="go({{ $idx }})" class="h-2 rounded-full transition-all" :class="current === {{ $idx }} ? 'bg-accent-400 w-8' : 'bg-white/50 w-2 hover:bg-white/75'"></button>
                 @endforeach
             </div>
-            <button type="button" @click="prev()" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center text-white transition z-20"><x-ui.icon name="chevron-left" class="w-5 h-5" /></button>
-            <button type="button" @click="next()" class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur rounded-full flex items-center justify-center text-white transition z-20"><x-ui.icon name="chevron-right" class="w-5 h-5" /></button>
+            <button type="button" @click="prev()" class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent-500 hover:bg-accent-400 rounded-full flex items-center justify-center text-primary-700 shadow-md transition z-20"><x-ui.icon name="chevron-left" class="w-5 h-5" /></button>
+            <button type="button" @click="next()" class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-accent-500 hover:bg-accent-400 rounded-full flex items-center justify-center text-primary-700 shadow-md transition z-20"><x-ui.icon name="chevron-right" class="w-5 h-5" /></button>
         @endif
     @endif
 </div>
