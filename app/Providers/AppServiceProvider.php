@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\ActivityResource;
 use Lunar\Admin\Filament\Resources\AttributeGroupResource;
@@ -189,6 +190,13 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             (bool) env('PKOS_WORKTREE', false) && ! $this->app->environment('testing')
         );
+
+        // Passport 13 ne fournit pas de vue de consentement par défaut : on
+        // enregistre la nôtre (écran d'autorisation du connecteur MCP claude.ai).
+        // Sans ça, /oauth/authorize -> BindingResolutionException.
+        if (class_exists(Passport::class)) {
+            Passport::authorizationView('oauth.authorize');
+        }
 
         // Regenerate product URL slug when variants change — MPN is only
         // available after variant creation so Lunar's native post-create hook
