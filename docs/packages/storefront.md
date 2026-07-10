@@ -68,13 +68,14 @@ Inclus dans : **`resources/views/layouts/storefront.blade.php`** (layout projet,
 **Gotcha Blade ⚠️** : une directive Alpine `:class="{...}"` posée sur un **composant Blade** (`<x-ui.icon …>`) est interprétée par Blade comme une expression PHP (préfixe `:`) → erreur de compilation `unexpected token "{"`. Sur un composant, utiliser `x-bind:class="{...}"` (transmis littéralement au `<svg>` via `$attributes->merge`). Sur un élément HTML natif (`<div>`, `<button>`), `:class` passe sans souci.
 
 **Structure panneaux** :
-- **L1** (toujours visible) — catégories racines avec vignette image (`getFirstMediaUrl('images', 'small')`), nom (lien), chevron si enfants. Sur mobile : accordéon inline au clic du chevron. Sur desktop : clic chevron révèle le panneau L2 à droite.
-- **L2** (desktop `lg+` seulement) — enfants du nœud L1 sélectionné. Clic item avec enfants révèle L3.
-- **L3** (desktop `lg+` seulement) — petits-enfants du nœud L2 sélectionné.
+- **L1** (toujours visible) — catégories racines avec vignette image (`getFirstMediaUrl('images', 'small')`), nom (lien), chevron si enfants. Sur mobile : accordéon inline au clic du chevron. Sur desktop : **survol** de la ligne révèle le panneau L2 (uniquement si la catégorie a des enfants ; survol d'une catégorie sans enfant referme L2).
+- **L2** (desktop `lg+` seulement) — enfants du nœud L1 survolé. Survol d'un item avec enfants révèle L3.
+- **L3** (desktop `lg+` seulement) — petits-enfants du nœud L2 survolé.
+- **Colonnes collapsées** : les wrappers L2/L3 passent en `lg:w-0` (bordure retirée) tant qu'aucun parent n'est actif → pas de colonnes vides. `hidden` mobile préservé (on ne bascule que largeur/bordure via `:class`, jamais `display`).
 
 **Données** :
 - Source : `Lunar\Models\Collection` avec relations `defaultUrl`, `children.defaultUrl`, `children.children.defaultUrl`
-- Cache : `pko.storefront.nav.roots.v3` (3600 s) — clé bumpée v3 pour intégrer le filtre `pko_enabled`. Invalidée par `TreeManager::toggleCollectionEnabled()`.
+- Cache : `pko.storefront.nav.roots.v3` (3600 s) — clé bumpée v3 pour intégrer le filtre `pko_enabled`. Constante `StorefrontServiceProvider::NAV_CACHE_KEY` (source unique, référencée par le blade). **Invalidation auto** : `StorefrontServiceProvider::registerNavCacheInvalidation()` écoute `saved`/`deleted`/`restored` sur `Lunar\Models\Collection` **et** `Lunar\Models\Url` → toute modif de catégorie (nom, hiérarchie, `pko_enabled`, slug, création, suppression) rafraîchit le menu sans rebuild ni délai. (Complète l'ancien `TreeManager::toggleCollectionEnabled()` qui ne couvrait que le toggle enabled.)
 - Filtre activé : `->where('pko_enabled', true)` appliqué aux L1, L2 et L3. Cache désactivé sur les nœuds ayant un ancêtre désactivé par l'effet du cascade (nestedset).
 
 **État Alpine** : `{ open, l1, l2 }` — `l1` = id Collection L1 sélectionnée, `l2` = id Collection L2 sélectionnée. Réinitialisés à la fermeture.
