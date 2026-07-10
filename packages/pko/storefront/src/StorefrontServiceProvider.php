@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\Storefront;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\ServiceProvider;
@@ -12,6 +13,7 @@ use Lunar\Models\Collection;
 use Lunar\Models\Url;
 use Pko\Storefront\Livewire\CartDrawer;
 use Pko\Storefront\Livewire\SearchAutocomplete;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class StorefrontServiceProvider extends ServiceProvider
 {
@@ -50,6 +52,17 @@ class StorefrontServiceProvider extends ServiceProvider
         foreach (['saved', 'deleted', 'restored'] as $event) {
             Collection::registerModelEvent($event, $flush);
             Url::registerModelEvent($event, $flush);
+        }
+
+        // Changement d'image d'une catégorie (média Spatie attaché à une Collection).
+        foreach (['saved', 'deleted'] as $event) {
+            Media::registerModelEvent($event, function (Media $media) use ($flush): void {
+                $model = Relation::getMorphedModel($media->model_type) ?? $media->model_type;
+
+                if (is_a($model, Collection::class, true)) {
+                    $flush();
+                }
+            });
         }
     }
 }
