@@ -260,7 +260,7 @@
 
                     <div class="wk-fld">
                         <span class="wk-lbl">Extrait</span>
-                        <textarea class="wk-ta" wire:model.blur="excerpt" maxlength="500" placeholder="Court résumé…"></textarea>
+                        <textarea class="wk-ta" style="min-height:120px" wire:model.blur="excerpt" maxlength="500" placeholder="Court résumé…"></textarea>
                         @error('excerpt')<span class="wk-err">{{ $message }}</span>@enderror
                     </div>
 
