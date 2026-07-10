@@ -78,7 +78,7 @@ Composant Livewire (`Pko\PageBuilder\Livewire\PageBuilder`) monté en pleine lar
 **Interactions** :
 
 - **Palette drag&drop** via 3 directives Alpine (`x-pb-palette`, `x-pb-drop`, `x-pb-sortable`) sur SortableJS, même `group: 'pko-page-builder'`. La palette (onglet Blocs) expose sections 1/2/3col + blocs texte/image/code/citation/bouton/séparateur (`data-palette-type`).
-  - `x-pb-drop` : `data-drop-type="sections|blocks"` (+ `data-section-index`, `data-column-index`), `onAdd` → `insertSection` / `insertBlock`
+  - `x-pb-drop` : `data-drop-type="sections|blocks"` (+ `data-section-index`, `data-column-index`), `onAdd` → `dropSection` (zone « déposer une section », en bas — **append en fin**, et si l'élément lâché est un bloc, crée une section 1col et y place le bloc) / `insertBlock` (dépôt dans une colonne)
   - `x-pb-sortable` : reorder sections via poignée `.wk-handle`, appelle `reorderSections(ids)`
 - **Sections** : layout switch (1/2/3col), add/remove, styling inline (padding/margin px, `<input type="color">`)
 - **Blocs** : toolbar flottante par bloc (dupliquer `duplicateBlock` + supprimer)

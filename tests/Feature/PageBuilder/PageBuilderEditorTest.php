@@ -150,6 +150,36 @@ class PageBuilderEditorTest extends TestCase
         $this->assertSame('gallery', $blocks[8]['type']);
     }
 
+    public function test_drop_block_on_section_zone_creates_section_with_block(): void
+    {
+        $post = $this->makePost();
+
+        // On simule le lâcher d'un bloc "quote" sur la zone "déposer une section".
+        $sections = $this->editor($post)
+            ->call('dropSection', 'quote')
+            ->get('sections');
+
+        $this->assertCount(1, $sections);
+        $this->assertSame('1col', $sections[0]['layout']);
+        $this->assertCount(1, $sections[0]['columns'][0]['blocks']);
+        $this->assertSame('quote', $sections[0]['columns'][0]['blocks'][0]['type']);
+    }
+
+    public function test_drop_section_tile_appends_empty_layout_at_end(): void
+    {
+        $post = $this->makePost();
+
+        $sections = $this->editor($post)
+            ->call('addSection', '1col')          // Section 1
+            ->call('dropSection', 'section-3col') // ajoutée à la fin
+            ->get('sections');
+
+        $this->assertCount(2, $sections);
+        $this->assertSame('3col', $sections[1]['layout']); // en dernier, pas sous la 1
+        $this->assertCount(3, $sections[1]['columns']);
+        $this->assertEmpty($sections[1]['columns'][0]['blocks']);
+    }
+
     public function test_accordion_item_add_update_remove(): void
     {
         $post = $this->makePost();

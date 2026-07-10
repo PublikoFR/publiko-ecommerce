@@ -221,11 +221,42 @@ class PageBuilder extends Component implements HasActions, HasForms
 
     /**
      * Insert une section à une position donnée (drag&drop depuis la palette).
-     * $paletteType = 'section-1col' | 'section-2col' | 'section-3col'
+     * $paletteType = 'section-1col' … 'section-6col'
      */
     public function insertSection(int $index, string $paletteType): void
     {
-        $layout = match ($paletteType) {
+        $index = max(0, min(count($this->sections), $index));
+        array_splice($this->sections, $index, 0, [PageBuilderManager::newSection($this->layoutForPaletteType($paletteType))]);
+        $this->isDirty = true;
+    }
+
+    /**
+     * Dépôt sur la zone « déposer une section » (en bas) : ajoute toujours la
+     * nouvelle section à la fin. Si $paletteType est un type de section
+     * (`section-Ncol`), on crée une section vide de ce layout. Sinon c'est un
+     * bloc glissé directement → on crée une section 1col et on y place le bloc.
+     */
+    public function dropSection(string $paletteType): void
+    {
+        if (str_starts_with($paletteType, 'section-')) {
+            $this->sections[] = PageBuilderManager::newSection($this->layoutForPaletteType($paletteType));
+            $this->isDirty = true;
+
+            return;
+        }
+
+        $section = PageBuilderManager::newSection(PageBuilderManager::LAYOUT_1COL);
+        $block = PageBuilderManager::newBlock($paletteType);
+        if ($block !== null) {
+            $section['columns'][0]['blocks'][] = $block;
+        }
+        $this->sections[] = $section;
+        $this->isDirty = true;
+    }
+
+    private function layoutForPaletteType(string $paletteType): string
+    {
+        return match ($paletteType) {
             'section-2col' => PageBuilderManager::LAYOUT_2COL,
             'section-3col' => PageBuilderManager::LAYOUT_3COL,
             'section-4col' => PageBuilderManager::LAYOUT_4COL,
@@ -233,9 +264,6 @@ class PageBuilder extends Component implements HasActions, HasForms
             'section-6col' => PageBuilderManager::LAYOUT_6COL,
             default => PageBuilderManager::LAYOUT_1COL,
         };
-        $index = max(0, min(count($this->sections), $index));
-        array_splice($this->sections, $index, 0, [PageBuilderManager::newSection($layout)]);
-        $this->isDirty = true;
     }
 
     public function removeSection(int $index): void

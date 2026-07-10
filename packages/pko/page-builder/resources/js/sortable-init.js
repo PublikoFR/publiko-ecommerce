@@ -71,7 +71,10 @@
                         if (!component) return;
 
                         if (dropType === 'sections') {
-                            component.call('insertSection', evt.newIndex, paletteType);
+                            // Zone « déposer une section » (en bas) : on ajoute toujours
+                            // la nouvelle section à la fin. Si l'élément lâché est un bloc,
+                            // dropSection crée une section 1col et y place le bloc.
+                            component.call('dropSection', paletteType);
                         } else if (dropType === 'blocks') {
                             const sectionIndex = parseInt(el.dataset.sectionIndex, 10);
                             const columnIndex = parseInt(el.dataset.columnIndex, 10);
