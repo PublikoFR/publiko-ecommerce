@@ -17,6 +17,9 @@
     $gridCols = match ($section['layout']) {
         '2col' => 'grid-cols-1 md:grid-cols-2',
         '3col' => 'grid-cols-1 md:grid-cols-3',
+        '4col' => 'grid-cols-2 md:grid-cols-4',
+        '5col' => 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5',
+        '6col' => 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
         default => 'grid-cols-1',
     };
 @endphp
@@ -35,6 +38,33 @@
                             @break
                         @case('code')
                             @include('page-builder::partials.block-code', ['block' => $block])
+                            @break
+                        @case('quote')
+                            @include('page-builder::partials.block-quote', ['block' => $block])
+                            @break
+                        @case('button')
+                            @include('page-builder::partials.block-button', ['block' => $block])
+                            @break
+                        @case('separator')
+                            @include('page-builder::partials.block-separator', ['block' => $block])
+                            @break
+                        @case('callout')
+                            @include('page-builder::partials.block-callout', ['block' => $block])
+                            @break
+                        @case('title')
+                            @include('page-builder::partials.block-title', ['block' => $block])
+                            @break
+                        @case('video')
+                            @include('page-builder::partials.block-video', ['block' => $block])
+                            @break
+                        @case('list')
+                            @include('page-builder::partials.block-list', ['block' => $block])
+                            @break
+                        @case('accordion')
+                            @include('page-builder::partials.block-accordion', ['block' => $block])
+                            @break
+                        @case('gallery')
+                            @include('page-builder::partials.block-gallery', ['block' => $block])
                             @break
                     @endswitch
                 @endforeach

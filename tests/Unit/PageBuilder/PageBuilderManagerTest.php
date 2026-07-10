@@ -11,8 +11,223 @@ final class PageBuilderManagerTest extends TestCase
 {
     public function test_normalize_empty_payload_returns_empty_sections(): void
     {
-        $this->assertSame(['sections' => []], PageBuilderManager::normalize(null));
-        $this->assertSame(['sections' => []], PageBuilderManager::normalize([]));
+        $this->assertSame(['heading' => '', 'sections' => []], PageBuilderManager::normalize(null));
+        $this->assertSame(['heading' => '', 'sections' => []], PageBuilderManager::normalize([]));
+    }
+
+    public function test_normalize_heading_strips_tags_trims_and_bounds(): void
+    {
+        $out = PageBuilderManager::normalize(['heading' => '  <b>Envoyez-nous un message</b>  ', 'sections' => []]);
+        $this->assertSame('Envoyez-nous un message', $out['heading']);
+
+        // Non-string → chaîne vide
+        $this->assertSame('', PageBuilderManager::normalize(['heading' => ['x'], 'sections' => []])['heading']);
+
+        // Borné à 250 caractères
+        $long = str_repeat('a', 300);
+        $this->assertSame(250, mb_strlen(PageBuilderManager::normalize(['heading' => $long, 'sections' => []])['heading']));
+    }
+
+    public function test_quote_block_normalizes_text_and_cite(): void
+    {
+        $block = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'quote', 'text' => '  <i>Citation</i>  ', 'cite' => '<b>Auteur</b>'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'][0];
+
+        $this->assertSame('quote', $block['type']);
+        $this->assertSame('Citation', $block['text']);
+        $this->assertSame('Auteur', $block['cite']);
+    }
+
+    public function test_button_block_sanitizes_url_and_variant(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'button', 'label' => 'Voir', 'url' => 'https://ok.test', 'variant' => 'accent'],
+                    ['type' => 'button', 'label' => 'Hack', 'url' => 'javascript:alert(1)', 'variant' => 'evil'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('https://ok.test', $blocks[0]['url']);
+        $this->assertSame('accent', $blocks[0]['variant']);
+        // javascript: neutralisé, variant inconnu → primary
+        $this->assertSame('', $blocks[1]['url']);
+        $this->assertSame('primary', $blocks[1]['variant']);
+    }
+
+    public function test_separator_block_normalizes_variant(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'separator', 'variant' => 'space'],
+                    ['type' => 'separator', 'variant' => 'zigzag'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('space', $blocks[0]['variant']);
+        $this->assertSame('line', $blocks[1]['variant']); // inconnu → line
+    }
+
+    public function test_new_block_helper_supports_new_types(): void
+    {
+        $this->assertSame('quote', PageBuilderManager::newBlock('quote')['type']);
+        $this->assertSame('primary', PageBuilderManager::newBlock('button')['variant']);
+        $this->assertSame('line', PageBuilderManager::newBlock('separator')['variant']);
+    }
+
+    public function test_layout_supports_up_to_six_columns(): void
+    {
+        $this->assertCount(6, PageBuilderManager::allowedLayouts());
+        $this->assertSame(5, PageBuilderManager::columnsForLayout('5col'));
+        $this->assertSame(6, PageBuilderManager::columnsForLayout('6col'));
+
+        $out = PageBuilderManager::normalize(['sections' => [['layout' => '6col']]]);
+        $this->assertSame('6col', $out['sections'][0]['layout']);
+        $this->assertCount(6, $out['sections'][0]['columns']);
+    }
+
+    public function test_callout_block_normalizes_variant_and_text(): void
+    {
+        $blocks = PageBuilderManager::normalize([
+            'sections' => [[
+                'layout' => '1col',
+                'columns' => [['blocks' => [
+                    ['type' => 'callout', 'variant' => 'danger', 'text' => '  <b>Attention</b>  '],
+                    ['type' => 'callout', 'variant' => 'nope', 'text' => 'x'],
+                ]]],
+            ]],
+        ])['sections'][0]['columns'][0]['blocks'];
+
+        $this->assertSame('callout', $blocks[0]['type']);
+        $this->assertSame('danger', $blocks[0]['variant']);
+        $this->assertSame('Attention', $blocks[0]['text']);
+        $this->assertSame('info', $blocks[1]['variant']); // inconnu → info
+    }
+
+    public function test_new_block_callout_preset_maps_variant(): void
+    {
+        $this->assertSame('callout', PageBuilderManager::newBlock('callout-warning')['type']);
+        $this->assertSame('warning', PageBuilderManager::newBlock('callout-warning')['variant']);
+        $this->assertSame('danger', PageBuilderManager::newBlock('callout-danger')['variant']);
+        // 'callout' nu → variante par défaut info
+        $this->assertSame('info', PageBuilderManager::newBlock('callout')['variant']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private function normalizedBlock(array $raw): array
+    {
+        return PageBuilderManager::normalize([
+            'sections' => [['layout' => '1col', 'columns' => [['blocks' => [$raw]]]]],
+        ])['sections'][0]['columns'][0]['blocks'][0] ?? [];
+    }
+
+    public function test_title_block_normalizes_level_and_text(): void
+    {
+        $b = $this->normalizedBlock(['type' => 'title', 'level' => 'h3', 'text' => '  <b>Nos services</b>  ']);
+        $this->assertSame('title', $b['type']);
+        $this->assertSame('h3', $b['level']);
+        $this->assertSame('Nos services', $b['text']);
+
+        // niveau inconnu → h2
+        $this->assertSame('h2', $this->normalizedBlock(['type' => 'title', 'level' => 'h1', 'text' => 'X'])['level']);
+    }
+
+    public function test_video_block_keeps_only_http_urls(): void
+    {
+        $ok = $this->normalizedBlock(['type' => 'video', 'url' => 'https://youtu.be/abc123']);
+        $this->assertSame('https://youtu.be/abc123', $ok['url']);
+
+        $bad = $this->normalizedBlock(['type' => 'video', 'url' => 'javascript:alert(1)']);
+        $this->assertSame('', $bad['url']);
+    }
+
+    public function test_list_block_filters_and_bounds_items(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'list',
+            'style' => 'check',
+            'items' => ['  Un  ', '', '<i>Deux</i>', 42, '   '],
+        ]);
+        $this->assertSame('check', $b['style']);
+        $this->assertSame(['Un', 'Deux'], $b['items']); // vides et non-string retirés
+
+        // style inconnu → bullet
+        $this->assertSame('bullet', $this->normalizedBlock(['type' => 'list', 'style' => 'x', 'items' => ['a']])['style']);
+    }
+
+    public function test_accordion_block_normalizes_items(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'accordion',
+            'items' => [
+                ['q' => '  Q1 ', 'a' => ' R1 '],
+                ['q' => '', 'a' => ''],   // vide → retiré
+                ['nope' => true],          // non conforme → retiré
+            ],
+        ]);
+        $this->assertSame('accordion', $b['type']);
+        $this->assertCount(1, $b['items']);
+        $this->assertSame(['q' => 'Q1', 'a' => 'R1'], $b['items'][0]);
+    }
+
+    public function test_gallery_block_dedupes_ids_and_bounds_columns(): void
+    {
+        $b = $this->normalizedBlock([
+            'type' => 'gallery',
+            'media_ids' => [3, 3, '5', 0, -2, 7],
+            'columns' => 4,
+        ]);
+        $this->assertSame([3, 5, 7], $b['media_ids']); // dédupe, >0, cast int
+        $this->assertSame(4, $b['columns']);
+
+        // colonnes hors [2,3,4] → 3
+        $this->assertSame(3, $this->normalizedBlock(['type' => 'gallery', 'media_ids' => [1], 'columns' => 9])['columns']);
+    }
+
+    public function test_separator_supports_height_variants(): void
+    {
+        $this->assertSame('space-lg', $this->normalizedBlock(['type' => 'separator', 'variant' => 'space-lg'])['variant']);
+        $this->assertSame('line', $this->normalizedBlock(['type' => 'separator', 'variant' => 'zigzag'])['variant']);
+    }
+
+    public function test_block_catalog_examples_all_normalize_to_declared_type(): void
+    {
+        $catalog = PageBuilderManager::blockCatalog();
+        $this->assertNotEmpty($catalog);
+
+        foreach ($catalog as $entry) {
+            $normalized = $this->normalizedBlock($entry['example']);
+            // Chaque exemple du catalogue doit survivre à la normalisation
+            // (bloc non droppé) et conserver son type déclaré.
+            $this->assertSame(
+                $entry['type'],
+                $normalized['type'] ?? null,
+                "L'exemple du bloc {$entry['type']} ne se normalise pas correctement.",
+            );
+        }
+    }
+
+    public function test_example_content_is_normalized_and_non_empty(): void
+    {
+        $example = PageBuilderManager::exampleContent();
+        $this->assertArrayHasKey('heading', $example);
+        $this->assertArrayHasKey('sections', $example);
+        $this->assertNotEmpty($example['sections']);
+        // Idempotence : re-normaliser ne change rien.
+        $this->assertSame($example, PageBuilderManager::normalize($example));
     }
 
     public function test_normalize_fills_default_values(): void

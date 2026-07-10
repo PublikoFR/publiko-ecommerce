@@ -7,6 +7,11 @@
   "required": ["sections"],
   "additionalProperties": false,
   "properties": {
+    "heading": {
+      "type": "string",
+      "maxLength": 250,
+      "description": "Titre H1 affiché en tête de page (on-page). Peut différer du nom du contenu en base pour le SEO. Toujours présent côté éditeur, non supprimable."
+    },
     "sections": {
       "type": "array",
       "items": { "$ref": "#/definitions/section" }
@@ -19,7 +24,7 @@
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "layout": { "enum": ["1col", "2col", "3col"] },
+        "layout": { "enum": ["1col", "2col", "3col", "4col", "5col", "6col"] },
         "padding": {
           "type": "object",
           "additionalProperties": false,
@@ -43,7 +48,7 @@
         "columns": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 3,
+          "maxItems": 6,
           "items": { "$ref": "#/definitions/column" }
         }
       }
@@ -63,7 +68,16 @@
       "oneOf": [
         { "$ref": "#/definitions/blockText" },
         { "$ref": "#/definitions/blockImage" },
-        { "$ref": "#/definitions/blockCode" }
+        { "$ref": "#/definitions/blockCode" },
+        { "$ref": "#/definitions/blockQuote" },
+        { "$ref": "#/definitions/blockButton" },
+        { "$ref": "#/definitions/blockSeparator" },
+        { "$ref": "#/definitions/blockCallout" },
+        { "$ref": "#/definitions/blockTitle" },
+        { "$ref": "#/definitions/blockVideo" },
+        { "$ref": "#/definitions/blockList" },
+        { "$ref": "#/definitions/blockAccordion" },
+        { "$ref": "#/definitions/blockGallery" }
       ]
     },
     "blockText": {
@@ -99,6 +113,114 @@
           "enum": ["plain", "php", "js", "ts", "html", "css", "bash", "json", "sql", "yaml"]
         },
         "content": { "type": "string" }
+      }
+    },
+    "blockQuote": {
+      "type": "object",
+      "required": ["id", "type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "quote" },
+        "text": { "type": "string", "description": "Texte de la citation (brut, sans HTML)." },
+        "cite": { "type": "string", "description": "Auteur / source, optionnel." }
+      }
+    },
+    "blockButton": {
+      "type": "object",
+      "required": ["id", "type", "label", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "button" },
+        "label": { "type": "string", "maxLength": 80 },
+        "url": { "type": "string", "description": "http(s)://, lien interne /…, #ancre, mailto: ou tel: uniquement." },
+        "variant": { "enum": ["primary", "accent", "secondary"] }
+      }
+    },
+    "blockSeparator": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "separator" },
+        "variant": { "enum": ["line", "space", "space-sm", "space-md", "space-lg", "space-xl"] }
+      }
+    },
+    "blockCallout": {
+      "type": "object",
+      "required": ["id", "type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "callout" },
+        "variant": { "enum": ["info", "warning", "danger"], "description": "info = bleu, warning = orange, danger = rouge." },
+        "text": { "type": "string", "description": "Message de l'encart (brut, sans HTML)." }
+      }
+    },
+    "blockTitle": {
+      "type": "object",
+      "required": ["id", "type", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "title" },
+        "level": { "enum": ["h2", "h3"] },
+        "text": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "blockVideo": {
+      "type": "object",
+      "required": ["id", "type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "video" },
+        "url": { "type": "string", "description": "URL YouTube / Vimeo / Dailymotion / .mp4 (http(s) uniquement), résolue au rendu." }
+      }
+    },
+    "blockList": {
+      "type": "object",
+      "required": ["id", "type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "list" },
+        "style": { "enum": ["bullet", "check"] },
+        "items": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "blockAccordion": {
+      "type": "object",
+      "required": ["id", "type", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "accordion" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["q", "a"],
+            "additionalProperties": false,
+            "properties": {
+              "q": { "type": "string", "description": "Question / titre du panneau." },
+              "a": { "type": "string", "description": "Réponse / contenu." }
+            }
+          }
+        }
+      }
+    },
+    "blockGallery": {
+      "type": "object",
+      "required": ["id", "type", "media_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "const": "gallery" },
+        "media_ids": { "type": "array", "items": { "type": "integer" } },
+        "columns": { "enum": [2, 3, 4] }
       }
     }
   }

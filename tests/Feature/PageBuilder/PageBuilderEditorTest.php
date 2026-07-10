@@ -1,0 +1,215 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\PageBuilder;
+
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
+use Pko\PageBuilder\Livewire\PageBuilder;
+use Pko\StorefrontCms\Models\Post;
+use Pko\StorefrontCms\Models\PostType;
+use Tests\TestCase;
+
+/**
+ * Vérifie l'éditeur unifié (mode $withMeta) : hydratation, titre H1 on-page
+ * dissociable du nom en base, sauvegarde/publication, unicité du slug et
+ * insertion des nouveaux types de blocs.
+ */
+class PageBuilderEditorTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed(DatabaseSeeder::class);
+    }
+
+    private function postType(): PostType
+    {
+        return PostType::query()->first()
+            ?? PostType::create(['label' => 'Page', 'handle' => 'page', 'url_segment' => 'page', 'sort_order' => 1]);
+    }
+
+    private function makePost(array $attrs = []): Post
+    {
+        return Post::create(array_merge([
+            'post_type_id' => $this->postType()->id,
+            'title' => 'Contact',
+            'slug' => 'pb-test-'.bin2hex(random_bytes(4)),
+            'status' => 'draft',
+        ], $attrs));
+    }
+
+    private function editor(Post $post): Testable
+    {
+        return Livewire::test(PageBuilder::class, [
+            'modelClass' => Post::class,
+            'recordId' => $post->id,
+            'withMeta' => true,
+        ]);
+    }
+
+    public function test_mount_defaults_heading_to_title(): void
+    {
+        $post = $this->makePost(['title' => 'Contact']);
+
+        $this->editor($post)
+            ->assertSet('heading', 'Contact')
+            ->assertSet('title', 'Contact')
+            ->assertSet('withMeta', true);
+    }
+
+    public function test_save_persists_heading_metadata_and_blocks(): void
+    {
+        $post = $this->makePost();
+
+        $this->editor($post)
+            ->set('heading', 'Envoyez-nous un message')
+            ->set('seoTitle', 'Contact — SEO')
+            ->call('addSection', '1col')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $post->refresh();
+        $this->assertSame('Envoyez-nous un message', $post->content['heading']);
+        $this->assertSame('Contact — SEO', $post->seo_title);
+        $this->assertCount(1, $post->content['sections']);
+    }
+
+    public function test_on_page_heading_can_differ_from_db_title(): void
+    {
+        $post = $this->makePost(['title' => 'Contact']);
+
+        $this->editor($post)
+            ->set('heading', 'Envoyez-nous un message')
+            ->set('title', 'Contact')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $post->refresh();
+        $this->assertSame('Contact', $post->title); // nom en base
+        $this->assertSame('Envoyez-nous un message', data_get($post->content, 'heading')); // H1 on-page
+    }
+
+    public function test_publish_sets_status_and_date(): void
+    {
+        $post = $this->makePost(['status' => 'draft', 'published_at' => null]);
+
+        $this->editor($post)->call('publish')->assertHasNoErrors();
+
+        $post->refresh();
+        $this->assertSame('published', $post->status);
+        $this->assertNotNull($post->published_at);
+    }
+
+    public function test_duplicate_slug_is_rejected(): void
+    {
+        $type = $this->postType();
+        Post::create(['post_type_id' => $type->id, 'title' => 'A', 'slug' => 'pb-dup-slug', 'status' => 'draft']);
+        $b = $this->makePost(['title' => 'B']);
+
+        $this->editor($b)
+            ->set('slug', 'pb-dup-slug')
+            ->call('save')
+            ->assertHasErrors('slug');
+
+        $this->assertNotSame('pb-dup-slug', $b->refresh()->slug);
+    }
+
+    public function test_insert_new_block_types(): void
+    {
+        $post = $this->makePost();
+
+        $sections = $this->editor($post)
+            ->call('addSection', '1col')
+            ->call('insertBlock', 0, 0, 0, 'quote')
+            ->call('insertBlock', 0, 0, 1, 'button')
+            ->call('insertBlock', 0, 0, 2, 'separator')
+            ->call('insertBlock', 0, 0, 3, 'callout-danger')
+            ->call('insertBlock', 0, 0, 4, 'title')
+            ->call('insertBlock', 0, 0, 5, 'video')
+            ->call('insertBlock', 0, 0, 6, 'list')
+            ->call('insertBlock', 0, 0, 7, 'accordion')
+            ->call('insertBlock', 0, 0, 8, 'gallery')
+            ->get('sections');
+
+        $blocks = $sections[0]['columns'][0]['blocks'];
+        $this->assertSame('quote', $blocks[0]['type']);
+        $this->assertSame('button', $blocks[1]['type']);
+        $this->assertSame('separator', $blocks[2]['type']);
+        $this->assertSame('callout', $blocks[3]['type']);
+        $this->assertSame('danger', $blocks[3]['variant']);
+        $this->assertSame('title', $blocks[4]['type']);
+        $this->assertSame('video', $blocks[5]['type']);
+        $this->assertSame('list', $blocks[6]['type']);
+        $this->assertSame('accordion', $blocks[7]['type']);
+        $this->assertSame('gallery', $blocks[8]['type']);
+    }
+
+    public function test_drop_block_on_section_zone_creates_section_with_block(): void
+    {
+        $post = $this->makePost();
+
+        // On simule le lâcher d'un bloc "quote" sur la zone "déposer une section".
+        $sections = $this->editor($post)
+            ->call('dropSection', 'quote')
+            ->get('sections');
+
+        $this->assertCount(1, $sections);
+        $this->assertSame('1col', $sections[0]['layout']);
+        $this->assertCount(1, $sections[0]['columns'][0]['blocks']);
+        $this->assertSame('quote', $sections[0]['columns'][0]['blocks'][0]['type']);
+    }
+
+    public function test_drop_section_tile_appends_empty_layout_at_end(): void
+    {
+        $post = $this->makePost();
+
+        $sections = $this->editor($post)
+            ->call('addSection', '1col')          // Section 1
+            ->call('dropSection', 'section-3col') // ajoutée à la fin
+            ->get('sections');
+
+        $this->assertCount(2, $sections);
+        $this->assertSame('3col', $sections[1]['layout']); // en dernier, pas sous la 1
+        $this->assertCount(3, $sections[1]['columns']);
+        $this->assertEmpty($sections[1]['columns'][0]['blocks']);
+    }
+
+    public function test_accordion_item_add_update_remove(): void
+    {
+        $post = $this->makePost();
+
+        $component = $this->editor($post)
+            ->call('addSection', '1col')
+            ->call('insertBlock', 0, 0, 0, 'accordion');
+        $blockId = $component->get('sections')[0]['columns'][0]['blocks'][0]['id'];
+
+        $component->call('addAccordionItem', $blockId)
+            ->call('updateAccordionItem', $blockId, 0, 'q', 'Délai ?')
+            ->call('updateAccordionItem', $blockId, 0, 'a', '48h');
+
+        $item = $component->get('sections')[0]['columns'][0]['blocks'][0]['items'][0];
+        $this->assertSame(['q' => 'Délai ?', 'a' => '48h'], $item);
+
+        $component->call('removeAccordionItem', $blockId, 0);
+        $this->assertCount(0, $component->get('sections')[0]['columns'][0]['blocks'][0]['items']);
+    }
+
+    public function test_brand_page_mode_has_no_meta(): void
+    {
+        // Sans $withMeta : pas de métadonnées ni de H1 par défaut forcé.
+        $post = $this->makePost(['title' => 'Contact']);
+
+        Livewire::test(PageBuilder::class, [
+            'modelClass' => Post::class,
+            'recordId' => $post->id,
+        ])
+            ->assertSet('withMeta', false)
+            ->assertSet('heading', ''); // pas de fallback titre hors mode méta
+    }
+}

@@ -4,6 +4,7 @@
 @import './modules/media-picker.css';
 @import './modules/tiptap-editor.css';
 @import './modules/weklo-dashboard.css';
+@import './modules/page-editor.css';
 
 @config 'tailwind.config.js';
 
