@@ -461,6 +461,74 @@ Tests : `tests/Feature/AiImporter/ViewImportJobTest` (compteurs de staging × 2 
 édition d'une ligne staging via le relation manager). Même réserve `RefreshDatabase`
 que ci-dessus (conflit migration `pko_posts`).
 
+### 7.quinquies.15bis Flow piloté CRON — 2 phases découplées (2026-07)
+
+Refonte du déclenchement pour que **les deux phases longues soient attrapées par le
+cron**, jamais exécutées en synchrone dans la requête web. Motivation : sur DEV/prod
+mutualisé `QUEUE_CONNECTION=sync` → un `dispatch()` dans un controller Filament
+exécutait le parse **inline** (bloquant, fatal sur gros fichiers / appels LLM).
+
+**Cycle de vie complet** :
+
+```
+création  ──▶  status=pending (« En attente du CRON »)
+              [cron: phase parse]  ParseFileToStagingJob
+          ──▶  status=parsing  ──▶  status=parsed (staging prêt à vérifier)
+              [admin: vérifie / corrige / valide le staging]
+              [action « Programmer l'import Lunar »]  import_status=scheduled + scheduled_at=now
+              [cron: phase import]  ImportStagingToLunarJob
+          ──▶  import_status=queued ──▶ importing ──▶ imported
+```
+
+**`RunScheduledImportsCommand` (`ai-importer:run-scheduled`) — 2 passes** :
+1. **Parse** : jobs `status=pending` **avec `config_id`** (les CSV pré-préparés naissent
+   déjà `parsed`, donc exclus). Aucun `scheduled_at` requis → la préparation démarre au
+   plus tôt. Transition `status=parsing` **avant** dispatch (sortie de l'état éligible →
+   pas de re-parse au tick suivant).
+2. **Import** : jobs `status=parsed`, `import_status ∈ {pending, scheduled}`,
+   `scheduled_at` non nul et `<= now`. Transition `import_status=queued` avant dispatch
+   (garde anti double-import inchangée).
+
+`--dry` (bouton « Tester CRON ») liste les deux phases sans rien dispatcher.
+Planifié `everyTwoMinutes()` + `withoutOverlapping(10)` + `runInBackground()`
+(`routes/console.php`).
+
+**Points de câblage modifiés** :
+- `CreateImportJob::afterCreate()` : **ne dispatche plus** le parse — le job reste
+  `pending`, une notification indique que le CRON le prendra. (Auparavant : dispatch
+  immédiat = parse synchrone au clic.)
+- `ViewImportJob` : `launchImport` (relabellé « Programmer l'import Lunar ») et
+  `resumeImport` **ne dispatchent plus** `ImportStagingToLunarJob` ; ils marquent
+  `import_status=scheduled` + `scheduled_at` (respecte un `scheduled_at` déjà posé au
+  create, sinon `now()`). C'est le cron qui déclenche l'écriture Lunar. Corrige au
+  passage un bug propre au driver `sync` : `dispatch()` suivi de
+  `update(import_status=queued)` écrasait le statut final (`imported`) par `queued`
+  après le run inline.
+- `launchImport` visible uniquement si `import_status=pending` (masqué une fois
+  programmé). Le bouton « Exécuter CRON » (page Create) reste le déclencheur **manuel**
+  immédiat des deux phases (utile en test), équivalent d'un tick anticipé.
+
+> **Latence assumée** : après « Préparer les données », la préparation démarre au
+> prochain tick cron (≤ 2 min). C'est voulu : le parse peut durer des heures (LLM par
+> ligne) et ne doit jamais tourner dans la requête web.
+
+### 7.quinquies.15ter Fix affichage — logs & tableau staging (2026-07)
+
+- **Logs de console** (`console-logs.blade.php`) : le conteneur portait
+  `white-space:pre-wrap`, qui rendait **littéralement les retours-ligne + l'indentation
+  du source Blade** entre chaque `<span>` → lignes empilées et décalées. Corrigé :
+  chaque entrée est une ligne `display:flex` resserrée (timestamp / niveau / #ligne en
+  `flex:none`, message en `flex:1` avec `pre-wrap` **local** au message seul).
+- **Tableau staging vide** (`StagingRecordsRelationManager`) : les cellules data étaient
+  des `TextColumn->html()` rendant un composant Alpine (`staging-cell.blade.php`). Or
+  `->html()` déclenche `Str::sanitizeHtml()` de Filament qui **strip les directives
+  Alpine (`x-data`/`x-text`/`@dblclick`) et les `<input>`** → chaque cellule se rendait
+  **vide** (le double-clic inline n'a jamais fonctionné en navigateur). Corrigé :
+  colonnes `TextColumn` **texte simple** (échappé), `limit(40)` + tooltip valeur
+  complète + `toggleable()`. L'édition d'une valeur passe désormais par le **modal
+  d'édition de ligne** (EditAction, champ par champ — déjà fonctionnel). Composant
+  Alpine `staging-cell.blade.php` + méthode Livewire `updateCellValue` supprimés (morts).
+
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 
 Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,

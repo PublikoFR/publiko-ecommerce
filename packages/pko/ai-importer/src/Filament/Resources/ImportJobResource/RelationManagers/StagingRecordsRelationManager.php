@@ -67,16 +67,18 @@ class StagingRecordsRelationManager extends RelationManager
     }
 
     /**
-     * Livewire action appelée par Alpine ($wire.updateCellValue) lors du double-clic.
-     * Scope sur les staging records du job courant pour éviter toute manipulation
-     * d'un enregistrement appartenant à un autre job.
+     * Rend une valeur de cellule staging en texte lisible (array/objet → JSON,
+     * null → chaîne vide, scalaire → string). Utilisé par les colonnes dynamiques
+     * et leurs tooltips.
      */
-    public function updateCellValue(int $recordId, string $key, string $value): void
+    private function stringifyCell(mixed $value): string
     {
-        $record = $this->getOwnerRecord()->stagingRecords()->findOrFail($recordId);
-        $data = (array) $record->data;
-        $data[$key] = $value;
-        $record->update(['data' => $data]);
+        return match (true) {
+            is_array($value) => (string) json_encode($value, JSON_UNESCAPED_UNICODE),
+            is_null($value) => '',
+            is_bool($value) => $value ? 'true' : 'false',
+            default => (string) $value,
+        };
     }
 
     public function form(Form $form): Form
@@ -141,17 +143,22 @@ class StagingRecordsRelationManager extends RelationManager
                 continue;
             }
             $label = $fieldLabels[$key] ?? $key;
+            // Colonne texte simple (échappée par Filament). On NE passe PAS par
+            // ->html() + composant Alpine : Filament sanitise le HTML des colonnes
+            // ->html() (Str::sanitizeHtml) et strip les directives Alpine / <input>,
+            // ce qui rendait chaque cellule vide. La correction d'une valeur se fait
+            // via le modal d'édition de ligne (EditAction, champ par champ).
             $dynamicColumns[] = Tables\Columns\TextColumn::make("cell_{$key}")
                 ->label($label)
-                ->html()
-                ->state(fn (StagingRecord $r): string => view(
-                    'pko-ai-importer::filament.components.staging-cell',
-                    [
-                        'value' => ((array) $r->data)[$key] ?? '',
-                        'recordId' => $r->id,
-                        'key' => $key,
-                    ]
-                )->render());
+                ->state(fn (StagingRecord $r): string => $this->stringifyCell(((array) $r->data)[$key] ?? null))
+                ->limit(40)
+                ->tooltip(function (StagingRecord $r) use ($key): ?string {
+                    $full = $this->stringifyCell(((array) $r->data)[$key] ?? null);
+
+                    return mb_strlen($full) > 40 ? $full : null;
+                })
+                ->wrap(false)
+                ->toggleable();
         }
 
         $statusOptions = collect(StagingStatus::cases())

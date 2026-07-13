@@ -15,7 +15,6 @@ use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
-use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Services\PreparedCsvImporter;
 
@@ -208,7 +207,14 @@ class CreateImportJob extends CreateRecord
 
     protected function afterCreate(): void
     {
-        ParseFileToStagingJob::dispatch($this->record->id)
-            ->onQueue(config('ai-importer.queues.parse', 'ai-importer-parse'));
+        // On NE dispatche PAS ici : la préparation est déclenchée par le cron
+        // (`ai-importer:run-scheduled`, phase parse) qui attrape les jobs restés
+        // en `status=pending`. Évite le parse synchrone dans la requête web
+        // (bloquant, et fatal sur de gros fichiers / appels LLM).
+        Notification::make()
+            ->success()
+            ->title('Préparation en file d\'attente')
+            ->body('Le fichier sera préparé automatiquement au prochain passage du CRON. Suivez l\'avancement sur la fiche du job.')
+            ->send();
     }
 }

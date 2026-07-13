@@ -8,9 +8,11 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// AI Importer: dispatche les imports Lunar programmés (scheduled_at <= now, status=parsed)
+// AI Importer: tick des 2 phases pilotées par le cron —
+//  1. préparation des fichiers en attente (status=pending → parse)
+//  2. imports Lunar programmés dus (status=parsed, scheduled_at <= now)
 Schedule::command('ai-importer:run-scheduled')
-    ->everyFiveMinutes()
+    ->everyTwoMinutes()
     ->withoutOverlapping(10)
     ->runInBackground();
 
