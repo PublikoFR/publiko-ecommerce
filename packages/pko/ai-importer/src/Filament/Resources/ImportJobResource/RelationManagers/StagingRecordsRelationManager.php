@@ -277,33 +277,54 @@ class StagingRecordsRelationManager extends RelationManager
     }
 
     /**
-     * Extrait la première URL d'image depuis data.image ou data.images.
+     * Extrait la PREMIÈRE URL d'image depuis data.image ou data.images.
+     * Chaque valeur peut être une URL simple, une CSV d'URLs (sortie
+     * `multiline_aggregate` concat), un array, ou un JSON encodé.
      */
     private function extractImageUrl(StagingRecord $r): ?string
     {
         $data = (array) $r->data;
 
-        if (! empty($data['image']) && is_string($data['image'])) {
-            return $data['image'];
+        foreach (['image', 'images'] as $key) {
+            $url = $this->firstImageUrl($data[$key] ?? null);
+            if ($url !== null) {
+                return $url;
+            }
         }
 
-        $images = $data['images'] ?? null;
+        return null;
+    }
 
-        if (is_array($images) && ! empty($images)) {
-            $first = reset($images);
+    private function firstImageUrl(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $first = reset($value);
 
-            return is_string($first) ? $first : null;
+            return is_string($first) && $first !== '' ? $first : null;
         }
 
-        if (is_string($images) && $images !== '') {
-            $decoded = json_decode($images, true);
-            if (is_array($decoded) && ! empty($decoded)) {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        // JSON array (ex. '["url1","url2"]')
+        if (str_starts_with($value, '[')) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded) && $decoded !== []) {
                 $first = reset($decoded);
 
-                return is_string($first) ? $first : null;
+                return is_string($first) && $first !== '' ? $first : null;
             }
+        }
 
-            return $images;
+        // CSV d'URLs → première non vide.
+        foreach (explode(',', $value) as $part) {
+            $part = trim($part);
+            if ($part !== '') {
+                return $part;
+            }
         }
 
         return null;

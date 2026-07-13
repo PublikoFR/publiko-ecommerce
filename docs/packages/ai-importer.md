@@ -529,6 +529,26 @@ Planifié `everyTwoMinutes()` + `withoutOverlapping(10)` + `runInBackground()`
   d'édition de ligne** (EditAction, champ par champ — déjà fonctionnel). Composant
   Alpine `staging-cell.blade.php` + méthode Livewire `updateCellValue` supprimés (morts).
 
+### 7.quinquies.15quater Fix parse — héritage source de `multiline_aggregate` + colonne Photo (2026-07)
+
+- **`multiline_aggregate` — héritage col/sheet/type_col (`ActionPipeline::inheritColumnSource`)** :
+  les configs PrestaShop réelles (ex. `image` de somfy.json) déclarent la **feuille**
+  (`sheet: B03_MEDIA`) et la **colonne** (`col: N`) au niveau de la COLONNE, et le
+  `type_col` (`MTYP`) au niveau de la FEUILLE — **pas dans l'action**, qui porte
+  `columns: []`. Sans héritage, l'action tournait avec `sheet=''` / `columns=[]` /
+  `type_col='type'` → agrégation **vide** (symptôme : colonne image toujours vide en
+  staging). `ActionPipeline` injecte désormais, pour les seules actions
+  `multiline_aggregate` qui ne les restatent pas : `sheet` ← `col.sheet`,
+  `columns` ← `[col.col]`, `type_col` ← `config_data.sheets[sheet].type_col`. Les
+  actions qui fixent explicitement ces clés ne sont pas écrasées. Ce chemin n'était
+  **pas** couvert (le test e2e exerçait `concat` multi-sources, pas
+  `multiline_aggregate`) → verrouillé par `tests/Feature/AiImporter/MultilineAggregateInheritanceTest`.
+- **Colonne « Photo » du staging (`StagingRecordsRelationManager::extractImageUrl`)** :
+  affiche la **première** URL disponible. La valeur `image` produite par
+  `multiline_aggregate concat` est une **CSV d'URLs** (`url1,url2`) — `extractImageUrl`
+  gère URL simple / CSV / array / JSON encodé et renvoie la 1ʳᵉ URL non vide (au lieu
+  de la chaîne CSV entière, qui cassait le `<img>`).
+
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 
 Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,
