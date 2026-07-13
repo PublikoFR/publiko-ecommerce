@@ -98,14 +98,20 @@ class StagingRecordsRelationManager extends RelationManager
         }
 
         return $form->schema([
-            Forms\Components\Grid::make(2)
+            // Grille plafonnée à la hauteur du viewport (moins l'en-tête/pied de la
+            // modale) et rendue scrollable en interne : la modale ne dépasse jamais
+            // 100vh, c'est SON contenu qui défile (pas toute la page/overlay).
+            Forms\Components\Grid::make(3)
+                ->extraAttributes(['style' => 'max-height: calc(100vh - 13rem); overflow-y: auto;'])
                 ->schema([
                     Forms\Components\Placeholder::make('log_history')
                         ->label('Historique des logs')
                         ->columnSpan(1)
                         ->content(fn (?StagingRecord $record): Htmlable => $this->renderRowLogHistory($record)),
+                    // Champs en label-à-gauche (form horizontal) → gain de hauteur.
                     Forms\Components\Group::make()
-                        ->columnSpan(1)
+                        ->columnSpan(2)
+                        ->inlineLabel()
                         ->schema(array_merge(
                             [
                                 Forms\Components\TextInput::make('row_number')->label('Ligne #')->disabled(),
@@ -207,7 +213,7 @@ class StagingRecordsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->modalWidth(MaxWidth::SixExtraLarge)
                     ->modalHeading(fn (StagingRecord $record): string => 'Ligne #'.$record->row_number)
                     ->mutateFormDataUsing(function (array $data, StagingRecord $record): array {
                         // Merge back : on préserve les clés de data[] non représentées
