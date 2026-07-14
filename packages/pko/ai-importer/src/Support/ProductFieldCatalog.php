@@ -104,7 +104,7 @@ final class ProductFieldCatalog
      * @var array<string, string>
      */
     public const LEGACY_LABELS = [
-        'id' => 'ID PrestaShop',
+        'id' => 'ID',
         'mpn' => 'MPN',
         'upc' => 'UPC',
         'ean13' => 'EAN-13',
