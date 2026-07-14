@@ -287,6 +287,16 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Marge (HT) — lecture seule, calculée depuis prix HT − coût --}}
+                @if ($this->margin !== null)
+                    <div class="flex items-center gap-2 text-[12.5px] text-gray-600 dark:text-gray-300">
+                        <span class="font-medium">Marge (HT) :</span>
+                        <span class="font-mono tabular-nums {{ $this->margin['amount'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                            {{ number_format($this->margin['amount'], 2, ',', ' ') }} €@if ($this->margin['percent'] !== null) <span class="text-gray-500">({{ number_format($this->margin['percent'], 1, ',', ' ') }} %)</span>@endif
+                        </span>
+                    </div>
+                @endif
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Classe de taxe *</label>
                     <select wire:model="taxClassId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">

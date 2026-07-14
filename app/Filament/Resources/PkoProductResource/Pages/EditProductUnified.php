@@ -237,6 +237,12 @@ class EditProductUnified extends Page implements HasForms
                 );
             }
 
+            // Prix d'achat (coût) — colonne custom pko_cost_price (cents), HT.
+            $this->cost = $this->centsToDisplay(
+                $default->pko_cost_price !== null ? (int) $default->pko_cost_price : null,
+                $factor
+            );
+
             $this->tierPrices = $default->prices
                 ->filter(fn (Price $p) => ! ($p->customer_group_id === null && $p->min_quantity <= 1))
                 ->map(fn (Price $p) => [
@@ -422,6 +428,31 @@ class EditProductUnified extends Page implements HasForms
                 return $familyName.' : '.$valueNames;
             })
             ->implode("\n");
+    }
+
+    // ------- Computed marge (Prix HT − coût, tous deux HT)
+    //
+    // Recalculée à chaque render (les inputs prix/coût sont en wire:model.blur :
+    // la marge se met à jour au blur). Retourne null si prix ou coût manquant.
+
+    /**
+     * @return array{amount: float, percent: ?float}|null
+     */
+    public function getMarginProperty(): ?array
+    {
+        $price = ($this->price !== null && $this->price !== '') ? (float) $this->price : null;
+        $cost = ($this->cost !== null && $this->cost !== '') ? (float) $this->cost : null;
+
+        if ($price === null || $cost === null) {
+            return null;
+        }
+
+        $amount = $price - $cost;
+
+        return [
+            'amount' => $amount,
+            'percent' => $price > 0 ? ($amount / $price) * 100 : null,
+        ];
     }
 
     // ------- Computed SEO
@@ -1042,6 +1073,11 @@ class EditProductUnified extends Page implements HasForms
             return;
         }
         $factor = max(1, (int) $currency->factor);
+
+        // Prix d'achat (coût) — colonne custom pko_cost_price non-fillable :
+        // assignation directe + save (un mass-assignment la droppe silencieusement).
+        $variant->pko_cost_price = $this->displayToCents($this->cost, $factor);
+        $variant->save();
 
         // Prix de base
         $basePrice = $this->displayToCents($this->price, $factor);

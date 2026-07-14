@@ -38,6 +38,7 @@ final class ProductFieldCatalog
             'Prix & taxe' => [
                 'price_cents' => 'Prix HT (cents)',
                 'compare_price_cents' => 'Prix barré (cents)',
+                'cost_price_cents' => 'Prix d\'achat / coût (cents)',
                 'tax_class_handle' => 'Classe de taxe',
             ],
             'Stock' => [

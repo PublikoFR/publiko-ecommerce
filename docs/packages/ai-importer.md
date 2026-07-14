@@ -125,6 +125,7 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `stock` | `ProductVariant::stock` (int) | |
 | `price_cents` | `Price::price` (cents) | UpdateOrCreate keyé sur variant+currency+tier |
 | `compare_price_cents` | `Price::compare_price` (cents) | Optionnel |
+| `cost_price_cents` | `ProductVariant::pko_cost_price` (cents) | Prix d'achat / coût. **Assignation directe** (colonne custom non-fillable → un mass-assignment la droppe silencieusement). Sert au calcul de marge. |
 | `weight_value` | `ProductVariant::weight_value` (kg) | Unité forcée à `kg` |
 | `length_value` / `width_value` / `height_value` | `ProductVariant::{axis}_value` (cm) | Unité forcée à `cm` |
 | `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` |
@@ -155,6 +156,7 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `image` | `images` | passe array ou CSV inchangé |
 | `category` | `collections` | passe array ou CSV inchangé |
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
+| `wholesale_price` | `cost_price_cents` | **×100 puis `(int) round()`** (prix d'achat euros → cents) |
 
 ### 7.quinquies.10 Actions disponibles (21 + 7 alias legacy)
 
@@ -603,15 +605,35 @@ Ajout au writer des champs source qui avaient une cible réelle :
 | `minimal_quantity` → `min_quantity` | `ProductVariant.min_quantity` | alias legacy ajouté ; défaut 1. |
 | `supplier` (nom) | `Product.pko_supplier_id` | `Supplier::firstOrCreate`. **Assignation directe** (colonne non-fillable → un mass-assignment la droppe silencieusement). |
 | `image_alt` | `custom_properties.alt` du média | posé si absent (pas d'écrasement sur média dédupliqué partagé). |
+| `wholesale_price` → `cost_price_cents` | `ProductVariant.pko_cost_price` (cents) | Prix d'achat (coût). Alias legacy `wholesale_price` (euros ×100). **Assignation directe** (colonne non-fillable). Voir §7.quinquies.15septies. |
 
 Tous ajoutés à `ProductFieldCatalog` (sélectionnables dans « colonnes à importer »).
 
-**Non couverts** (pas de colonne cible sans migration) : `wholesale_price`/coût (le
-champ « Prix d'achat » de l'éditeur est d'ailleurs non-persisté), `ecotax`,
+**Non couverts** (pas de colonne cible sans migration) : `ecotax`,
 `supplier_reference` (pas de champ réf-fournisseur natif Lunar), promos
 (`on_sale`/`reduction_*`/prix barré sans source), `visibility`, `condition`,
 `unit_price`, `delivery_*`, `available_*`, `additional_shipping_cost`. À décider au
 cas par cas (nécessiteraient une colonne dédiée).
+
+### 7.quinquies.15septies Prix d'achat (coût) & marge (2026-07)
+
+Le prix d'achat PrestaShop (`wholesale_price`, en euros) est désormais **importé** et
+sert de base au calcul de marge dans l'éditeur produit.
+
+- **Colonne** : `lunar_product_variants.pko_cost_price` (`unsignedBigInteger` nullable,
+  **cents entiers**), ajoutée via migration custom `2026_07_14_000001_add_pko_cost_price_to_product_variants.php`
+  (`Schema::table()`, jamais toucher la migration Lunar).
+- **Import** : clé canonique `cost_price_cents` + alias legacy `wholesale_price` (euros
+  ×100 arrondi, même mécanisme que `price_tex → price_cents`). Écrite par assignation
+  directe (`applyCostPrice()`) car la colonne `pko_` n'est **pas fillable** (comme
+  `pko_supplier_id`). Écrite à la création, en update `all`, et en update `price`.
+  À sélectionner dans « colonnes à importer » (sinon filtrée comme toute clé non cochée).
+- **Éditeur** (`EditProductUnified`) : champ « Prix d'achat (coût) » désormais chargé au
+  mount (`pko_cost_price` → affichage euros) et sauvé dans `persistPrices()` (assignation
+  directe). La **marge (HT)** est affichée en lecture seule sous les champs prix :
+  montant `= prix HT − coût` et pourcentage `= (prix − coût) / prix × 100` (computed
+  Livewire `getMarginProperty`, recalculée au blur). Les prix sont **HT**
+  (`lunar.pricing.stored_inclusive_of_tax=false`) → le coût est HT, la marge est HT.
 
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 

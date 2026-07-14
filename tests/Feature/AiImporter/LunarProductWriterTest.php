@@ -196,6 +196,29 @@ class LunarProductWriterTest extends TestCase
         $this->assertSame((int) $supplier->id, (int) $product->pko_supplier_id);
     }
 
+    public function test_imports_wholesale_price_as_cost_price_cents(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 2,
+            'data' => [
+                'reference' => 'SOM-COST-1',
+                'name' => 'Sachet visserie',
+                'wholesale_price' => 2.7, // euros → cost_price_cents = 270
+            ],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $variant = ProductVariant::where('sku', 'SOM-COST-1')->firstOrFail();
+        $this->assertSame(270, (int) $variant->pko_cost_price);
+    }
+
     public function test_canonical_key_wins_over_legacy(): void
     {
         $job = ImportJob::create([

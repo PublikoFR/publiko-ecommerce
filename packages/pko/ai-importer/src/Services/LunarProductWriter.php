@@ -44,6 +44,8 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `stock`                int, ProductVariant.stock.
  *  - `price_cents`          int cents, base Price row.
  *  - `compare_price_cents`  int cents, optional compare-at price.
+ *  - `cost_price_cents`     int cents, prix d'achat (coût) → ProductVariant.pko_cost_price
+ *                           (assignation directe : colonne non-fillable).
  *  - `weight_value`         float kg.
  *  - `length_value` / `width_value` / `height_value`  floats in cm.
  *  - `brand_name`           Brand::firstOrCreate(['name' => ...]) → Product.brand_id.
@@ -71,8 +73,8 @@ use Pko\ShippingCommon\Models\Supplier;
  *                           (assignation directe : colonne non-fillable).
  *
  * Anything the writer doesn't recognise is ignored. NON couverts (pas de colonne
- * cible sans migration) : `wholesale_price`/coût, `ecotax`, `supplier_reference`,
- * promos (`on_sale`/`reduction_*`), `visibility`, `condition`, `unit_price`, etc.
+ * cible sans migration) : `ecotax`, `supplier_reference`, promos
+ * (`on_sale`/`reduction_*`), `visibility`, `condition`, `unit_price`, etc.
  *
  * Unresolved handles (`collections` or `features`) — handles that don't match
  * an existing Collection / FeatureFamily / FeatureValue — are NOT a hard error.
@@ -87,6 +89,7 @@ use Pko\ShippingCommon\Models\Supplier;
  *     `category` → `collections`, `attachments` → `documents`,
  *     `minimal_quantity` → `min_quantity`.
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
+ *   - `wholesale_price` (euros, float) → `cost_price_cents` (int, ×100 rounded).
  *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
@@ -268,6 +271,7 @@ final class LunarProductWriter
             ]);
 
             $this->applyPrice($variant, $data);
+            $this->applyCostPrice($variant, $data);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
@@ -291,10 +295,12 @@ final class LunarProductWriter
                 ], static fn ($v) => $v !== null));
 
                 $this->applyPrice($variant, $data);
+                $this->applyCostPrice($variant, $data);
                 $unresolved = $this->applyRelations($product, $data);
             } else {
                 if ($this->updateMode->writesPrice()) {
                     $this->applyPrice($variant, $data);
+                    $this->applyCostPrice($variant, $data);
                 }
                 if ($this->updateMode->writesStock() && isset($data['stock'])) {
                     $variant->update(['stock' => (int) $data['stock']]);
@@ -370,6 +376,24 @@ final class LunarProductWriter
             (int) $data['price_cents'],
             isset($data['compare_price_cents']) ? (int) $data['compare_price_cents'] : null,
         );
+    }
+
+    /**
+     * Pose `pko_cost_price` (prix d'achat, en cents) par assignation DIRECTE : la
+     * colonne custom n'est pas fillable sur le modèle Lunar ProductVariant → un
+     * mass-assignment la droppe silencieusement (cf. applySupplier). No-op si
+     * `cost_price_cents` absent de la source.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function applyCostPrice(ProductVariant $variant, array $data): void
+    {
+        if (! isset($data['cost_price_cents'])) {
+            return;
+        }
+
+        $variant->pko_cost_price = (int) $data['cost_price_cents'];
+        $variant->save();
     }
 
     /**
@@ -1003,6 +1027,15 @@ final class LunarProductWriter
                 $data['price_cents'] = (int) round($euros * 100);
             }
             unset($data['price_tex']);
+        }
+
+        // wholesale_price (PrestaShop, prix d'achat en euros) → cost_price_cents (int cents).
+        if (array_key_exists('wholesale_price', $data)) {
+            if (! array_key_exists('cost_price_cents', $data) || $data['cost_price_cents'] === null || $data['cost_price_cents'] === '') {
+                $euros = is_numeric($data['wholesale_price']) ? (float) $data['wholesale_price'] : 0.0;
+                $data['cost_price_cents'] = (int) round($euros * 100);
+            }
+            unset($data['wholesale_price']);
         }
 
         return $data;
