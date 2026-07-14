@@ -549,6 +549,38 @@ Planifié `everyTwoMinutes()` + `withoutOverlapping(10)` + `runInBackground()`
   gère URL simple / CSV / array / JSON encodé et renvoie la 1ʳᵉ URL non vide (au lieu
   de la chaîne CSV entière, qui cassait le `<img>`).
 
+### 7.quinquies.15quinquies Images & documents → médiathèque custom (2026-07)
+
+Refonte de l'écriture des médias par `LunarProductWriter` pour passer par la
+**médiathèque custom** (média-core) au lieu de l'API Spatie native de Lunar.
+
+**Problème corrigé** : l'ancien `ProductImagePipeline` écrivait les images en média
+Spatie *possédé par le produit* (collection `images`). Or l'app lit les images produit
+via **`pko_mediables`** (média-core, groupe `product`) dans l'éditeur unifié
+(`MediaPicker->mediagroup('product')`) → images **invisibles en admin**. Le storefront
+lisait `$product->media` (Spatie) → visibles seulement là. Incohérence.
+
+**Nouveau flux** (dépend de `pko/lunar-media-core` + `pko/lunar-product-documents`) :
+- **Images** (`images`) → `MediaLibraryImporter::importFromUrl($url, 'products')` (dédup
+  source_url + sha1, média possédé par le `Folder` `products`) → lien
+  **`pko_mediables`** (`mediable_type=Product::class`, `mediagroup='product'`, append
+  idempotent). Visibles admin **et** storefront.
+- **Documents** (`documents`, alias legacy `attachments`) → import en collection
+  `documents` (PDF autorisé) → `ProductDocumentManager::attach()` avec **catégorie**
+  déduite du type (`NOTICE`/`BROCH` → `DocumentCategory::firstOrCreate(handle)`).
+  Le staging produit la valeur via `multiline_aggregate method=json_array`
+  (`[{type,url,name}]`) ; `LunarProductWriter::decodeDocuments()` la parse.
+- Nouveau champ **`documents`** dans `ProductFieldCatalog` (sélectionnable dans
+  « colonnes à importer »). Alias `attachments → documents` dans `normalizeLegacyKeys`.
+
+**Storefront** : `App\Livewire\ProductPage::getImagesProperty()` migré pour lire
+`pko_mediables` (groupe `product`), avec fallback sur `$product->media` (Spatie) pour
+les galeries non migrées. Cohérent avec l'admin.
+
+`ProductImagePipeline` (écriture Spatie directe) n'est plus utilisé par le writer
+(classe conservée, dépréciée). Tests : `MultilineAggregateInheritanceTest`,
+`AttachmentsAliasTest` (le download réseau réel n'est pas testé en unit).
+
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 
 Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,

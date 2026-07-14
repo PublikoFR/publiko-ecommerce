@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Lunar\FieldTypes\Text;
 use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Brand;
@@ -24,6 +25,9 @@ use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\CatalogFeatures\Facades\Features;
 use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\LunarMediaCore\Services\MediaLibraryImporter;
+use Pko\ProductDocuments\Models\DocumentCategory;
+use Pko\ProductDocuments\Services\ProductDocumentManager;
 use Pko\ProductVideos\Services\ProductVideoManager;
 
 /**
@@ -105,7 +109,8 @@ final class LunarProductWriter
     /** @var array<int, string> Sous-ensemble de clés réellement écrites (vide = tout). */
     private array $columnsToImport = [];
 
-    private readonly ProductImagePipeline $imagePipeline;
+    /** @var array<string, int> Cache handle → id des catégories de documents. */
+    private array $documentCategoryCache = [];
 
     /** ID du job courant — 0 = pas de logging granulaire. */
     private int $jobId = 0;
@@ -115,11 +120,6 @@ final class LunarProductWriter
 
     /** @var array<int, array<string, mixed>> Logs en attente de flush batch. */
     private array $pendingLogs = [];
-
-    public function __construct(?ProductImagePipeline $imagePipeline = null)
-    {
-        $this->imagePipeline = $imagePipeline ?? new ProductImagePipeline;
-    }
 
     /**
      * Active le logging granulaire ligne par ligne pour ce writer.
@@ -376,15 +376,7 @@ final class LunarProductWriter
         }
 
         if (! empty($data['images'])) {
-            $this->imagePipeline->syncImages($product, $data['images'], function (string $url, string $status, string $error = ''): void {
-                if ($status === 'added') {
-                    $this->addLog(LogLevel::Debug, "Image téléchargée: {$url}");
-                } elseif ($status === 'skipped') {
-                    $this->addLog(LogLevel::Debug, "Image déjà existante, ignorée: {$url}");
-                } else {
-                    $this->addLog(LogLevel::Warning, "Erreur image: {$url} — {$error}");
-                }
-            });
+            $this->syncProductImages($product, $data['images']);
         }
 
         if (! empty($data['videos'])) {
@@ -394,7 +386,185 @@ final class LunarProductWriter
             app(ProductVideoManager::class)->sync($product, $videoUrls);
         }
 
+        if (! empty($data['documents'])) {
+            $this->syncProductDocuments($product, $data['documents']);
+        }
+
         return $unresolved;
+    }
+
+    /**
+     * Importe les images dans la médiathèque custom (dossier `products`,
+     * dédup source_url + sha1) puis les lie au produit via `pko_mediables`
+     * (média-core, groupe `product` — celui que lit l'éditeur produit unifié
+     * ET le storefront). Remplace l'écriture Spatie native (invisible en admin).
+     */
+    private function syncProductImages(Product $product, mixed $raw): void
+    {
+        $urls = $this->normaliseUrlList($raw);
+        if ($urls === []) {
+            return;
+        }
+
+        $importer = app(MediaLibraryImporter::class);
+        $mediaIds = [];
+        foreach ($urls as $url) {
+            $media = $importer->importFromUrl($url, 'products');
+            if ($media === null) {
+                $this->addLog(LogLevel::Warning, "Image non importée: {$url}");
+
+                continue;
+            }
+            $mediaIds[] = (int) $media->id;
+            $this->addLog(LogLevel::Debug, "Image bibliothèque #{$media->id}: {$url}");
+        }
+
+        if ($mediaIds !== []) {
+            $this->linkMediaToEntity($product, $mediaIds, 'product');
+        }
+    }
+
+    /**
+     * Importe les documents (notices, brochures) dans la médiathèque (dossier
+     * `documents`, PDF) puis crée les liens `pko_product_documents` avec la
+     * catégorie déduite du type (NOTICE/BROCH → DocumentCategory).
+     */
+    private function syncProductDocuments(Product $product, mixed $raw): void
+    {
+        $items = $this->decodeDocuments($raw);
+        if ($items === [] || ! class_exists(ProductDocumentManager::class)) {
+            return;
+        }
+
+        $importer = app(MediaLibraryImporter::class);
+        $manager = app(ProductDocumentManager::class);
+        $position = 0;
+        foreach ($items as $item) {
+            $url = trim((string) ($item['url'] ?? ''));
+            if ($url === '') {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? ''));
+            $type = trim((string) ($item['type'] ?? ''));
+
+            $media = $importer->importFromUrl($url, 'documents', $name !== '' ? $name : null, MediaLibraryImporter::DOCUMENT_EXTENSIONS);
+            if ($media === null) {
+                $this->addLog(LogLevel::Warning, "Document non importé: {$url}");
+
+                continue;
+            }
+
+            $manager->attach($product, (int) $media->id, $this->resolveDocumentCategoryId($type), $position++);
+            $this->addLog(LogLevel::Debug, "Document #{$media->id} ({$type}): {$url}");
+        }
+    }
+
+    /**
+     * Lie une liste de médias (bibliothèque) à une entité via `pko_mediables`,
+     * en append idempotent (contrainte UNIQUE media_id+type+id+group).
+     *
+     * @param  array<int, int>  $mediaIds
+     */
+    private function linkMediaToEntity(Product $product, array $mediaIds, string $group): void
+    {
+        $type = $product::class;
+        $base = DB::table('pko_mediables')
+            ->where('mediable_type', $type)
+            ->where('mediable_id', $product->id)
+            ->where('mediagroup', $group);
+
+        $existing = (clone $base)->pluck('media_id')->map(fn ($v): int => (int) $v)->all();
+        $position = (int) (clone $base)->max('position');
+        $now = now();
+
+        foreach ($mediaIds as $mediaId) {
+            if (in_array($mediaId, $existing, true)) {
+                continue;
+            }
+            DB::table('pko_mediables')->insertOrIgnore([
+                'media_id' => $mediaId,
+                'mediable_type' => $type,
+                'mediable_id' => $product->id,
+                'mediagroup' => $group,
+                'position' => ++$position,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $existing[] = $mediaId;
+        }
+    }
+
+    /**
+     * Décode la valeur `documents` (JSON string issu de multiline_aggregate
+     * json_array, ou array déjà décodé) en liste d'items `{type,url,name}`.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function decodeDocuments(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $raw,
+            static fn ($i): bool => is_array($i) && ! empty($i['url']),
+        ));
+    }
+
+    /**
+     * Résout (ou crée) une catégorie de document depuis son type (ex. NOTICE),
+     * mis en cache par instance. Retourne null si le package n'est pas dispo.
+     */
+    private function resolveDocumentCategoryId(string $type): ?int
+    {
+        $handle = Str::slug($type);
+        if ($handle === '' || ! class_exists(DocumentCategory::class)) {
+            return null;
+        }
+        if (isset($this->documentCategoryCache[$handle])) {
+            return $this->documentCategoryCache[$handle];
+        }
+
+        $category = DocumentCategory::query()->firstOrCreate(
+            ['handle' => $handle],
+            ['label' => $type !== '' ? $type : $handle, 'sort_order' => 0],
+        );
+
+        return $this->documentCategoryCache[$handle] = (int) $category->id;
+    }
+
+    /**
+     * Normalise une valeur images (string CSV, JSON, array) en liste d'URLs http(s).
+     *
+     * @return array<int, string>
+     */
+    private function normaliseUrlList(mixed $raw): array
+    {
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $trimmed = trim($raw);
+            if (str_starts_with($trimmed, '[')) {
+                $decoded = json_decode($trimmed, true);
+                $raw = is_array($decoded) ? $decoded : explode(',', $trimmed);
+            } else {
+                $raw = explode(',', $trimmed);
+            }
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', array_map('strval', $raw)),
+            static fn (string $u): bool => $u !== '' && filter_var($u, FILTER_VALIDATE_URL) !== false,
+        ));
     }
 
     /**
@@ -723,6 +893,7 @@ final class LunarProductWriter
             'weight' => 'weight_value',
             'category' => 'collections',
             'image' => 'images',
+            'attachments' => 'documents',
         ];
 
         foreach ($aliases as $legacy => $canonical) {

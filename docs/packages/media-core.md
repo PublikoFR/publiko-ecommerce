@@ -68,6 +68,31 @@ Factory JS unifiée : `window.pkoMediaLibraryUploader()` (anciennement `window.m
 
 **Dossier par défaut** : setting `media.default_folder_id` (clé de `pko_storefront_settings`, valeur = ID du dossier). Sélectionné automatiquement à l'ouverture (page comme modale) et épinglé en tête de la sidebar des dossiers. Tant que le setting n'est pas posé, fallback sur le dossier dont `collection = 'products'`. En mode page, une étoile au survol de chaque dossier (`setDefaultFolder(int $id)`) permet de changer le choix.
 
+### Service `MediaLibraryImporter` (import URL + dédup)
+
+`packages/pko/lunar-media-core/src/Services/MediaLibraryImporter.php` — importe un
+fichier distant (URL) **dans la médiathèque custom** (média Spatie possédé par un
+`TomatoPHP\FilamentMediaManager\Models\Folder`, `collection = folder.collection`),
+avec **déduplication à deux niveaux** stockée en `custom_properties` :
+
+1. `source_url` — réutilise le média si la même URL a déjà été importée (zéro re-download).
+2. `sha1` — réutilise si le même binaire existe déjà (même image, URL différente) — calculé après download.
+
+API :
+```php
+$media = app(MediaLibraryImporter::class)->importFromUrl($url, 'products', $name);           // par slug de collection
+$media = app(MediaLibraryImporter::class)->importIntoFolder($folder, $url, $name);           // dossier explicite
+// PDF (notices) : passer MediaLibraryImporter::DOCUMENT_EXTENSIONS en 4e arg.
+$folder = app(MediaLibraryImporter::class)->resolveFolder('documents');                       // firstOrCreate par collection
+```
+
+Extension détectée depuis l'URL sinon les magic bytes (JPEG/PNG/GIF/WEBP/SVG/**PDF**).
+Dépendance ajoutée au composer du package : `tomatophp/filament-media-manager: ^1.1`
+(le modèle `Folder` = propriétaire des médias de bibliothèque).
+
+Consommé par **ai-importer** (images + documents produit) et destiné à remplacer le
+download inline de `PkoMediaLibrary::importFromUrl` (dédup — TODO, non fait pour l'instant).
+
 ### Bascule Lunar — via `ResourceExtension` (pas de subclass)
 
 **Pourquoi pas de subclass ?** Les Page classes Lunar (`EditProduct`, `ManageProductX`, etc.) codent en dur `protected static string $resource = ProductResource::class;`. Une subclass `PkoProductResource` ne serait donc pas interrogée par ces pages lors du rendu de la sub-navigation → tabs cassés ou routes manquantes.

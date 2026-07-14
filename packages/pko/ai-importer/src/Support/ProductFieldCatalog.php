@@ -62,6 +62,7 @@ final class ProductFieldCatalog
                 'features' => 'Caractéristiques',
                 'images' => 'Images',
                 'videos' => 'Vidéos',
+                'documents' => 'Documents (notices, brochures)',
             ],
         ];
     }
