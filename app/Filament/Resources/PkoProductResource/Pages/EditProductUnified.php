@@ -258,6 +258,15 @@ class EditProductUnified extends Page implements HasForms
                 : (int) $group->first()->id)
             ->all();
 
+        // Seed les familles sans valeur assignée : Livewire ne lie une checkbox
+        // en TABLEAU que si la clé existe déjà comme tableau — sinon il la traite
+        // en booléen (cocher une valeur coche toute la famille). Mono-valeur → ''.
+        foreach ($this->featureFamilies as $family) {
+            if (! array_key_exists($family->id, $this->featureValues)) {
+                $this->featureValues[$family->id] = $family->multi_value ? [] : '';
+            }
+        }
+
         $this->relatedProductIds = $product->associations
             ->pluck('product_target_id')
             ->filter()
