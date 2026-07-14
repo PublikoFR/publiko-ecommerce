@@ -45,8 +45,9 @@
                         @foreach ($products as $product)
                             <a href="{{ $product->defaultUrl?->slug ? route('product.view', $product->defaultUrl->slug) : '#' }}" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-primary-50 transition">
                                 <div class="w-10 h-10 bg-neutral-50 rounded border border-neutral-100 flex items-center justify-center p-1 shrink-0">
-                                    @if ($product->thumbnail)
-                                        <img src="{{ $product->thumbnail->getUrl('small') }}" alt="" class="max-w-full max-h-full object-contain" />
+                                    @php($thumb = pko_product_thumbnail($product))
+                                    @if ($thumb)
+                                        <img src="{{ pko_media_url($thumb, 'small') }}" alt="" class="max-w-full max-h-full object-contain" />
                                     @else
                                         <x-ui.icon name="shopping-bag" class="w-5 h-5 text-neutral-300" />
                                     @endif

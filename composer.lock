@@ -8426,7 +8426,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
-                "reference": "cfb8273f89a0454ce6ad5b8a02a968530bed9a60"
+                "reference": "471fa741a8de484e5e3c185b0c10bcfabe84a582"
             },
             "require": {
                 "filament/filament": "^3.0",
@@ -8447,7 +8447,10 @@
             "autoload": {
                 "psr-4": {
                     "Pko\\LunarMediaCore\\": "src/"
-                }
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
             },
             "license": [
                 "proprietary"

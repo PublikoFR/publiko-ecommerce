@@ -3,7 +3,7 @@
 @php
 $slug = $product->defaultUrl?->slug;
 $url = $slug ? route('product.view', $slug) : '#';
-$thumb = $product->thumbnail;
+$thumb = pko_product_thumbnail($product);
 $brand = $product->brand?->name;
 $firstVariant = $product->variants->first();
 $code = $firstVariant?->sku;
@@ -34,7 +34,7 @@ if ($stock <= 0) {
        style="background: radial-gradient(120% 120% at 30% 20%, #ffffff 0%, var(--surface-brand-soft) 90%);">
         <div class="absolute inset-0 p-5 flex items-center justify-center">
             @if ($thumb)
-                <img src="{{ $thumb->getUrl('medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="max-w-full max-h-full object-contain transition duration-300 group-hover:scale-105" />
+                <img src="{{ pko_media_url($thumb, 'medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="max-w-full max-h-full object-contain transition duration-300 group-hover:scale-105" />
             @else
                 <x-ui.icon name="package" class="w-16 h-16 text-primary-200" />
             @endif
