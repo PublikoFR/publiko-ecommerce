@@ -949,19 +949,41 @@ class EditProductUnified extends Page implements HasForms
     private function readAttr(Collection $attrs, string $key): string
     {
         $value = $attrs->get($key);
-        if ($value instanceof TranslatedText) {
-            $values = $value->getValue() ?? [];
 
-            return (string) (reset($values) ?: '');
+        if ($value instanceof TranslatedText) {
+            // getValue() renvoie une Collection locale => FieldType (chaque valeur
+            // traduite est un objet Text, pas une string). On prend la locale
+            // courante, sinon la première traduction disponible.
+            $values = $value->getValue();
+            $values = $values instanceof Collection ? $values->all() : (array) ($values ?? []);
+            $first = $values[app()->getLocale()] ?? (reset($values) ?: '');
+
+            return $this->fieldValueToString($first);
         }
-        if ($value instanceof FieldText) {
-            return (string) $value->getValue();
+
+        return $this->fieldValueToString($value);
+    }
+
+    /**
+     * Réduit une valeur d'attribut Lunar (FieldType, Collection, array imbriqué,
+     * scalaire) en string plate. Dé-wrappe les FieldTypes (Text::getValue()).
+     */
+    private function fieldValueToString(mixed $value): string
+    {
+        if (is_object($value) && method_exists($value, 'getValue')) {
+            $value = $value->getValue();
+        }
+        if ($value instanceof Collection) {
+            $value = $value->all();
         }
         if (is_array($value)) {
-            return (string) (reset($value) ?: '');
+            $value = reset($value) ?: '';
+            if (is_object($value) && method_exists($value, 'getValue')) {
+                $value = $value->getValue();
+            }
         }
 
-        return (string) ($value ?? '');
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function writeAttr(Collection $attrs, string $key, string $value): Collection
@@ -969,7 +991,14 @@ class EditProductUnified extends Page implements HasForms
         $existing = $attrs->get($key);
         if ($existing instanceof TranslatedText) {
             $locale = app()->getLocale();
-            $current = $existing->getValue() ?? [];
+            $current = $existing->getValue();
+            $current = $current instanceof Collection ? $current->all() : (array) ($current ?? []);
+            // Aplatir les FieldType existants (Text) en strings pour ne pas mélanger
+            // objets et string dans le nouveau TranslatedText.
+            $current = array_map(
+                static fn ($v) => is_object($v) && method_exists($v, 'getValue') ? $v->getValue() : $v,
+                $current,
+            );
             $current[$locale] = $value;
             $attrs->put($key, new TranslatedText($current));
         } else {
