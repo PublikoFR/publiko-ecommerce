@@ -12,7 +12,6 @@ use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Brand;
 use Lunar\Models\Currency;
 use Lunar\Models\Language;
-use Lunar\Models\Price;
 use Lunar\Models\Product;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
@@ -789,10 +788,12 @@ final class LunarProductWriter
 
     private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents): void
     {
-        Price::query()->updateOrCreate(
+        // Passer par la relation morphMany : elle pose le `priceable_type` avec
+        // l'ALIAS morph de Lunar (`product_variant`), pas le FQCN. Sinon la
+        // relation `$variant->prices` (qui filtre par alias) ne retrouve jamais
+        // le prix → prix « fantôme » invisible dans l'admin et le storefront.
+        $variant->prices()->updateOrCreate(
             [
-                'priceable_type' => ProductVariant::class,
-                'priceable_id' => $variant->id,
                 'currency_id' => $this->defaultCurrencyId(),
                 'customer_group_id' => null,
                 'min_quantity' => 1,

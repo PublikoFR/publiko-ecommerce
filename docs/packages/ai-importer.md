@@ -581,6 +581,17 @@ les galeries non migrées. Cohérent avec l'admin.
 (classe conservée, dépréciée). Tests : `MultilineAggregateInheritanceTest`,
 `AttachmentsAliasTest` (le download réseau réel n'est pas testé en unit).
 
+> **⚠️ Gotcha — prix « fantôme » (morph alias, corrigé 2026-07).** `upsertPrice`
+> écrivait le prix via `Price::updateOrCreate(['priceable_type' => ProductVariant::class, …])`
+> (FQCN). Or Lunar mappe `ProductVariant` sur l'alias morph **`product_variant`** et la
+> relation `$variant->prices` filtre par cet alias → le prix FQCN était **présent en base
+> mais introuvable par l'app** (Tarification vide dans l'éditeur produit, prix absent au
+> storefront). **Fix** : créer le prix **via la relation** `$variant->prices()->updateOrCreate(…)`
+> qui pose l'alias correct. Data-fix des lignes déjà importées :
+> `UPDATE lunar_prices SET priceable_type='product_variant' WHERE priceable_type='Lunar\\Models\\ProductVariant'`.
+> (Le lien `pko_mediables` utilise volontairement le FQCN `$product::class` — cohérent
+> des deux côtés avec `MediaPicker`, donc pas concerné.)
+
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 
 Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,

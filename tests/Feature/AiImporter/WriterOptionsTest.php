@@ -8,7 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Lunar\FieldTypes\Text;
 use Lunar\Models\Currency;
 use Lunar\Models\Language;
-use Lunar\Models\Price;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
@@ -78,8 +77,8 @@ class WriterOptionsTest extends TestCase
 
     private function priceCentsOf(string $sku): int
     {
-        $variantId = ProductVariant::where('sku', $sku)->value('id');
-        $price = Price::where('priceable_id', $variantId)->where('priceable_type', ProductVariant::class)->first();
+        $variant = ProductVariant::where('sku', $sku)->firstOrFail();
+        $price = $variant->prices()->first();
 
         return (int) $price->price->value;
     }

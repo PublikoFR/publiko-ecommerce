@@ -62,7 +62,9 @@ class LunarProductWriterTest extends TestCase
         $this->assertSame(12, $variant->stock);
         $this->assertEquals(2.5, $variant->weight_value);
 
-        $price = Price::where('priceable_id', $variant->id)->where('priceable_type', ProductVariant::class)->first();
+        // Via la relation Lunar (alias morph `product_variant`) : garantit que le
+        // prix est retrouvable par l'app, pas seulement présent en base.
+        $price = $variant->prices()->first();
         $this->assertNotNull($price);
     }
 
