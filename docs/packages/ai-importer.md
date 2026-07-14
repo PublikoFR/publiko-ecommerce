@@ -132,7 +132,7 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
 | `features` | pivot `pko_feature_value_product` | Hash `{family_handle => [value_handle, ...]}`, delegated à `catalog-features` |
 | `images` | Spatie MediaLibrary | Array ou CSV d'URLs distantes. Idempotent via `custom_properties.source_url`, première URL `primary=true`. |
-| `videos` | `pko/product-videos` | Array ou CSV d'URLs YouTube/Vimeo/Dailymotion/MP4. Idempotent par URL. |
+| `videos` | `pko/product-videos` | Array/CSV d'URLs **ou** JSON `[{url,title}]` (format prépa PrestaShop) YouTube/Vimeo/Dailymotion/MP4. Titre conservé. Idempotent par URL. Voir §7.quinquies.15octies. |
 | `product_type_handle` | ProductType | Lookup par handle, fallback sur premier trouvé |
 | `tax_class_handle` | TaxClass | Lookup par handle, fallback sur premier trouvé |
 | `compare_price_cents` | `Price::compare_price` | Prix barré |
@@ -634,6 +634,18 @@ sert de base au calcul de marge dans l'éditeur produit.
   montant `= prix HT − coût` et pourcentage `= (prix − coût) / prix × 100` (computed
   Livewire `getMarginProperty`, recalculée au blur). Les prix sont **HT**
   (`lunar.pricing.stored_inclusive_of_tax=false`) → le coût est HT, la marge est HT.
+
+### 7.quinquies.15octies Vidéos au format JSON `[{url,title}]` (2026-07)
+
+La prépa PrestaShop (`multiline_aggregate` → `json_array`) sérialise la colonne
+`videos` en **string JSON** `[{"url":...,"title":...}]`, pas en CSV d'URLs.
+
+**Bug corrigé** : l'ancien writer faisait `explode(',', $data['videos'])` sur cette
+string → découpait le JSON sur chaque virgule (URL + titre) → 0 vidéo importée,
+titres perdus. Désormais un `decodeVideos()` (analogue à `decodeDocuments()`) parse
+le format objet et attache via `ProductVideoManager::addIfNotExists($product, $url,
+$title)` — **titre conservé**, idempotent par URL, URL non reconnue loggée en warning.
+Formats acceptés : JSON `[{url,title}]`, JSON `["url", ...]`, CSV d'URLs, array natif.
 
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 

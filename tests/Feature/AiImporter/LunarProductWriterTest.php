@@ -15,6 +15,7 @@ use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\LunarProductWriter;
+use Pko\ProductVideos\Models\ProductVideo;
 use Pko\ShippingCommon\Models\Supplier;
 use Tests\TestCase;
 
@@ -217,6 +218,35 @@ class LunarProductWriterTest extends TestCase
 
         $variant = ProductVariant::where('sku', 'SOM-COST-1')->firstOrFail();
         $this->assertSame(270, (int) $variant->pko_cost_price);
+    }
+
+    public function test_imports_videos_from_json_object_format(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 2,
+            'data' => [
+                'reference' => 'SOM-VID-1',
+                'name' => 'Moteur avec vidéo',
+                // Format prépa PrestaShop : string JSON [{url,title}] (virgules dans
+                // l'URL et le titre → un explode(',') naïf casse le parse).
+                'videos' => '[{"url":"https://www.youtube.com/watch?v=VtL8StaDb50","title":"RS100 io hybrid, test pro | Somfy"}]',
+            ],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $variant = ProductVariant::where('sku', 'SOM-VID-1')->firstOrFail();
+        $videos = ProductVideo::where('product_id', $variant->product_id)->get();
+
+        $this->assertCount(1, $videos);
+        $this->assertSame('https://www.youtube.com/watch?v=VtL8StaDb50', $videos->first()->url);
+        $this->assertSame('RS100 io hybrid, test pro | Somfy', $videos->first()->title);
     }
 
     public function test_canonical_key_wins_over_legacy(): void

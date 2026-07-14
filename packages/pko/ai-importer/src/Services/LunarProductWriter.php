@@ -59,9 +59,10 @@ use Pko\ShippingCommon\Models\Supplier;
  *                           collection `config('lunar.media.collection')`. Idempotent via
  *                           `custom_properties.source_url`. First URL flagged `primary=true`
  *                           (becomes thumbnail).
- *  - `videos`               array|CSV of YouTube/Vimeo/Dailymotion/MP4 URLs — routed through
- *                           `pko/product-videos` (ProductVideoManager::sync). Idempotent : URL
- *                           déjà attachée au produit = skip, URL non reconnue = counted as error.
+ *  - `videos`               array|CSV d'URLs OU JSON `[{url,title}]` (format prépa PrestaShop) —
+ *                           YouTube/Vimeo/Dailymotion/MP4, routé via `pko/product-videos`
+ *                           (addIfNotExists, titre conservé). Idempotent : URL déjà attachée
+ *                           au produit = skip, URL non reconnue = warning loggé.
  *  - `documents`            array|CSV|JSON `[{type,url,name}]` — notices/brochures →
  *                           médiathèque (dossier `documents`, PDF) + `pko_product_documents`
  *                           (catégorie = type, ex NOTICE/BROCH).
@@ -431,10 +432,7 @@ final class LunarProductWriter
         }
 
         if (! empty($data['videos'])) {
-            $videoUrls = is_string($data['videos'])
-                ? array_map('trim', explode(',', $data['videos']))
-                : (array) $data['videos'];
-            app(ProductVideoManager::class)->sync($product, $videoUrls);
+            $this->syncProductVideos($product, $data['videos']);
         }
 
         if (! empty($data['documents'])) {
@@ -568,6 +566,74 @@ final class LunarProductWriter
             $manager->attach($product, (int) $media->id, $this->resolveDocumentCategoryId($type), $position++);
             $this->addLog(LogLevel::Debug, "Document #{$media->id} ({$type}): {$url}");
         }
+    }
+
+    /**
+     * Attache les vidéos d'un produit via `pko/product-videos`, en conservant le
+     * titre. Accepte un CSV d'URLs OU le format JSON `[{url,title}]` produit par la
+     * prépa PrestaShop (multiline_aggregate json_array). Idempotent : une URL déjà
+     * attachée au produit est skippée ; une URL non reconnue est loggée en warning.
+     */
+    private function syncProductVideos(Product $product, mixed $raw): void
+    {
+        $items = $this->decodeVideos($raw);
+        if ($items === [] || ! class_exists(ProductVideoManager::class)) {
+            return;
+        }
+
+        $manager = app(ProductVideoManager::class);
+        foreach ($items as $item) {
+            try {
+                $created = $manager->addIfNotExists($product, $item['url'], $item['title']);
+                if ($created !== null) {
+                    $this->addLog(LogLevel::Debug, "Vidéo #{$created->id}: {$item['url']}");
+                }
+            } catch (\Throwable) {
+                $this->addLog(LogLevel::Warning, "Vidéo non importée: {$item['url']}");
+            }
+        }
+    }
+
+    /**
+     * Décode la valeur `videos` en liste d'items `{url, title}`. Accepte : string
+     * JSON `[{"url","title"}]` (format prépa PrestaShop), string JSON `["url", ...]`,
+     * CSV d'URLs, ou array déjà décodé (strings ou objets). Le titre est optionnel.
+     *
+     * @return array<int, array{url: string, title: ?string}>
+     */
+    private function decodeVideos(mixed $raw): array
+    {
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $trimmed = trim($raw);
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $decoded = json_decode($trimmed, true);
+                $raw = is_array($decoded) ? $decoded : array_map('trim', explode(',', $trimmed));
+            } else {
+                $raw = array_map('trim', explode(',', $trimmed));
+            }
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($raw as $entry) {
+            if (is_array($entry)) {
+                $url = trim((string) ($entry['url'] ?? ''));
+                $title = isset($entry['title']) && $entry['title'] !== '' ? (string) $entry['title'] : null;
+            } else {
+                $url = trim((string) $entry);
+                $title = null;
+            }
+            if ($url !== '') {
+                $items[] = ['url' => $url, 'title' => $title];
+            }
+        }
+
+        return $items;
     }
 
     /**
