@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Filament\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Services\ProgressCache;
 
@@ -40,11 +41,16 @@ class ImportJobProgressWidget extends StatsOverviewWidget
         $counts = $job->stagingStatusCounts();
 
         return [
-            Stat::make('Parse', $job->status->label())
+            Stat::make('Préparation', $job->status->label())
                 ->description(sprintf('%s / %s lignes — %d%%', $this->fmt($processed), $this->fmt($total), $pct))
                 ->descriptionIcon('heroicon-o-document-arrow-down')
                 ->color($job->status->color())
                 ->chart($parseBar),
+
+            Stat::make('Import', $job->import_status->label())
+                ->description($this->importHint($job))
+                ->descriptionIcon($this->importIcon($job))
+                ->color($job->import_status->color()),
 
             Stat::make('Total', $this->fmt($counts['total']))
                 ->description('lignes en staging')
@@ -57,7 +63,7 @@ class ImportJobProgressWidget extends StatsOverviewWidget
                 ->color('info'),
 
             Stat::make('Importé', $this->fmt($counts['imported']))
-                ->description($job->import_status->label())
+                ->description('lignes écrites dans Lunar')
                 ->descriptionIcon('heroicon-o-arrow-down-on-square-stack')
                 ->color('success'),
 
@@ -71,6 +77,37 @@ class ImportJobProgressWidget extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-o-x-circle')
                 ->color('danger'),
         ];
+    }
+
+    /**
+     * Message d'étape clair pour la phase d'import (ce qui se passe / ce que
+     * l'admin doit faire ensuite).
+     */
+    private function importHint(ImportJob $job): string
+    {
+        return match ($job->import_status) {
+            ImportStatus::Pending => 'Validez le staging, puis « Programmer l\'import »',
+            ImportStatus::Scheduled => $job->scheduled_at && $job->scheduled_at->isFuture()
+                ? 'En attente du CRON — prévu '.$job->scheduled_at->diffForHumans()
+                : 'En attente du CRON (prochain passage ≤ 2 min)',
+            ImportStatus::Queued => 'Pris par le CRON — démarrage imminent',
+            ImportStatus::Importing => 'Écriture dans Lunar en cours…',
+            ImportStatus::Imported => 'Import terminé',
+            ImportStatus::Error => 'Échec — voir les logs ci-dessous',
+            ImportStatus::RolledBack => 'Import annulé (rollback effectué)',
+        };
+    }
+
+    private function importIcon(ImportJob $job): string
+    {
+        return match ($job->import_status) {
+            ImportStatus::Pending => 'heroicon-o-hand-raised',
+            ImportStatus::Scheduled, ImportStatus::Queued => 'heroicon-o-clock',
+            ImportStatus::Importing => 'heroicon-o-arrow-path',
+            ImportStatus::Imported => 'heroicon-o-check-circle',
+            ImportStatus::Error => 'heroicon-o-x-circle',
+            ImportStatus::RolledBack => 'heroicon-o-arrow-uturn-left',
+        };
     }
 
     private function fmt(?int $n): string
