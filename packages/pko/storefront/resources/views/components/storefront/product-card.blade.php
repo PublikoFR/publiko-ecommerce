@@ -32,9 +32,9 @@ if ($stock <= 0) {
 <article class="group bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-neutral-300">
     <a href="{{ $url }}" wire:navigate class="block relative aspect-[4/3] overflow-hidden"
        style="background: radial-gradient(120% 120% at 30% 20%, #ffffff 0%, var(--surface-brand-soft) 90%);">
-        <div class="absolute inset-0 p-5 flex items-center justify-center">
+        <div class="absolute inset-0 flex items-center justify-center">
             @if ($thumb)
-                <img src="{{ pko_media_url($thumb, 'medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="max-w-full max-h-full object-contain transition duration-300 group-hover:scale-105" />
+                <img src="{{ pko_media_url($thumb, 'medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
             @else
                 <x-ui.icon name="package" class="w-16 h-16 text-primary-200" />
             @endif
