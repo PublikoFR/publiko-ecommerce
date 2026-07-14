@@ -592,6 +592,27 @@ les galeries non migrées. Cohérent avec l'admin.
 > (Le lien `pko_mediables` utilise volontairement le FQCN `$product::class` — cohérent
 > des deux côtés avec `MediaPicker`, donc pas concerné.)
 
+### 7.quinquies.15sexies Couverture champs étendue (2026-07)
+
+Ajout au writer des champs source qui avaient une cible réelle :
+
+| Clé source | Cible | Note |
+|---|---|---|
+| `tags` (CSV) | `Product::syncTags` | Lunar met les valeurs en **MAJUSCULES**. |
+| `mpn` | `ProductVariant.mpn` | — |
+| `minimal_quantity` → `min_quantity` | `ProductVariant.min_quantity` | alias legacy ajouté ; défaut 1. |
+| `supplier` (nom) | `Product.pko_supplier_id` | `Supplier::firstOrCreate`. **Assignation directe** (colonne non-fillable → un mass-assignment la droppe silencieusement). |
+| `image_alt` | `custom_properties.alt` du média | posé si absent (pas d'écrasement sur média dédupliqué partagé). |
+
+Tous ajoutés à `ProductFieldCatalog` (sélectionnables dans « colonnes à importer »).
+
+**Non couverts** (pas de colonne cible sans migration) : `wholesale_price`/coût (le
+champ « Prix d'achat » de l'éditeur est d'ailleurs non-persisté), `ecotax`,
+`supplier_reference` (pas de champ réf-fournisseur natif Lunar), promos
+(`on_sale`/`reduction_*`/prix barré sans source), `visibility`, `condition`,
+`unit_price`, `delivery_*`, `available_*`, `additional_shipping_cost`. À décider au
+cas par cas (nécessiteraient une colonne dédiée).
+
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 
 Les configs JSON du module PrestaShop *Publiko AI Importer* tournent **directement**,

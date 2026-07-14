@@ -15,6 +15,7 @@ use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\LunarProductWriter;
+use Pko\ShippingCommon\Models\Supplier;
 use Tests\TestCase;
 
 class LunarProductWriterTest extends TestCase
@@ -158,6 +159,41 @@ class LunarProductWriterTest extends TestCase
         $price = Price::where('priceable_id', $variant->id)->first();
         $this->assertNotNull($price);
         $this->assertSame(19900, (int) $price->price->value);
+    }
+
+    public function test_imports_tags_mpn_min_quantity_and_supplier(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 2,
+            'data' => [
+                'reference' => 'SOM-EXTRA-1',
+                'name' => 'Produit extra',
+                'tags' => 'SOMFY,670002,Accessoire',
+                'mpn' => 'MPN-123',
+                'minimal_quantity' => 6,   // → min_quantity
+                'supplier' => 'Somfy Distribution',
+            ],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $variant = ProductVariant::where('sku', 'SOM-EXTRA-1')->firstOrFail();
+        $this->assertSame('MPN-123', $variant->mpn);
+        $this->assertSame(6, (int) $variant->min_quantity);
+
+        $product = $variant->product;
+        // Lunar normalise les valeurs de tag en MAJUSCULES.
+        $this->assertSame(['SOMFY', '670002', 'ACCESSOIRE'], $product->tags->pluck('value')->all());
+
+        $supplier = Supplier::where('name', 'Somfy Distribution')->first();
+        $this->assertNotNull($supplier);
+        $this->assertSame((int) $supplier->id, (int) $product->pko_supplier_id);
     }
 
     public function test_canonical_key_wins_over_legacy(): void

@@ -28,6 +28,7 @@ use Pko\LunarMediaCore\Services\MediaLibraryImporter;
 use Pko\ProductDocuments\Models\DocumentCategory;
 use Pko\ProductDocuments\Services\ProductDocumentManager;
 use Pko\ProductVideos\Services\ProductVideoManager;
+use Pko\ShippingCommon\Models\Supplier;
 
 /**
  * Writes a single `StagingRecord` into the Lunar data model.
@@ -59,8 +60,19 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *  - `videos`               array|CSV of YouTube/Vimeo/Dailymotion/MP4 URLs — routed through
  *                           `pko/product-videos` (ProductVideoManager::sync). Idempotent : URL
  *                           déjà attachée au produit = skip, URL non reconnue = counted as error.
+ *  - `documents`            array|CSV|JSON `[{type,url,name}]` — notices/brochures →
+ *                           médiathèque (dossier `documents`, PDF) + `pko_product_documents`
+ *                           (catégorie = type, ex NOTICE/BROCH).
+ *  - `image_alt`            texte alternatif posé sur les médias image importés (si absent).
+ *  - `tags`                 CSV|array → Lunar `syncTags` (valeurs normalisées en MAJUSCULES).
+ *  - `mpn`                  ProductVariant.mpn.
+ *  - `min_quantity`         ProductVariant.min_quantity (défaut 1).
+ *  - `supplier`             nom → `Supplier::firstOrCreate` → Product.pko_supplier_id
+ *                           (assignation directe : colonne non-fillable).
  *
- * Anything the writer doesn't recognise is ignored.
+ * Anything the writer doesn't recognise is ignored. NON couverts (pas de colonne
+ * cible sans migration) : `wholesale_price`/coût, `ecotax`, `supplier_reference`,
+ * promos (`on_sale`/`reduction_*`), `visibility`, `condition`, `unit_price`, etc.
  *
  * Unresolved handles (`collections` or `features`) — handles that don't match
  * an existing Collection / FeatureFamily / FeatureValue — are NOT a hard error.
@@ -72,7 +84,8 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *   - `ean13` → `ean`, `quantity` → `stock`, `manufacturer` → `brand_name`,
  *     `link_rewrite` → `url_key`, `depth` → `length_value`, `width` → `width_value`,
  *     `height` → `height_value`, `weight` → `weight_value`, `image` → `images`,
- *     `category` → `collections`.
+ *     `category` → `collections`, `attachments` → `documents`,
+ *     `minimal_quantity` → `min_quantity`.
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
  *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
@@ -110,6 +123,9 @@ final class LunarProductWriter
 
     /** @var array<string, int> Cache handle → id des catégories de documents. */
     private array $documentCategoryCache = [];
+
+    /** @var array<string, int> Cache nom → id des fournisseurs. */
+    private array $supplierCache = [];
 
     /** ID du job courant — 0 = pas de logging granulaire. */
     private int $jobId = 0;
@@ -234,15 +250,17 @@ final class LunarProductWriter
                 'brand_id' => $this->resolveBrand($data),
                 'attribute_data' => $this->buildAttributeData($data),
             ]);
+            $this->applySupplier($product, $data);
 
             $variant = ProductVariant::query()->create([
                 'product_id' => $product->id,
                 'tax_class_id' => $this->resolveTaxClassId($data),
                 'sku' => $sku,
                 'ean' => $data['ean'] ?? null,
+                'mpn' => $data['mpn'] ?? null,
                 'stock' => (int) ($data['stock'] ?? 0),
                 'unit_quantity' => 1,
-                'min_quantity' => 1,
+                'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : 1,
                 'quantity_increment' => 1,
                 'shippable' => true,
                 'purchasable' => 'always',
@@ -262,10 +280,13 @@ final class LunarProductWriter
                     'brand_id' => $this->resolveBrand($data),
                     'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
                 ], static fn ($v) => $v !== null));
+                $this->applySupplier($product, $data);
 
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
+                    'mpn' => $data['mpn'] ?? null,
                     'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
+                    'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : null,
                     ...$this->dimensions($data),
                 ], static fn ($v) => $v !== null));
 
@@ -369,13 +390,20 @@ final class LunarProductWriter
             $unresolved['collections'] = $resolution['unresolved'];
         }
 
+        if (! empty($data['tags']) && method_exists($product, 'syncTags')) {
+            $tags = $this->splitCsv($data['tags']);
+            if ($tags !== []) {
+                $product->syncTags(collect($tags));
+            }
+        }
+
         if (! empty($data['features']) && is_array($data['features']) && class_exists(Features::class)) {
             $unresolved['features'] = $this->findUnresolvedFeatures($data['features']);
             Features::syncByHandles($product, $data['features']);
         }
 
         if (! empty($data['images'])) {
-            $this->syncProductImages($product, $data['images']);
+            $this->syncProductImages($product, $data['images'], isset($data['image_alt']) ? (string) $data['image_alt'] : null);
         }
 
         if (! empty($data['videos'])) {
@@ -398,13 +426,14 @@ final class LunarProductWriter
      * (média-core, groupe `product` — celui que lit l'éditeur produit unifié
      * ET le storefront). Remplace l'écriture Spatie native (invisible en admin).
      */
-    private function syncProductImages(Product $product, mixed $raw): void
+    private function syncProductImages(Product $product, mixed $raw, ?string $alt = null): void
     {
         $urls = $this->normaliseUrlList($raw);
         if ($urls === []) {
             return;
         }
 
+        $alt = $alt !== null ? trim($alt) : '';
         $importer = app(MediaLibraryImporter::class);
         $mediaIds = [];
         foreach ($urls as $url) {
@@ -414,6 +443,12 @@ final class LunarProductWriter
 
                 continue;
             }
+            // Texte alternatif : posé si fourni et absent (ne pas écraser un alt
+            // déjà saisi sur un média partagé/dédupliqué).
+            if ($alt !== '' && ! $media->getCustomProperty('alt')) {
+                $media->setCustomProperty('alt', $alt);
+                $media->save();
+            }
             $mediaIds[] = (int) $media->id;
             $this->addLog(LogLevel::Debug, "Image bibliothèque #{$media->id}: {$url}");
         }
@@ -421,6 +456,59 @@ final class LunarProductWriter
         if ($mediaIds !== []) {
             $this->linkMediaToEntity($product, $mediaIds, 'product');
         }
+    }
+
+    /**
+     * Pose `pko_supplier_id` par assignation DIRECTE (la colonne custom n'est pas
+     * fillable sur le modèle Lunar Product → un mass-assignment la droppe
+     * silencieusement). No-op si pas de fournisseur en source.
+     */
+    private function applySupplier(Product $product, array $data): void
+    {
+        $supplierId = $this->resolveSupplierId($data);
+        if ($supplierId !== null && (int) $product->pko_supplier_id !== $supplierId) {
+            $product->pko_supplier_id = $supplierId;
+            $product->save();
+        }
+    }
+
+    /**
+     * Résout (ou crée) un fournisseur par son nom → `pko_supplier_id`. Cache par
+     * instance. Retourne null si absent ou si le package fournisseur n'existe pas.
+     */
+    private function resolveSupplierId(array $data): ?int
+    {
+        $name = trim((string) ($data['supplier'] ?? ''));
+        if ($name === '' || ! class_exists(Supplier::class)) {
+            return null;
+        }
+        if (isset($this->supplierCache[$name])) {
+            return $this->supplierCache[$name];
+        }
+
+        $supplier = Supplier::query()->firstOrCreate(['name' => $name]);
+
+        return $this->supplierCache[$name] = (int) $supplier->id;
+    }
+
+    /**
+     * Découpe une valeur CSV (ou array) en liste de strings non vides.
+     *
+     * @return array<int, string>
+     */
+    private function splitCsv(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', array_map('strval', $raw)),
+            static fn (string $v): bool => $v !== '',
+        ));
     }
 
     /**
@@ -886,6 +974,7 @@ final class LunarProductWriter
         $aliases = [
             'ean13' => 'ean',
             'quantity' => 'stock',
+            'minimal_quantity' => 'min_quantity',
             'manufacturer' => 'brand_name',
             'link_rewrite' => 'url_key',
             'depth' => 'length_value',

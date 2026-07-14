@@ -30,7 +30,9 @@ final class ProductFieldCatalog
                 'reference' => 'Référence',
                 'sku' => 'Réf. fournisseur (SKU)',
                 'brand_name' => 'Marque',
+                'supplier' => 'Fournisseur',
                 'ean' => 'EAN-13',
+                'mpn' => 'MPN (réf. fabricant)',
                 'product_type_handle' => 'Type de produit',
             ],
             'Prix & taxe' => [
@@ -40,6 +42,7 @@ final class ProductFieldCatalog
             ],
             'Stock' => [
                 'stock' => 'Stock',
+                'min_quantity' => 'Quantité minimale de commande',
             ],
             'Dimensions' => [
                 'weight_value' => 'Poids',
@@ -56,11 +59,13 @@ final class ProductFieldCatalog
                 'meta_description' => 'Méta description',
                 'meta_keywords' => 'Méta mots-clés',
                 'url_key' => 'URL (slug)',
+                'tags' => 'Étiquettes (tags)',
             ],
             'Relations' => [
                 'collections' => 'Catégories / Collections',
                 'features' => 'Caractéristiques',
                 'images' => 'Images',
+                'image_alt' => 'Texte alternatif des images',
                 'videos' => 'Vidéos',
                 'documents' => 'Documents (notices, brochures)',
             ],
