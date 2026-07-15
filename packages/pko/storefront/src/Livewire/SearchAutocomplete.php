@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Pko\Storefront\Livewire;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Brand;
@@ -44,31 +43,20 @@ class SearchAutocomplete extends Component
             $products = Product::query()
                 ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
                 ->storefrontVisible()
-                ->whereExists(function ($q) use ($like) {
-                    $q->from('lunar_product_translations as t')
-                        ->whereColumn('t.product_id', 'lunar_products.id')
-                        ->where('t.name', 'like', $like);
+                ->where(function ($qq) use ($like): void {
+                    // Nom produit : stocké dans attribute_data (JSON), chemin $.name.value.
+                    // Groupé (nom OU sku) pour rester ET-scopé avec storefrontVisible().
+                    $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value")) LIKE ?', [$like])
+                        ->orWhereHas('variants', fn ($q) => $q->where('sku', 'like', $like));
                 })
-                ->orWhereHas('variants', fn ($q) => $q->where('sku', 'like', $like))
                 ->limit(8)
                 ->get();
-
-            if ($products->isEmpty()) {
-                $products = Product::query()
-                    ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
-                    ->storefrontVisible()
-                    ->whereHas('variants', fn ($q) => $q->where('sku', 'like', $like))
-                    ->limit(8)
-                    ->get();
-            }
 
             $brands = Brand::query()->where('name', 'like', $like)->limit(3)->get();
             $collections = Collection::query()
                 ->with('defaultUrl')
                 ->navVisible()
-                ->whereExists(function ($q) use ($like) {
-                    $q->from(DB::raw('(SELECT 1)'))->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(attribute_data, '$.name.value')) LIKE ?", [$like]);
-                })
+                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(lunar_collections.attribute_data, '$.name.value')) LIKE ?", [$like])
                 ->limit(3)
                 ->get();
         }
