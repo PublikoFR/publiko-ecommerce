@@ -6,6 +6,7 @@ namespace App\Livewire;
 
 use App\Traits\FetchesUrls;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Product;
@@ -99,10 +100,32 @@ class ProductPage extends Component
 
     /**
      * Return all images for the product.
+     *
+     * Source unifiée avec l'admin : la médiathèque custom (`pko_mediables`,
+     * groupe `product`). Fallback rétro-compat sur les médias Spatie natifs du
+     * produit pour les anciennes galeries non encore migrées.
      */
     public function getImagesProperty(): Collection
     {
-        return $this->product->media->sortBy('order_column');
+        $mediaIds = DB::table('pko_mediables')
+            ->where('mediable_type', $this->product::class)
+            ->where('mediable_id', $this->product->id)
+            ->where('mediagroup', 'product')
+            ->orderBy('position')
+            ->pluck('media_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        if ($mediaIds === []) {
+            return $this->product->media->sortBy('order_column');
+        }
+
+        $byId = Media::query()->whereIn('id', $mediaIds)->get()->keyBy('id');
+
+        return collect($mediaIds)
+            ->map(fn (int $id): ?Media => $byId->get($id))
+            ->filter()
+            ->values();
     }
 
     /**

@@ -8119,7 +8119,7 @@
         },
         {
             "name": "pko/lunar-account",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/account",
@@ -8155,7 +8155,7 @@
         },
         {
             "name": "pko/lunar-admin-nav",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-admin-nav",
@@ -8201,7 +8201,7 @@
         },
         {
             "name": "pko/lunar-ai-core",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-core",
@@ -8235,7 +8235,7 @@
         },
         {
             "name": "pko/lunar-ai-filament",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-filament",
@@ -8271,11 +8271,11 @@
         },
         {
             "name": "pko/lunar-ai-importer",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-importer",
-                "reference": "05e2d9a5404bfa0129a708b47537cd1e33e73a8a"
+                "reference": "7544c815d9d78cf7f75f04988d6233cf928b70c0"
             },
             "require": {
                 "filament/filament": "^3.0",
@@ -8285,6 +8285,8 @@
                 "phpoffice/phpspreadsheet": "^2.0 || ^3.0",
                 "pko/lunar-ai-core": "@dev",
                 "pko/lunar-catalog-features": "@dev",
+                "pko/lunar-media-core": "@dev",
+                "pko/lunar-product-documents": "@dev",
                 "pko/lunar-product-videos": "@dev"
             },
             "type": "library",
@@ -8311,7 +8313,7 @@
         },
         {
             "name": "pko/lunar-catalog-features",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/catalog-features",
@@ -8347,7 +8349,7 @@
         },
         {
             "name": "pko/lunar-customer-auth",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/customer-auth",
@@ -8383,7 +8385,7 @@
         },
         {
             "name": "pko/lunar-loyalty",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/loyalty",
@@ -8420,18 +8422,19 @@
         },
         {
             "name": "pko/lunar-media-core",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
-                "reference": "8898a0a35e6e597df103e7214d5b7d24d4620453"
+                "reference": "471fa741a8de484e5e3c185b0c10bcfabe84a582"
             },
             "require": {
                 "filament/filament": "^3.0",
                 "illuminate/support": "^11.0",
                 "lunarphp/core": "^1.0",
                 "php": "^8.2",
-                "spatie/laravel-medialibrary": "^11.0"
+                "spatie/laravel-medialibrary": "^11.0",
+                "tomatophp/filament-media-manager": "^1.1"
             },
             "type": "library",
             "extra": {
@@ -8444,7 +8447,10 @@
             "autoload": {
                 "psr-4": {
                     "Pko\\LunarMediaCore\\": "src/"
-                }
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
             },
             "license": [
                 "proprietary"
@@ -8457,7 +8463,7 @@
         },
         {
             "name": "pko/lunar-page-builder",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/page-builder",
@@ -8494,7 +8500,7 @@
         },
         {
             "name": "pko/lunar-pennylane",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/pennylane",
@@ -8542,7 +8548,7 @@
         },
         {
             "name": "pko/lunar-product-documents",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-documents",
@@ -8579,7 +8585,7 @@
         },
         {
             "name": "pko/lunar-product-videos",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-videos",
@@ -8615,7 +8621,7 @@
         },
         {
             "name": "pko/lunar-purchase-lists",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/purchase-lists",
@@ -8651,7 +8657,7 @@
         },
         {
             "name": "pko/lunar-quick-order",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/quick-order",
@@ -8687,7 +8693,7 @@
         },
         {
             "name": "pko/lunar-secrets",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/secrets",
@@ -8728,7 +8734,7 @@
         },
         {
             "name": "pko/lunar-shipping-chronopost",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-chronopost",
@@ -8766,7 +8772,7 @@
         },
         {
             "name": "pko/lunar-shipping-colissimo",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-colissimo",
@@ -8804,7 +8810,7 @@
         },
         {
             "name": "pko/lunar-shipping-common",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-common",
@@ -8840,7 +8846,7 @@
         },
         {
             "name": "pko/lunar-store-locator",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/store-locator",
@@ -8876,7 +8882,7 @@
         },
         {
             "name": "pko/lunar-storefront",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront",
@@ -8912,7 +8918,7 @@
         },
         {
             "name": "pko/lunar-storefront-cms",
-            "version": "dev-feat/editeur-contenu-redesign",
+            "version": "dev-feat/ai-importer-cron-flow",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront-cms",

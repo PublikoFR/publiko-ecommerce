@@ -125,13 +125,14 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `stock` | `ProductVariant::stock` (int) | |
 | `price_cents` | `Price::price` (cents) | UpdateOrCreate keyé sur variant+currency+tier |
 | `compare_price_cents` | `Price::compare_price` (cents) | Optionnel |
+| `cost_price_cents` | `ProductVariant::pko_cost_price` (cents) | Prix d'achat / coût. **Assignation directe** (colonne custom non-fillable → un mass-assignment la droppe silencieusement). Sert au calcul de marge. |
 | `weight_value` | `ProductVariant::weight_value` (kg) | Unité forcée à `kg` |
 | `length_value` / `width_value` / `height_value` | `ProductVariant::{axis}_value` (cm) | Unité forcée à `cm` |
 | `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` |
 | `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
 | `features` | pivot `pko_feature_value_product` | Hash `{family_handle => [value_handle, ...]}`, delegated à `catalog-features` |
 | `images` | Spatie MediaLibrary | Array ou CSV d'URLs distantes. Idempotent via `custom_properties.source_url`, première URL `primary=true`. |
-| `videos` | `pko/product-videos` | Array ou CSV d'URLs YouTube/Vimeo/Dailymotion/MP4. Idempotent par URL. |
+| `videos` | `pko/product-videos` | Array/CSV d'URLs **ou** JSON `[{url,title}]` (format prépa PrestaShop) YouTube/Vimeo/Dailymotion/MP4. Titre conservé. Idempotent par URL. Voir §7.quinquies.15octies. |
 | `product_type_handle` | ProductType | Lookup par handle, fallback sur premier trouvé |
 | `tax_class_handle` | TaxClass | Lookup par handle, fallback sur premier trouvé |
 | `compare_price_cents` | `Price::compare_price` | Prix barré |
@@ -155,6 +156,7 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `image` | `images` | passe array ou CSV inchangé |
 | `category` | `collections` | passe array ou CSV inchangé |
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
+| `wholesale_price` | `cost_price_cents` | **×100 puis `(int) round()`** (prix d'achat euros → cents) |
 
 ### 7.quinquies.10 Actions disponibles (21 + 7 alias legacy)
 
@@ -460,6 +462,190 @@ pour reproduire la page PrestaShop « Aperçu et Import », thème Filament nati
 Tests : `tests/Feature/AiImporter/ViewImportJobTest` (compteurs de staging × 2 +
 édition d'une ligne staging via le relation manager). Même réserve `RefreshDatabase`
 que ci-dessus (conflit migration `pko_posts`).
+
+### 7.quinquies.15bis Flow piloté CRON — 2 phases découplées (2026-07)
+
+Refonte du déclenchement pour que **les deux phases longues soient attrapées par le
+cron**, jamais exécutées en synchrone dans la requête web. Motivation : sur DEV/prod
+mutualisé `QUEUE_CONNECTION=sync` → un `dispatch()` dans un controller Filament
+exécutait le parse **inline** (bloquant, fatal sur gros fichiers / appels LLM).
+
+**Cycle de vie complet** :
+
+```
+création  ──▶  status=pending (« En attente du CRON »)
+              [cron: phase parse]  ParseFileToStagingJob
+          ──▶  status=parsing  ──▶  status=parsed (staging prêt à vérifier)
+              [admin: vérifie / corrige / valide le staging]
+              [action « Programmer l'import Lunar »]  import_status=scheduled + scheduled_at=now
+              [cron: phase import]  ImportStagingToLunarJob
+          ──▶  import_status=queued ──▶ importing ──▶ imported
+```
+
+**`RunScheduledImportsCommand` (`ai-importer:run-scheduled`) — 2 passes** :
+1. **Parse** : jobs `status=pending` **avec `config_id`** (les CSV pré-préparés naissent
+   déjà `parsed`, donc exclus). Aucun `scheduled_at` requis → la préparation démarre au
+   plus tôt. Transition `status=parsing` **avant** dispatch (sortie de l'état éligible →
+   pas de re-parse au tick suivant).
+2. **Import** : jobs `status=parsed`, `import_status ∈ {pending, scheduled}`,
+   `scheduled_at` non nul et `<= now`. Transition `import_status=queued` avant dispatch
+   (garde anti double-import inchangée).
+
+`--dry` (bouton « Tester CRON ») liste les deux phases sans rien dispatcher.
+Planifié `everyTwoMinutes()` + `withoutOverlapping(10)` + `runInBackground()`
+(`routes/console.php`).
+
+**Points de câblage modifiés** :
+- `CreateImportJob::afterCreate()` : **ne dispatche plus** le parse — le job reste
+  `pending`, une notification indique que le CRON le prendra. (Auparavant : dispatch
+  immédiat = parse synchrone au clic.)
+- `ViewImportJob` : `launchImport` (relabellé « Programmer l'import Lunar ») et
+  `resumeImport` **ne dispatchent plus** `ImportStagingToLunarJob` ; ils marquent
+  `import_status=scheduled` + `scheduled_at` (respecte un `scheduled_at` déjà posé au
+  create, sinon `now()`). C'est le cron qui déclenche l'écriture Lunar. Corrige au
+  passage un bug propre au driver `sync` : `dispatch()` suivi de
+  `update(import_status=queued)` écrasait le statut final (`imported`) par `queued`
+  après le run inline.
+- `launchImport` visible uniquement si `import_status=pending` (masqué une fois
+  programmé). Le bouton « Exécuter CRON » (page Create) reste le déclencheur **manuel**
+  immédiat des deux phases (utile en test), équivalent d'un tick anticipé.
+
+> **Latence assumée** : après « Préparer les données », la préparation démarre au
+> prochain tick cron (≤ 2 min). C'est voulu : le parse peut durer des heures (LLM par
+> ligne) et ne doit jamais tourner dans la requête web.
+
+### 7.quinquies.15ter Fix affichage — logs & tableau staging (2026-07)
+
+- **Logs de console** (`console-logs.blade.php`) : le conteneur portait
+  `white-space:pre-wrap`, qui rendait **littéralement les retours-ligne + l'indentation
+  du source Blade** entre chaque `<span>` → lignes empilées et décalées. Corrigé :
+  chaque entrée est une ligne `display:flex` resserrée (timestamp / niveau / #ligne en
+  `flex:none`, message en `flex:1` avec `pre-wrap` **local** au message seul).
+- **Tableau staging vide** (`StagingRecordsRelationManager`) : les cellules data étaient
+  des `TextColumn->html()` rendant un composant Alpine (`staging-cell.blade.php`). Or
+  `->html()` déclenche `Str::sanitizeHtml()` de Filament qui **strip les directives
+  Alpine (`x-data`/`x-text`/`@dblclick`) et les `<input>`** → chaque cellule se rendait
+  **vide** (le double-clic inline n'a jamais fonctionné en navigateur). Corrigé :
+  colonnes `TextColumn` **texte simple** (échappé), `limit(40)` + tooltip valeur
+  complète + `toggleable()`. L'édition d'une valeur passe désormais par le **modal
+  d'édition de ligne** (EditAction, champ par champ — déjà fonctionnel). Composant
+  Alpine `staging-cell.blade.php` + méthode Livewire `updateCellValue` supprimés (morts).
+
+### 7.quinquies.15quater Fix parse — héritage source de `multiline_aggregate` + colonne Photo (2026-07)
+
+- **`multiline_aggregate` — héritage col/sheet/type_col (`ActionPipeline::inheritColumnSource`)** :
+  les configs PrestaShop réelles (ex. `image` de somfy.json) déclarent la **feuille**
+  (`sheet: B03_MEDIA`) et la **colonne** (`col: N`) au niveau de la COLONNE, et le
+  `type_col` (`MTYP`) au niveau de la FEUILLE — **pas dans l'action**, qui porte
+  `columns: []`. Sans héritage, l'action tournait avec `sheet=''` / `columns=[]` /
+  `type_col='type'` → agrégation **vide** (symptôme : colonne image toujours vide en
+  staging). `ActionPipeline` injecte désormais, pour les seules actions
+  `multiline_aggregate` qui ne les restatent pas : `sheet` ← `col.sheet`,
+  `columns` ← `[col.col]`, `type_col` ← `config_data.sheets[sheet].type_col`. Les
+  actions qui fixent explicitement ces clés ne sont pas écrasées. Ce chemin n'était
+  **pas** couvert (le test e2e exerçait `concat` multi-sources, pas
+  `multiline_aggregate`) → verrouillé par `tests/Feature/AiImporter/MultilineAggregateInheritanceTest`.
+- **Colonne « Photo » du staging (`StagingRecordsRelationManager::extractImageUrl`)** :
+  affiche la **première** URL disponible. La valeur `image` produite par
+  `multiline_aggregate concat` est une **CSV d'URLs** (`url1,url2`) — `extractImageUrl`
+  gère URL simple / CSV / array / JSON encodé et renvoie la 1ʳᵉ URL non vide (au lieu
+  de la chaîne CSV entière, qui cassait le `<img>`).
+
+### 7.quinquies.15quinquies Images & documents → médiathèque custom (2026-07)
+
+Refonte de l'écriture des médias par `LunarProductWriter` pour passer par la
+**médiathèque custom** (média-core) au lieu de l'API Spatie native de Lunar.
+
+**Problème corrigé** : l'ancien `ProductImagePipeline` écrivait les images en média
+Spatie *possédé par le produit* (collection `images`). Or l'app lit les images produit
+via **`pko_mediables`** (média-core, groupe `product`) dans l'éditeur unifié
+(`MediaPicker->mediagroup('product')`) → images **invisibles en admin**. Le storefront
+lisait `$product->media` (Spatie) → visibles seulement là. Incohérence.
+
+**Nouveau flux** (dépend de `pko/lunar-media-core` + `pko/lunar-product-documents`) :
+- **Images** (`images`) → `MediaLibraryImporter::importFromUrl($url, 'products')` (dédup
+  source_url + sha1, média possédé par le `Folder` `products`) → lien
+  **`pko_mediables`** (`mediable_type=Product::class`, `mediagroup='product'`, append
+  idempotent). Visibles admin **et** storefront.
+- **Documents** (`documents`, alias legacy `attachments`) → import en collection
+  `documents` (PDF autorisé) → `ProductDocumentManager::attach()` avec **catégorie**
+  déduite du type (`NOTICE`/`BROCH` → `DocumentCategory::firstOrCreate(handle)`).
+  Le staging produit la valeur via `multiline_aggregate method=json_array`
+  (`[{type,url,name}]`) ; `LunarProductWriter::decodeDocuments()` la parse.
+- Nouveau champ **`documents`** dans `ProductFieldCatalog` (sélectionnable dans
+  « colonnes à importer »). Alias `attachments → documents` dans `normalizeLegacyKeys`.
+
+**Storefront** : `App\Livewire\ProductPage::getImagesProperty()` migré pour lire
+`pko_mediables` (groupe `product`), avec fallback sur `$product->media` (Spatie) pour
+les galeries non migrées. Cohérent avec l'admin.
+
+`ProductImagePipeline` (écriture Spatie directe) n'est plus utilisé par le writer
+(classe conservée, dépréciée). Tests : `MultilineAggregateInheritanceTest`,
+`AttachmentsAliasTest` (le download réseau réel n'est pas testé en unit).
+
+> **⚠️ Gotcha — prix « fantôme » (morph alias, corrigé 2026-07).** `upsertPrice`
+> écrivait le prix via `Price::updateOrCreate(['priceable_type' => ProductVariant::class, …])`
+> (FQCN). Or Lunar mappe `ProductVariant` sur l'alias morph **`product_variant`** et la
+> relation `$variant->prices` filtre par cet alias → le prix FQCN était **présent en base
+> mais introuvable par l'app** (Tarification vide dans l'éditeur produit, prix absent au
+> storefront). **Fix** : créer le prix **via la relation** `$variant->prices()->updateOrCreate(…)`
+> qui pose l'alias correct. Data-fix des lignes déjà importées :
+> `UPDATE lunar_prices SET priceable_type='product_variant' WHERE priceable_type='Lunar\\Models\\ProductVariant'`.
+> (Le lien `pko_mediables` utilise volontairement le FQCN `$product::class` — cohérent
+> des deux côtés avec `MediaPicker`, donc pas concerné.)
+
+### 7.quinquies.15sexies Couverture champs étendue (2026-07)
+
+Ajout au writer des champs source qui avaient une cible réelle :
+
+| Clé source | Cible | Note |
+|---|---|---|
+| `tags` (CSV) | `Product::syncTags` | Lunar met les valeurs en **MAJUSCULES**. |
+| `mpn` | `ProductVariant.mpn` | — |
+| `minimal_quantity` → `min_quantity` | `ProductVariant.min_quantity` | alias legacy ajouté ; défaut 1. |
+| `supplier` (nom) | `Product.pko_supplier_id` | `Supplier::firstOrCreate`. **Assignation directe** (colonne non-fillable → un mass-assignment la droppe silencieusement). |
+| `image_alt` | `custom_properties.alt` du média | posé si absent (pas d'écrasement sur média dédupliqué partagé). |
+| `wholesale_price` → `cost_price_cents` | `ProductVariant.pko_cost_price` (cents) | Prix d'achat (coût). Alias legacy `wholesale_price` (euros ×100). **Assignation directe** (colonne non-fillable). Voir §7.quinquies.15septies. |
+
+Tous ajoutés à `ProductFieldCatalog` (sélectionnables dans « colonnes à importer »).
+
+**Non couverts** (pas de colonne cible sans migration) : `ecotax`,
+`supplier_reference` (pas de champ réf-fournisseur natif Lunar), promos
+(`on_sale`/`reduction_*`/prix barré sans source), `visibility`, `condition`,
+`unit_price`, `delivery_*`, `available_*`, `additional_shipping_cost`. À décider au
+cas par cas (nécessiteraient une colonne dédiée).
+
+### 7.quinquies.15septies Prix d'achat (coût) & marge (2026-07)
+
+Le prix d'achat PrestaShop (`wholesale_price`, en euros) est désormais **importé** et
+sert de base au calcul de marge dans l'éditeur produit.
+
+- **Colonne** : `lunar_product_variants.pko_cost_price` (`unsignedBigInteger` nullable,
+  **cents entiers**), ajoutée via migration custom `2026_07_14_000001_add_pko_cost_price_to_product_variants.php`
+  (`Schema::table()`, jamais toucher la migration Lunar).
+- **Import** : clé canonique `cost_price_cents` + alias legacy `wholesale_price` (euros
+  ×100 arrondi, même mécanisme que `price_tex → price_cents`). Écrite par assignation
+  directe (`applyCostPrice()`) car la colonne `pko_` n'est **pas fillable** (comme
+  `pko_supplier_id`). Écrite à la création, en update `all`, et en update `price`.
+  À sélectionner dans « colonnes à importer » (sinon filtrée comme toute clé non cochée).
+- **Éditeur** (`EditProductUnified`) : champ « Prix d'achat (coût) » désormais chargé au
+  mount (`pko_cost_price` → affichage euros) et sauvé dans `persistPrices()` (assignation
+  directe). La **marge (HT)** est affichée en lecture seule sous les champs prix :
+  montant `= prix HT − coût` et pourcentage `= (prix − coût) / prix × 100` (computed
+  Livewire `getMarginProperty`, recalculée au blur). Les prix sont **HT**
+  (`lunar.pricing.stored_inclusive_of_tax=false`) → le coût est HT, la marge est HT.
+
+### 7.quinquies.15octies Vidéos au format JSON `[{url,title}]` (2026-07)
+
+La prépa PrestaShop (`multiline_aggregate` → `json_array`) sérialise la colonne
+`videos` en **string JSON** `[{"url":...,"title":...}]`, pas en CSV d'URLs.
+
+**Bug corrigé** : l'ancien writer faisait `explode(',', $data['videos'])` sur cette
+string → découpait le JSON sur chaque virgule (URL + titre) → 0 vidéo importée,
+titres perdus. Désormais un `decodeVideos()` (analogue à `decodeDocuments()`) parse
+le format objet et attache via `ProductVideoManager::addIfNotExists($product, $url,
+$title)` — **titre conservé**, idempotent par URL, URL non reconnue loggée en warning.
+Formats acceptés : JSON `[{url,title}]`, JSON `["url", ...]`, CSV d'URLs, array natif.
 
 ### 7.quinquies.15 Compatibilité PrestaShop réelle — périmètre & non-régression
 

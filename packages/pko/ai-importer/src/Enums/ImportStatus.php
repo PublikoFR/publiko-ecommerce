@@ -18,7 +18,7 @@ enum ImportStatus: string
     {
         return match ($this) {
             self::Pending => 'En attente',
-            self::Scheduled => 'Programmé',
+            self::Scheduled => 'Programmé (CRON)',
             self::Queued => 'En file',
             self::Importing => 'Import en cours',
             self::Imported => 'Importé',

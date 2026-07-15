@@ -6,12 +6,12 @@ namespace Pko\AiImporter\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Lunar\FieldTypes\Text;
 use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Brand;
 use Lunar\Models\Currency;
 use Lunar\Models\Language;
-use Lunar\Models\Price;
 use Lunar\Models\Product;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
@@ -24,7 +24,11 @@ use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\CatalogFeatures\Facades\Features;
 use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\LunarMediaCore\Services\MediaLibraryImporter;
+use Pko\ProductDocuments\Models\DocumentCategory;
+use Pko\ProductDocuments\Services\ProductDocumentManager;
 use Pko\ProductVideos\Services\ProductVideoManager;
+use Pko\ShippingCommon\Models\Supplier;
 
 /**
  * Writes a single `StagingRecord` into the Lunar data model.
@@ -40,6 +44,8 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *  - `stock`                int, ProductVariant.stock.
  *  - `price_cents`          int cents, base Price row.
  *  - `compare_price_cents`  int cents, optional compare-at price.
+ *  - `cost_price_cents`     int cents, prix d'achat (coût) → ProductVariant.pko_cost_price
+ *                           (assignation directe : colonne non-fillable).
  *  - `weight_value`         float kg.
  *  - `length_value` / `width_value` / `height_value`  floats in cm.
  *  - `brand_name`           Brand::firstOrCreate(['name' => ...]) → Product.brand_id.
@@ -53,11 +59,23 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *                           collection `config('lunar.media.collection')`. Idempotent via
  *                           `custom_properties.source_url`. First URL flagged `primary=true`
  *                           (becomes thumbnail).
- *  - `videos`               array|CSV of YouTube/Vimeo/Dailymotion/MP4 URLs — routed through
- *                           `pko/product-videos` (ProductVideoManager::sync). Idempotent : URL
- *                           déjà attachée au produit = skip, URL non reconnue = counted as error.
+ *  - `videos`               array|CSV d'URLs OU JSON `[{url,title}]` (format prépa PrestaShop) —
+ *                           YouTube/Vimeo/Dailymotion/MP4, routé via `pko/product-videos`
+ *                           (addIfNotExists, titre conservé). Idempotent : URL déjà attachée
+ *                           au produit = skip, URL non reconnue = warning loggé.
+ *  - `documents`            array|CSV|JSON `[{type,url,name}]` — notices/brochures →
+ *                           médiathèque (dossier `documents`, PDF) + `pko_product_documents`
+ *                           (catégorie = type, ex NOTICE/BROCH).
+ *  - `image_alt`            texte alternatif posé sur les médias image importés (si absent).
+ *  - `tags`                 CSV|array → Lunar `syncTags` (valeurs normalisées en MAJUSCULES).
+ *  - `mpn`                  ProductVariant.mpn.
+ *  - `min_quantity`         ProductVariant.min_quantity (défaut 1).
+ *  - `supplier`             nom → `Supplier::firstOrCreate` → Product.pko_supplier_id
+ *                           (assignation directe : colonne non-fillable).
  *
- * Anything the writer doesn't recognise is ignored.
+ * Anything the writer doesn't recognise is ignored. NON couverts (pas de colonne
+ * cible sans migration) : `ecotax`, `supplier_reference`, promos
+ * (`on_sale`/`reduction_*`), `visibility`, `condition`, `unit_price`, etc.
  *
  * Unresolved handles (`collections` or `features`) — handles that don't match
  * an existing Collection / FeatureFamily / FeatureValue — are NOT a hard error.
@@ -69,8 +87,10 @@ use Pko\ProductVideos\Services\ProductVideoManager;
  *   - `ean13` → `ean`, `quantity` → `stock`, `manufacturer` → `brand_name`,
  *     `link_rewrite` → `url_key`, `depth` → `length_value`, `width` → `width_value`,
  *     `height` → `height_value`, `weight` → `weight_value`, `image` → `images`,
- *     `category` → `collections`.
+ *     `category` → `collections`, `attachments` → `documents`,
+ *     `minimal_quantity` → `min_quantity`.
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
+ *   - `wholesale_price` (euros, float) → `cost_price_cents` (int, ×100 rounded).
  *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
@@ -105,7 +125,11 @@ final class LunarProductWriter
     /** @var array<int, string> Sous-ensemble de clés réellement écrites (vide = tout). */
     private array $columnsToImport = [];
 
-    private readonly ProductImagePipeline $imagePipeline;
+    /** @var array<string, int> Cache handle → id des catégories de documents. */
+    private array $documentCategoryCache = [];
+
+    /** @var array<string, int> Cache nom → id des fournisseurs. */
+    private array $supplierCache = [];
 
     /** ID du job courant — 0 = pas de logging granulaire. */
     private int $jobId = 0;
@@ -115,11 +139,6 @@ final class LunarProductWriter
 
     /** @var array<int, array<string, mixed>> Logs en attente de flush batch. */
     private array $pendingLogs = [];
-
-    public function __construct(?ProductImagePipeline $imagePipeline = null)
-    {
-        $this->imagePipeline = $imagePipeline ?? new ProductImagePipeline;
-    }
 
     /**
      * Active le logging granulaire ligne par ligne pour ce writer.
@@ -235,15 +254,17 @@ final class LunarProductWriter
                 'brand_id' => $this->resolveBrand($data),
                 'attribute_data' => $this->buildAttributeData($data),
             ]);
+            $this->applySupplier($product, $data);
 
             $variant = ProductVariant::query()->create([
                 'product_id' => $product->id,
                 'tax_class_id' => $this->resolveTaxClassId($data),
                 'sku' => $sku,
                 'ean' => $data['ean'] ?? null,
+                'mpn' => $data['mpn'] ?? null,
                 'stock' => (int) ($data['stock'] ?? 0),
                 'unit_quantity' => 1,
-                'min_quantity' => 1,
+                'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : 1,
                 'quantity_increment' => 1,
                 'shippable' => true,
                 'purchasable' => 'always',
@@ -251,6 +272,7 @@ final class LunarProductWriter
             ]);
 
             $this->applyPrice($variant, $data);
+            $this->applyCostPrice($variant, $data);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
@@ -263,18 +285,23 @@ final class LunarProductWriter
                     'brand_id' => $this->resolveBrand($data),
                     'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
                 ], static fn ($v) => $v !== null));
+                $this->applySupplier($product, $data);
 
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
+                    'mpn' => $data['mpn'] ?? null,
                     'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
+                    'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : null,
                     ...$this->dimensions($data),
                 ], static fn ($v) => $v !== null));
 
                 $this->applyPrice($variant, $data);
+                $this->applyCostPrice($variant, $data);
                 $unresolved = $this->applyRelations($product, $data);
             } else {
                 if ($this->updateMode->writesPrice()) {
                     $this->applyPrice($variant, $data);
+                    $this->applyCostPrice($variant, $data);
                 }
                 if ($this->updateMode->writesStock() && isset($data['stock'])) {
                     $variant->update(['stock' => (int) $data['stock']]);
@@ -353,6 +380,24 @@ final class LunarProductWriter
     }
 
     /**
+     * Pose `pko_cost_price` (prix d'achat, en cents) par assignation DIRECTE : la
+     * colonne custom n'est pas fillable sur le modèle Lunar ProductVariant → un
+     * mass-assignment la droppe silencieusement (cf. applySupplier). No-op si
+     * `cost_price_cents` absent de la source.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function applyCostPrice(ProductVariant $variant, array $data): void
+    {
+        if (! isset($data['cost_price_cents'])) {
+            return;
+        }
+
+        $variant->pko_cost_price = (int) $data['cost_price_cents'];
+        $variant->save();
+    }
+
+    /**
      * Synchronise collections / features / images / vidéos d'un produit.
      *
      * @param  array<string, mixed>  $data
@@ -370,31 +415,333 @@ final class LunarProductWriter
             $unresolved['collections'] = $resolution['unresolved'];
         }
 
+        if (! empty($data['tags']) && method_exists($product, 'syncTags')) {
+            $tags = $this->splitCsv($data['tags']);
+            if ($tags !== []) {
+                $product->syncTags(collect($tags));
+            }
+        }
+
         if (! empty($data['features']) && is_array($data['features']) && class_exists(Features::class)) {
             $unresolved['features'] = $this->findUnresolvedFeatures($data['features']);
             Features::syncByHandles($product, $data['features']);
         }
 
         if (! empty($data['images'])) {
-            $this->imagePipeline->syncImages($product, $data['images'], function (string $url, string $status, string $error = ''): void {
-                if ($status === 'added') {
-                    $this->addLog(LogLevel::Debug, "Image téléchargée: {$url}");
-                } elseif ($status === 'skipped') {
-                    $this->addLog(LogLevel::Debug, "Image déjà existante, ignorée: {$url}");
-                } else {
-                    $this->addLog(LogLevel::Warning, "Erreur image: {$url} — {$error}");
-                }
-            });
+            $this->syncProductImages($product, $data['images'], isset($data['image_alt']) ? (string) $data['image_alt'] : null);
         }
 
         if (! empty($data['videos'])) {
-            $videoUrls = is_string($data['videos'])
-                ? array_map('trim', explode(',', $data['videos']))
-                : (array) $data['videos'];
-            app(ProductVideoManager::class)->sync($product, $videoUrls);
+            $this->syncProductVideos($product, $data['videos']);
+        }
+
+        if (! empty($data['documents'])) {
+            $this->syncProductDocuments($product, $data['documents']);
         }
 
         return $unresolved;
+    }
+
+    /**
+     * Importe les images dans la médiathèque custom (dossier `products`,
+     * dédup source_url + sha1) puis les lie au produit via `pko_mediables`
+     * (média-core, groupe `product` — celui que lit l'éditeur produit unifié
+     * ET le storefront). Remplace l'écriture Spatie native (invisible en admin).
+     */
+    private function syncProductImages(Product $product, mixed $raw, ?string $alt = null): void
+    {
+        $urls = $this->normaliseUrlList($raw);
+        if ($urls === []) {
+            return;
+        }
+
+        $alt = $alt !== null ? trim($alt) : '';
+        $importer = app(MediaLibraryImporter::class);
+        $mediaIds = [];
+        foreach ($urls as $url) {
+            $media = $importer->importFromUrl($url, 'products');
+            if ($media === null) {
+                $this->addLog(LogLevel::Warning, "Image non importée: {$url}");
+
+                continue;
+            }
+            // Texte alternatif : posé si fourni et absent (ne pas écraser un alt
+            // déjà saisi sur un média partagé/dédupliqué).
+            if ($alt !== '' && ! $media->getCustomProperty('alt')) {
+                $media->setCustomProperty('alt', $alt);
+                $media->save();
+            }
+            $mediaIds[] = (int) $media->id;
+            $this->addLog(LogLevel::Debug, "Image bibliothèque #{$media->id}: {$url}");
+        }
+
+        if ($mediaIds !== []) {
+            $this->linkMediaToEntity($product, $mediaIds, 'product');
+        }
+    }
+
+    /**
+     * Pose `pko_supplier_id` par assignation DIRECTE (la colonne custom n'est pas
+     * fillable sur le modèle Lunar Product → un mass-assignment la droppe
+     * silencieusement). No-op si pas de fournisseur en source.
+     */
+    private function applySupplier(Product $product, array $data): void
+    {
+        $supplierId = $this->resolveSupplierId($data);
+        if ($supplierId !== null && (int) $product->pko_supplier_id !== $supplierId) {
+            $product->pko_supplier_id = $supplierId;
+            $product->save();
+        }
+    }
+
+    /**
+     * Résout (ou crée) un fournisseur par son nom → `pko_supplier_id`. Cache par
+     * instance. Retourne null si absent ou si le package fournisseur n'existe pas.
+     */
+    private function resolveSupplierId(array $data): ?int
+    {
+        $name = trim((string) ($data['supplier'] ?? ''));
+        if ($name === '' || ! class_exists(Supplier::class)) {
+            return null;
+        }
+        if (isset($this->supplierCache[$name])) {
+            return $this->supplierCache[$name];
+        }
+
+        $supplier = Supplier::query()->firstOrCreate(['name' => $name]);
+
+        return $this->supplierCache[$name] = (int) $supplier->id;
+    }
+
+    /**
+     * Découpe une valeur CSV (ou array) en liste de strings non vides.
+     *
+     * @return array<int, string>
+     */
+    private function splitCsv(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            $raw = explode(',', $raw);
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', array_map('strval', $raw)),
+            static fn (string $v): bool => $v !== '',
+        ));
+    }
+
+    /**
+     * Importe les documents (notices, brochures) dans la médiathèque (dossier
+     * `documents`, PDF) puis crée les liens `pko_product_documents` avec la
+     * catégorie déduite du type (NOTICE/BROCH → DocumentCategory).
+     */
+    private function syncProductDocuments(Product $product, mixed $raw): void
+    {
+        $items = $this->decodeDocuments($raw);
+        if ($items === [] || ! class_exists(ProductDocumentManager::class)) {
+            return;
+        }
+
+        $importer = app(MediaLibraryImporter::class);
+        $manager = app(ProductDocumentManager::class);
+        $position = 0;
+        foreach ($items as $item) {
+            $url = trim((string) ($item['url'] ?? ''));
+            if ($url === '') {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? ''));
+            $type = trim((string) ($item['type'] ?? ''));
+
+            $media = $importer->importFromUrl($url, 'documents', $name !== '' ? $name : null, MediaLibraryImporter::DOCUMENT_EXTENSIONS);
+            if ($media === null) {
+                $this->addLog(LogLevel::Warning, "Document non importé: {$url}");
+
+                continue;
+            }
+
+            $manager->attach($product, (int) $media->id, $this->resolveDocumentCategoryId($type), $position++);
+            $this->addLog(LogLevel::Debug, "Document #{$media->id} ({$type}): {$url}");
+        }
+    }
+
+    /**
+     * Attache les vidéos d'un produit via `pko/product-videos`, en conservant le
+     * titre. Accepte un CSV d'URLs OU le format JSON `[{url,title}]` produit par la
+     * prépa PrestaShop (multiline_aggregate json_array). Idempotent : une URL déjà
+     * attachée au produit est skippée ; une URL non reconnue est loggée en warning.
+     */
+    private function syncProductVideos(Product $product, mixed $raw): void
+    {
+        $items = $this->decodeVideos($raw);
+        if ($items === [] || ! class_exists(ProductVideoManager::class)) {
+            return;
+        }
+
+        $manager = app(ProductVideoManager::class);
+        foreach ($items as $item) {
+            try {
+                $created = $manager->addIfNotExists($product, $item['url'], $item['title']);
+                if ($created !== null) {
+                    $this->addLog(LogLevel::Debug, "Vidéo #{$created->id}: {$item['url']}");
+                }
+            } catch (\Throwable) {
+                $this->addLog(LogLevel::Warning, "Vidéo non importée: {$item['url']}");
+            }
+        }
+    }
+
+    /**
+     * Décode la valeur `videos` en liste d'items `{url, title}`. Accepte : string
+     * JSON `[{"url","title"}]` (format prépa PrestaShop), string JSON `["url", ...]`,
+     * CSV d'URLs, ou array déjà décodé (strings ou objets). Le titre est optionnel.
+     *
+     * @return array<int, array{url: string, title: ?string}>
+     */
+    private function decodeVideos(mixed $raw): array
+    {
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $trimmed = trim($raw);
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $decoded = json_decode($trimmed, true);
+                $raw = is_array($decoded) ? $decoded : array_map('trim', explode(',', $trimmed));
+            } else {
+                $raw = array_map('trim', explode(',', $trimmed));
+            }
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($raw as $entry) {
+            if (is_array($entry)) {
+                $url = trim((string) ($entry['url'] ?? ''));
+                $title = isset($entry['title']) && $entry['title'] !== '' ? (string) $entry['title'] : null;
+            } else {
+                $url = trim((string) $entry);
+                $title = null;
+            }
+            if ($url !== '') {
+                $items[] = ['url' => $url, 'title' => $title];
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Lie une liste de médias (bibliothèque) à une entité via `pko_mediables`,
+     * en append idempotent (contrainte UNIQUE media_id+type+id+group).
+     *
+     * @param  array<int, int>  $mediaIds
+     */
+    private function linkMediaToEntity(Product $product, array $mediaIds, string $group): void
+    {
+        $type = $product::class;
+        $base = DB::table('pko_mediables')
+            ->where('mediable_type', $type)
+            ->where('mediable_id', $product->id)
+            ->where('mediagroup', $group);
+
+        $existing = (clone $base)->pluck('media_id')->map(fn ($v): int => (int) $v)->all();
+        $position = (int) (clone $base)->max('position');
+        $now = now();
+
+        foreach ($mediaIds as $mediaId) {
+            if (in_array($mediaId, $existing, true)) {
+                continue;
+            }
+            DB::table('pko_mediables')->insertOrIgnore([
+                'media_id' => $mediaId,
+                'mediable_type' => $type,
+                'mediable_id' => $product->id,
+                'mediagroup' => $group,
+                'position' => ++$position,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $existing[] = $mediaId;
+        }
+    }
+
+    /**
+     * Décode la valeur `documents` (JSON string issu de multiline_aggregate
+     * json_array, ou array déjà décodé) en liste d'items `{type,url,name}`.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function decodeDocuments(mixed $raw): array
+    {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $raw,
+            static fn ($i): bool => is_array($i) && ! empty($i['url']),
+        ));
+    }
+
+    /**
+     * Résout (ou crée) une catégorie de document depuis son type (ex. NOTICE),
+     * mis en cache par instance. Retourne null si le package n'est pas dispo.
+     */
+    private function resolveDocumentCategoryId(string $type): ?int
+    {
+        $handle = Str::slug($type);
+        if ($handle === '' || ! class_exists(DocumentCategory::class)) {
+            return null;
+        }
+        if (isset($this->documentCategoryCache[$handle])) {
+            return $this->documentCategoryCache[$handle];
+        }
+
+        $category = DocumentCategory::query()->firstOrCreate(
+            ['handle' => $handle],
+            ['label' => $type !== '' ? $type : $handle, 'sort_order' => 0],
+        );
+
+        return $this->documentCategoryCache[$handle] = (int) $category->id;
+    }
+
+    /**
+     * Normalise une valeur images (string CSV, JSON, array) en liste d'URLs http(s).
+     *
+     * @return array<int, string>
+     */
+    private function normaliseUrlList(mixed $raw): array
+    {
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+        if (is_string($raw)) {
+            $trimmed = trim($raw);
+            if (str_starts_with($trimmed, '[')) {
+                $decoded = json_decode($trimmed, true);
+                $raw = is_array($decoded) ? $decoded : explode(',', $trimmed);
+            } else {
+                $raw = explode(',', $trimmed);
+            }
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', array_map('strval', $raw)),
+            static fn (string $u): bool => $u !== '' && filter_var($u, FILTER_VALIDATE_URL) !== false,
+        ));
     }
 
     /**
@@ -619,10 +966,12 @@ final class LunarProductWriter
 
     private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents): void
     {
-        Price::query()->updateOrCreate(
+        // Passer par la relation morphMany : elle pose le `priceable_type` avec
+        // l'ALIAS morph de Lunar (`product_variant`), pas le FQCN. Sinon la
+        // relation `$variant->prices` (qui filtre par alias) ne retrouve jamais
+        // le prix → prix « fantôme » invisible dans l'admin et le storefront.
+        $variant->prices()->updateOrCreate(
             [
-                'priceable_type' => ProductVariant::class,
-                'priceable_id' => $variant->id,
                 'currency_id' => $this->defaultCurrencyId(),
                 'customer_group_id' => null,
                 'min_quantity' => 1,
@@ -715,6 +1064,7 @@ final class LunarProductWriter
         $aliases = [
             'ean13' => 'ean',
             'quantity' => 'stock',
+            'minimal_quantity' => 'min_quantity',
             'manufacturer' => 'brand_name',
             'link_rewrite' => 'url_key',
             'depth' => 'length_value',
@@ -723,6 +1073,7 @@ final class LunarProductWriter
             'weight' => 'weight_value',
             'category' => 'collections',
             'image' => 'images',
+            'attachments' => 'documents',
         ];
 
         foreach ($aliases as $legacy => $canonical) {
@@ -742,6 +1093,15 @@ final class LunarProductWriter
                 $data['price_cents'] = (int) round($euros * 100);
             }
             unset($data['price_tex']);
+        }
+
+        // wholesale_price (PrestaShop, prix d'achat en euros) → cost_price_cents (int cents).
+        if (array_key_exists('wholesale_price', $data)) {
+            if (! array_key_exists('cost_price_cents', $data) || $data['cost_price_cents'] === null || $data['cost_price_cents'] === '') {
+                $euros = is_numeric($data['wholesale_price']) ? (float) $data['wholesale_price'] : 0.0;
+                $data['cost_price_cents'] = (int) round($euros * 100);
+            }
+            unset($data['wholesale_price']);
         }
 
         return $data;

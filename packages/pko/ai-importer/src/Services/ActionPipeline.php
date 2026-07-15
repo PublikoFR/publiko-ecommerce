@@ -46,11 +46,68 @@ final class ActionPipeline
             if (! is_array($actionConfig)) {
                 continue;
             }
+            $actionConfig = $this->inheritColumnSource($actionConfig, $columnConfig, $ctx);
             $action = Action::make($actionConfig);
             $value = $action->execute($value, $ctx);
         }
 
         return $value;
+    }
+
+    /**
+     * Les configs PrestaShop déclarent `col`/`sheet` au niveau de la COLONNE et le
+     * `type_col` au niveau de la FEUILLE ; l'action `multiline_aggregate` ne les
+     * restate pas (elle porte souvent `columns: []`). On les injecte donc dans la
+     * config de l'action quand elle ne les fixe pas explicitement, pour que
+     * l'agrégation cible la bonne feuille secondaire / colonne / colonne de type.
+     *
+     * @param  array<string, mixed>  $actionConfig
+     * @param  array<string, mixed>  $columnConfig
+     * @return array<string, mixed>
+     */
+    private function inheritColumnSource(array $actionConfig, array $columnConfig, ExecutionContext $ctx): array
+    {
+        if (($actionConfig['type'] ?? null) !== 'multiline_aggregate') {
+            return $actionConfig;
+        }
+
+        // Feuille secondaire à agréger : héritée de la clé `sheet` de la colonne.
+        if (empty($actionConfig['sheet']) && ! empty($columnConfig['sheet'])) {
+            $actionConfig['sheet'] = (string) $columnConfig['sheet'];
+        }
+
+        // Colonne(s) à extraire : héritées de la clé `col` de la colonne quand
+        // l'action ne liste rien (sinon toute ligne agrégée serait vide).
+        if (empty($actionConfig['columns']) && ! empty($columnConfig['col'])) {
+            $actionConfig['columns'] = [(string) $columnConfig['col']];
+        }
+
+        // Colonne de type (filtre `filter_type`) : déclarée au niveau de la feuille
+        // (ex. `type_col: MTYP`), pas dans l'action. On la récupère depuis la config.
+        if (empty($actionConfig['type_col']) && ! empty($actionConfig['sheet'])) {
+            $sheets = $this->configSheets($ctx);
+            $typeCol = $sheets[$actionConfig['sheet']]['type_col'] ?? null;
+            if (! empty($typeCol)) {
+                $actionConfig['type_col'] = (string) $typeCol;
+            }
+        }
+
+        return $actionConfig;
+    }
+
+    /**
+     * Déclarations de feuilles secondaires de la config du job (`config_data.sheets`).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function configSheets(ExecutionContext $ctx): array
+    {
+        $configData = $ctx->job->config?->config_data;
+        $arr = $configData instanceof \ArrayObject
+            ? $configData->getArrayCopy()
+            : (array) $configData;
+
+        return (array) ($arr['sheets'] ?? []);
     }
 
     /**

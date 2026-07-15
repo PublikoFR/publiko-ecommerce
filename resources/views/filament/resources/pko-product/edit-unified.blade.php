@@ -209,43 +209,64 @@
 
             {{-- 4. Caractéristiques techniques (CatalogFeatures) --}}
             <x-pko-product::card title="Caractéristiques techniques" icon="heroicon-o-list-bullet">
-                @forelse ($this->featureFamilies as $family)
-                    <div class="grid grid-cols-[180px_1fr] gap-3 items-center">
-                        <div class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $family->name }}</div>
-                        <div>
-                            @if ($family->multi_value)
-                                <select
-                                    wire:model="featureValues.{{ $family->id }}"
-                                    multiple
-                                    class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
-                                >
+                <div class="space-y-3">
+                    @forelse ($this->featureFamilies as $family)
+                        <div class="grid grid-cols-[180px_1fr] gap-3 items-start">
+                            <div class="pt-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ $family->name }}
+                                @if ($family->multi_value)
+                                    <span class="ml-1 text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
+                                @endif
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                @if ($family->multi_value)
                                     @foreach ($family->values as $value)
-                                        <option value="{{ $value->id }}">{{ $value->name }}</option>
+                                        <label class="cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                wire:model="featureValues.{{ $family->id }}"
+                                                value="{{ $value->id }}"
+                                                class="peer sr-only"
+                                            />
+                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
+                                                {{ $value->name }}
+                                            </span>
+                                        </label>
                                     @endforeach
-                                </select>
-                            @else
-                                <select
-                                    wire:model="featureValues.{{ $family->id }}"
-                                    class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
-                                >
-                                    <option value="">—</option>
+                                @else
+                                    <label class="cursor-pointer select-none">
+                                        <input type="radio" wire:model="featureValues.{{ $family->id }}" value="" class="peer sr-only" />
+                                        <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-500 transition hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-500 peer-checked:text-white dark:border-white/10 dark:bg-gray-900 dark:text-gray-400">
+                                            —
+                                        </span>
+                                    </label>
                                     @foreach ($family->values as $value)
-                                        <option value="{{ $value->id }}">{{ $value->name }}</option>
+                                        <label class="cursor-pointer select-none">
+                                            <input
+                                                type="radio"
+                                                wire:model="featureValues.{{ $family->id }}"
+                                                value="{{ $value->id }}"
+                                                class="peer sr-only"
+                                            />
+                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
+                                                {{ $value->name }}
+                                            </span>
+                                        </label>
                                     @endforeach
-                                </select>
-                            @endif
+                                @endif
+                            </div>
                         </div>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
-                @endforelse
+                    @empty
+                        <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
+                    @endforelse
+                </div>
             </x-pko-product::card>
 
             {{-- 5. Tarification --}}
             <x-pko-product::card title="Tarification" icon="heroicon-o-currency-euro">
                 <div class="grid grid-cols-3 gap-3">
                     <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Prix TTC *</label>
+                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Prix HT *</label>
                         <div class="relative">
                             <input type="text" wire:model.blur="price" required class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
                             <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
@@ -266,6 +287,16 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Marge (HT) — lecture seule, calculée depuis prix HT − coût --}}
+                @if ($this->margin !== null)
+                    <div class="flex items-center gap-2 text-[12.5px] text-gray-600 dark:text-gray-300">
+                        <span class="font-medium">Marge (HT) :</span>
+                        <span class="font-mono tabular-nums {{ $this->margin['amount'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400' }}">
+                            {{ number_format($this->margin['amount'], 2, ',', ' ') }} €@if ($this->margin['percent'] !== null) <span class="text-gray-500">({{ number_format($this->margin['percent'], 1, ',', ' ') }} %)</span>@endif
+                        </span>
+                    </div>
+                @endif
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Classe de taxe *</label>
                     <select wire:model="taxClassId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">

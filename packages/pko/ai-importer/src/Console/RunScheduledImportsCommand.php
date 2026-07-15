@@ -8,50 +8,113 @@ use Illuminate\Console\Command;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Jobs\ImportStagingToLunarJob;
+use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
 
 /**
- * Dispatches `ImportStagingToLunarJob` for every job that reached
- * `status=parsed` and has a `scheduled_at` in the past (or now).
+ * Tick du cron de l'import : c'est LUI qui déclenche les deux phases longues
+ * du pipeline, jamais l'action UI directement. Deux passes indépendantes :
  *
- * Meant to be called every few minutes by the Laravel scheduler —
- * see `routes/console.php`. Manually triggerable with `make artisan
- * CMD='ai-importer:run-scheduled'` to sanity-check a scheduled batch
- * before waiting for the cron tick.
+ *  1. PARSE — les jobs `status=pending` (« prêt à préparer ») avec une config
+ *     attachée : dispatch de `ParseFileToStagingJob` (pending → parsing → parsed).
+ *     Déclenché dès le tick suivant la création (aucun `scheduled_at` requis :
+ *     la préparation démarre au plus tôt).
+ *  2. IMPORT — les jobs `status=parsed` marqués « prêt à importer »
+ *     (`import_status ∈ {pending, scheduled}` + `scheduled_at <= now`) :
+ *     dispatch de `ImportStagingToLunarJob` (→ importing → imported).
+ *
+ * Chaque job est sorti de son état éligible AVANT le dispatch (parsing / queued)
+ * pour qu'un tick ultérieur ne le re-sélectionne pas si le worker prend du retard
+ * — évite double parse / double import.
+ *
+ * Planifié toutes les quelques minutes (voir `routes/console.php`). Manuellement
+ * déclenchable via l'action « Exécuter CRON » ou `make artisan
+ * CMD='ai-importer:run-scheduled'`. `--dry` liste sans rien dispatcher (utilisé
+ * par le bouton « Tester CRON »).
  */
 class RunScheduledImportsCommand extends Command
 {
     protected $signature = 'ai-importer:run-scheduled {--dry : List what would run without dispatching}';
 
-    protected $description = 'Lance les imports Lunar pour les jobs parsed dont scheduled_at <= maintenant.';
+    protected $description = 'Déclenche les préparations et imports Lunar dus (2 phases pilotées par le cron).';
 
     public function handle(): int
     {
-        $due = ImportJob::query()
-            ->where('status', JobStatus::Parsed->value)
-            ->whereIn('import_status', [ImportStatus::Pending->value, ImportStatus::Scheduled->value])
-            ->where(function ($q): void {
-                $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
-            })
-            ->whereNotNull('scheduled_at') // scheduler only picks jobs EXPLICITLY scheduled
-            ->orderBy('scheduled_at')
-            ->get();
+        $dry = (bool) $this->option('dry');
 
-        if ($due->isEmpty()) {
-            $this->info('Aucun job programmé dû.');
+        $parsed = $this->dispatchDueParses($dry);
+        $imported = $this->dispatchDueImports($dry);
+
+        if ($parsed === 0 && $imported === 0) {
+            $this->info('Aucun job dû (préparation ou import).');
 
             return self::SUCCESS;
         }
 
-        $dry = (bool) $this->option('dry');
+        $this->info(sprintf(
+            '%s%d préparation(s) + %d import(s) %s.',
+            $dry ? 'DRY — ' : '',
+            $parsed,
+            $imported,
+            $dry ? 'éligibles' : 'dispatché(s)',
+        ));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Phase 1 — préparations en attente du cron (status=pending, config présente).
+     */
+    private function dispatchDueParses(bool $dry): int
+    {
+        $due = ImportJob::query()
+            ->where('status', JobStatus::Pending->value)
+            ->whereNotNull('config_id') // les CSV pré-préparés naissent déjà « parsed »
+            ->orderBy('id')
+            ->get();
 
         foreach ($due as $job) {
             $this->line(sprintf(
-                '%s #%d — %s (scheduled %s)',
-                $dry ? '[dry] ' : '→ dispatch',
+                '%s [parse] #%d — %s',
+                $dry ? '[dry]' : '→',
                 $job->id,
                 $job->uuid,
-                $job->scheduled_at?->diffForHumans() ?? 'now',
+            ));
+
+            if ($dry) {
+                continue;
+            }
+
+            // Sortie de l'état éligible avant dispatch : la requête ne cible que
+            // `pending`, donc un tick ultérieur ne re-parsera pas ce job.
+            $job->update(['status' => JobStatus::Parsing]);
+            ParseFileToStagingJob::dispatch($job->id)
+                ->onQueue(config('ai-importer.queues.parse', 'ai-importer-parse'));
+        }
+
+        return $due->count();
+    }
+
+    /**
+     * Phase 2 — imports Lunar programmés dus (status=parsed, scheduled_at échu).
+     */
+    private function dispatchDueImports(bool $dry): int
+    {
+        $due = ImportJob::query()
+            ->where('status', JobStatus::Parsed->value)
+            ->whereIn('import_status', [ImportStatus::Pending->value, ImportStatus::Scheduled->value])
+            ->whereNotNull('scheduled_at') // le cron ne prend que les imports EXPLICITEMENT programmés
+            ->where('scheduled_at', '<=', now())
+            ->orderBy('scheduled_at')
+            ->get();
+
+        foreach ($due as $job) {
+            $this->line(sprintf(
+                '%s [import] #%d — %s (programmé %s)',
+                $dry ? '[dry]' : '→',
+                $job->id,
+                $job->uuid,
+                $job->scheduled_at?->diffForHumans() ?? 'maintenant',
             ));
 
             if ($dry) {
@@ -67,8 +130,6 @@ class RunScheduledImportsCommand extends Command
                 ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
         }
 
-        $this->info(($dry ? 'DRY — ' : '').$due->count().' job(s) traité(s).');
-
-        return self::SUCCESS;
+        return $due->count();
     }
 }

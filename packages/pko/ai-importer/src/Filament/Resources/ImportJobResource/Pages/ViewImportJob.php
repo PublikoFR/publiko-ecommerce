@@ -21,7 +21,6 @@ use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\UpdateMode;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Widgets\ImportJobProgressWidget;
-use Pko\AiImporter\Jobs\ImportStagingToLunarJob;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Services\LunarBackupManager;
@@ -207,26 +206,67 @@ class ViewImportJob extends ViewRecord
                     $options['update_mode'] = $data['update_mode'];
                     $options['columns_to_import'] = array_values($data['columns_to_import'] ?? []);
 
-                    $this->record->update([
+                    $update = [
                         'options' => $options,
                         'error_policy' => $data['error_policy'],
                         'scheduled_at' => $data['scheduled_at'],
-                    ]);
-                    Notification::make()->success()->title('Options enregistrées')->send();
+                    ];
+
+                    // Cohérence du statut d'import avec la programmation, tant que
+                    // l'import n'a pas démarré : une date posée ⇒ « Programmé »
+                    // (le CRON lancera à l'échéance), effacée ⇒ « En attente ».
+                    if (in_array($this->record->import_status, [ImportStatus::Pending, ImportStatus::Scheduled], true)) {
+                        $update['import_status'] = $data['scheduled_at']
+                            ? ImportStatus::Scheduled
+                            : ImportStatus::Pending;
+                    }
+
+                    $this->record->update($update);
+                    Notification::make()->success()
+                        ->title('Options enregistrées')
+                        ->body($data['scheduled_at']
+                            ? 'Import programmé — le CRON le lancera à l\'échéance.'
+                            : 'Options mises à jour. Utilisez « Programmer l\'import Lunar » pour lancer.')
+                        ->send();
                 }),
             Actions\Action::make('launchImport')
-                ->label('Lancer l\'import Lunar')
+                ->label(fn (): string => $this->record->import_status === ImportStatus::Scheduled
+                    ? 'Lancer l\'import maintenant'
+                    : 'Programmer l\'import Lunar')
                 ->icon('heroicon-o-arrow-down-on-square')
                 ->color('success')
                 ->visible(fn (): bool => $this->record->status === JobStatus::Parsed
                     && in_array($this->record->import_status, [ImportStatus::Pending, ImportStatus::Scheduled], true))
                 ->requiresConfirmation()
-                ->modalDescription('Les produits seront créés / mis à jour dans Lunar. Un snapshot de sauvegarde est pris avant d\'écrire.')
+                ->modalDescription('Le staging sera importé dans Lunar par le CRON au prochain passage (≤ 2 min). Un snapshot de sauvegarde est pris avant d\'écrire. Les produits seront créés / mis à jour.')
                 ->action(function (): void {
-                    ImportStagingToLunarJob::dispatch($this->record->id)
-                        ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
-                    $this->record->update(['import_status' => ImportStatus::Queued]);
-                    Notification::make()->success()->title('Import Lunar mis en file')->send();
+                    // On NE dispatche PAS directement : on marque le job « prêt à
+                    // importer » (scheduled + échéance = maintenant) et c'est le cron
+                    // (`ai-importer:run-scheduled`, phase import) qui déclenche
+                    // l'écriture Lunar au prochain passage.
+                    $this->record->update([
+                        'import_status' => ImportStatus::Scheduled,
+                        'scheduled_at' => now(),
+                    ]);
+                    Notification::make()->success()
+                        ->title('Import programmé')
+                        ->body('Statut « Programmé (CRON) » — l\'import démarrera au prochain passage du CRON (≤ 2 min).')
+                        ->send();
+                }),
+            Actions\Action::make('cancelSchedule')
+                ->label('Annuler la programmation')
+                ->icon('heroicon-o-x-mark')
+                ->color('gray')
+                ->visible(fn (): bool => $this->record->status === JobStatus::Parsed
+                    && $this->record->import_status === ImportStatus::Scheduled)
+                ->requiresConfirmation()
+                ->modalDescription('Le job repasse « En attente » : le CRON ne lancera pas l\'import tant que vous ne l\'aurez pas reprogrammé.')
+                ->action(function (): void {
+                    $this->record->update([
+                        'import_status' => ImportStatus::Pending,
+                        'scheduled_at' => null,
+                    ]);
+                    Notification::make()->success()->title('Programmation annulée')->send();
                 }),
             Actions\Action::make('rollback')
                 ->label('Rollback')
@@ -249,12 +289,17 @@ class ViewImportJob extends ViewRecord
                 ->visible(fn (): bool => in_array($this->record->import_status, [ImportStatus::Error], true)
                     && $this->record->status === JobStatus::Parsed)
                 ->requiresConfirmation()
-                ->modalDescription('Relance l\'import sur les lignes staging restantes (status=pending|validated|warning). Les lignes déjà importées sont ignorées.')
+                ->modalDescription('Reprogramme l\'import (via le CRON) sur les lignes staging restantes (status=pending|validated|warning). Les lignes déjà importées sont ignorées.')
                 ->action(function (): void {
-                    ImportStagingToLunarJob::dispatch($this->record->id)
-                        ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
-                    $this->record->update(['import_status' => ImportStatus::Queued, 'error_message' => null]);
-                    Notification::make()->success()->title('Import relancé')->send();
+                    $this->record->update([
+                        'import_status' => ImportStatus::Scheduled,
+                        'scheduled_at' => now(),
+                        'error_message' => null,
+                    ]);
+                    Notification::make()->success()
+                        ->title('Import reprogrammé')
+                        ->body('Le CRON reprendra l\'import au prochain passage.')
+                        ->send();
                 }),
             Actions\Action::make('testCron')
                 ->label('Tester CRON')

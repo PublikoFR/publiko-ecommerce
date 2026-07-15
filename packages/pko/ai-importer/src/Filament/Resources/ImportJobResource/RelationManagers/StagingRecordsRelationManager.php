@@ -67,16 +67,18 @@ class StagingRecordsRelationManager extends RelationManager
     }
 
     /**
-     * Livewire action appelée par Alpine ($wire.updateCellValue) lors du double-clic.
-     * Scope sur les staging records du job courant pour éviter toute manipulation
-     * d'un enregistrement appartenant à un autre job.
+     * Rend une valeur de cellule staging en texte lisible (array/objet → JSON,
+     * null → chaîne vide, scalaire → string). Utilisé par les colonnes dynamiques
+     * et leurs tooltips.
      */
-    public function updateCellValue(int $recordId, string $key, string $value): void
+    private function stringifyCell(mixed $value): string
     {
-        $record = $this->getOwnerRecord()->stagingRecords()->findOrFail($recordId);
-        $data = (array) $record->data;
-        $data[$key] = $value;
-        $record->update(['data' => $data]);
+        return match (true) {
+            is_array($value) => (string) json_encode($value, JSON_UNESCAPED_UNICODE),
+            is_null($value) => '',
+            is_bool($value) => $value ? 'true' : 'false',
+            default => (string) $value,
+        };
     }
 
     public function form(Form $form): Form
@@ -96,14 +98,20 @@ class StagingRecordsRelationManager extends RelationManager
         }
 
         return $form->schema([
-            Forms\Components\Grid::make(2)
+            // Grille plafonnée à la hauteur du viewport (moins l'en-tête/pied de la
+            // modale) et rendue scrollable en interne : la modale ne dépasse jamais
+            // 100vh, c'est SON contenu qui défile (pas toute la page/overlay).
+            Forms\Components\Grid::make(3)
+                ->extraAttributes(['style' => 'max-height: calc(100vh - 13rem); overflow-y: auto;'])
                 ->schema([
                     Forms\Components\Placeholder::make('log_history')
                         ->label('Historique des logs')
                         ->columnSpan(1)
                         ->content(fn (?StagingRecord $record): Htmlable => $this->renderRowLogHistory($record)),
+                    // Champs en label-à-gauche (form horizontal) → gain de hauteur.
                     Forms\Components\Group::make()
-                        ->columnSpan(1)
+                        ->columnSpan(2)
+                        ->inlineLabel()
                         ->schema(array_merge(
                             [
                                 Forms\Components\TextInput::make('row_number')->label('Ligne #')->disabled(),
@@ -141,17 +149,22 @@ class StagingRecordsRelationManager extends RelationManager
                 continue;
             }
             $label = $fieldLabels[$key] ?? $key;
+            // Colonne texte simple (échappée par Filament). On NE passe PAS par
+            // ->html() + composant Alpine : Filament sanitise le HTML des colonnes
+            // ->html() (Str::sanitizeHtml) et strip les directives Alpine / <input>,
+            // ce qui rendait chaque cellule vide. La correction d'une valeur se fait
+            // via le modal d'édition de ligne (EditAction, champ par champ).
             $dynamicColumns[] = Tables\Columns\TextColumn::make("cell_{$key}")
                 ->label($label)
-                ->html()
-                ->state(fn (StagingRecord $r): string => view(
-                    'pko-ai-importer::filament.components.staging-cell',
-                    [
-                        'value' => ((array) $r->data)[$key] ?? '',
-                        'recordId' => $r->id,
-                        'key' => $key,
-                    ]
-                )->render());
+                ->state(fn (StagingRecord $r): string => $this->stringifyCell(((array) $r->data)[$key] ?? null))
+                ->limit(40)
+                ->tooltip(function (StagingRecord $r) use ($key): ?string {
+                    $full = $this->stringifyCell(((array) $r->data)[$key] ?? null);
+
+                    return mb_strlen($full) > 40 ? $full : null;
+                })
+                ->wrap(false)
+                ->toggleable();
         }
 
         $statusOptions = collect(StagingStatus::cases())
@@ -200,7 +213,7 @@ class StagingRecordsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->modalWidth(MaxWidth::SixExtraLarge)
                     ->modalHeading(fn (StagingRecord $record): string => 'Ligne #'.$record->row_number)
                     ->mutateFormDataUsing(function (array $data, StagingRecord $record): array {
                         // Merge back : on préserve les clés de data[] non représentées
@@ -270,33 +283,54 @@ class StagingRecordsRelationManager extends RelationManager
     }
 
     /**
-     * Extrait la première URL d'image depuis data.image ou data.images.
+     * Extrait la PREMIÈRE URL d'image depuis data.image ou data.images.
+     * Chaque valeur peut être une URL simple, une CSV d'URLs (sortie
+     * `multiline_aggregate` concat), un array, ou un JSON encodé.
      */
     private function extractImageUrl(StagingRecord $r): ?string
     {
         $data = (array) $r->data;
 
-        if (! empty($data['image']) && is_string($data['image'])) {
-            return $data['image'];
+        foreach (['image', 'images'] as $key) {
+            $url = $this->firstImageUrl($data[$key] ?? null);
+            if ($url !== null) {
+                return $url;
+            }
         }
 
-        $images = $data['images'] ?? null;
+        return null;
+    }
 
-        if (is_array($images) && ! empty($images)) {
-            $first = reset($images);
+    private function firstImageUrl(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $first = reset($value);
 
-            return is_string($first) ? $first : null;
+            return is_string($first) && $first !== '' ? $first : null;
         }
 
-        if (is_string($images) && $images !== '') {
-            $decoded = json_decode($images, true);
-            if (is_array($decoded) && ! empty($decoded)) {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        // JSON array (ex. '["url1","url2"]')
+        if (str_starts_with($value, '[')) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded) && $decoded !== []) {
                 $first = reset($decoded);
 
-                return is_string($first) ? $first : null;
+                return is_string($first) && $first !== '' ? $first : null;
             }
+        }
 
-            return $images;
+        // CSV d'URLs → première non vide.
+        foreach (explode(',', $value) as $part) {
+            $part = trim($part);
+            if ($part !== '') {
+                return $part;
+            }
         }
 
         return null;

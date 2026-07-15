@@ -11,6 +11,8 @@
         "phpoffice/phpspreadsheet": "^2.0 || ^3.0",
         "pko/lunar-ai-core": "@dev",
         "pko/lunar-catalog-features": "@dev",
+        "pko/lunar-media-core": "@dev",
+        "pko/lunar-product-documents": "@dev",
         "pko/lunar-product-videos": "@dev"
     },
     "autoload": {

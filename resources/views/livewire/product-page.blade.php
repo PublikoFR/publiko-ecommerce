@@ -10,7 +10,7 @@
                 <div class="border border-neutral-200 rounded-2xl overflow-hidden aspect-square flex items-center justify-center p-8"
                      style="background: radial-gradient(120% 120% at 30% 20%, #ffffff 0%, var(--surface-brand-soft) 90%);">
                     @if ($this->image)
-                        <img class="max-w-full max-h-full object-contain" src="{{ $this->image->getUrl('large') }}" alt="{{ $this->product->translateAttribute('name') }}" />
+                        <img class="max-w-full max-h-full object-contain" src="{{ pko_media_url($this->image, 'large') }}" alt="{{ $this->product->translateAttribute('name') }}" />
                     @else
                         <x-ui.icon name="package" class="w-28 h-28 text-primary-200" strokeWidth="1.2" />
                     @endif
@@ -20,7 +20,7 @@
                     <div class="mt-4 grid grid-cols-4 gap-3">
                         @foreach ($this->images as $image)
                             <div wire:key="image_{{ $image->id }}" class="bg-white border border-neutral-200 rounded-md overflow-hidden aspect-square p-2 flex items-center justify-center hover:border-primary-600 transition">
-                                <img loading="lazy" class="max-w-full max-h-full object-contain" src="{{ $image->getUrl('small') }}" alt="" />
+                                <img loading="lazy" class="max-w-full max-h-full object-contain" src="{{ pko_media_url($image, 'small') }}" alt="" />
                             </div>
                         @endforeach
                     </div>

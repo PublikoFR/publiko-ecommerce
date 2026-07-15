@@ -8,12 +8,16 @@
         "illuminate/support": "^11.0",
         "lunarphp/core": "^1.0",
         "spatie/laravel-medialibrary": "^11.0",
-        "filament/filament": "^3.0"
+        "filament/filament": "^3.0",
+        "tomatophp/filament-media-manager": "^1.1"
     },
     "autoload": {
         "psr-4": {
             "Pko\\LunarMediaCore\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "extra": {
         "laravel": {

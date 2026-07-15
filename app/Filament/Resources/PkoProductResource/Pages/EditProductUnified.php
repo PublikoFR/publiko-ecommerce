@@ -237,6 +237,12 @@ class EditProductUnified extends Page implements HasForms
                 );
             }
 
+            // Prix d'achat (coût) — colonne custom pko_cost_price (cents), HT.
+            $this->cost = $this->centsToDisplay(
+                $default->pko_cost_price !== null ? (int) $default->pko_cost_price : null,
+                $factor
+            );
+
             $this->tierPrices = $default->prices
                 ->filter(fn (Price $p) => ! ($p->customer_group_id === null && $p->min_quantity <= 1))
                 ->map(fn (Price $p) => [
@@ -257,6 +263,15 @@ class EditProductUnified extends Page implements HasForms
                 ? $group->pluck('id')->map(fn ($v) => (int) $v)->all()
                 : (int) $group->first()->id)
             ->all();
+
+        // Seed les familles sans valeur assignée : Livewire ne lie une checkbox
+        // en TABLEAU que si la clé existe déjà comme tableau — sinon il la traite
+        // en booléen (cocher une valeur coche toute la famille). Mono-valeur → ''.
+        foreach ($this->featureFamilies as $family) {
+            if (! array_key_exists($family->id, $this->featureValues)) {
+                $this->featureValues[$family->id] = $family->multi_value ? [] : '';
+            }
+        }
 
         $this->relatedProductIds = $product->associations
             ->pluck('product_target_id')
@@ -413,6 +428,31 @@ class EditProductUnified extends Page implements HasForms
                 return $familyName.' : '.$valueNames;
             })
             ->implode("\n");
+    }
+
+    // ------- Computed marge (Prix HT − coût, tous deux HT)
+    //
+    // Recalculée à chaque render (les inputs prix/coût sont en wire:model.blur :
+    // la marge se met à jour au blur). Retourne null si prix ou coût manquant.
+
+    /**
+     * @return array{amount: float, percent: ?float}|null
+     */
+    public function getMarginProperty(): ?array
+    {
+        $price = ($this->price !== null && $this->price !== '') ? (float) $this->price : null;
+        $cost = ($this->cost !== null && $this->cost !== '') ? (float) $this->cost : null;
+
+        if ($price === null || $cost === null) {
+            return null;
+        }
+
+        $amount = $price - $cost;
+
+        return [
+            'amount' => $amount,
+            'percent' => $price > 0 ? ($amount / $price) * 100 : null,
+        ];
     }
 
     // ------- Computed SEO
@@ -949,19 +989,41 @@ class EditProductUnified extends Page implements HasForms
     private function readAttr(Collection $attrs, string $key): string
     {
         $value = $attrs->get($key);
-        if ($value instanceof TranslatedText) {
-            $values = $value->getValue() ?? [];
 
-            return (string) (reset($values) ?: '');
+        if ($value instanceof TranslatedText) {
+            // getValue() renvoie une Collection locale => FieldType (chaque valeur
+            // traduite est un objet Text, pas une string). On prend la locale
+            // courante, sinon la première traduction disponible.
+            $values = $value->getValue();
+            $values = $values instanceof Collection ? $values->all() : (array) ($values ?? []);
+            $first = $values[app()->getLocale()] ?? (reset($values) ?: '');
+
+            return $this->fieldValueToString($first);
         }
-        if ($value instanceof FieldText) {
-            return (string) $value->getValue();
+
+        return $this->fieldValueToString($value);
+    }
+
+    /**
+     * Réduit une valeur d'attribut Lunar (FieldType, Collection, array imbriqué,
+     * scalaire) en string plate. Dé-wrappe les FieldTypes (Text::getValue()).
+     */
+    private function fieldValueToString(mixed $value): string
+    {
+        if (is_object($value) && method_exists($value, 'getValue')) {
+            $value = $value->getValue();
+        }
+        if ($value instanceof Collection) {
+            $value = $value->all();
         }
         if (is_array($value)) {
-            return (string) (reset($value) ?: '');
+            $value = reset($value) ?: '';
+            if (is_object($value) && method_exists($value, 'getValue')) {
+                $value = $value->getValue();
+            }
         }
 
-        return (string) ($value ?? '');
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function writeAttr(Collection $attrs, string $key, string $value): Collection
@@ -969,7 +1031,14 @@ class EditProductUnified extends Page implements HasForms
         $existing = $attrs->get($key);
         if ($existing instanceof TranslatedText) {
             $locale = app()->getLocale();
-            $current = $existing->getValue() ?? [];
+            $current = $existing->getValue();
+            $current = $current instanceof Collection ? $current->all() : (array) ($current ?? []);
+            // Aplatir les FieldType existants (Text) en strings pour ne pas mélanger
+            // objets et string dans le nouveau TranslatedText.
+            $current = array_map(
+                static fn ($v) => is_object($v) && method_exists($v, 'getValue') ? $v->getValue() : $v,
+                $current,
+            );
             $current[$locale] = $value;
             $attrs->put($key, new TranslatedText($current));
         } else {
@@ -1004,6 +1073,11 @@ class EditProductUnified extends Page implements HasForms
             return;
         }
         $factor = max(1, (int) $currency->factor);
+
+        // Prix d'achat (coût) — colonne custom pko_cost_price non-fillable :
+        // assignation directe + save (un mass-assignment la droppe silencieusement).
+        $variant->pko_cost_price = $this->displayToCents($this->cost, $factor);
+        $variant->save();
 
         // Prix de base
         $basePrice = $this->displayToCents($this->price, $factor);

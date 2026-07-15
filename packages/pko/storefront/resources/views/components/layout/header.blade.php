@@ -48,7 +48,7 @@ $user = auth()->user();
                 {{-- Logo --}}
                 <a href="/" class="flex items-center shrink-0" wire:navigate>
                     <span class="sr-only">{{ brand_name() }}</span>
-                    <x-layout.logo class="h-9 w-auto" />
+                    <x-layout.logo class="h-14 w-auto" />
                 </a>
 
                 {{-- Search --}}
