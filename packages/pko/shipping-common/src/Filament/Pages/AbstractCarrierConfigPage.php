@@ -93,7 +93,7 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
             SecretsFormSchema::initialData($this->carrierCode()),
             [
                 'services' => app(CarrierServiceRepository::class)->allFor($this->carrierCode()),
-                'grid' => app(CarrierGridRepository::class)->forCarrier($this->carrierCode()),
+                'grid' => app(CarrierGridRepository::class)->allFor($this->carrierCode()),
                 'pricing_mode' => app(PricingModeResolver::class)->getFor($this->carrierCode())->value,
             ],
         ));
@@ -256,7 +256,7 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
      */
     public function getGrid(): array
     {
-        return app(CarrierGridRepository::class)->forCarrier($this->carrierCode());
+        return app(CarrierGridRepository::class)->allFor($this->carrierCode());
     }
 
     /**
