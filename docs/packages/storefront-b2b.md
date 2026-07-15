@@ -91,6 +91,17 @@ remplace le bulk delete par une action **« Anonymiser (RGPD) »** →
 - supprime adresses + paniers du client, détache groupes/remises ;
 - **supprime les comptes de connexion (`User`) liés** : les FK `NO ACTION` vers `users` sont dénouées avant (les commandes sont conservées, `lunar_orders.user_id` → `null` ; `discount_user`/`customer_user`/carts supprimés).
 
+### Suppression d'un groupe client = garde-fou (jamais de 1451)
+
+Même schéma : toutes les FK vers `lunar_customer_groups` (customers, collections, prices,
+products, shipping, tax, discounts) sont en `NO ACTION`. `App\Support\CustomerGroupGuard::blockReason()`
+est la source unique de vérité et **bloque** (message FR) : le groupe **par défaut** Lunar
+(`default=1`), le **groupe pro** (`config('customer-auth.default_customer_group_handle')`,
+`installateurs`), et tout groupe **encore référencé** (liste des N clients/tarifs/produits…).
+Un groupe custom sans aucune référence reste supprimable. `App\Filament\Extensions\CustomerGroupDeletionGuardExtension`
+applique le garde-fou aux **deux** chemins : bulk delete de la liste (`extendTable`) et
+delete de la page d'édition (`headerActions`, enregistrée aussi sur `EditCustomerGroup`).
+
 Env requis pour INSEE : `INSEE_ENABLED=true` + `INSEE_API_KEY` (clé API unique du portail INSEE ; par défaut `INSEE_ENABLED=false` → fallback pending, admin valide manuellement).
 
 **Page de configuration Back-office** (depuis 2026-07) : `Configuration → Réglages → Vérification SIRET` (`App\Filament\Pages\SireneConfig`). Permet d'**activer/désactiver** la vérification (toggle persisté dans le `Setting` `sirene.enabled`, indépendant de `.env`) et de **gérer les clés API via le système Secrets** (source `.env` **ou** base de données chiffrée, comme Stripe — module `insee`). Bouton « Tester la connexion INSEE » (requête token OAuth). Le `SireneClient` est re-liaisonné dans `AppServiceProvider::boot()` pour lire activation (Setting) + clés (Secrets) avec repli sur la config `.env`. Détails du système : `docs/packages/secrets.md`.

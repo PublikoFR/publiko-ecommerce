@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Filament\Extensions\CollectionEnabledExtension;
 use App\Filament\Extensions\CustomerAnonymizeExtension;
+use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\SireneConfig;
@@ -35,6 +36,8 @@ use Lunar\Admin\Filament\Resources\ChannelResource;
 use Lunar\Admin\Filament\Resources\CollectionGroupResource;
 use Lunar\Admin\Filament\Resources\CollectionResource;
 use Lunar\Admin\Filament\Resources\CurrencyResource;
+use Lunar\Admin\Filament\Resources\CustomerGroupResource;
+use Lunar\Admin\Filament\Resources\CustomerGroupResource\Pages\EditCustomerGroup;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
@@ -176,6 +179,12 @@ class AppServiceProvider extends ServiceProvider
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
                 CustomerAnonymizeExtension::class,
+            ],
+            CustomerGroupResource::class => [
+                CustomerGroupDeletionGuardExtension::class,
+            ],
+            EditCustomerGroup::class => [
+                CustomerGroupDeletionGuardExtension::class,
             ],
             ManageOrder::class => [
                 OrderInvoiceActionsExtension::class,
