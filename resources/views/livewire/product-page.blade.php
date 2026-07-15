@@ -1,3 +1,4 @@
+<div>
 <section class="py-6 md:py-10">
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <x-ui.breadcrumb class="mb-6" :items="[
@@ -152,3 +153,4 @@
         </div>
     </section>
 @endif
+</div>
