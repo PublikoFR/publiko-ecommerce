@@ -13,13 +13,19 @@ class RedirectIfProCustomer
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // On ne redirige vers l'espace pro QUE si l'utilisateur est un pro actif.
-        // Un utilisateur authentifié mais non-actif (SIRET en attente, hors groupe)
-        // reste sur /connexion — sinon boucle /compte ↔ /connexion.
-        if (ProAccess::isActivePro($request->user())) {
+        $user = $request->user();
+
+        if ($user === null) {
+            return $next($request);
+        }
+
+        // Pro actif → espace pro.
+        if (ProAccess::isActivePro($user)) {
             return redirect('/compte');
         }
 
-        return $next($request);
+        // Authentifié mais compte en attente / non rattaché → accueil avec message.
+        // Pas de redirect vers /compte (qui renverrait vers /connexion → boucle).
+        return redirect('/')->with('status', 'Votre compte est en cours de validation. Vous serez notifié par e-mail dès activation.');
     }
 }
