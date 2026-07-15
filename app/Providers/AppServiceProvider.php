@@ -101,6 +101,10 @@ class AppServiceProvider extends ServiceProvider
                     PanelsRenderHook::USER_MENU_BEFORE,
                     fn (): string => view('filament.hooks.user-identity')->render(),
                 )
+                ->renderHook(
+                    PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                    fn (): string => view('filament.hooks.view-shop')->render(),
+                )
                 ->font('Hanken Grotesk')
                 ->colors([
                     'primary' => [
