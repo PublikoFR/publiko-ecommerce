@@ -48,6 +48,12 @@ Secrets::register(
 );
 ```
 
+### Modules enregistrés
+
+`stripe`, `insee` (Sirene), `chronopost`, `colissimo`, `laposte`, `pennylane` — tous dans `AppServiceProvider::registerSecretModules()`.
+
+- **`insee`** : clés `consumer_key` / `consumer_secret` (env `INSEE_API_KEY` / `INSEE_API_SECRET`, configMap `customer-auth.sirene.consumer_key` / `.consumer_secret`). Page de config : `App\Filament\Pages\SireneConfig` (Configuration → Réglages → « Vérification SIRET »). L'**activation** de la vérification (`sirene.enabled`) n'est **pas** un secret : c'est un `Setting` booléen indépendant (togglé sur la même page), pour rester découplé du choix de source des clés. Le `SireneClient` est re-liaisonné dans `AppServiceProvider::boot()` pour lire clés (Secrets) + activation (Setting) avec repli config.
+
 ## Lecture
 
 ```php

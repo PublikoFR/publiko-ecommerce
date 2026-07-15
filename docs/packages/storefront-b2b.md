@@ -71,6 +71,8 @@ Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_st
 
 Env requis pour INSEE : `INSEE_ENABLED=true`, `INSEE_API_KEY`, `INSEE_API_SECRET` (par défaut `INSEE_ENABLED=false` → fallback pending, admin valide manuellement).
 
+**Page de configuration Back-office** (depuis 2026-07) : `Configuration → Réglages → Vérification SIRET` (`App\Filament\Pages\SireneConfig`). Permet d'**activer/désactiver** la vérification (toggle persisté dans le `Setting` `sirene.enabled`, indépendant de `.env`) et de **gérer les clés API via le système Secrets** (source `.env` **ou** base de données chiffrée, comme Stripe — module `insee`). Bouton « Tester la connexion INSEE » (requête token OAuth). Le `SireneClient` est re-liaisonné dans `AppServiceProvider::boot()` pour lire activation (Setting) + clés (Secrets) avec repli sur la config `.env`. Détails du système : `docs/packages/secrets.md`.
+
 ### 15.6 Routes publiques + gated
 
 ```

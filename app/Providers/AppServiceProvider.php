@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Filament\Extensions\CollectionEnabledExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
+use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Pages\WekloDashboard;
@@ -61,6 +62,7 @@ use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
 use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
+use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
 use Pko\Pennylane\Filament\Extensions\OrderInvoiceActionsExtension;
@@ -130,6 +132,7 @@ class AppServiceProvider extends ServiceProvider
                 ->viteTheme('resources/css/filament/admin/theme.css')
                 ->pages([
                     StripeConfig::class,
+                    SireneConfig::class,
                     TreeManager::class,
                     StorefrontSettings::class,
                 ])
@@ -184,6 +187,20 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Vérification SIRET : le SireneClient est liaisonné par le package
+        // customer-auth à partir de la config .env uniquement. On surcharge ici
+        // (couche app = racine de composition) pour résoudre l'activation via le
+        // Setting Back-office et les clés via le système Secrets (.env / BDD), avec
+        // repli sur la config. Résolution paresseuse (closure singleton) → aucune
+        // requête DB au boot, uniquement au moment de la vérification.
+        $this->app->singleton(SireneClient::class, fn (): SireneClient => new SireneClient(
+            baseUrl: (string) config('customer-auth.sirene.base_url'),
+            consumerKey: (string) (Secrets::get('insee', 'consumer_key') ?: config('customer-auth.sirene.consumer_key')),
+            consumerSecret: (string) (Secrets::get('insee', 'consumer_secret') ?: config('customer-auth.sirene.consumer_secret')),
+            enabled: (bool) brand_setting('sirene.enabled', config('customer-auth.sirene.enabled')),
+            timeout: (int) config('customer-auth.sirene.timeout'),
+        ));
+
         // Garde anti-wipe : depuis un worktree PKOS (container_name fige dans
         // compose.yaml → pas d'isolation, on tape sur la base de dev weklo), on
         // interdit migrate:fresh / migrate:refresh / migrate:reset / db:wipe.
@@ -273,6 +290,20 @@ class AppServiceProvider extends ServiceProvider
                 'public_key' => 'services.stripe.public_key',
                 'secret' => 'services.stripe.key',
                 'webhook_lunar' => 'services.stripe.webhooks.lunar',
+            ],
+        );
+
+        Secrets::register(
+            'insee',
+            keys: [
+                'consumer_key' => 'INSEE_API_KEY',
+                'consumer_secret' => 'INSEE_API_SECRET',
+            ],
+            defaultSource: 'env',
+            label: 'INSEE Sirene',
+            configMap: [
+                'consumer_key' => 'customer-auth.sirene.consumer_key',
+                'consumer_secret' => 'customer-auth.sirene.consumer_secret',
             ],
         );
 

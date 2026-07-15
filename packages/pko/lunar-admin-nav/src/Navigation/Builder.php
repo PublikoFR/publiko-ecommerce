@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\AdminNav\Navigation;
 
+use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
 use App\Filament\Resources\PkoAttributeGroupResource;
@@ -142,6 +143,7 @@ class Builder
         return array_values(array_filter([
             self::nestedMenu('Réglages', 'heroicon-o-cog-6-tooth', [
                 self::resItem(StorefrontSettings::class, 'heroicon-o-adjustments-horizontal', 'Paramètres'),
+                self::resItem(SireneConfig::class, 'heroicon-o-identification', 'Vérification SIRET'),
                 self::resItem(PkoChannelResource::class, 'heroicon-o-signal', 'Canaux'),
                 self::resItem(PkoActivityResource::class, 'heroicon-o-clock', 'Activités'),
                 self::resItem(RoleResource::class, 'heroicon-o-shield-check', 'Rôles'),
