@@ -89,10 +89,7 @@
                     @endif
                 </div>
                 <x-ui.button variant="accent" href="/checkout" wire:click="close" fullWidth size="lg" iconRight="arrow-right">Valider la commande</x-ui.button>
-                <div class="grid grid-cols-2 gap-2">
-                    <x-ui.button variant="secondary" href="/panier" wire:click="close" class="justify-center">Voir le panier</x-ui.button>
-                    <x-ui.button variant="ghost" href="/achat-rapide" wire:click="close" class="justify-center">Convertir en devis</x-ui.button>
-                </div>
+                <x-ui.button variant="secondary" href="/panier" wire:click="close" fullWidth class="justify-center">Voir le panier</x-ui.button>
             </footer>
         @endif
     </aside>
