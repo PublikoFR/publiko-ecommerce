@@ -53,10 +53,14 @@ class RegisterPage extends Component
 
     public function submit(RegisterProCustomer $action): mixed
     {
+        // Normalise le SIRET : on accepte les espaces / séparateurs de saisie
+        // (ex. « 981 043 979 00021 ») et on ne conserve que les chiffres.
+        $this->siret = preg_replace('/\D/', '', (string) $this->siret) ?? '';
+
         $validated = $this->validate();
 
         if (! SireneClient::validateSiret($this->siret)) {
-            throw ValidationException::withMessages(['siret' => 'SIRET invalide (14 chiffres requis).']);
+            throw ValidationException::withMessages(['siret' => 'SIRET invalide : 14 chiffres attendus (clé de contrôle incorrecte).']);
         }
 
         try {

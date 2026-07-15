@@ -33,6 +33,17 @@ Le Makefile enchaîne dans `install` et `fresh` : `migrate[:fresh]` → `lunar:i
 
 ---
 
+## Internationalisation (i18n)
+
+`APP_LOCALE=fr`, `APP_FALLBACK_LOCALE=en`. Les messages de validation, d'auth et de
+reset password **doivent** être en français : les fichiers `lang/fr/validation.php`,
+`lang/fr/auth.php`, `lang/fr/passwords.php` fournissent la traduction complète. Sans
+`lang/fr/validation.php`, Laravel retombe sur le fallback `en` → messages anglais dans
+tous les formulaires (front + Filament côté Laravel). Toute nouvelle chaîne d'erreur
+métier custom (ex. SIRET, paiement) doit être écrite directement en français.
+
+---
+
 
 ## Tests
 
