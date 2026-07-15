@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Filament\Extensions\CollectionEnabledExtension;
+use App\Filament\Extensions\CustomerAnonymizeExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\SireneConfig;
@@ -174,6 +175,7 @@ class AppServiceProvider extends ServiceProvider
             ],
             CustomerResource::class => [
                 CustomerLoyaltyExtension::class,
+                CustomerAnonymizeExtension::class,
             ],
             ManageOrder::class => [
                 OrderInvoiceActionsExtension::class,
