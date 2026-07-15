@@ -868,7 +868,7 @@ class EditProductUnified extends Page implements HasForms
             $product->pko_franco_eligible = $this->francoEligible;
             $transportCents = ($this->transportPriceEuros !== null && $this->transportPriceEuros !== '')
                 ? (int) round((float) str_replace(',', '.', $this->transportPriceEuros) * 100)
-                : ($this->transportPriceCents);
+                : null;
             $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $transportCents !== null) ? $transportCents : null;
             $product->pko_quote_only = $this->quoteOnly;
             $product->pko_supplier_id = $this->supplierId;

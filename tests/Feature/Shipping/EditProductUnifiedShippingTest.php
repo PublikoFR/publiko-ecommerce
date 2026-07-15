@@ -78,6 +78,30 @@ class EditProductUnifiedShippingTest extends TestCase
         $this->assertSame(4500, (int) $product->pko_transport_price_cents);
     }
 
+    public function test_clearing_transport_price_resets_it_to_null(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        // Produit ayant déjà un prix transport en base (classe C, 45,00 €).
+        $product->forceFill([
+            'pko_logistics_class' => 'C',
+            'pko_transport_price_cents' => 4500,
+        ])->save();
+
+        // L'utilisateur efface le champ prix transport puis enregistre.
+        Livewire::test(EditProductUnified::class, ['record' => $product->id])
+            ->set('logisticsClass', 'C')
+            ->set('transportPriceEuros', null)
+            ->call('save');
+
+        $product->refresh();
+
+        // Le prix doit repasser à null (pas de fallback sur l'ancienne valeur).
+        $this->assertNull($product->pko_transport_price_cents);
+    }
+
     public function test_hydrates_shipping_fields_from_product(): void
     {
         /** @var Product $product */
