@@ -7,6 +7,9 @@ namespace App\Providers;
 use App\Filament\Extensions\CollectionEnabledExtension;
 use App\Filament\Extensions\CustomerAnonymizeExtension;
 use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
+use Lunar\Admin\Filament\Resources\CustomerResource\Pages\CreateCustomer;
+use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
+use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\SireneConfig;
@@ -177,8 +180,12 @@ class AppServiceProvider extends ServiceProvider
                 BrandContentExtension::class,
             ],
             CustomerResource::class => [
+                CustomerProfileExtension::class,
                 CustomerLoyaltyExtension::class,
                 CustomerAnonymizeExtension::class,
+            ],
+            CreateCustomer::class => [
+                CustomerCreateExtension::class,
             ],
             CustomerGroupResource::class => [
                 CustomerGroupDeletionGuardExtension::class,
