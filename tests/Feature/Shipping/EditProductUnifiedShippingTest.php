@@ -47,7 +47,7 @@ class EditProductUnifiedShippingTest extends TestCase
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
             ->set('logisticsClass', 'B')
             ->set('francoEligible', false)
-            ->set('transportPriceCents', null)
+            ->set('transportPriceEuros', null)
             ->set('quoteOnly', true)
             ->set('supplierId', $supplier->id)
             ->call('save');
@@ -69,7 +69,7 @@ class EditProductUnifiedShippingTest extends TestCase
 
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
             ->set('logisticsClass', 'C')
-            ->set('transportPriceCents', 4500)
+            ->set('transportPriceEuros', '45.00')
             ->call('save');
 
         $product->refresh();
@@ -105,7 +105,7 @@ class EditProductUnifiedShippingTest extends TestCase
         $component
             ->assertSet('logisticsClass', 'A')
             ->assertSet('francoEligible', true)
-            ->assertSet('transportPriceCents', null)
+            ->assertSet('transportPriceEuros', null)
             ->assertSet('quoteOnly', false)
             ->assertSet('supplierId', $supplier->id);
     }

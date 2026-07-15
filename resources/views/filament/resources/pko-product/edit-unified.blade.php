@@ -337,6 +337,19 @@
 
             {{-- 7. Inventaire & expédition --}}
             <x-pko-product::card title="Inventaire & expédition" icon="heroicon-o-cube">
+                {{-- Classe logistique — en haut de section --}}
+                <div>
+                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
+                    <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
+                        <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
+                        <option value="A">{{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
+                        <option value="B">{{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
+                        <option value="C">{{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
+                    </select>
+                </div>
+
+                <hr class="border-gray-200 dark:border-white/10" />
+
                 <x-pko-product::switch-row label="Suivre le stock de ce produit" description="Décrémente automatiquement à chaque commande." model="trackStock" />
                 <div class="grid grid-cols-3 gap-3">
                     <div>
@@ -386,19 +399,6 @@
                     model="freeShipping"
                 />
 
-                <hr class="border-gray-200 dark:border-white/10" />
-
-                {{-- Classe logistique --}}
-                <div>
-                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
-                    <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
-                        <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
-                        <option value="A">A — {{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
-                        <option value="B">B — {{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
-                        <option value="C">C — {{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
-                    </select>
-                </div>
-
                 {{-- Franco éligible --}}
                 <x-pko-product::switch-row
                     :label="__('pko-shipping-common::admin.product.franco_eligible')"
@@ -414,12 +414,12 @@
                             <input
                                 type="number"
                                 min="0"
-                                step="1"
-                                wire:model.blur="transportPriceCents"
+                                step="0.01"
+                                wire:model.blur="transportPriceEuros"
                                 class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums"
-                                placeholder="0"
+                                placeholder="0.00"
                             />
-                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">cts</span>
+                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">{{ __('pko-shipping-common::admin.product.transport_price_help') }}</p>
                     </div>
@@ -431,17 +431,6 @@
                     :description="__('pko-shipping-common::admin.product.quote_only_help')"
                     model="quoteOnly"
                 />
-
-                {{-- Fournisseur --}}
-                <div>
-                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.supplier') }}</label>
-                    <select wire:model="supplierId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
-                        <option value="">— {{ __('pko-shipping-common::admin.product.supplier_none') }} —</option>
-                        @foreach ($this->supplierOptions as $supplier)
-                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
             </x-pko-product::card>
 
             {{-- 8. Variantes --}}
@@ -474,7 +463,74 @@
                 @endif
             </x-pko-product::card>
 
-            {{-- 9. SEO --}}
+            {{-- 9. Produits liés --}}
+            <x-pko-product::card title="Produits liés" icon="heroicon-o-link">
+                @php($thumbs = $this->relatedProductThumbnails)
+                @if ($this->relatedProducts->isNotEmpty())
+                    <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                        @foreach ($this->relatedProducts as $rel)
+                            <div class="group relative rounded-md border border-gray-200 dark:border-white/10 overflow-hidden">
+                                <div class="relative aspect-square bg-gray-100 dark:bg-white/5">
+                                    @if (isset($thumbs[$rel->id]))
+                                        <img src="{{ $thumbs[$rel->id] }}" alt="" class="w-full h-full object-cover" loading="lazy" />
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                            </svg>
+                                        </div>
+                                    @endif
+                                    <button
+                                        type="button"
+                                        wire:click="removeRelatedProduct({{ $rel->id }})"
+                                        class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                                        title="Délier ce produit"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="p-1.5">
+                                    <div class="text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate leading-tight">{{ $rel->translateAttribute('name') }}</div>
+                                    <div class="text-[10px] font-mono text-gray-500">{{ $rel->variants->first()?->sku ?? '—' }}</div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-gray-500">Aucun produit lié pour l'instant.</p>
+                @endif
+
+                <div class="relative mt-2">
+                    <input
+                        type="text"
+                        wire:model.live.debounce.300ms="relatedSearch"
+                        wire:keydown.enter.prevent="addRelatedProductFromSearch"
+                        placeholder="Rechercher par nom, SKU, EAN, tag…"
+                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8"
+                    />
+                    <span class="absolute right-3 top-[9px] text-gray-400 pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+                    </span>
+                    @if ($relatedSearch !== '' && $this->relatedSearchResults->isNotEmpty())
+                        <div class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded shadow-lg max-h-60 overflow-y-auto">
+                            @foreach ($this->relatedSearchResults as $item)
+                                <button
+                                    type="button"
+                                    wire:click="addRelatedProduct({{ $item->id }})"
+                                    class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5 flex items-center gap-2"
+                                >
+                                    <span class="flex-1 truncate">{{ $item->translateAttribute('name') }}</span>
+                                    <span class="font-mono text-xs text-gray-400 flex-shrink-0">{{ $item->variants->first()?->sku ?? '' }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </x-pko-product::card>
+
+            {{-- 10. SEO --}}
             <x-pko-product::card title="Référencement (SEO)" icon="heroicon-o-magnifying-glass">
                 <x-pko-product::google-preview />
 
@@ -621,6 +677,17 @@
                     </select>
                 </div>
 
+                {{-- Fournisseur --}}
+                <div>
+                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.supplier') }}</label>
+                    <select wire:model="supplierId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">
+                        <option value="">— {{ __('pko-shipping-common::admin.product.supplier_none') }} —</option>
+                        @foreach ($this->supplierOptions as $supplier)
+                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- Tags --}}
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Tags</label>
@@ -641,44 +708,6 @@
                         />
                         <button type="button" wire:click="addTag" class="text-xs px-2 py-1 border border-gray-300 dark:border-white/10 rounded hover:bg-gray-50 dark:hover:bg-white/5">+</button>
                     </div>
-                </div>
-            </x-pko-product::card>
-
-            {{-- Produits liés --}}
-            <x-pko-product::card title="Produits liés" icon="heroicon-o-link">
-                @forelse ($this->relatedProducts as $rel)
-                    <div class="flex items-center gap-2 py-1">
-                        <div class="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded flex-shrink-0"></div>
-                        <div class="flex-1 min-w-0">
-                            <div class="text-sm truncate">{{ $rel->translateAttribute('name') }}</div>
-                            <div class="text-[11.5px] font-mono text-gray-500">{{ $rel->variants->first()?->sku ?? '—' }}</div>
-                        </div>
-                        <button type="button" wire:click="removeRelatedProduct({{ $rel->id }})" class="text-gray-400 hover:text-danger-600 text-sm">&times;</button>
-                    </div>
-                @empty
-                    <p class="text-xs text-gray-500">Aucun produit lié.</p>
-                @endforelse
-
-                <div class="relative">
-                    <input
-                        type="text"
-                        wire:model.live.debounce.300ms="relatedSearch"
-                        placeholder="Rechercher un produit à lier…"
-                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
-                    />
-                    @if ($relatedSearch !== '' && $this->relatedSearchResults->isNotEmpty())
-                        <div class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded shadow-lg max-h-60 overflow-y-auto">
-                            @foreach ($this->relatedSearchResults as $item)
-                                <button
-                                    type="button"
-                                    wire:click="addRelatedProduct({{ $item->id }})"
-                                    class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5"
-                                >
-                                    {{ $item->translateAttribute('name') }}
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
                 </div>
             </x-pko-product::card>
 

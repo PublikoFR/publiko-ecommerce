@@ -116,6 +116,8 @@ class EditProductUnified extends Page implements HasForms
 
     public ?int $transportPriceCents = null;
 
+    public ?string $transportPriceEuros = null;
+
     public bool $quoteOnly = false;
 
     public ?int $supplierId = null;
@@ -205,6 +207,9 @@ class EditProductUnified extends Page implements HasForms
         $this->logisticsClass = $product->pko_logistics_class;
         $this->francoEligible = (bool) ($product->pko_franco_eligible ?? true);
         $this->transportPriceCents = $product->pko_transport_price_cents !== null ? (int) $product->pko_transport_price_cents : null;
+        $this->transportPriceEuros = $this->transportPriceCents !== null
+            ? number_format($this->transportPriceCents / 100, 2, '.', '')
+            : null;
         $this->quoteOnly = (bool) ($product->pko_quote_only ?? false);
         $this->supplierId = $product->pko_supplier_id !== null ? (int) $product->pko_supplier_id : null;
         $this->brandId = $product->brand_id;
@@ -602,19 +607,37 @@ class EditProductUnified extends Page implements HasForms
 
     public function getRelatedSearchResultsProperty(): Collection
     {
-        if (mb_strlen($this->relatedSearch) < 2) {
+        $term = trim($this->relatedSearch);
+        if (mb_strlen($term) < 2) {
             return collect();
         }
 
+        $like = '%'.addcslashes($term, '\\%_').'%';
+
         return Product::query()
             ->whereKeyNot($this->record->id)
-            ->whereNotIn('id', $this->relatedProductIds)
+            ->when(! empty($this->relatedProductIds), fn ($q) => $q->whereNotIn('id', $this->relatedProductIds))
+            ->where(function ($q) use ($like): void {
+                $q->whereRaw('attribute_data LIKE ?', [$like])
+                    ->orWhereHas('variants', fn ($vq) => $vq
+                        ->where('sku', 'like', $like)
+                        ->orWhere('ean', 'like', $like)
+                        ->orWhere('mpn', 'like', $like)
+                    )
+                    ->orWhereHas('tags', fn ($tq) => $tq->where('value', 'like', $like));
+            })
+            ->with('variants:id,product_id,sku')
             ->limit(8)
-            ->get()
-            ->filter(fn (Product $p) => stripos(
-                (string) $p->translateAttribute('name'),
-                $this->relatedSearch
-            ) !== false);
+            ->get();
+    }
+
+    public function addRelatedProductFromSearch(): void
+    {
+        $first = $this->relatedSearchResults->first();
+        if ($first !== null) {
+            $this->addRelatedProduct((int) $first->id);
+            $this->relatedSearch = '';
+        }
     }
 
     // ------- Videos
@@ -843,7 +866,10 @@ class EditProductUnified extends Page implements HasForms
             $product->pko_free_shipping = $this->freeShipping;
             $product->pko_logistics_class = $this->logisticsClass ?: null;
             $product->pko_franco_eligible = $this->francoEligible;
-            $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $this->transportPriceCents !== null) ? (int) $this->transportPriceCents : null;
+            $transportCents = ($this->transportPriceEuros !== null && $this->transportPriceEuros !== '')
+                ? (int) round((float) str_replace(',', '.', $this->transportPriceEuros) * 100)
+                : ($this->transportPriceCents);
+            $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $transportCents !== null) ? $transportCents : null;
             $product->pko_quote_only = $this->quoteOnly;
             $product->pko_supplier_id = $this->supplierId;
             $product->save();
@@ -958,7 +984,35 @@ class EditProductUnified extends Page implements HasForms
         return Product::query()
             ->whereIn('id', $this->relatedProductIds)
             ->with('variants:id,product_id,sku')
-            ->get();
+            ->get()
+            ->sortBy(fn (Product $p) => array_search($p->id, $this->relatedProductIds))
+            ->values();
+    }
+
+    /** @return array<int,string> map product_id → thumbnail URL */
+    public function getRelatedProductThumbnailsProperty(): array
+    {
+        if (empty($this->relatedProductIds)) {
+            return [];
+        }
+
+        $mediaRows = Media::query()
+            ->join('pko_mediables', 'media.id', '=', 'pko_mediables.media_id')
+            ->whereIn('pko_mediables.mediable_id', $this->relatedProductIds)
+            ->where('pko_mediables.mediable_type', Product::class)
+            ->where('pko_mediables.mediagroup', 'product')
+            ->orderBy('pko_mediables.mediable_id')
+            ->orderBy('pko_mediables.position')
+            ->selectRaw('media.*, pko_mediables.mediable_id as product_id')
+            ->get()
+            ->unique('product_id');
+
+        $result = [];
+        foreach ($mediaRows as $media) {
+            $result[(int) $media->product_id] = $media->getUrl();
+        }
+
+        return $result;
     }
 
     public function getHistoryProperty(): Collection
