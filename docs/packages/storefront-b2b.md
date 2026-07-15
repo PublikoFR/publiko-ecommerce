@@ -61,11 +61,19 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 
 `RegisterPage` (Livewire) après création :
 - `Status::Active` → `Auth::login()` + redirection `/compte` (accès immédiat).
-- `Status::Pending`/`Inactive` gérés en amont → **on ne connecte PAS** un compte pending :
-  redirection vers `/connexion` avec un message d'attente de validation. Connecter un
-  compte pending puis rediriger vers `/compte` provoquait une **boucle de redirection**
-  (`pro.customer` renvoie les non-actifs vers `/connexion`, que `redirect.if.pro` renvoie
-  vers `/compte` pour un user authentifié).
+- `Status::Pending`/`Inactive` gérés en amont → **on ne connecte PAS** un compte pending à l'inscription.
+
+**Anti-boucle de redirection (`ERR_TOO_MANY_REDIRECTS`)** — source unique de vérité :
+`Pko\CustomerAuth\Support\ProAccess::isActivePro()` / `::denialReason()`. Un utilisateur
+authentifié mais **non-actif** (SIRET pending, hors groupe, sans customer) qui accède à
+`/compte` était renvoyé vers `/connexion` par `pro.customer`, que `redirect.if.pro`
+renvoyait vers `/compte` (car authentifié) → boucle. La symétrie corrige les deux bouts :
+- `RequireProCustomer` (gate `/compte`) refuse via `denialReason()` (message FR selon le motif).
+- `RedirectIfProCustomer` (sur `/connexion`) ne redirige vers `/compte` **que** si `isActivePro()` — sinon laisse la page de connexion s'afficher.
+- `LoginPage::authenticate` : après auth, un compte non-actif est redirigé vers l'accueil avec le message d'attente (jamais vers `/compte`).
+
+Le piège se déclenchait surtout via la **connexion** (et non l'inscription) : `LoginPage`
+authentifie l'utilisateur, donc la seule garde à l'inscription ne suffisait pas.
 
 Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_status` (indexed), `sirene_verified_at`, `naf_code`.
 
