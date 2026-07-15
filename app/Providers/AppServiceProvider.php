@@ -111,6 +111,10 @@ class AppServiceProvider extends ServiceProvider
                     PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                     fn (): string => view('filament.hooks.view-shop')->render(),
                 )
+                ->renderHook(
+                    PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                    fn (): \Illuminate\View\View => view('filament.hooks.maintenance-toggle'),
+                )
                 ->font('Hanken Grotesk')
                 ->colors([
                     'primary' => [

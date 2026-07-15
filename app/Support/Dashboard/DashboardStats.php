@@ -42,6 +42,47 @@ final class DashboardStats
         'payment-refunded' => 'refunded',
     ];
 
+    /**
+     * Construit les stats pour une plage de dates personnalisée (format YYYY-MM-DD).
+     *
+     * @return array<string, mixed>
+     */
+    public function buildCustom(string $startStr, string $endStr): array
+    {
+        $start = CarbonImmutable::parse($startStr)->startOfDay();
+        $end = CarbonImmutable::parse($endStr)->endOfDay();
+        $days = (int) $start->diffInDays($end) + 1;
+        $prevEnd = $start->subSecond();
+        $prevStart = $prevEnd->subDays($days - 1)->startOfDay();
+
+        $rng = $this->seededRng(crc32($startStr.$endStr));
+        $fmt = fn (CarbonImmutable $d): string => $d->locale('fr')->isoFormat('D MMM YYYY');
+        $dateLabel = $start->isSameDay($end) ? $fmt($start) : $fmt($start).' – '.$fmt($end);
+
+        return [
+            'period' => 'custom',
+            'periodLabel' => $dateLabel,
+            'prevLabel' => 'période préc.',
+            'dateRange' => $dateLabel,
+            'compare' => true,
+            'kpis' => $this->kpis($start, $end, $prevStart, $prevEnd, $rng),
+            'miniStats' => $this->miniStats($start, $end),
+            'caChart' => $this->caChartCustom($start, $end, $prevStart, $days),
+            'status' => $this->statusBreakdown($start, $end),
+            'bestSellers' => $this->bestSellers(),
+            'categories' => $this->categories(),
+            'regions' => $this->regions(),
+            'clientTypes' => $this->clientTypes(),
+            'funnel' => $this->funnel($start, $end, $rng),
+            'stock' => $this->stock(),
+            'ruptureCount' => $this->ruptureCount(),
+            'devis' => $this->devis(),
+            'devisTotal' => $this->eur($this->devisPotential()),
+            'promos' => $this->promos($rng),
+            'orders' => $this->recentOrders(),
+        ];
+    }
+
     public function build(string $period, bool $compare = true): array
     {
         $period = in_array($period, self::PERIODS, true) ? $period : '30j';
@@ -246,6 +287,72 @@ final class DashboardStats
             'current' => $cur,
             'previous' => $prev,
         ];
+    }
+
+    private function caChartCustom(CarbonImmutable $start, CarbonImmutable $end, CarbonImmutable $prevStart, int $days): array
+    {
+        $prevEnd = $prevStart->addDays($days - 1)->endOfDay();
+        [$cats, $cur] = $this->bucketSeriesCustom($start, $end, $days);
+        [, $prev] = $this->bucketSeriesCustom($prevStart, $prevEnd, $days);
+
+        return ['categories' => $cats, 'current' => $cur, 'previous' => $prev];
+    }
+
+    /**
+     * Série CA pour une plage custom : horaire (1 j), journalier (≤ 90 j), mensuel (> 90 j).
+     *
+     * @return array{0: array<int,string>, 1: array<int,float>}
+     */
+    private function bucketSeriesCustom(CarbonImmutable $start, CarbonImmutable $end, int $days): array
+    {
+        $cats = [];
+        $data = [];
+
+        if ($days === 1) {
+            $rows = $this->ordersBase()
+                ->whereBetween(DB::raw('COALESCE(placed_at, created_at)'), [$start, $end])
+                ->selectRaw('HOUR(COALESCE(placed_at, created_at)) b, SUM(sub_total) v')
+                ->groupBy('b')->pluck('v', 'b');
+            for ($h = 0; $h < 24; $h++) {
+                $cats[] = $h.'h';
+                $data[] = round(((int) ($rows[$h] ?? 0)) / 100, 2);
+            }
+
+            return [$cats, $data];
+        }
+
+        if ($days > 90) {
+            $rows = $this->ordersBase()
+                ->whereBetween(DB::raw('COALESCE(placed_at, created_at)'), [$start, $end])
+                ->selectRaw("DATE_FORMAT(COALESCE(placed_at, created_at), '%Y-%m') b, SUM(sub_total) v")
+                ->groupBy('b')->pluck('v', 'b');
+            $cursor = $start->startOfMonth();
+            while ($cursor->startOfMonth() <= $end->startOfMonth()) {
+                $key = $cursor->format('Y-m');
+                $cats[] = $cursor->locale('fr')->isoFormat('MMM YY');
+                $data[] = round(((int) ($rows[$key] ?? 0)) / 100, 2);
+                $cursor = $cursor->addMonth();
+            }
+
+            return [$cats, $data];
+        }
+
+        // Journalier
+        $rows = $this->ordersBase()
+            ->whereBetween(DB::raw('COALESCE(placed_at, created_at)'), [$start, $end])
+            ->selectRaw('DATE(COALESCE(placed_at, created_at)) b, SUM(sub_total) v')
+            ->groupBy('b')->pluck('v', 'b');
+        $cursor = $start;
+        while ($cursor->startOfDay() <= $end->startOfDay()) {
+            $key = $cursor->format('Y-m-d');
+            $cats[] = $days <= 14
+                ? $cursor->locale('fr')->isoFormat('D MMM')
+                : (string) $cursor->day;
+            $data[] = round(((int) ($rows[$key] ?? 0)) / 100, 2);
+            $cursor = $cursor->addDay();
+        }
+
+        return [$cats, $data];
     }
 
     /**
