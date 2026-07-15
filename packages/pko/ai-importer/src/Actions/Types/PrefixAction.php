@@ -26,6 +26,11 @@ final class PrefixAction extends Action
             return $this->text;
         }
 
+        // Idempotence : ne pas re-préfixer si la valeur commence déjà par text+separator.
+        if ($this->text !== '' && str_starts_with($s, $this->text.$this->separator)) {
+            return $s;
+        }
+
         return $this->text.$this->separator.$s;
     }
 }

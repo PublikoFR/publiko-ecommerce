@@ -277,4 +277,68 @@ class LunarProductWriterTest extends TestCase
         $price = Price::where('priceable_id', $variant->id)->first();
         $this->assertSame(5000, (int) $price->price->value);
     }
+
+    public function test_import_defaults_logistics_class_to_b(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 1,
+            'data' => ['reference' => 'SKU-LOGB', 'name' => 'Produit classe B par défaut', 'price_cents' => 1000],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $product = ProductVariant::where('sku', 'SKU-LOGB')->firstOrFail()->product;
+        $this->assertSame('B', $product->pko_logistics_class);
+    }
+
+    public function test_import_respects_explicit_logistics_class(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 1,
+            'data' => ['reference' => 'SKU-LOGA', 'name' => 'Produit classe A', 'price_cents' => 1000, 'logistics_class' => 'A'],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $product = ProductVariant::where('sku', 'SKU-LOGA')->firstOrFail()->product;
+        $this->assertSame('A', $product->pko_logistics_class);
+    }
+
+    public function test_update_does_not_overwrite_logistics_class_if_absent_from_source(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+
+        // Création avec classe A explicite.
+        $r1 = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 1,
+            'data' => ['reference' => 'SKU-LOG-UPD', 'name' => 'Test', 'price_cents' => 1000, 'logistics_class' => 'A'],
+            'status' => StagingStatus::Pending,
+        ]);
+        (new LunarProductWriter)->write($r1);
+
+        // Mise à jour sans logistics_class → ne doit pas changer la classe.
+        $r2 = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 2,
+            'data' => ['reference' => 'SKU-LOG-UPD', 'name' => 'Test modifié', 'price_cents' => 2000],
+            'status' => StagingStatus::Pending,
+        ]);
+        (new LunarProductWriter)->write($r2);
+
+        $product = ProductVariant::where('sku', 'SKU-LOG-UPD')->firstOrFail()->product;
+        $this->assertSame('A', $product->pko_logistics_class);
+    }
 }

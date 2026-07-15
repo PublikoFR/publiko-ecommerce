@@ -273,6 +273,7 @@ final class LunarProductWriter
 
             $this->applyPrice($variant, $data);
             $this->applyCostPrice($variant, $data);
+            $this->applyLogisticsClass($product, $data, true);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
@@ -286,6 +287,7 @@ final class LunarProductWriter
                     'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
                 ], static fn ($v) => $v !== null));
                 $this->applySupplier($product, $data);
+                $this->applyLogisticsClass($product, $data, false);
 
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
@@ -490,6 +492,29 @@ final class LunarProductWriter
         $supplierId = $this->resolveSupplierId($data);
         if ($supplierId !== null && (int) $product->pko_supplier_id !== $supplierId) {
             $product->pko_supplier_id = $supplierId;
+            $product->save();
+        }
+    }
+
+    /**
+     * Pose `pko_logistics_class` (A/B/C) par assignation directe.
+     * À la création : défaut 'B' si la clé `logistics_class` est absente de la source.
+     * À la mise à jour : no-op si la clé est absente (pour ne pas écraser une valeur
+     * saisie manuellement).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function applyLogisticsClass(Product $product, array $data, bool $isCreate): void
+    {
+        if (! $isCreate && ! array_key_exists('logistics_class', $data)) {
+            return;
+        }
+
+        $raw = isset($data['logistics_class']) ? strtoupper(trim((string) $data['logistics_class'])) : '';
+        $class = in_array($raw, ['A', 'B', 'C'], true) ? $raw : 'B';
+
+        if ($product->pko_logistics_class !== $class) {
+            $product->pko_logistics_class = $class;
             $product->save();
         }
     }
