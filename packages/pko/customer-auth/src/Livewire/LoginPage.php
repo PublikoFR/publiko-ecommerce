@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Pko\CustomerAuth\Support\ProAccess;
 
 class LoginPage extends Component
 {
@@ -36,6 +37,14 @@ class LoginPage extends Component
         }
 
         session()->regenerate();
+
+        // Compte authentifié mais pas (encore) pro actif (SIRET en attente, hors
+        // groupe) : on ne l'envoie pas vers /compte (qui rebondirait) — accueil +
+        // message explicatif.
+        $reason = ProAccess::denialReason(Auth::user());
+        if ($reason !== null) {
+            return redirect('/')->with('status', $reason);
+        }
 
         return redirect($this->intended ?: '/compte');
     }
