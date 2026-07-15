@@ -53,6 +53,7 @@ class RegisterProCustomer
                 'sirene_status' => $sirene->status->value,
                 'sirene_verified_at' => $sirene->isActive() ? now() : null,
                 'naf_code' => $sirene->nafCode,
+                'pko_status' => 'pending',
             ]);
 
             $groupHandle = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
