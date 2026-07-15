@@ -25,10 +25,14 @@ class SireneClient
         if (strlen($digits) !== 14) {
             return false;
         }
+        // Luhn : sur un SIRET (14 chiffres, longueur paire), on double un chiffre
+        // sur deux en partant de la droite → ce sont les index PAIRS depuis la
+        // gauche (0, 2, …, 12). Doubler les index impairs (ancien bug) rejetait
+        // tous les SIRET valides.
         $sum = 0;
         for ($i = 0; $i < 14; $i++) {
             $d = (int) $digits[$i];
-            if ($i % 2 === 1) {
+            if ($i % 2 === 0) {
                 $d *= 2;
                 if ($d > 9) {
                     $d -= 9;

@@ -50,7 +50,7 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 ### 15.5 Inscription pro + vérification SIRET
 
 `Pko\CustomerAuth\Sirene\SireneClient` :
-- `validateSiret(string): bool` — Luhn + 14 digits (statique).
+- `validateSiret(string): bool` — Luhn + 14 chiffres (statique). ⚠️ Luhn = on double un chiffre sur deux **depuis la droite** (longueur paire → index pairs depuis la gauche). Ce contrôle local tourne **toujours**, même vérification INSEE désactivée. La saisie est normalisée (espaces/séparateurs retirés) dans `RegisterPage::submit`, donc « 981 043 979 00021 » est accepté.
 - `verify(string): SireneResult` — appelle `{base_url}/siret/{siret}` (nouveau portail INSEE Sirene 3.11) avec la **clé API unique** en en-tête `X-INSEE-Api-Key-Integration` (plus d'OAuth ni de token — l'ancien flux `api.insee.fr/token` client_credentials est déprécié). En-tête configurable via `INSEE_API_KEY_HEADER`.
 - Retourne `Status::Active` (établissement actif), `Status::Inactive` (404 ou `etatAdministratifEtablissement ≠ A`), `Status::Pending` (API disabled, timeout, 5xx).
 
