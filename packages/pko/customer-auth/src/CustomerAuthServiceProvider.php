@@ -23,8 +23,7 @@ class CustomerAuthServiceProvider extends ServiceProvider
 
         $this->app->singleton(SireneClient::class, fn () => new SireneClient(
             baseUrl: (string) config('customer-auth.sirene.base_url'),
-            consumerKey: (string) config('customer-auth.sirene.consumer_key'),
-            consumerSecret: (string) config('customer-auth.sirene.consumer_secret'),
+            apiKey: (string) config('customer-auth.sirene.api_key'),
             enabled: (bool) config('customer-auth.sirene.enabled'),
             timeout: (int) config('customer-auth.sirene.timeout'),
         ));

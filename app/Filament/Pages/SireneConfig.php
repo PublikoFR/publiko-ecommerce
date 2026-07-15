@@ -58,9 +58,8 @@ class SireneConfig extends BasePage implements HasForms
                             ->helperText('Si désactivée, les inscriptions pro sont acceptées sans contrôle INSEE (statut « en attente » de validation manuelle).'),
                     ]),
                 SecretsFormSchema::make('insee', [
-                    'consumer_key' => 'Consumer key (clé API)',
-                    'consumer_secret' => 'Consumer secret (clé secrète)',
-                ], heading: 'Clés API INSEE Sirene'),
+                    'api_key' => 'Clé API (portail INSEE)',
+                ], heading: 'Clé API INSEE Sirene'),
             ])
             ->statePath('data');
     }
@@ -83,29 +82,19 @@ class SireneConfig extends BasePage implements HasForms
         return (bool) brand_setting('sirene.enabled', config('customer-auth.sirene.enabled'));
     }
 
-    public function getConsumerKey(): ?string
+    public function getApiKey(): ?string
     {
-        return Secrets::get('insee', 'consumer_key') ?: config('customer-auth.sirene.consumer_key');
+        return Secrets::get('insee', 'api_key') ?: config('customer-auth.sirene.api_key');
     }
 
-    public function getConsumerSecret(): ?string
+    public function hasApiKey(): bool
     {
-        return Secrets::get('insee', 'consumer_secret') ?: config('customer-auth.sirene.consumer_secret');
-    }
-
-    public function hasConsumerKey(): bool
-    {
-        return filled($this->getConsumerKey());
-    }
-
-    public function hasConsumerSecret(): bool
-    {
-        return filled($this->getConsumerSecret());
+        return filled($this->getApiKey());
     }
 
     public function isFullyConfigured(): bool
     {
-        return $this->hasConsumerKey() && $this->hasConsumerSecret();
+        return $this->hasApiKey();
     }
 
     public function getCurrentSource(): string
@@ -135,30 +124,34 @@ class SireneConfig extends BasePage implements HasForms
                 ->color('primary')
                 ->disabled(fn (): bool => ! $this->isFullyConfigured())
                 ->action(function (): void {
-                    $key = (string) $this->getConsumerKey();
-                    $secret = (string) $this->getConsumerSecret();
+                    $key = (string) $this->getApiKey();
 
-                    if ($key === '' || $secret === '') {
+                    if ($key === '') {
                         Notification::make()
                             ->danger()
-                            ->title('Clés INSEE manquantes')
-                            ->body('Renseignez la consumer key et le consumer secret (via .env ou en mode base de données).')
+                            ->title('Clé API INSEE manquante')
+                            ->body('Renseignez la clé API (via .env ou en mode base de données).')
                             ->send();
 
                         return;
                     }
 
                     try {
-                        $response = Http::asForm()
-                            ->withBasicAuth($key, $secret)
-                            ->timeout(8)
-                            ->post('https://api.insee.fr/token', ['grant_type' => 'client_credentials']);
+                        $header = (string) config('customer-auth.sirene.api_key_header', 'X-INSEE-Api-Key-Integration');
+                        $baseUrl = rtrim((string) config('customer-auth.sirene.base_url'), '/');
 
-                        if ($response->successful() && filled($response->json('access_token'))) {
+                        // Requête authentifiée sur un SIRET de contrôle : 200/404 =
+                        // clé valide (404 = SIRET introuvable mais auth OK), 401/403 = clé invalide.
+                        $response = Http::withHeaders([$header => $key])
+                            ->timeout(8)
+                            ->acceptJson()
+                            ->get($baseUrl.'/siret/00000000000000');
+
+                        if (in_array($response->status(), [200, 404], true)) {
                             Notification::make()
                                 ->success()
                                 ->title('Connexion INSEE réussie')
-                                ->body('Un jeton OAuth a été obtenu — les clés API sont valides.')
+                                ->body('La clé API est valide (API Sirene joignable et authentifiée).')
                                 ->send();
 
                             return;
@@ -167,7 +160,7 @@ class SireneConfig extends BasePage implements HasForms
                         Notification::make()
                             ->danger()
                             ->title('Échec de connexion INSEE')
-                            ->body('Réponse HTTP '.$response->status().'. Vérifiez la consumer key / consumer secret.')
+                            ->body('Réponse HTTP '.$response->status().'. Vérifiez la clé API.')
                             ->persistent()
                             ->send();
                     } catch (\Throwable $e) {

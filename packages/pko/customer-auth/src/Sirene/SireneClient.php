@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Sirene;
 
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,8 +11,7 @@ class SireneClient
 {
     public function __construct(
         private string $baseUrl,
-        private string $consumerKey,
-        private string $consumerSecret,
+        private string $apiKey,
         private bool $enabled,
         private int $timeout = 5,
     ) {}
@@ -46,17 +44,14 @@ class SireneClient
     {
         $normalized = preg_replace('/\D/', '', $siret) ?? '';
 
-        if (! $this->enabled || $this->consumerKey === '' || $this->consumerSecret === '') {
+        if (! $this->enabled || $this->apiKey === '') {
             return new SireneResult(status: Status::Pending, siret: $normalized);
         }
 
         try {
-            $token = $this->getToken();
-            if ($token === null) {
-                return new SireneResult(status: Status::Pending, siret: $normalized);
-            }
+            $header = (string) config('customer-auth.sirene.api_key_header', 'X-INSEE-Api-Key-Integration');
 
-            $response = Http::withToken($token)
+            $response = Http::withHeaders([$header => $this->apiKey])
                 ->timeout($this->timeout)
                 ->acceptJson()
                 ->get(rtrim($this->baseUrl, '/').'/siret/'.$normalized);
@@ -77,30 +72,6 @@ class SireneClient
 
             return new SireneResult(status: Status::Pending, siret: $normalized);
         }
-    }
-
-    private function getToken(): ?string
-    {
-        $hours = (int) config('customer-auth.sirene.cache_token_hours', 6);
-
-        return Cache::remember('pko.sirene.token', now()->addHours($hours), function () {
-            try {
-                $response = Http::asForm()
-                    ->withBasicAuth($this->consumerKey, $this->consumerSecret)
-                    ->timeout($this->timeout)
-                    ->post('https://api.insee.fr/token', ['grant_type' => 'client_credentials']);
-
-                if (! $response->successful()) {
-                    return null;
-                }
-
-                return (string) $response->json('access_token');
-            } catch (\Throwable $e) {
-                Log::warning('Sirene token fetch failed: '.$e->getMessage());
-
-                return null;
-            }
-        });
     }
 
     private function parseResponse(string $siret, array $etablissement): SireneResult

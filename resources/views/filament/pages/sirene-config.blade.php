@@ -48,46 +48,29 @@
             </div>
         </x-filament::section>
 
-        {{-- Clés API --}}
+        {{-- Clé API --}}
         <x-filament::section>
-            <x-slot name="heading">Clés API INSEE</x-slot>
+            <x-slot name="heading">Clé API INSEE</x-slot>
             <x-slot name="description">
                 Source actuelle : <strong>{{ $this->getCurrentSource() === 'db' ? 'base de données (chiffré)' : '.env' }}</strong>.
-                Le consumer secret est masqué.
+                La clé est masquée. Le portail INSEE fournit une <strong>clé API unique</strong> (en-tête HTTP, sans OAuth).
             </x-slot>
 
             <div class="divide-y divide-gray-100 dark:divide-white/5">
-                {{-- Consumer key --}}
-                <div class="flex items-center justify-between gap-4 py-3 first:pt-0">
+                {{-- Clé API --}}
+                <div class="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                     <div>
                         <p class="text-sm font-medium text-gray-900 dark:text-white">
-                            Consumer key (<code>INSEE_API_KEY</code>)
+                            Clé API (<code>INSEE_API_KEY</code>)
                         </p>
                         <p class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">
-                            {{ $this->getMaskedSecret($this->getConsumerKey()) }}
+                            {{ $this->getMaskedSecret($this->getApiKey()) }}
                         </p>
                     </div>
-                    @if ($this->hasConsumerKey())
+                    @if ($this->hasApiKey())
                         <x-filament::badge color="success" icon="heroicon-m-check">Définie</x-filament::badge>
                     @else
                         <x-filament::badge color="danger" icon="heroicon-m-x-mark">Manquante</x-filament::badge>
-                    @endif
-                </div>
-
-                {{-- Consumer secret --}}
-                <div class="flex items-center justify-between gap-4 py-3 last:pb-0">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">
-                            Consumer secret (<code>INSEE_API_SECRET</code>)
-                        </p>
-                        <p class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">
-                            {{ $this->getMaskedSecret($this->getConsumerSecret()) }}
-                        </p>
-                    </div>
-                    @if ($this->hasConsumerSecret())
-                        <x-filament::badge color="success" icon="heroicon-m-check">Défini</x-filament::badge>
-                    @else
-                        <x-filament::badge color="danger" icon="heroicon-m-x-mark">Manquant</x-filament::badge>
                     @endif
                 </div>
             </div>
@@ -100,10 +83,9 @@
                 Utilisées quand la source est « .env ». À ajouter dans le fichier <code>.env</code>, puis vider le cache de config.
             </x-slot>
 
-            <pre class="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs leading-relaxed text-gray-100"># Vérification SIRET (INSEE Sirene)
+            <pre class="overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs leading-relaxed text-gray-100"># Vérification SIRET (INSEE Sirene 3.11 — clé API unique)
 INSEE_ENABLED=true
-INSEE_API_KEY=<consumer key>
-INSEE_API_SECRET=<consumer secret></pre>
+INSEE_API_KEY=<clé API du portail INSEE></pre>
 
             <div class="mt-4 flex items-center gap-2 text-sm">
                 <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4 text-primary-600 dark:text-primary-400" />

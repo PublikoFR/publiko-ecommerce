@@ -195,8 +195,7 @@ class AppServiceProvider extends ServiceProvider
         // requête DB au boot, uniquement au moment de la vérification.
         $this->app->singleton(SireneClient::class, fn (): SireneClient => new SireneClient(
             baseUrl: (string) config('customer-auth.sirene.base_url'),
-            consumerKey: (string) (Secrets::get('insee', 'consumer_key') ?: config('customer-auth.sirene.consumer_key')),
-            consumerSecret: (string) (Secrets::get('insee', 'consumer_secret') ?: config('customer-auth.sirene.consumer_secret')),
+            apiKey: (string) (Secrets::get('insee', 'api_key') ?: config('customer-auth.sirene.api_key')),
             enabled: (bool) brand_setting('sirene.enabled', config('customer-auth.sirene.enabled')),
             timeout: (int) config('customer-auth.sirene.timeout'),
         ));
@@ -296,14 +295,12 @@ class AppServiceProvider extends ServiceProvider
         Secrets::register(
             'insee',
             keys: [
-                'consumer_key' => 'INSEE_API_KEY',
-                'consumer_secret' => 'INSEE_API_SECRET',
+                'api_key' => 'INSEE_API_KEY',
             ],
             defaultSource: 'env',
             label: 'INSEE Sirene',
             configMap: [
-                'consumer_key' => 'customer-auth.sirene.consumer_key',
-                'consumer_secret' => 'customer-auth.sirene.consumer_secret',
+                'api_key' => 'customer-auth.sirene.api_key',
             ],
         );
 

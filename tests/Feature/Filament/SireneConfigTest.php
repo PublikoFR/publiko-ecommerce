@@ -43,7 +43,7 @@ class SireneConfigTest extends TestCase
         $this->get('/admin/sirene-config')
             ->assertOk()
             ->assertSee('Vérification SIRET')
-            ->assertSee('Clés API INSEE');
+            ->assertSee('Clé API INSEE');
     }
 
     public function test_save_persists_enabled_flag_and_database_secrets(): void
@@ -51,24 +51,19 @@ class SireneConfigTest extends TestCase
         Livewire::test(SireneConfig::class)
             ->set('data.enabled', true)
             ->set('data.secrets_source', 'db')
-            ->set('data.secrets.consumer_key', 'MY_KEY')
-            ->set('data.secrets.consumer_secret', 'MY_SECRET')
+            ->set('data.secrets.api_key', 'MY_API_KEY')
             ->call('save')
             ->assertHasNoErrors();
 
         $this->assertTrue((bool) Setting::get('sirene.enabled'));
         $this->assertSame('db', Secrets::source('insee'));
-        $this->assertSame('MY_KEY', Secrets::get('insee', 'consumer_key'));
-        $this->assertSame('MY_SECRET', Secrets::get('insee', 'consumer_secret'));
+        $this->assertSame('MY_API_KEY', Secrets::get('insee', 'api_key'));
     }
 
     public function test_client_is_disabled_when_setting_is_off(): void
     {
         Http::fake();
-        config([
-            'customer-auth.sirene.consumer_key' => 'k',
-            'customer-auth.sirene.consumer_secret' => 's',
-        ]);
+        config(['customer-auth.sirene.api_key' => 'k']);
         Setting::set('sirene.enabled', false);
 
         $this->app->forgetInstance(SireneClient::class);
@@ -78,10 +73,9 @@ class SireneConfigTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_client_verifies_when_enabled_and_keys_present(): void
+    public function test_client_verifies_with_api_key_header_when_enabled(): void
     {
         Http::fake([
-            'api.insee.fr/token' => Http::response(['access_token' => 'tok'], 200),
             '*/siret/*' => Http::response([
                 'etablissement' => [
                     'etatAdministratifEtablissement' => 'A',
@@ -91,9 +85,8 @@ class SireneConfigTest extends TestCase
             ], 200),
         ]);
         config([
-            'customer-auth.sirene.base_url' => 'https://api.insee.fr/entreprises/sirene/V3.11',
-            'customer-auth.sirene.consumer_key' => 'k',
-            'customer-auth.sirene.consumer_secret' => 's',
+            'customer-auth.sirene.base_url' => 'https://api.insee.fr/api-sirene/3.11',
+            'customer-auth.sirene.api_key' => 'MY_API_KEY',
         ]);
         Setting::set('sirene.enabled', true);
 
@@ -102,5 +95,11 @@ class SireneConfigTest extends TestCase
 
         $this->assertSame(Status::Active, $result->status);
         $this->assertSame('ACME SARL', $result->raisonSociale);
+
+        // La clé API est bien transmise en en-tête (pas d'OAuth / token).
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), '/api-sirene/3.11/siret/12345678901234')
+                && $request->hasHeader('X-INSEE-Api-Key-Integration', 'MY_API_KEY');
+        });
     }
 }
