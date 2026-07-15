@@ -94,7 +94,7 @@ Inclus dans : **`resources/views/layouts/storefront.blade.php`** (layout projet,
 - `CollectionsIndexPage::render()` — page index catégories + new arrivals
 - `CollectionPage::mount()` — abort 404 si la collection cible est désactivée (ou a un ancêtre désactivé)
 - `CollectionPage::baseQuery()` — produits dans la collection filtrés `storefrontVisible`
-- `ProductPage::mount()` — abort 404 si le produit n'a plus aucune collection navVisible
+- `ProductPage::mount()` — abort 404 **uniquement** si le produit possède des collections mais qu'aucune n'est navVisible. Un produit **sans aucune collection** reste affichable (traité comme « Non classé ») : sa fiche s'ouvre normalement (le fil d'Ariane n'affiche que le nom du produit). Ceci évite le 404 sur les produits mis en avant / nouveautés de l'accueil (`HomeFeaturedProducts` fallback `latest()`) qui n'ont pas de catégorie. Note : ces produits restent exclus des listings filtrés `storefrontVisible` (recherche, pages catégorie) puisque ce scope exige au moins une collection navVisible.
 - `SearchPage::baseQuery()` — résultats de recherche filtrés `storefrontVisible`
 - `SearchAutocomplete::render()` — suggestions collections (`navVisible`) + produits (`storefrontVisible`)
 - `lateral-menu.blade.php` — L1/L2/L3 filtrés `->where('pko_enabled', true)` (redondant avec cascade, mais explicite)

@@ -41,12 +41,13 @@ class ProductPage extends Component
             abort(404);
         }
 
-        // Abort if all of the product's collections are disabled.
-        $hasVisibleCollection = $this->url->element->collections()
-            ->navVisible()
-            ->exists();
+        // Un produit sans aucune collection reste visible (traité comme
+        // « Non classé »). On ne masque (404) que lorsqu'il possède des
+        // collections mais qu'aucune n'est visible en navigation.
+        $element = $this->url->element;
 
-        if (! $hasVisibleCollection) {
+        if ($element->collections()->exists()
+            && ! $element->collections()->navVisible()->exists()) {
             abort(404);
         }
 
