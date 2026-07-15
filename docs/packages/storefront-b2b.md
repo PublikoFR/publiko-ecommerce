@@ -18,7 +18,7 @@ Transformation complète du storefront (starter kit Livewire basique porté en �
 | Package | Rôle |
 |---|---|
 | `packages/pko/storefront` | Design system (tokens Tailwind, Blade UI `<x-ui.*>`), layout `<x-layout.storefront>`, header Foussier-like (top contact bar + main bar + mega-menu collections cache 1h + info banner) + footer 4 colonnes CMS + USPs, `SearchAutocomplete` Livewire |
-| `packages/pko/customer-auth` | `SireneClient` (INSEE V3 + token cache 6h + fallback pending), `RegisterProCustomer` action, Livewire pages Login/Register/Forgot/Reset + layout auth dédié, middlewares `pro.customer` + `redirect.if.pro` |
+| `packages/pko/customer-auth` | `SireneClient` (INSEE Sirene 3.11, clé API en en-tête + fallback pending), `RegisterProCustomer` action, Livewire pages Login/Register/Forgot/Reset + layout auth dédié, middlewares `pro.customer` + `redirect.if.pro` |
 | `packages/pko/account` | Layout sidebar `/compte`, 8 pages Livewire (dashboard, profil, société, adresses, commandes, commande-détail, fidélité, factures), `AccountContext` helper |
 | `packages/pko/purchase-lists` | Tables `pko_purchase_lists` + `pko_purchase_list_items`, models, 3 Livewire (index, détail, picker modal) |
 | `packages/pko/quick-order` | `QuickOrderPage` Livewire (table dynamique + coller-Excel), `SkuResolver` service |
@@ -51,7 +51,7 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 
 `Pko\CustomerAuth\Sirene\SireneClient` :
 - `validateSiret(string): bool` — Luhn + 14 digits (statique).
-- `verify(string): SireneResult` — appelle `/siret/{siret}` API INSEE V3 avec Bearer OAuth2 client_credentials (token cache Redis 6h).
+- `verify(string): SireneResult` — appelle `{base_url}/siret/{siret}` (nouveau portail INSEE Sirene 3.11) avec la **clé API unique** en en-tête `X-INSEE-Api-Key-Integration` (plus d'OAuth ni de token — l'ancien flux `api.insee.fr/token` client_credentials est déprécié). En-tête configurable via `INSEE_API_KEY_HEADER`.
 - Retourne `Status::Active` (établissement actif), `Status::Inactive` (404 ou `etatAdministratifEtablissement ≠ A`), `Status::Pending` (API disabled, timeout, 5xx).
 
 `RegisterProCustomer::handle($dto)` :
@@ -69,7 +69,9 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 
 Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_status` (indexed), `sirene_verified_at`, `naf_code`.
 
-Env requis pour INSEE : `INSEE_ENABLED=true`, `INSEE_API_KEY`, `INSEE_API_SECRET` (par défaut `INSEE_ENABLED=false` → fallback pending, admin valide manuellement).
+Env requis pour INSEE : `INSEE_ENABLED=true` + `INSEE_API_KEY` (clé API unique du portail INSEE ; par défaut `INSEE_ENABLED=false` → fallback pending, admin valide manuellement).
+
+**Page de configuration Back-office** (depuis 2026-07) : `Configuration → Réglages → Vérification SIRET` (`App\Filament\Pages\SireneConfig`). Permet d'**activer/désactiver** la vérification (toggle persisté dans le `Setting` `sirene.enabled`, indépendant de `.env`) et de **gérer les clés API via le système Secrets** (source `.env` **ou** base de données chiffrée, comme Stripe — module `insee`). Bouton « Tester la connexion INSEE » (requête token OAuth). Le `SireneClient` est re-liaisonné dans `AppServiceProvider::boot()` pour lire activation (Setting) + clés (Secrets) avec repli sur la config `.env`. Détails du système : `docs/packages/secrets.md`.
 
 ### 15.6 Routes publiques + gated
 
@@ -129,10 +131,11 @@ Toutes les requêtes home cachées 15min (clé versionnée à ajouter via observ
 
 ```env
 # Inscription pro INSEE (désactivé par défaut → fallback validation manuelle)
+# Nouveau portail : clé API unique en en-tête (plus d'OAuth consumer key/secret)
 INSEE_ENABLED=false
-INSEE_BASE_URL=https://api.insee.fr/entreprises/sirene/V3.11
+INSEE_BASE_URL=https://api.insee.fr/api-sirene/3.11
 INSEE_API_KEY=
-INSEE_API_SECRET=
+# INSEE_API_KEY_HEADER=X-INSEE-Api-Key-Integration  # défaut, à surcharger si besoin
 INSEE_TIMEOUT=5
 
 # Contact front (config/storefront.php)

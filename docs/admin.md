@@ -152,6 +152,11 @@ pastille arrondie (fond sunken) avec placeholder FR override
 (nom + rôle) à gauche de l'avatar via `renderHook(PanelsRenderHook::USER_MENU_BEFORE)`
 → `resources/views/filament/hooks/user-identity.blade.php`.
 
+**Lien « Voir la boutique »** dans la topbar (à droite de la recherche globale) via
+`renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER)` →
+`resources/views/filament/hooks/view-shop.blade.php`. Pointe vers `url('/')` (front
+storefront), ouvert dans un nouvel onglet. Masqué en dessous de `md`.
+
 ---
 
 

@@ -183,6 +183,36 @@ class CollectionEnabledTest extends TestCase
         $this->assertContains($product->id, $visible);
     }
 
+    // ─── ProductPage : visibilité fiche produit ────────────────────────────────
+
+    public function test_product_without_any_collection_is_viewable(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->has('urls')->with('defaultUrl')->first();
+        $this->assertNotNull($product, 'Seeded products with a URL are required.');
+
+        // Produit sans aucune catégorie → doit rester affichable (« Non classé »).
+        $product->collections()->detach();
+
+        $this->get('/produits/'.$product->defaultUrl->slug)->assertOk();
+    }
+
+    public function test_product_with_only_disabled_collection_returns_404(): void
+    {
+        $col = $this->makeCollection('DisabledOnly');
+        $col->saveAsRoot();
+        $col->update(['pko_enabled' => false]);
+
+        /** @var Product $product */
+        $product = Product::query()->has('urls')->with('defaultUrl')->first();
+        $this->assertNotNull($product, 'Seeded products with a URL are required.');
+
+        // Rattaché exclusivement à une collection désactivée → masqué (404).
+        $product->collections()->sync([$col->id]);
+
+        $this->get('/produits/'.$product->defaultUrl->slug)->assertNotFound();
+    }
+
     // ─── TreeManager computed data ─────────────────────────────────────────────
 
     public function test_tree_includes_pko_enabled_field(): void

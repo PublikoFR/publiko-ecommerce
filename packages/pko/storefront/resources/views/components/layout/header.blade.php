@@ -3,7 +3,7 @@ use Lunar\Facades\CartSession;
 
 $contact = config('storefront.contact');
 $nav = config('storefront.nav.secondary', []);
-$quoteUrl = config('storefront.nav.quote_url', '/pages/nous-contacter');
+$quoteUrl = config('storefront.nav.quote_url', '/contact');
 $delivery = config('storefront.banner.text') ?: 'Livraison chantier · Retrait en magasin';
 
 try {

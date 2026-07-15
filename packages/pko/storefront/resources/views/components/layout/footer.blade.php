@@ -37,7 +37,7 @@ $social = config('storefront.social');
                     <li><a href="/pages/faq" class="hover:text-white transition">FAQ</a></li>
                     <li><a href="/pages/livraison" class="hover:text-white transition">Livraison</a></li>
                     <li><a href="/pages/retour-colis" class="hover:text-white transition">Retour colis</a></li>
-                    <li><a href="/pages/nous-contacter" class="hover:text-white transition">Nous contacter</a></li>
+                    <li><a href="/contact" class="hover:text-white transition" wire:navigate>Nous contacter</a></li>
                 </ul>
             </div>
 

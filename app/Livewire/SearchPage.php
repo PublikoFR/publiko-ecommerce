@@ -18,8 +18,9 @@ use Pko\CatalogFeatures\Models\FeatureFamily;
 
 /**
  * Page de recherche storefront avec facettes réactives (features + brands).
- * Le recherche textuelle est faite par LIKE sur lunar_product_translations.name
- * et variants.sku — compatible avec le moteur Scout si activé, mais n'en dépend pas.
+ * La recherche textuelle est faite par LIKE sur le nom produit (attribute_data
+ * JSON, chemin $.name.value) et variants.sku/ean/mpn — compatible avec le moteur
+ * Scout si activé, mais n'en dépend pas.
  */
 class SearchPage extends Component
 {
@@ -85,8 +86,9 @@ class SearchPage extends Component
         if ($term !== '' && strlen($term) >= 2) {
             $like = '%'.addcslashes($term, '%_').'%';
             $q->where(function ($qq) use ($like): void {
-                // Nom du produit : stocké dans attribute_data (JSON) — extraction via JSON_EXTRACT MySQL 8.
-                $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name")) LIKE ?', [$like])
+                // Nom du produit : stocké dans attribute_data (JSON), chemin $.name.value
+                // (JSON_EXTRACT sur $.name renverrait l'objet {value, field_type} entier).
+                $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value")) LIKE ?', [$like])
                     ->orWhereHas('variants', function ($v) use ($like): void {
                         $v->where('sku', 'like', $like)
                             ->orWhere('ean', 'like', $like)

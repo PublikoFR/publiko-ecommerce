@@ -111,158 +111,7 @@
                 </div>
             </x-pko-product::card>
 
-            {{-- 2. Médias + Vidéos côte à côte (desktop) / empilés (mobile) --}}
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <x-pko-product::card title="Médias" icon="heroicon-o-photo">
-                    {{ $this->mediaForm }}
-                </x-pko-product::card>
-
-                <x-pko-product::card title="Vidéos" icon="heroicon-o-video-camera">
-                    <div class="space-y-3">
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Collez une URL YouTube, Vimeo, Dailymotion ou un lien <code>.mp4</code>. Le provider est détecté automatiquement. Glissez-déposez pour réordonner.
-                        </p>
-
-                        @if (count($this->videos) === 0)
-                            <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-                                Aucune vidéo pour l'instant.
-                            </div>
-                        @else
-                            <div x-data x-sortable="reorderVideos" data-handle=".pko-video-handle" class="space-y-2">
-                                @foreach ($this->videos as $index => $video)
-                                    <x-product-videos::admin.video-row
-                                        :index="$index"
-                                        :video="$video"
-                                        :providers="$this->videoProviders"
-                                    />
-                                @endforeach
-                            </div>
-                        @endif
-
-                        <button
-                            type="button"
-                            wire:click="addVideoRow"
-                            class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
-                            Ajouter une vidéo
-                        </button>
-                    </div>
-                </x-pko-product::card>
-            </div>
-
-            {{-- 3. Documents téléchargeables --}}
-            <x-pko-product::card title="Documents téléchargeables" icon="heroicon-o-paper-clip">
-                {{-- x-data écoute media-picked pour le statePath 'document-add-new' --}}
-                <div
-                    x-data="{
-                        init() {
-                            Livewire.on('media-picked', (payload) => {
-                                const data = Array.isArray(payload) ? payload[0] : payload;
-                                if (!data || data.statePath !== 'document-add-new') return;
-                                if (!data.medias || !data.medias.length) return;
-                                const items = data.medias.map(m => ({
-                                    id: m.id,
-                                    name: m.fileName ?? ''
-                                }));
-                                $wire.addDocumentsFromMedia(items);
-                            });
-                        }
-                    }"
-                    class="space-y-3"
-                >
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Choisissez des fichiers depuis la médiathèque, puis assignez une catégorie à chaque document. Glissez-déposez pour réordonner.
-                    </p>
-
-                    @if (count($this->documents) === 0)
-                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-                            Aucun document pour l'instant.
-                        </div>
-                    @else
-                        <div x-data x-sortable="reorderDocuments" data-handle=".pko-doc-handle" class="space-y-2">
-                            @foreach ($this->documents as $index => $document)
-                                <x-product-documents::admin.document-row
-                                    :index="$index"
-                                    :document="$document"
-                                    :categories="$this->documentCategories"
-                                />
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <button
-                        type="button"
-                        @click="Livewire.dispatch('open-media-picker-modal', { statePath: 'document-add-new', multiple: true })"
-                        class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
-                        Ajouter depuis la médiathèque
-                    </button>
-                </div>
-            </x-pko-product::card>
-
-            {{-- 4. Description longue --}}
-            <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
-                {{ $this->descriptionForm }}
-            </x-pko-product::card>
-
-            {{-- 4. Caractéristiques techniques (CatalogFeatures) --}}
-            <x-pko-product::card title="Caractéristiques techniques" icon="heroicon-o-list-bullet">
-                <div class="space-y-3">
-                    @forelse ($this->featureFamilies as $family)
-                        <div class="grid grid-cols-[180px_1fr] gap-3 items-start">
-                            <div class="pt-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ $family->name }}
-                                @if ($family->multi_value)
-                                    <span class="ml-1 text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
-                                @endif
-                            </div>
-                            <div class="flex flex-wrap gap-1.5">
-                                @if ($family->multi_value)
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @else
-                                    <label class="cursor-pointer select-none">
-                                        <input type="radio" wire:model="featureValues.{{ $family->id }}" value="" class="peer sr-only" />
-                                        <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-500 transition hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-500 peer-checked:text-white dark:border-white/10 dark:bg-gray-900 dark:text-gray-400">
-                                            —
-                                        </span>
-                                    </label>
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="radio"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                    @empty
-                        <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
-                    @endforelse
-                </div>
-            </x-pko-product::card>
-
-            {{-- 5. Tarification --}}
+            {{-- 2. Tarification --}}
             <x-pko-product::card title="Tarification" icon="heroicon-o-currency-euro">
                 <div class="grid grid-cols-3 gap-3">
                     <div>
@@ -335,7 +184,158 @@
                 </div>
             </x-pko-product::card>
 
-            {{-- 6. Inventaire & expédition --}}
+            {{-- 3. Médias + Vidéos côte à côte (desktop) / empilés (mobile) --}}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <x-pko-product::card title="Médias" icon="heroicon-o-photo">
+                    {{ $this->mediaForm }}
+                </x-pko-product::card>
+
+                <x-pko-product::card title="Vidéos" icon="heroicon-o-video-camera">
+                    <div class="space-y-3">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Collez une URL YouTube, Vimeo, Dailymotion ou un lien <code>.mp4</code>. Le provider est détecté automatiquement. Glissez-déposez pour réordonner.
+                        </p>
+
+                        @if (count($this->videos) === 0)
+                            <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                                Aucune vidéo pour l'instant.
+                            </div>
+                        @else
+                            <div x-data x-sortable="reorderVideos" data-handle=".pko-video-handle" class="space-y-2">
+                                @foreach ($this->videos as $index => $video)
+                                    <x-product-videos::admin.video-row
+                                        :index="$index"
+                                        :video="$video"
+                                        :providers="$this->videoProviders"
+                                    />
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <button
+                            type="button"
+                            wire:click="addVideoRow"
+                            class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
+                            Ajouter une vidéo
+                        </button>
+                    </div>
+                </x-pko-product::card>
+            </div>
+
+            {{-- 4. Documents téléchargeables --}}
+            <x-pko-product::card title="Documents téléchargeables" icon="heroicon-o-paper-clip">
+                {{-- x-data écoute media-picked pour le statePath 'document-add-new' --}}
+                <div
+                    x-data="{
+                        init() {
+                            Livewire.on('media-picked', (payload) => {
+                                const data = Array.isArray(payload) ? payload[0] : payload;
+                                if (!data || data.statePath !== 'document-add-new') return;
+                                if (!data.medias || !data.medias.length) return;
+                                const items = data.medias.map(m => ({
+                                    id: m.id,
+                                    name: m.fileName ?? ''
+                                }));
+                                $wire.addDocumentsFromMedia(items);
+                            });
+                        }
+                    }"
+                    class="space-y-3"
+                >
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Choisissez des fichiers depuis la médiathèque, puis assignez une catégorie à chaque document. Glissez-déposez pour réordonner.
+                    </p>
+
+                    @if (count($this->documents) === 0)
+                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                            Aucun document pour l'instant.
+                        </div>
+                    @else
+                        <div x-data x-sortable="reorderDocuments" data-handle=".pko-doc-handle" class="space-y-2">
+                            @foreach ($this->documents as $index => $document)
+                                <x-product-documents::admin.document-row
+                                    :index="$index"
+                                    :document="$document"
+                                    :categories="$this->documentCategories"
+                                />
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <button
+                        type="button"
+                        @click="Livewire.dispatch('open-media-picker-modal', { statePath: 'document-add-new', multiple: true })"
+                        class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z"/></svg>
+                        Ajouter depuis la médiathèque
+                    </button>
+                </div>
+            </x-pko-product::card>
+
+            {{-- 5. Description longue --}}
+            <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
+                {{ $this->descriptionForm }}
+            </x-pko-product::card>
+
+            {{-- 6. Caractéristiques techniques (CatalogFeatures) --}}
+            <x-pko-product::card title="Caractéristiques techniques" icon="heroicon-o-list-bullet">
+                <div class="space-y-3">
+                    @forelse ($this->featureFamilies as $family)
+                        <div class="grid grid-cols-[180px_1fr] gap-3 items-start">
+                            <div class="pt-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ $family->name }}
+                                @if ($family->multi_value)
+                                    <span class="ml-1 text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
+                                @endif
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                @if ($family->multi_value)
+                                    @foreach ($family->values as $value)
+                                        <label class="cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                wire:model="featureValues.{{ $family->id }}"
+                                                value="{{ $value->id }}"
+                                                class="peer sr-only"
+                                            />
+                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
+                                                {{ $value->name }}
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                @else
+                                    <label class="cursor-pointer select-none">
+                                        <input type="radio" wire:model="featureValues.{{ $family->id }}" value="" class="peer sr-only" />
+                                        <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-500 transition hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-500 peer-checked:text-white dark:border-white/10 dark:bg-gray-900 dark:text-gray-400">
+                                            —
+                                        </span>
+                                    </label>
+                                    @foreach ($family->values as $value)
+                                        <label class="cursor-pointer select-none">
+                                            <input
+                                                type="radio"
+                                                wire:model="featureValues.{{ $family->id }}"
+                                                value="{{ $value->id }}"
+                                                class="peer sr-only"
+                                            />
+                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
+                                                {{ $value->name }}
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
+                    @endforelse
+                </div>
+            </x-pko-product::card>
+
+            {{-- 7. Inventaire & expédition --}}
             <x-pko-product::card title="Inventaire & expédition" icon="heroicon-o-cube">
                 <x-pko-product::switch-row label="Suivre le stock de ce produit" description="Décrémente automatiquement à chaque commande." model="trackStock" />
                 <div class="grid grid-cols-3 gap-3">
@@ -444,7 +444,7 @@
                 </div>
             </x-pko-product::card>
 
-            {{-- 7. Variantes --}}
+            {{-- 8. Variantes --}}
             @php $variants = $this->variants; @endphp
             <x-pko-product::card title="Variantes" icon="heroicon-o-squares-2x2" :hint="$variants->total() . ' variante' . ($variants->total() > 1 ? 's' : '')">
                 @if ($variants->total() > 0)
@@ -474,7 +474,7 @@
                 @endif
             </x-pko-product::card>
 
-            {{-- 8. SEO --}}
+            {{-- 9. SEO --}}
             <x-pko-product::card title="Référencement (SEO)" icon="heroicon-o-magnifying-glass">
                 <x-pko-product::google-preview />
 
@@ -561,6 +561,17 @@
                             <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Date de publication</label>
                             <input type="datetime-local" wire:model="publishAt" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
                         </div>
+                    @endif
+                    @if ($status === 'published' && $productSlug !== '')
+                        <a
+                            href="{{ route('product.view', $productSlug) }}"
+                            target="_blank"
+                            rel="noopener"
+                            class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        >
+                            {{ svg('heroicon-o-arrow-top-right-on-square', 'w-4 h-4') }}
+                            Voir sur la boutique
+                        </a>
                     @endif
             </x-pko-product::card>
 
