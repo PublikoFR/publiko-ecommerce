@@ -20,7 +20,9 @@
         <div class="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6 lg:gap-10">
             {{-- Coordonnées --}}
             <aside class="space-y-4">
-                <div class="rounded-2xl bg-primary-600 text-white p-6 wk-decor">
+                <div class="relative overflow-hidden rounded-2xl bg-primary-600 text-white p-6">
+                    <span class="wk-decor wk-decor--br wk-decor--lime" style="--wk-decor-size: 200px; --wk-decor-opacity: 0.10;"></span>
+                    <div class="relative">
                     @if ($tagline)
                         <p class="text-sm text-accent-300 font-semibold">{{ $tagline }}</p>
                     @endif
@@ -35,6 +37,7 @@
                             {{ $email }}
                         </a>
                     @endif
+                    </div>
                 </div>
 
                 <div class="rounded-2xl border border-neutral-200 p-6">
