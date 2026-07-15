@@ -84,7 +84,17 @@ class SireneClient
             return new SireneResult(status: Status::Inactive, siret: $siret);
         }
 
-        $isActive = ($etablissement['etatAdministratifEtablissement'] ?? null) === 'A';
+        // Sirene v3 : etatAdministratifEtablissement et activitePrincipaleEtablissement
+        // sont des variables HISTORISÉES → elles vivent dans periodesEtablissement,
+        // pas directement sur l'objet etablissement. La période courante est celle
+        // dont dateFin est null (l'API les trie du plus récent au plus ancien).
+        // Lire etatAdministratifEtablissement à la racine renvoyait toujours null
+        // → tout établissement actif était classé « inactif ».
+        $periodes = $etablissement['periodesEtablissement'] ?? [];
+        $periode = collect($periodes)->firstWhere('dateFin', null)
+            ?? ($periodes[0] ?? []);
+
+        $isActive = ($periode['etatAdministratifEtablissement'] ?? null) === 'A';
         if (! $isActive) {
             return new SireneResult(status: Status::Inactive, siret: $siret);
         }
@@ -105,7 +115,7 @@ class SireneClient
             status: Status::Active,
             siret: $siret,
             raisonSociale: $raison !== '' ? $raison : null,
-            nafCode: $etablissement['activitePrincipaleEtablissement'] ?? ($unite['activitePrincipaleUniteLegale'] ?? null),
+            nafCode: ($periode['activitePrincipaleEtablissement'] ?? null) ?? ($unite['activitePrincipaleUniteLegale'] ?? null),
             nafLabel: null,
             addressLine1: $addressLine !== '' ? $addressLine : null,
             postcode: $adr['codePostalEtablissement'] ?? null,
