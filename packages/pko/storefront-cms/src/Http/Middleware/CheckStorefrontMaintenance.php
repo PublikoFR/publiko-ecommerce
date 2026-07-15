@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Http\Middleware;
 
-use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Pko\StorefrontCms\Models\Setting;
@@ -22,8 +21,9 @@ class CheckStorefrontMaintenance
             return $next($request);
         }
 
-        $user = $request->user();
-        if ($user instanceof User && $user->staff()->exists()) {
+        // Les membres du staff Lunar (guard « staff », utilisé par Filament)
+        // passent toujours, même en maintenance.
+        if (auth('staff')->check()) {
             return $next($request);
         }
 
