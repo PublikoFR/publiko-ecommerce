@@ -24,6 +24,16 @@ Tous les fichiers PHP portés portent `declare(strict_types=1);` (CLAUDE.md §3.
 | GET | `/products/{slug}` | `ProductPage` | `product.view` |
 | GET | `/checkout` | `CheckoutPage` | `checkout.view` |
 | GET | `/checkout/success` | `CheckoutSuccessPage` | `checkout-success.view` |
+| GET | `/contact` | `ContactPage` | `contact.view` |
+
+### Page de contact (`/contact`)
+
+Page dédiée soignée (Design System) : composant full-page `App\Livewire\ContactPage` + vue `resources/views/livewire/contact-page.blade.php` (coordonnées à gauche, formulaire à droite, composants `x-ui.*`). Remplace l'ancien post CMS vide `nous-contacter` ; les liens footer (« Nous contacter ») et le CTA header (« Demander un devis », défaut `storefront.nav.quote_url`) pointent désormais sur `/contact`.
+
+- **Champs** : nom, e-mail, téléphone (optionnel), sujet (select), message + case de consentement RGPD (`accepted`) + **honeypot** `website` (champ caché ; si rempli → succès simulé, aucun envoi).
+- **Soumission** : `ContactPage::submit()` valide puis envoie `App\Mail\ContactMessage` (`->replyTo()` = adresse de l'expéditeur) vers l'adresse contact de la boutique. Résolution : `brand_setting('contact.email')` → `config('storefront.contact.email')` (env `CONTACT_EMAIL`) → `config('mail.from.address')`. Pas de persistance en base (décision : email seul).
+- **Vue e-mail** : `resources/views/mail/contact-message.blade.php` (HTML autonome, teinté DS).
+- **Tests** : `tests/Feature/Storefront/ContactPageTest.php` (rendu, envoi + destinataire/reply-to, validation, RGPD obligatoire, honeypot).
 
 ### Écarts volontaires vs. starter kit
 
