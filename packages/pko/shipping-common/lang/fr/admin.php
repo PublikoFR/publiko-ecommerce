@@ -6,7 +6,7 @@ return [
     'product' => [
         'logistics_class' => 'Classe logistique',
         'logistics_class_none' => 'Non définie',
-        'logistics_class_a' => 'En stock Weklo',
+        'logistics_class_a' => 'En stock local',
         'logistics_class_b' => 'Stock fournisseur',
         'logistics_class_c' => 'Volumineux / Spécifique',
         'franco_eligible' => 'Éligible au franco',
