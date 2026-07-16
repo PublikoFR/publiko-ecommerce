@@ -2,7 +2,7 @@
       class="bg-white border border-neutral-100 rounded-xl">
     <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
         <h3 class="text-lg font-medium">
-            {{ ucfirst($type) }} Details
+            {{ $type === 'shipping' ? 'Adresse de livraison' : 'Adresse de facturation' }}
         </h3>
 
         @if ($type == 'shipping' && $step == $currentStep)
@@ -136,7 +136,7 @@
                         <div class="space-y-4">
                             <div>
                                 <dt class="font-medium">
-                                    Name
+                                    Nom
                                 </dt>
 
                                 <dd class="mt-0.5">
@@ -147,7 +147,7 @@
                             @if ($saved?->company_name)
                                 <div>
                                     <dt class="font-medium">
-                                        Company
+                                        Raison sociale
                                     </dt>
 
                                     <dd class="mt-0.5">
@@ -159,7 +159,7 @@
                             @if ($saved?->contact_phone)
                                 <div>
                                     <dt class="font-medium">
-                                        Phone Number
+                                        Téléphone
                                     </dt>
 
                                     <dd class="mt-0.5">
@@ -170,7 +170,7 @@
 
                             <div>
                                 <dt class="font-medium">
-                                    Email
+                                    E-mail
                                 </dt>
 
                                 <dd class="mt-0.5">
@@ -221,7 +221,7 @@
                         <span wire:loading
                               wire:target="saveAddress">
                             <span class="inline-flex items-center">
-                                Saving
+                                Enregistrement...
 
                                 <x-icon.loading />
                             </span>

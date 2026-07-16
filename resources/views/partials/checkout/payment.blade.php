@@ -50,17 +50,7 @@
                 ])
                         type="button"
                         wire:click.prevent="$set('paymentType', 'card')">
-                    Pay by card
-                </button>
-
-                <button @class([
-                    'px-5 py-2 text-sm border font-medium rounded-lg',
-                    'text-green-700 border-green-600 bg-green-50' => $paymentType === 'cash-in-hand',
-                    'text-neutral-500 hover:text-neutral-700' => $paymentType !== 'cash-in-hand',
-                ])
-                        type="button"
-                        wire:click.prevent="$set('paymentType', 'cash-in-hand')">
-                    Pay with cash
+                    Carte bancaire
                 </button>
             </div>
 
