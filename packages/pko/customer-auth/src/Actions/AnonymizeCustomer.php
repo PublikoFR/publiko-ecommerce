@@ -44,6 +44,12 @@ class AnonymizeCustomer
                 'sirene_status' => null,
                 'sirene_verified_at' => null,
                 'naf_code' => null,
+                'pko_status' => 'banned',
+                'pko_street' => null,
+                'pko_postcode' => null,
+                'pko_city' => null,
+                'pko_country' => null,
+                'sepa_enabled' => false,
             ])->save();
         });
     }

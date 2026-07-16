@@ -33,6 +33,14 @@ class ProAccess
             return "Votre compte n'est pas encore rattaché à une société pro.";
         }
 
+        $pkoStatus = $customer->getAttribute('pko_status');
+        if ($pkoStatus === 'banned') {
+            return 'Votre compte a été suspendu. Contactez-nous pour plus d\'informations.';
+        }
+        if ($pkoStatus === 'pending') {
+            return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
+        }
+
         $status = $customer->getAttribute('sirene_status');
         if ($status !== null && $status !== 'active') {
             return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
