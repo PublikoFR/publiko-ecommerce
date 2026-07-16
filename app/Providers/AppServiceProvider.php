@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\View;
 use Laravel\Passport\Passport;
 use Lunar\Admin\Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\ActivityResource;
@@ -116,7 +117,7 @@ class AppServiceProvider extends ServiceProvider
                 )
                 ->renderHook(
                     PanelsRenderHook::GLOBAL_SEARCH_AFTER,
-                    fn (): \Illuminate\View\View => view('filament.hooks.maintenance-toggle'),
+                    fn (): View => view('filament.hooks.maintenance-toggle'),
                 )
                 ->font('Hanken Grotesk')
                 ->colors([

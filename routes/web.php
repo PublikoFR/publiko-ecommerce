@@ -12,8 +12,9 @@ use App\Livewire\Home;
 use App\Livewire\ProductPage;
 use App\Livewire\SearchPage;
 use Illuminate\Support\Facades\Route;
+use Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance;
 
-Route::middleware([\Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance::class])->group(function () {
+Route::middleware([CheckStorefrontMaintenance::class])->group(function () {
     Route::get('/', Home::class)->name('home');
     Route::get('/recherche', SearchPage::class)->name('search.view');
     Route::get('/search', SearchPage::class);

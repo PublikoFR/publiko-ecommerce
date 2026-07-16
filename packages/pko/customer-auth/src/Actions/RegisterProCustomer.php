@@ -7,8 +7,10 @@ namespace Pko\CustomerAuth\Actions;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
@@ -18,7 +20,7 @@ class RegisterProCustomer
     public function __construct(private SireneClient $sirene) {}
 
     /**
-     * @param  array{siret: string, email: string, password: string, phone?: string|null, first_name?: string|null, last_name?: string|null, activity?: string|null, company_name?: string|null}  $data
+     * @param  array{siret: string, email: string, password: string, phone?: string|null, first_name?: string|null, last_name?: string|null, activity?: string|null, company_name?: string|null, street?: string|null, postcode?: string|null, city?: string|null, country?: string|null}  $data
      * @return array{user: User, customer: Customer, sirene: SireneResult}
      */
     public function handle(array $data): array
@@ -29,7 +31,7 @@ class RegisterProCustomer
             throw new \DomainException('Cet établissement ne semble pas actif dans la base INSEE. Vérifiez le SIRET ou contactez-nous.');
         }
 
-        return DB::transaction(function () use ($data, $sirene) {
+        $result = DB::transaction(function () use ($data, $sirene) {
             $customer = Customer::create([
                 'company_name' => $data['company_name'] ?? $sirene->raisonSociale,
                 'tax_identifier' => $this->vatFromSiret($sirene->siret),
@@ -54,6 +56,10 @@ class RegisterProCustomer
                 'sirene_verified_at' => $sirene->isActive() ? now() : null,
                 'naf_code' => $sirene->nafCode,
                 'pko_status' => 'pending',
+                'pko_street' => $data['street'] ?? null,
+                'pko_postcode' => $data['postcode'] ?? null,
+                'pko_city' => $data['city'] ?? null,
+                'pko_country' => $data['country'] ?? 'FR',
             ]);
 
             $groupHandle = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
@@ -67,11 +73,18 @@ class RegisterProCustomer
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
             ]);
+            // email_verified_at hors $fillable → assignation directe après create.
+            $user->email_verified_at = now();
+            $user->save();
 
             $customer->users()->attach($user);
 
             return ['user' => $user, 'customer' => $customer, 'sirene' => $sirene];
         });
+
+        Mail::to($result['user']->email)->send(new CustomerRegisteredMail($result['customer'], $result['user']));
+
+        return $result;
     }
 
     /**
