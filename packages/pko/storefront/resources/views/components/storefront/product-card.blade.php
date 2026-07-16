@@ -23,7 +23,7 @@ if ($user !== null) {
 if ($stock <= 0) {
     $stockTone = 'neutral'; $stockLabel = 'Sur commande';
 } elseif ($stock <= 5) {
-    $stockTone = 'warning'; $stockLabel = 'Stock faible';
+    $stockTone = 'warning'; $stockLabel = 'Stock limité';
 } else {
     $stockTone = 'success'; $stockLabel = 'En stock';
 }
@@ -66,7 +66,18 @@ if ($stock <= 0) {
             @if ($isPro)
                 <div class="flex items-end justify-between gap-3">
                     <x-storefront.price-gate :product="$product" size="md" class="min-w-0" />
-                    <div class="shrink-0">
+                    <div class="shrink-0 flex items-center gap-1.5">
+                        @if ($firstVariant)
+                            <button
+                                type="button"
+                                title="Ajouter à une liste"
+                                aria-label="Ajouter à une liste"
+                                onclick="Livewire.dispatch('open-purchase-list-picker', {id: {{ $firstVariant->id }}, type: '{{ addslashes(\Lunar\Models\ProductVariant::class) }}'})"
+                                class="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 text-neutral-500 hover:border-primary-500 hover:text-primary-600 transition"
+                            >
+                                <x-ui.icon name="list" class="w-4 h-4" />
+                            </button>
+                        @endif
                         <x-storefront.add-to-cart :product="$product" :variant="$firstVariant" style="compact" />
                     </div>
                 </div>

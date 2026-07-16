@@ -38,25 +38,26 @@ class SearchAutocomplete extends Component
         $collections = collect();
 
         if (strlen($this->term) >= 2) {
-            $like = '%'.$this->term.'%';
+            $like = '%'.mb_strtolower($this->term).'%';
 
             $products = Product::query()
                 ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
                 ->storefrontVisible()
                 ->where(function ($qq) use ($like): void {
                     // Nom produit : stocké dans attribute_data (JSON), chemin $.name.value.
-                    // Groupé (nom OU sku) pour rester ET-scopé avec storefrontVisible().
-                    $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value")) LIKE ?', [$like])
-                        ->orWhereHas('variants', fn ($q) => $q->where('sku', 'like', $like));
+                    // Groupé (nom OU sku OU tag) pour rester ET-scopé avec storefrontVisible().
+                    $qq->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value"))) LIKE ?', [$like])
+                        ->orWhereHas('variants', fn ($q) => $q->whereRaw('LOWER(sku) LIKE ?', [$like]))
+                        ->orWhereHas('tags', fn ($q) => $q->whereRaw('LOWER(value) LIKE ?', [$like]));
                 })
                 ->limit(8)
                 ->get();
 
-            $brands = Brand::query()->where('name', 'like', $like)->limit(3)->get();
+            $brands = Brand::query()->whereRaw('LOWER(name) LIKE ?', [$like])->limit(3)->get();
             $collections = Collection::query()
                 ->with('defaultUrl')
                 ->navVisible()
-                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(lunar_collections.attribute_data, '$.name.value')) LIKE ?", [$like])
+                ->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_collections.attribute_data, '$.name.value'))) LIKE ?", [$like])
                 ->limit(3)
                 ->get();
         }

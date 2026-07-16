@@ -17,6 +17,7 @@
     <x-layout.header />
     <main class="flex-1">{{ $slot }}</main>
     <x-layout.footer />
+    @livewire('purchase-lists.picker')
     @livewireScripts
     @stack('scripts')
 </body>
