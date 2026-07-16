@@ -139,17 +139,33 @@ Les chunks tournent **en série** et partagent la même base de test (un seul à
 ---
 
 
-## Garde anti-wipe DB depuis les worktrees PKOS
+## Garde anti-wipe DB (dev / local)
 
-**Problème** : `compose.yaml` fige `container_name: weklo-*`. Quand un agent PKOS lance `docker compose` depuis un worktree (`~/.pkos/worktrees/<id>/`), il n'a **pas** son propre conteneur isolé : il retombe sur le conteneur principal, donc sur la **base de dev `weklo`** de Rom. Une commande destructive (`make fresh`, `make install`, ou `make artisan CMD='migrate:fresh'`) vide alors la vraie base de dev (staff, produits, configs). Incident constaté le 2026-06-02.
+**Problème** : `compose.yaml` fige `container_name: weklo-*`. Un `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` lancé — par un agent PKOS, un `make artisan` brut, ou par accident — retombe sur le conteneur principal et **vide la base de dev `weklo`** (staff, produits, configs). Incidents constatés les 2026-06-02 et 2026-07-16. Le premier garde (limité au flag `PKOS_WORKTREE`) laissait passer tout `php artisan migrate:fresh` lancé **hors worktree**, dans le conteneur principal — d'où le second wipe.
 
-**Garde — défense en profondeur** (zéro impact hors worktree) :
+**Garde — défense en profondeur** :
 
-1. **Makefile (hôte)** : `WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))` détecte le worktree. Les cibles `fresh`, `install` et `lunar` font un fast-fail (`exit 1`) avec message explicite si lancées depuis un worktree.
-2. **Flag conteneur** : en worktree, le Makefile injecte `-e PKOS_WORKTREE=1` dans `docker compose exec` (`WT_ENV`).
-3. **Framework (`AppServiceProvider::boot`)** : `DB::prohibitDestructiveCommands()` bloque `migrate:fresh`, `migrate:refresh`, `migrate:reset` et `db:wipe` même via `make artisan`, dès que `PKOS_WORKTREE` est présent **et** que l'environnement n'est **pas** `testing`. Couvre le cas où on contourne les cibles Make. L'exclusion de `testing` est nécessaire : `RefreshDatabase` lance `migrate:fresh` sur la base `testing` (forcée par `phpunit.xml`) — la prohiber casserait `make test`.
+1. **Framework (`AppServiceProvider::boot`) — garde principal, couvre TOUS les modes d'invocation** :
+   ```php
+   DB::prohibitDestructiveCommands(
+       $this->app->environment('production')
+           || (! $this->app->environment('testing')
+               && ! filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN))
+   );
+   ```
+   Bloque `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` (le flag `FreshCommand::$prohibitedFromRunning`, vérifié avant tout accès DB). Matrice :
+   | Contexte | Destructif autorisé ? |
+   |---|---|
+   | `production` | ❌ jamais |
+   | `testing` (bases `testing_*`, forcé par `phpunit.xml`) | ✅ — `RefreshDatabase` en a besoin, ne pas casser `make test` |
+   | `local` / dev **sans** flag | ❌ bloqué (agent, artisan brut, accident) |
+   | `local` / dev **avec** `ALLOW_DB_WIPE=1` | ✅ bypass explicite, réservé à `make fresh` |
+2. **Bypass sanctionné** : seule la cible `make fresh` passe `ALLOW_DB_WIPE=1` (`$(EXEC) sh -c 'ALLOW_DB_WIPE=1 php artisan migrate:fresh --force'`). C'est le **seul** chemin autorisé pour reset la base de dev, et il est déclenché explicitement par l'humain.
+3. **Makefile (worktree)** : `WORKTREE_GUARD` fait toujours un fast-fail sur `fresh`/`install`/`lunar` depuis un worktree (garde redondant, message clair).
 
-**Conséquence** : depuis un worktree, le **seul** moyen autorisé de valider une migration est **`make test`** — la suite tourne sur la base `testing` (forcée par `phpunit.xml`, trait `RefreshDatabase`), jamais sur la base de dev. Ne jamais lancer `make fresh` / `migrate:fresh` pour tester un schéma ; si un reset réel de la base de dev est nécessaire, le faire hors worktree depuis le repo principal.
+**Règles** :
+- **Un agent PKOS ne lance JAMAIS `migrate:fresh` / `db:wipe` sur la base dev.** Pour valider une migration → **`make test`** (base `testing`, jamais la dev).
+- Reset réel de la dev → `make fresh` (humain), qui porte le bypass. Ne jamais ajouter `ALLOW_DB_WIPE=1` à la main dans une commande d'agent.
 
 ---
 

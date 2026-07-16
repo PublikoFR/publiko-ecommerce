@@ -220,6 +220,20 @@ class AppServiceProvider extends ServiceProvider
         // POST natif (ex. admin/login → 405). optOut() coupe l'appel à la source.
         Telemetry::optOut();
 
+        // Garde-fou anti-effacement de la base DEV / LOCAL. Bloque au niveau
+        // framework migrate:fresh / migrate:refresh / migrate:reset / db:wipe QUEL
+        // QUE SOIT le mode d'invocation (make, `php artisan` brut, agent PKOS) — le
+        // garde du Makefile ne couvrait que les cibles `make`, pas l'artisan direct.
+        // - production : toujours interdit ;
+        // - testing (bases testing_*) : autorisé, les tests doivent se rafraîchir ;
+        // - local / dev : interdit SAUF bypass explicite `ALLOW_DB_WIPE=1` (réservé
+        //   aux commandes `make fresh` sanctionnées par l'humain).
+        DB::prohibitDestructiveCommands(
+            $this->app->environment('production')
+                || (! $this->app->environment('testing')
+                    && ! filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN))
+        );
+
         // Vérification SIRET : le SireneClient est liaisonné par le package
         // customer-auth à partir de la config .env uniquement. On surcharge ici
         // (couche app = racine de composition) pour résoudre l'activation via le
@@ -233,16 +247,8 @@ class AppServiceProvider extends ServiceProvider
             timeout: (int) config('customer-auth.sirene.timeout'),
         ));
 
-        // Garde anti-wipe : depuis un worktree PKOS (container_name fige dans
-        // compose.yaml → pas d'isolation, on tape sur la base de dev weklo), on
-        // interdit migrate:fresh / migrate:refresh / migrate:reset / db:wipe.
-        // PKOS_WORKTREE est injecte par le Makefile (cible -e PKOS_WORKTREE=1).
-        // On exclut l'env testing : la suite (RefreshDatabase) lance migrate:fresh
-        // sur la base `testing` (forcee par phpunit.xml), qui est sure — la prohiber
-        // casserait `make test`. Hors worktree (flag absent) : comportement inchange.
-        DB::prohibitDestructiveCommands(
-            (bool) env('PKOS_WORKTREE', false) && ! $this->app->environment('testing')
-        );
+        // (Le garde anti-wipe complet est en tête de boot() ci-dessus — il couvre
+        // worktree PKOS, artisan brut et agents, pas seulement PKOS_WORKTREE.)
 
         // Passport 13 ne fournit pas de vue de consentement par défaut : on
         // enregistre la nôtre (écran d'autorisation du connecteur MCP claude.ai).

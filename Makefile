@@ -97,7 +97,7 @@ migrate:
 fresh:
 	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan storage:link
-	$(EXEC) php artisan migrate:fresh --force
+	$(EXEC) sh -c 'ALLOW_DB_WIPE=1 php artisan migrate:fresh --force'
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
 	$(EXEC) php artisan db:seed --force
