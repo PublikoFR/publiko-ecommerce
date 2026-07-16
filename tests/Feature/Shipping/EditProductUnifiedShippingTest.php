@@ -47,7 +47,7 @@ class EditProductUnifiedShippingTest extends TestCase
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
             ->set('logisticsClass', 'B')
             ->set('francoEligible', false)
-            ->set('transportPriceCents', null)
+            ->set('transportPriceEuros', null)
             ->set('quoteOnly', true)
             ->set('supplierId', $supplier->id)
             ->call('save');
@@ -69,13 +69,37 @@ class EditProductUnifiedShippingTest extends TestCase
 
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
             ->set('logisticsClass', 'C')
-            ->set('transportPriceCents', 4500)
+            ->set('transportPriceEuros', '45.00')
             ->call('save');
 
         $product->refresh();
 
         $this->assertSame('C', $product->pko_logistics_class);
         $this->assertSame(4500, (int) $product->pko_transport_price_cents);
+    }
+
+    public function test_clearing_transport_price_resets_it_to_null(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        // Produit ayant déjà un prix transport en base (classe C, 45,00 €).
+        $product->forceFill([
+            'pko_logistics_class' => 'C',
+            'pko_transport_price_cents' => 4500,
+        ])->save();
+
+        // L'utilisateur efface le champ prix transport puis enregistre.
+        Livewire::test(EditProductUnified::class, ['record' => $product->id])
+            ->set('logisticsClass', 'C')
+            ->set('transportPriceEuros', null)
+            ->call('save');
+
+        $product->refresh();
+
+        // Le prix doit repasser à null (pas de fallback sur l'ancienne valeur).
+        $this->assertNull($product->pko_transport_price_cents);
     }
 
     public function test_hydrates_shipping_fields_from_product(): void
@@ -105,7 +129,7 @@ class EditProductUnifiedShippingTest extends TestCase
         $component
             ->assertSet('logisticsClass', 'A')
             ->assertSet('francoEligible', true)
-            ->assertSet('transportPriceCents', null)
+            ->assertSet('transportPriceEuros', null)
             ->assertSet('quoteOnly', false)
             ->assertSet('supplierId', $supplier->id);
     }
