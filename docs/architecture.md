@@ -140,6 +140,23 @@ Le staff admin est une table séparée (`lunar_staff`). **Ne pas confondre** ave
 
 **Config** : `config/lunar/urls.php` → `'generator' => App\Generators\PkoProductUrlGenerator::class`.
 
+### 7.6 Télémétrie Lunar — **désactivée** (corrompait toutes les réponses)
+
+`Lunar\Base\TelemetryService::run()` est branché sur `app()->terminating()` par le
+`LunarServiceProvider` et fait un `Http::retry(3)->post('https://stats.lunarphp.io/api/insights')`
+à chaque requête web. Si ce endpoint répond **429** (« Too Many Attempts » — l'IP de dev est
+rate-limitée), le `retry()->throw()` lève une exception **en pleine phase `terminate()`**.
+Avec `APP_DEBUG=true`, Ignition rend alors sa page d'erreur HTML qui se **concatène à la fin de
+la réponse déjà streamée** — y compris `/livewire/livewire.js`. Résultat : `livewire.js` = JS
+valide + `<!DOCTYPE html>…` → `Uncaught SyntaxError: Unexpected token '<'` → **Alpine/Livewire ne
+démarrent plus sur tout le site** → les formulaires partent en POST natif (ex. `admin/login` →
+`405 Method Not Allowed`, le login Filament étant en `wire:submit`).
+
+**Fix** : `Telemetry::optOut()` appelé dans `AppServiceProvider::boot()` (coupe l'appel HTTP à la
+source, aucune modif vendor). Symptôme trompeur : le serveur paraît sain (chaque asset répond 200
+en `curl`), c'est le **contenu** de la réponse qui est corrompu — se diagnostique en comparant le
+nombre de lignes servi vs `vendor/livewire/livewire/dist/livewire.js`, ou via la console navigateur.
+
 ---
 
 

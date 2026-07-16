@@ -53,6 +53,7 @@ use Lunar\Admin\Filament\Resources\TaxRateResource;
 use Lunar\Admin\Filament\Resources\TaxZoneResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
+use Lunar\Facades\Telemetry;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
@@ -210,6 +211,15 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Télémétrie Lunar désactivée. TelemetryService::run() s'exécute en phase
+        // terminate() et POST vers stats.lunarphp.io ; quand ce endpoint répond 429
+        // ("Too Many Attempts"), le Http::retry(3)->throw() lève une exception EN
+        // PLEIN terminate → avec APP_DEBUG=true, Ignition colle sa page d'erreur HTML
+        // à la fin de CHAQUE réponse déjà streamée (dont /livewire/livewire.js), ce
+        // qui casse le parse JS → Alpine/Livewire ne démarrent plus → formulaires en
+        // POST natif (ex. admin/login → 405). optOut() coupe l'appel à la source.
+        Telemetry::optOut();
+
         // Vérification SIRET : le SireneClient est liaisonné par le package
         // customer-auth à partir de la config .env uniquement. On surcharge ici
         // (couche app = racine de composition) pour résoudre l'activation via le
