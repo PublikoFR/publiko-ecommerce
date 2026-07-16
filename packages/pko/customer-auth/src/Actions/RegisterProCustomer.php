@@ -82,7 +82,17 @@ class RegisterProCustomer
             return ['user' => $user, 'customer' => $customer, 'sirene' => $sirene];
         });
 
-        Mail::to($result['user']->email)->send(new CustomerRegisteredMail($result['customer'], $result['user']));
+        // Envoi hors transaction : User/Customer sont déjà committés. Un échec
+        // SMTP ne doit jamais faire échouer l'inscription (sinon 500 + compte
+        // orphelin → « email already taken » au retry). On loggue et on continue.
+        try {
+            Mail::to($result['user']->email)->send(new CustomerRegisteredMail($result['customer'], $result['user']));
+        } catch (\Throwable $e) {
+            logger()->error('CustomerRegisteredMail failed', [
+                'email' => $result['user']->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $result;
     }
