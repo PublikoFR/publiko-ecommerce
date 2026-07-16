@@ -33,6 +33,16 @@
                 <x-ui.input wire:model="phone" label="Téléphone" :error="$errors->first('phone')" />
             </div>
 
+            <div class="grid grid-cols-1 gap-5">
+                <x-ui.input wire:model="street" label="Adresse" placeholder="Rue, avenue, lieu-dit…" :error="$errors->first('street')" />
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
+                <x-ui.input wire:model="postcode" label="Code postal" placeholder="75001" inputmode="numeric" class="col-span-1" :error="$errors->first('postcode')" />
+                <x-ui.input wire:model="city" label="Ville" placeholder="Paris" class="col-span-1 sm:col-span-2" :error="$errors->first('city')" />
+                <x-ui.input wire:model="country" label="Pays" placeholder="FR" class="col-span-1" :error="$errors->first('country')" />
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
                 <x-ui.input wire:model="passwordConfirmation" label="Confirmer" type="password" required />

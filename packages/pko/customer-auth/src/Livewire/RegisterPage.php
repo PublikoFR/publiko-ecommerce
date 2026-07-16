@@ -28,6 +28,14 @@ class RegisterPage extends Component
 
     public string $activity = '';
 
+    public string $street = '';
+
+    public string $postcode = '';
+
+    public string $city = '';
+
+    public string $country = 'FR';
+
     public string $password = '';
 
     public string $passwordConfirmation = '';
@@ -46,6 +54,10 @@ class RegisterPage extends Component
             'lastName' => ['nullable', 'string', 'max:80'],
             'companyName' => ['nullable', 'string', 'max:200'],
             'activity' => ['nullable', 'string', 'max:200'],
+            'street' => ['nullable', 'string', 'max:255'],
+            'postcode' => ['nullable', 'string', 'max:10'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'size:2'],
             'password' => ['required', 'string', 'min:8', 'confirmed:passwordConfirmation'],
             'terms' => ['accepted'],
         ];
@@ -73,6 +85,10 @@ class RegisterPage extends Component
                 'last_name' => $validated['lastName'] ?? null,
                 'activity' => $validated['activity'] ?? null,
                 'company_name' => $validated['companyName'] ?? null,
+                'street' => $validated['street'] ?? null,
+                'postcode' => $validated['postcode'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'country' => $validated['country'] ?? 'FR',
             ]);
         } catch (\DomainException $e) {
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);
