@@ -15,6 +15,7 @@ use Lunar\Models\Address;
 use Lunar\Models\Cart;
 use Lunar\Models\CartAddress;
 use Lunar\Models\Country;
+use Lunar\Models\Order;
 
 class CheckoutPage extends Component
 {
@@ -118,6 +119,19 @@ class CheckoutPage extends Component
             ])->authorize();
 
             if ($payment->success) {
+                redirect()->route('checkout-success.view');
+
+                return;
+            }
+
+            // SEPA Direct Debit: Stripe returns 'processing' (async), not 'succeeded'.
+            // The order was created by authorize() but placed_at is null until webhook confirms.
+            // We place it manually here so the customer sees the success page.
+            if ($this->paymentType === 'sepa' && $payment->orderId) {
+                Order::find($payment->orderId)?->update([
+                    'placed_at' => now(),
+                    'status' => 'payment-pending',
+                ]);
                 redirect()->route('checkout-success.view');
 
                 return;

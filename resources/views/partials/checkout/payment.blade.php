@@ -42,8 +42,37 @@
             </div>
         @else
         <div class="p-6 space-y-4">
-            <livewire:stripe.payment :cart="$cart"
-                                     :returnUrl="route('checkout.view', ['paymentType' => 'card'])" />
+            @php($sepaEnabled = (bool) ($cart->customer?->sepa_enabled ?? false))
+            @if ($sepaEnabled)
+                <div class="flex gap-3">
+                    <button @class([
+                        'px-4 py-2 text-sm border font-medium rounded-lg transition-colors',
+                        'text-primary-700 border-primary-600 bg-primary-50' => $paymentType === 'card',
+                        'text-neutral-500 border-neutral-200 hover:text-neutral-700' => $paymentType !== 'card',
+                    ])
+                            type="button"
+                            wire:click.prevent="$set('paymentType', 'card')">
+                        Carte bancaire
+                    </button>
+                    <button @class([
+                        'px-4 py-2 text-sm border font-medium rounded-lg transition-colors',
+                        'text-primary-700 border-primary-600 bg-primary-50' => $paymentType === 'sepa',
+                        'text-neutral-500 border-neutral-200 hover:text-neutral-700' => $paymentType !== 'sepa',
+                    ])
+                            type="button"
+                            wire:click.prevent="$set('paymentType', 'sepa')">
+                        Prélèvement SEPA
+                    </button>
+                </div>
+            @endif
+
+            @if ($paymentType === 'card')
+                <livewire:stripe.payment :cart="$cart"
+                                         :returnUrl="route('checkout.view', ['paymentType' => 'card'])" />
+            @elseif ($paymentType === 'sepa')
+                <livewire:sepa-payment-form :cart="$cart"
+                                             :returnUrl="route('checkout.view', ['paymentType' => 'sepa'])" />
+            @endif
         </div>
         @endif
     @endif

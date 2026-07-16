@@ -9,6 +9,10 @@ return [
             'driver' => 'stripe',
             'authorized' => 'payment-received',
         ],
+        'sepa' => [
+            'driver' => 'stripe',
+            'authorized' => 'payment-received',
+        ],
     ],
 
 ];
