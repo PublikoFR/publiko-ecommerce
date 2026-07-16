@@ -2,14 +2,21 @@
 
 ### 4.1 Choix : Lunar Payments natif + addon Stripe officiel
 
-**Décision** : le système de paiement Lunar est driver-based. Chaque type de paiement (`cash-in-hand`, `card`…) est défini dans `config/lunar/payments.php` et mappe vers un driver enregistré via `Payments::extend('<driver>', ...)`.
+**Décision** : le système de paiement Lunar est driver-based. Chaque type de paiement (`card`, `sepa`…) est défini dans `config/lunar/payments.php` et mappe vers un driver enregistré via `Payments::extend('<driver>', ...)`.
 
 **Drivers installés** :
 
 | Type Lunar | Driver | Package | Webhook |
 |---|---|---|---|
-| `cash-in-hand` | `offline` | core | — |
 | `card` | `stripe` | `lunarphp/stripe` | `POST /stripe/webhook` |
+| `sepa` | `stripe` | `lunarphp/stripe` + `App\Livewire\SepaPaymentForm` | `POST /stripe/webhook` |
+
+**SEPA Direct Debit (F26)** :
+- Affiché uniquement si `customer->sepa_enabled === true` (colonne `lunar_customers.sepa_enabled`).
+- Composant dédié `App\Livewire\SepaPaymentForm` qui crée un `PaymentIntent` avec `payment_method_types: ['sepa_debit']` (distinct de l'intent carte, stocké dans `cart.meta['sepa_intent_id']`).
+- Spécificité SEPA : après `confirmPayment()`, Stripe retourne `status = 'processing'` (async, 2-5 jours). Le webhook `payment_intent.succeeded` met à jour le statut final. Dans `mount()` de `CheckoutPage`, le code force `placed_at` + statut `payment-pending` pour SEPA `processing`, puis redirige vers la page de confirmation.
+- Vue Stripe publiée et traduite : `resources/views/vendor/lunar/stripe/components/payment-form.blade.php` (bouton "Payer", spinner FR).
+- Type `paymentType` inclus dans `$queryString` pour survivre au redirect Stripe.
 
 ### 4.2 Rejet de Laravel Cashier
 
