@@ -2,14 +2,14 @@
 
 return [
 
-    'default' => env('PAYMENTS_TYPE', 'cash-in-hand'),
+    'default' => env('PAYMENTS_TYPE', 'card'),
 
     'types' => [
-        'cash-in-hand' => [
-            'driver' => 'offline',
-            'authorized' => 'payment-offline',
-        ],
         'card' => [
+            'driver' => 'stripe',
+            'authorized' => 'payment-received',
+        ],
+        'sepa' => [
             'driver' => 'stripe',
             'authorized' => 'payment-received',
         ],

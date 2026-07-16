@@ -24,7 +24,12 @@ class CheckoutSuccessPage extends Component
 
             return;
         }
-        $this->order = $this->cart->completedOrder;
+        $this->order = $this->cart->completedOrder->load([
+            'lines.purchasable.product',
+            'shippingAddress',
+            'billingAddress',
+            'transactions',
+        ]);
 
         CartSession::forget();
     }

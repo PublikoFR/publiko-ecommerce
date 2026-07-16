@@ -2,14 +2,14 @@
       class="bg-white border border-neutral-100 rounded-xl">
     <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
         <h3 class="font-medium">
-            Shipping Options
+            Options de livraison
         </h3>
 
         @if ($currentStep > $step)
             <button class="px-5 py-2 text-sm font-medium text-neutral-600 rounded-lg hover:bg-neutral-100 hover:text-neutral-700"
                     type="button"
                     wire:click.prevent="$set('currentStep', {{ $step }})">
-                Edit
+                Modifier
             </button>
         @endif
     </div>
@@ -65,7 +65,7 @@
                             wire:key="shipping_submit_btn">
                         <span wire:loading.remove.delay
                               wire:target="saveShippingOption">
-                            Choose Shipping
+                            Confirmer la livraison
                         </span>
                         <span wire:loading.delay
                               wire:target="saveShippingOption">

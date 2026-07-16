@@ -2,7 +2,7 @@
       class="bg-white border border-neutral-100 rounded-xl">
     <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
         <h3 class="text-lg font-medium">
-            {{ ucfirst($type) }} Details
+            {{ $type === 'shipping' ? 'Adresse de livraison' : 'Adresse de facturation' }}
         </h3>
 
         @if ($type == 'shipping' && $step == $currentStep)
@@ -29,6 +29,25 @@
 
     @if ($currentStep >= $step)
         <div class="p-6">
+            @if ($step == $currentStep && $this->customerAddresses->isNotEmpty())
+                <div class="mb-6">
+                    <p class="mb-3 text-sm font-medium text-neutral-700">Adresses enregistrées</p>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        @foreach ($this->customerAddresses as $savedAddress)
+                            <button type="button"
+                                    wire:key="saved_address_{{ $type }}_{{ $savedAddress->id }}"
+                                    wire:click="useCustomerAddress({{ $savedAddress->id }}, '{{ $type }}')"
+                                    class="text-left p-3 border border-neutral-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 text-sm transition-colors">
+                                <span class="block font-medium text-neutral-900">{{ $savedAddress->company_name ?: ($savedAddress->first_name . ' ' . $savedAddress->last_name) }}</span>
+                                <span class="block text-neutral-500">{{ $savedAddress->line_one }}, {{ $savedAddress->postcode }} {{ $savedAddress->city }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                    <div class="mt-4 h-px bg-neutral-100"></div>
+                    <p class="mt-4 text-xs text-neutral-500">Ou saisir une nouvelle adresse ci-dessous</p>
+                </div>
+            @endif
+
             @if ($step == $currentStep)
                 <div class="grid grid-cols-6 gap-4">
                     <x-input.group class="col-span-3"
@@ -136,7 +155,7 @@
                         <div class="space-y-4">
                             <div>
                                 <dt class="font-medium">
-                                    Name
+                                    Nom
                                 </dt>
 
                                 <dd class="mt-0.5">
@@ -147,7 +166,7 @@
                             @if ($saved?->company_name)
                                 <div>
                                     <dt class="font-medium">
-                                        Company
+                                        Raison sociale
                                     </dt>
 
                                     <dd class="mt-0.5">
@@ -159,7 +178,7 @@
                             @if ($saved?->contact_phone)
                                 <div>
                                     <dt class="font-medium">
-                                        Phone Number
+                                        Téléphone
                                     </dt>
 
                                     <dd class="mt-0.5">
@@ -170,7 +189,7 @@
 
                             <div>
                                 <dt class="font-medium">
-                                    Email
+                                    E-mail
                                 </dt>
 
                                 <dd class="mt-0.5">
@@ -221,7 +240,7 @@
                         <span wire:loading
                               wire:target="saveAddress">
                             <span class="inline-flex items-center">
-                                Saving
+                                Enregistrement...
 
                                 <x-icon.loading />
                             </span>

@@ -11,9 +11,11 @@ use Lunar\Exceptions\CartException;
 use Lunar\Facades\CartSession;
 use Lunar\Facades\Payments;
 use Lunar\Facades\ShippingManifest;
+use Lunar\Models\Address;
 use Lunar\Models\Cart;
 use Lunar\Models\CartAddress;
 use Lunar\Models\Country;
+use Lunar\Models\Order;
 
 class CheckoutPage extends Component
 {
@@ -67,7 +69,7 @@ class CheckoutPage extends Component
     /**
      * The payment type we want to use.
      */
-    public string $paymentType = 'cash-in-hand';
+    public string $paymentType = 'card';
 
     /**
      * {@inheritDoc}
@@ -84,6 +86,7 @@ class CheckoutPage extends Component
     protected $queryString = [
         'payment_intent',
         'payment_intent_client_secret',
+        'paymentType' => ['except' => 'card'],
     ];
 
     /**
@@ -116,6 +119,19 @@ class CheckoutPage extends Component
             ])->authorize();
 
             if ($payment->success) {
+                redirect()->route('checkout-success.view');
+
+                return;
+            }
+
+            // SEPA Direct Debit: Stripe returns 'processing' (async), not 'succeeded'.
+            // The order was created by authorize() but placed_at is null until webhook confirms.
+            // We place it manually here so the customer sees the success page.
+            if ($this->paymentType === 'sepa' && $payment->orderId) {
+                Order::find($payment->orderId)?->update([
+                    'placed_at' => now(),
+                    'status' => 'payment-pending',
+                ]);
                 redirect()->route('checkout-success.view');
 
                 return;
@@ -356,7 +372,7 @@ class CheckoutPage extends Component
             return redirect()->route('checkout-success.view');
         }
 
-        $payment = Payments::cart($this->cart)->withData([
+        $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
             'payment_intent_client_secret' => $this->payment_intent_client_secret,
             'payment_intent' => $this->payment_intent,
         ])->authorize();
@@ -368,6 +384,45 @@ class CheckoutPage extends Component
         }
 
         return redirect()->route('checkout-success.view');
+    }
+
+    /**
+     * Return the saved addresses of the authenticated customer.
+     *
+     * @return Collection<int, Address>
+     */
+    public function getCustomerAddressesProperty(): Collection
+    {
+        return $this->cart?->customer?->addresses()->get() ?? Collection::make();
+    }
+
+    /**
+     * Apply a saved customer address to the form fields for the given type.
+     */
+    public function useCustomerAddress(int $addressId, string $type): void
+    {
+        $address = $this->customerAddresses->firstWhere('id', $addressId);
+
+        if (! $address) {
+            return;
+        }
+
+        $mapped = array_merge($this->emptyAddress(), [
+            'first_name' => $address->first_name,
+            'last_name' => $address->last_name,
+            'company_name' => $address->company_name,
+            'line_one' => $address->line_one,
+            'line_two' => $address->line_two,
+            'line_three' => $address->line_three,
+            'city' => $address->city,
+            'state' => $address->state,
+            'postcode' => $address->postcode,
+            'country_id' => $address->country_id,
+            'contact_email' => $address->contact_email,
+            'contact_phone' => $address->contact_phone,
+        ]);
+
+        $this->{$type} = array_filter($mapped, fn ($v) => $v !== null, ARRAY_FILTER_USE_VALUE) + $this->emptyAddress();
     }
 
     /**
