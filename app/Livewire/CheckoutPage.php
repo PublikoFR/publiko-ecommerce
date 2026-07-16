@@ -84,6 +84,7 @@ class CheckoutPage extends Component
     protected $queryString = [
         'payment_intent',
         'payment_intent_client_secret',
+        'paymentType' => ['except' => 'card'],
     ];
 
     /**
@@ -356,7 +357,7 @@ class CheckoutPage extends Component
             return redirect()->route('checkout-success.view');
         }
 
-        $payment = Payments::cart($this->cart)->withData([
+        $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
             'payment_intent_client_secret' => $this->payment_intent_client_secret,
             'payment_intent' => $this->payment_intent,
         ])->authorize();
