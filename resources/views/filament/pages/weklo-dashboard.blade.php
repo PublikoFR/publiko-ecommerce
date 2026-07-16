@@ -44,9 +44,47 @@
                         x-text="t.label"></span>
                 </template>
             </div>
-            <div class="wk-chip" style="display:flex;align-items:center;gap:9px;color:var(--text-secondary);font-size:13px;border:1px solid var(--border-default);border-radius:10px;padding:8px 13px">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-                <span style="font-weight:600;color:var(--text-primary)" x-text="d.dateRange"></span>
+            <div x-data="{{ json_encode(['open'=>false,'s'=>request('start',''),'e'=>request('end','')]) }}" style="position:relative">
+                <button
+                    type="button"
+                    @click="open = !open"
+                    class="wk-chip"
+                    style="display:flex;align-items:center;gap:9px;color:var(--text-secondary);font-size:13px;border:1px solid var(--border-default);border-radius:10px;padding:8px 13px;background:var(--surface-card);cursor:pointer;font-family:var(--font-sans)"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                    <span style="font-weight:600;color:var(--text-primary)" x-text="d.dateRange"></span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div
+                    x-show="open"
+                    x-cloak
+                    @click.away="open = false"
+                    style="position:absolute;top:calc(100% + 8px);left:0;z-index:50;background:var(--surface-card);border:1px solid var(--border-default);border-radius:12px;box-shadow:var(--shadow-md);padding:16px 18px;min-width:260px"
+                >
+                    <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">Plage personnalisée</div>
+                    <div style="display:flex;flex-direction:column;gap:10px">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Début</label>
+                            <input type="date" x-model="s" style="width:100%;border:1px solid var(--border-default);border-radius:8px;padding:7px 10px;font-size:13px;font-family:var(--font-sans);background:var(--surface-sunken);color:var(--text-primary);outline:none">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:4px">Fin</label>
+                            <input type="date" x-model="e" style="width:100%;border:1px solid var(--border-default);border-radius:8px;padding:7px 10px;font-size:13px;font-family:var(--font-sans);background:var(--surface-sunken);color:var(--text-primary);outline:none">
+                        </div>
+                        <button
+                            type="button"
+                            @click="if (s && e && s <= e) { window.location = '/admin?start=' + s + '&end=' + e; }"
+                            style="width:100%;padding:9px;border-radius:8px;background:var(--brand-solid);color:#fff;font-size:13px;font-weight:600;font-family:var(--font-sans);border:none;cursor:pointer;margin-top:2px"
+                        >
+                            Appliquer
+                        </button>
+                        @if(request('start'))
+                        <button type="button" @click="window.location = '/admin'" style="width:100%;padding:7px;border-radius:8px;background:var(--surface-sunken);color:var(--text-secondary);font-size:12px;font-weight:600;font-family:var(--font-sans);border:1px solid var(--border-default);cursor:pointer">
+                            Réinitialiser
+                        </button>
+                        @endif
+                    </div>
+                </div>
             </div>
             <label style="display:flex;align-items:center;gap:10px;margin-left:auto;cursor:pointer" @click="compare = !compare">
                 <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">Comparer à la période précédente</span>
@@ -343,12 +381,14 @@
                 get d() { return this.data[this.period]; },
 
                 get periodTabs() {
-                    return [
+                    const tabs = [
                         { key: 'jour', label: 'Jour' },
                         { key: '7j', label: '7 jours' },
                         { key: '30j', label: '30 jours' },
                         { key: '12m', label: '12 mois' },
                     ];
+                    if (this.data['custom']) tabs.push({ key: 'custom', label: 'Perso.' });
+                    return tabs;
                 },
 
                 get orderFilters() {
@@ -372,6 +412,7 @@
                 },
 
                 init() {
+                    if (this.data['custom']) this.period = 'custom';
                     this.compare = this.d.compare;
                     this.whenApexReady(() => {
                         this.renderStatic();

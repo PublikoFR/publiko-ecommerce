@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Pko\AdminNav;
 
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Pko\AdminNav\Livewire\MaintenanceToggle;
 
 class AdminNavServiceProvider extends ServiceProvider
 {
@@ -17,5 +19,7 @@ class AdminNavServiceProvider extends ServiceProvider
     {
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'admin-nav');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'admin-nav');
+
+        Livewire::component('admin-nav::maintenance-toggle', MaintenanceToggle::class);
     }
 }

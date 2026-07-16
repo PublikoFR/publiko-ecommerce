@@ -82,3 +82,30 @@ Test empirique : `'<p>Hi <script>alert(1)</script><img src=x onerror=alert(1)></
 
 **Threat model** : attaquant = staff éditeur de contenu (rôle FilamentShield de moindre privilège) ou super-admin compromis. Victime = tout visiteur storefront, y compris clients B2B authentifiés. Avant cette sanitization, stored XSS durable exploitable par n'importe quel éditeur de contenu pour hijacker les sessions shoppers et/ou pivoter vers l'admin.
 
+
+## Mode maintenance storefront
+
+Interrupteur d'urgence pour couper l'accès public au storefront sans arrêter le serveur.
+
+### Mécanisme
+
+- **Setting** : `storefront.maintenance` (bool, table `pko_storefront_settings`). Clé cachée (TTL 1h, invalidée à chaque `Setting::set()`).
+- **Middleware** : `Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance` — appliqué à toutes les routes `routes/web.php` via le groupe externe `Route::middleware([CheckStorefrontMaintenance::class])`. Les membres staff (`lunar_staff`) passent toujours. Les visiteurs non-staff voient `storefront-cms::maintenance` (503).
+- **Vue** : `packages/pko/storefront-cms/resources/views/maintenance.blade.php` — page standalone (pas de layout storefront, pas de Livewire) avec nom de marque dynamique via `brand_name()`.
+
+### Toggle topbar admin
+
+Composant Livewire `Pko\AdminNav\Livewire\MaintenanceToggle` (alias `admin-nav::maintenance-toggle`), enregistré dans `AdminNavServiceProvider::boot()`. Injecté dans la topbar Filament via `PanelsRenderHook::GLOBAL_SEARCH_AFTER` dans `AppServiceProvider` (vue `filament.hooks.maintenance-toggle`).
+
+- **OFF** : bouton discret gris, icône alerte.
+- **ON** : bouton orange warning, label "Maintenance active". Un clic toggle et persiste immédiatement via `Setting::set('storefront.maintenance', $active)`.
+
+### Comportement attendu
+
+| Visiteur | Maintenance OFF | Maintenance ON |
+|---|---|---|
+| Non authentifié | Accès normal | 503 maintenance |
+| Client pro authentifié | Accès normal | 503 maintenance |
+| Staff admin | Accès normal | Accès normal (bypass) |
+| Panel `/admin` | Non affecté (middleware non appliqué) | Non affecté |
+

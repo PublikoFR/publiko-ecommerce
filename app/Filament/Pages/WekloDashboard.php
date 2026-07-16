@@ -48,6 +48,8 @@ class WekloDashboard extends LunarDashboard
 
     /**
      * Payload complet (une entrée par période) sérialisé pour Alpine.
+     * Si les paramètres GET ?start= et ?end= sont présents (format YYYY-MM-DD),
+     * une clé 'custom' est ajoutée et Alpine la sélectionnera automatiquement.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -55,8 +57,21 @@ class WekloDashboard extends LunarDashboard
     {
         $stats = new DashboardStats;
 
-        return collect(['jour', '7j', '30j', '12m'])
+        $data = collect(['jour', '7j', '30j', '12m'])
             ->mapWithKeys(fn (string $p) => [$p => $stats->build($p)])
             ->all();
+
+        $start = request()->query('start');
+        $end = request()->query('end');
+        if (
+            is_string($start) && is_string($end)
+            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)
+            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)
+            && $start <= $end
+        ) {
+            $data['custom'] = $stats->buildCustom($start, $end);
+        }
+
+        return $data;
     }
 }
