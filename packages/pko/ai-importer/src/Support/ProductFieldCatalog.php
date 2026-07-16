@@ -44,6 +44,7 @@ final class ProductFieldCatalog
             'Stock' => [
                 'stock' => 'Stock',
                 'min_quantity' => 'Quantité minimale de commande',
+                'logistics_class' => 'Classe logistique (A/B/C)',
             ],
             'Dimensions' => [
                 'weight_value' => 'Poids',

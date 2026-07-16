@@ -390,6 +390,26 @@ class ActionTypesTest extends TestCase
         $this->assertSame('SOM', $action->execute('', $this->ctx()));
     }
 
+    public function test_prefix_is_idempotent_no_separator(): void
+    {
+        $action = Action::make(['type' => 'prefix', 'text' => 'SOM']);
+
+        // Déjà préfixé → pas de doublon SOMSOM.
+        $this->assertSame('SOM4275', $action->execute('SOM4275', $this->ctx()));
+        // Non préfixé → préfixe ajouté.
+        $this->assertSame('SOM4275', $action->execute('4275', $this->ctx()));
+    }
+
+    public function test_prefix_is_idempotent_with_separator(): void
+    {
+        $action = Action::make(['type' => 'prefix', 'text' => 'REF', 'separator' => '-']);
+
+        // Déjà préfixé avec séparateur → pas de doublon REF-REF-4275.
+        $this->assertSame('REF-4275', $action->execute('REF-4275', $this->ctx()));
+        // Sans séparateur → préfixe ajouté.
+        $this->assertSame('REF-4275', $action->execute('4275', $this->ctx()));
+    }
+
     public function test_suffix_appends_text(): void
     {
         $action = Action::make(['type' => 'suffix', 'text' => 'EUR', 'separator' => ' ']);
