@@ -44,7 +44,7 @@
                         x-text="t.label"></span>
                 </template>
             </div>
-            <div x-data="{ open: false, s: '{{ request('start') }}', e: '{{ request('end') }}' }" style="position:relative">
+            <div x-data="{{ json_encode(['open'=>false,'s'=>request('start',''),'e'=>request('end','')]) }}" style="position:relative">
                 <button
                     type="button"
                     @click="open = !open"
