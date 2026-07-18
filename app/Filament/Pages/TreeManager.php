@@ -324,6 +324,37 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->send();
     }
 
+    /**
+     * True when every collection of the current group is enabled.
+     * Drives the initial state of the "tout cocher / tout décocher" toggle.
+     */
+    public function allCollectionsEnabled(): bool
+    {
+        return ! LunarCollection::query()
+            ->where('collection_group_id', $this->collectionGroupId)
+            ->where('pko_enabled', false)
+            ->exists();
+    }
+
+    /**
+     * Bulk enable / disable every collection of the current group in one shot.
+     */
+    public function setAllCollectionsEnabled(bool $enabled): void
+    {
+        LunarCollection::query()
+            ->where('collection_group_id', $this->collectionGroupId)
+            ->update(['pko_enabled' => $enabled]);
+
+        Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
+
+        unset($this->collectionsTree);
+
+        Notification::make()
+            ->title($enabled ? 'Toutes les catégories activées' : 'Toutes les catégories désactivées')
+            ->success()
+            ->send();
+    }
+
     // =========================================================================
     // Collection CRUD actions
     // =========================================================================

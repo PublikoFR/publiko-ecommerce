@@ -11,33 +11,45 @@
         {{-- CATÉGORIES                                                   --}}
         {{-- ============================================================ --}}
         @if (in_array($activeTab, ['categories', 'both']))
+        <div>
+            <div class="mb-2 flex items-center gap-2 px-1">
+                <x-heroicon-o-rectangle-stack class="h-5 w-5 text-primary-500" />
+                <span class="text-base font-semibold text-gray-950 dark:text-white">Catégories</span>
+                <span class="ml-auto text-xs font-normal text-gray-500">
+                    {{ count($this->collectionsTree) }} racine, {{ $this->countNodes($this->collectionsTree) }} au total
+                </span>
+            </div>
         <x-filament::section>
-            <x-slot name="heading">
-                <div class="flex items-center gap-2">
-                    <x-heroicon-o-rectangle-stack class="h-5 w-5 text-primary-500" />
-                    Catégories
-                    <span class="ml-auto text-xs font-normal text-gray-500">
-                        {{ count($this->collectionsTree) }} racine, {{ $this->countNodes($this->collectionsTree) }} au total
+            <div class="mb-4 flex flex-wrap items-center justify-end gap-1">
+                <x-filament::button size="sm" color="gray"
+                    x-on:click="toggleCollapseAll('.tree-list--collections')">
+                    <span class="flex items-center gap-1">
+                        <x-heroicon-o-arrows-pointing-in class="h-4 w-4" x-cloak x-show="!collapsed['.tree-list--collections']" />
+                        <x-heroicon-o-arrows-pointing-out class="h-4 w-4" x-cloak x-show="collapsed['.tree-list--collections']" />
+                        <span x-text="collapsed['.tree-list--collections'] ? 'Tout déplier' : 'Tout réduire'"></span>
                     </span>
-                </div>
-            </x-slot>
-
-            <x-slot name="headerEnd">
-                <div class="flex items-center gap-1">
-                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
-                        wire:click="mountAction('exportCollections')">
-                        Export
-                    </x-filament::button>
-                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
-                        wire:click="mountAction('importCollections')">
-                        Import
-                    </x-filament::button>
-                    <x-filament::button size="sm" icon="heroicon-o-plus"
-                        wire:click="mountAction('createCollectionAction')">
-                        Ajouter
-                    </x-filament::button>
-                </div>
-            </x-slot>
+                </x-filament::button>
+                <x-filament::button size="sm" color="gray"
+                    x-on:click="allEnabled = !allEnabled; $wire.setAllCollectionsEnabled(allEnabled)">
+                    <span class="flex items-center gap-1">
+                        <x-heroicon-o-eye-slash class="h-4 w-4" x-cloak x-show="allEnabled" />
+                        <x-heroicon-o-eye class="h-4 w-4" x-cloak x-show="!allEnabled" />
+                        <span x-text="allEnabled ? 'Tout décocher' : 'Tout cocher'"></span>
+                    </span>
+                </x-filament::button>
+                <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
+                    wire:click="mountAction('exportCollections')">
+                    Export
+                </x-filament::button>
+                <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
+                    wire:click="mountAction('importCollections')">
+                    Import
+                </x-filament::button>
+                <x-filament::button size="sm" icon="heroicon-o-plus"
+                    wire:click="mountAction('createCollectionAction')">
+                    Ajouter
+                </x-filament::button>
+            </div>
 
             <div class="space-y-3">
                 <x-filament::input.wrapper>
@@ -63,39 +75,44 @@
                 @endif
             </div>
         </x-filament::section>
+        </div>
         @endif
 
         {{-- ============================================================ --}}
         {{-- CARACTÉRISTIQUES                                             --}}
         {{-- ============================================================ --}}
         @if (in_array($activeTab, ['features', 'both']))
+        <div>
+            <div class="mb-2 flex items-center gap-2 px-1">
+                <x-heroicon-o-tag class="h-5 w-5 text-primary-500" />
+                <span class="text-base font-semibold text-gray-950 dark:text-white">Caractéristiques</span>
+                <span class="ml-auto text-xs font-normal text-gray-500">
+                    {{ count($this->featureFamilies) }} familles, {{ $this->countValues($this->featureFamilies) }} valeurs
+                </span>
+            </div>
         <x-filament::section>
-            <x-slot name="heading">
-                <div class="flex items-center gap-2">
-                    <x-heroicon-o-tag class="h-5 w-5 text-primary-500" />
-                    Caractéristiques
-                    <span class="ml-auto text-xs font-normal text-gray-500">
-                        {{ count($this->featureFamilies) }} familles, {{ $this->countValues($this->featureFamilies) }} valeurs
+            <div class="mb-4 flex flex-wrap items-center justify-end gap-1">
+                <x-filament::button size="sm" color="gray"
+                    x-on:click="toggleCollapseAll('.tree-list--families')">
+                    <span class="flex items-center gap-1">
+                        <x-heroicon-o-arrows-pointing-in class="h-4 w-4" x-cloak x-show="!collapsed['.tree-list--families']" />
+                        <x-heroicon-o-arrows-pointing-out class="h-4 w-4" x-cloak x-show="collapsed['.tree-list--families']" />
+                        <span x-text="collapsed['.tree-list--families'] ? 'Tout déplier' : 'Tout réduire'"></span>
                     </span>
-                </div>
-            </x-slot>
-
-            <x-slot name="headerEnd">
-                <div class="flex items-center gap-1">
-                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
-                        wire:click="mountAction('exportFeatures')">
-                        Export
-                    </x-filament::button>
-                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
-                        wire:click="mountAction('importFeatures')">
-                        Import
-                    </x-filament::button>
-                    <x-filament::button size="sm" icon="heroicon-o-plus"
-                        wire:click="mountAction('createFamilyAction')">
-                        Ajouter
-                    </x-filament::button>
-                </div>
-            </x-slot>
+                </x-filament::button>
+                <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
+                    wire:click="mountAction('exportFeatures')">
+                    Export
+                </x-filament::button>
+                <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
+                    wire:click="mountAction('importFeatures')">
+                    Import
+                </x-filament::button>
+                <x-filament::button size="sm" icon="heroicon-o-plus"
+                    wire:click="mountAction('createFamilyAction')">
+                    Ajouter
+                </x-filament::button>
+            </div>
 
             <div class="space-y-3">
                 <x-filament::input.wrapper>
@@ -120,6 +137,7 @@
                 @endif
             </div>
         </x-filament::section>
+        </div>
         @endif
     </div>
 
@@ -132,9 +150,9 @@
         .tree-node {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
+            gap: 0.375rem;
+            padding: 0.1875rem 0.5rem;
+            border-radius: 0.375rem;
             background-color: rgb(249 250 251);
             border: 1px solid rgb(229 231 235);
             transition: background-color 0.15s;
@@ -159,7 +177,8 @@
         }
         .tree-node__label {
             min-width: 0;
-            font-size: 0.875rem;
+            font-size: 0.8125rem;
+            line-height: 1.25;
             color: rgb(17 24 39);
             overflow: hidden;
             white-space: nowrap;
@@ -173,10 +192,10 @@
             color: rgb(243 244 246);
         }
         .tree-node__badge {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: rgb(107 114 128);
             background-color: rgb(229 231 235);
-            padding: 0.1rem 0.4rem;
+            padding: 0.05rem 0.35rem;
             border-radius: 9999px;
             flex-shrink: 0;
         }
@@ -232,10 +251,10 @@
         }
         .tree-children {
             list-style: none;
-            padding-left: 1.5rem;
-            margin-top: 0.25rem;
+            padding-left: 1rem;
+            margin-top: 0.125rem;
             border-left: 2px dashed rgb(229 231 235);
-            margin-left: 0.75rem;
+            margin-left: 0.5rem;
         }
         li.tree-collapsed > .tree-children {
             display: none;
@@ -270,6 +289,20 @@
     <script>
         Alpine.data('treeManager', () => ({
             sortableMap: new WeakMap(),
+            collapsed: { '.tree-list--collections': false, '.tree-list--families': false },
+            allEnabled: @js($this->allCollectionsEnabled()),
+
+            toggleCollapseAll(selector) {
+                const list = this.$root.querySelector(selector);
+                if (!list) return;
+                const next = !this.collapsed[selector];
+                this.collapsed[selector] = next;
+                list.querySelectorAll('li').forEach(li => {
+                    if (li.querySelector(':scope > .tree-children')) {
+                        li.classList.toggle('tree-collapsed', next);
+                    }
+                });
+            },
 
             labelText(li) {
                 const lbl = li.querySelector(':scope > .tree-node .tree-node__label');
