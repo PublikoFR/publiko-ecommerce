@@ -108,13 +108,15 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                             :class="{ 'bg-primary-50': l1 === {{ $col->id }} }"
                             @mouseenter="if (window.innerWidth >= 1024) { l1 = {{ $colHasChildren ? $col->id : 'null' }}; l2 = null }"
                         >
-                            {{-- Vignette --}}
-                            <span class="shrink-0 w-10 h-10 rounded overflow-hidden bg-neutral-100 flex items-center justify-center">
+                            {{-- Vignette : pas de fond derrière le picto (le fond blanc/gris
+                                 était visible sous les pictos transparents). Fond neutre
+                                 conservé uniquement pour l'icône de repli. --}}
+                            <span class="shrink-0 w-10 h-10 rounded overflow-hidden flex items-center justify-center {{ $colImg ? '' : 'bg-neutral-100' }}">
                                 @if ($colImg)
                                     <img
                                         src="{{ $colImg }}"
                                         alt="{{ $col->translateAttribute('name') }}"
-                                        class="w-full h-full object-cover"
+                                        class="w-full h-full object-contain"
                                         loading="lazy"
                                     >
                                 @else
