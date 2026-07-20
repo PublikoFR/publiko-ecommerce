@@ -68,15 +68,19 @@ if ($stock <= 0) {
                     <x-storefront.price-gate :product="$product" size="md" class="min-w-0" />
                     <div class="shrink-0 flex items-center gap-1.5">
                         @if ($firstVariant)
-                            <button
-                                type="button"
-                                title="Ajouter à une liste"
-                                aria-label="Ajouter à une liste"
-                                onclick="Livewire.dispatch('open-purchase-list-picker', {id: {{ $firstVariant->id }}, type: '{{ addslashes(\Lunar\Models\ProductVariant::class) }}'})"
-                                class="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 text-neutral-500 hover:border-primary-500 hover:text-primary-600 transition"
-                            >
-                                <x-ui.icon name="list" class="w-4 h-4" />
-                            </button>
+                            <div class="relative group/tip">
+                                <button
+                                    type="button"
+                                    aria-label="Ajouter à une liste"
+                                    onclick="Livewire.dispatch('open-purchase-list-picker', {id: {{ $firstVariant->id }}, type: '{{ addslashes(\Lunar\Models\ProductVariant::class) }}'})"
+                                    class="w-8 h-8 flex items-center justify-center rounded-md border border-neutral-300 text-neutral-500 hover:border-primary-500 hover:text-primary-600 transition"
+                                >
+                                    <x-ui.icon name="list" class="w-4 h-4" />
+                                </button>
+                                <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 shadow-md z-10">
+                                    Ajouter à une liste
+                                </span>
+                            </div>
                         @endif
                         <x-storefront.add-to-cart :product="$product" :variant="$firstVariant" style="compact" />
                     </div>

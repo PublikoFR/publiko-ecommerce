@@ -27,6 +27,7 @@
 
     @auth
         @livewire('storefront.cart-drawer')
+        @livewire('purchase-lists.picker')
     @endauth
 
     @livewireScripts
