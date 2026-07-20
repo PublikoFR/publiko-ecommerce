@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Filament\Resources;
 
+use Filament\Notifications\Notification;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Models\Customer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCustomer;
@@ -66,6 +69,34 @@ class PkoCustomerResource extends CustomerResource
 
         return $table
             ->columns($ordered)
+            ->pushActions([
+                Action::make('impersonate')
+                    ->label('Se connecter en tant que')
+                    ->icon('heroicon-o-arrow-right-on-rectangle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Se connecter en tant que ce client ?')
+                    ->modalDescription('Vous serez connecté sur le site (front) avec le compte de ce client. Pour revenir, il suffit de vous déconnecter normalement.')
+                    ->visible(fn (Customer $record): bool => $record->users()->exists())
+                    ->action(function (Customer $record) {
+                        $user = $record->users()->first();
+
+                        if (! $user) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Impossible : ce client n\'a aucun utilisateur rattaché.')
+                                ->send();
+
+                            return null;
+                        }
+
+                        // Connexion sur le guard front (web / provider users) —
+                        // distinct du guard staff admin, qui reste inchangé.
+                        Auth::guard('web')->login($user);
+
+                        return redirect('/');
+                    }),
+            ])
             ->filters([
                 ...$table->getFilters(),
                 SelectFilter::make('departement')
