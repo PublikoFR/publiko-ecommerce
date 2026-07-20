@@ -50,6 +50,9 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
 
                                 continue;
                             }
+                            // Détache + réattribue les clients au groupe par défaut
+                            // avant suppression (sinon FK 1451 + clients orphelins).
+                            CustomerGroupGuard::reassignCustomersToDefault($group);
                             $group->delete();
                             $deleted++;
                         }
@@ -94,7 +97,13 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
                             ->persistent()
                             ->send();
                         $action->cancel();
+
+                        return;
                     }
+
+                    // Détache + réattribue les clients au groupe par défaut avant
+                    // suppression (sinon FK 1451 + clients orphelins).
+                    CustomerGroupGuard::reassignCustomersToDefault($record);
                 });
             }
         }

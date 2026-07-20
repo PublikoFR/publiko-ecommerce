@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Filament\Extensions\CollectionEnabledExtension;
 use App\Filament\Extensions\CustomerAnonymizeExtension;
 use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
+use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Pages\SireneConfig;
@@ -204,6 +205,7 @@ class AppServiceProvider extends ServiceProvider
             ],
             CustomerGroupResource::class => [
                 CustomerGroupDeletionGuardExtension::class,
+                CustomerGroupFieldsExtension::class,
             ],
             EditCustomerGroup::class => [
                 CustomerGroupDeletionGuardExtension::class,

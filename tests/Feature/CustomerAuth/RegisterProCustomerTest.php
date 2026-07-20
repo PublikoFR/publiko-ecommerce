@@ -14,6 +14,7 @@ use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
+use Pko\CustomerAuth\Support\EmailVerification;
 use Tests\TestCase;
 
 class RegisterProCustomerTest extends TestCase
@@ -108,17 +109,19 @@ class RegisterProCustomerTest extends TestCase
         $this->assertFalse($result['user']->hasVerifiedEmail());
     }
 
-    public function test_siret_actif_active_le_compte_pro(): void
+    public function test_siret_actif_laisse_le_compte_en_pending_avant_verification_email(): void
     {
         $this->mockSireneActive();
         Mail::fake();
 
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
 
-        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
+        // Le compte reste 'pending' même avec un SIRET actif : il ne passe
+        // 'active' qu'à la vérification de l'adresse e-mail (route verification.verify).
+        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
     }
 
-    public function test_groupe_pro_installateurs_est_attache(): void
+    public function test_groupe_par_defaut_est_attache(): void
     {
         $this->mockSireneActive();
         Mail::fake();
@@ -126,16 +129,49 @@ class RegisterProCustomerTest extends TestCase
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
 
         $handles = $result['customer']->customerGroups()->pluck('handle')->toArray();
-        $this->assertContains('installateurs', $handles, 'Le groupe "installateurs" doit être attaché au nouveau client pro.');
+        $default = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
+        $this->assertContains($default, $handles, 'Le groupe par défaut doit être attaché au nouveau client.');
+    }
+
+    public function test_groupe_metier_choisi_est_attache(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $metier = CustomerGroup::where('pko_is_metier', true)->firstOrFail();
+
+        $result = app(RegisterProCustomer::class)->handle(
+            $this->defaultData(['customer_group_id' => $metier->id])
+        );
+
+        $handles = $result['customer']->customerGroups()->pluck('handle')->toArray();
+        $this->assertContains($metier->handle, $handles, 'Le groupe métier choisi doit être attaché.');
     }
 
     public function test_groupe_attache_correspond_au_groupe_en_base(): void
     {
-        $group = CustomerGroup::where('handle', (string) config('customer-auth.default_customer_group_handle', 'installateurs'))->first();
+        $group = CustomerGroup::where('handle', (string) config('customer-auth.default_customer_group_handle', 'nouveau-client'))->first();
 
         $this->assertNotNull(
             $group,
-            'Le groupe "'.config('customer-auth.default_customer_group_handle', 'installateurs').'" doit exister en base (PkoCustomerGroupSeeder).'
+            'Le groupe "'.config('customer-auth.default_customer_group_handle', 'nouveau-client').'" doit exister en base (PkoCustomerGroupSeeder).'
         );
+    }
+
+    public function test_verification_email_active_le_compte_pending(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+        $user = $result['user'];
+
+        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
+
+        $url = EmailVerification::signedUrl($user);
+        $this->get($url);
+
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
+        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
     }
 }

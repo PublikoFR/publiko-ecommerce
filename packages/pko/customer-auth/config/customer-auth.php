@@ -14,7 +14,9 @@ return [
         'timeout' => (int) env('INSEE_TIMEOUT', 5),
     ],
 
-    'default_customer_group_handle' => env('DEFAULT_PRO_GROUP_HANDLE', 'installateurs'),
+    // Groupe attribué d'office à toute nouvelle inscription pro et cible de
+    // réattribution lorsqu'un groupe client est supprimé.
+    'default_customer_group_handle' => env('DEFAULT_PRO_GROUP_HANDLE', 'nouveau-client'),
 
     'admin_notification_email' => env('ADMIN_NOTIFICATION_EMAIL', env('CONTACT_EMAIL')),
 

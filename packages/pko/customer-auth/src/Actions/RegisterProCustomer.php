@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Mail\CustomerRegisteredAdminMail;
 use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
@@ -20,7 +21,7 @@ class RegisterProCustomer
     public function __construct(private SireneClient $sirene) {}
 
     /**
-     * @param  array{siret: string, email: string, password: string, phone?: string|null, first_name?: string|null, last_name?: string|null, activity?: string|null, company_name?: string|null, street?: string|null, postcode?: string|null, city?: string|null, country?: string|null}  $data
+     * @param  array{siret: string, email: string, password: string, phone?: string|null, first_name?: string|null, last_name?: string|null, activity?: string|null, company_name?: string|null, street?: string|null, postcode?: string|null, city?: string|null, country?: string|null, customer_group_id?: int|null}  $data
      * @return array{user: User, customer: Customer, sirene: SireneResult}
      */
     public function handle(array $data): array
@@ -55,19 +56,40 @@ class RegisterProCustomer
                 'sirene_status' => $sirene->status->value,
                 'sirene_verified_at' => $sirene->isActive() ? now() : null,
                 'naf_code' => $sirene->nafCode,
-                // SIRET confirmé actif par l'INSEE → compte pro actif d'emblée
-                // (auto-login sans friction). Sinon en attente de validation manuelle.
-                'pko_status' => $sirene->isActive() ? 'active' : 'pending',
+                // Le compte reste en attente tant que l'e-mail n'a pas été vérifié,
+                // même si l'utilisateur est auto-connecté (SIRET actif). La
+                // vérification e-mail (route verification.verify) fait passer le
+                // compte à 'active' — à condition que le SIRET soit lui aussi actif,
+                // sinon il reste 'pending' pour validation manuelle.
+                'pko_status' => 'pending',
                 'pko_street' => $data['street'] ?? null,
                 'pko_postcode' => $data['postcode'] ?? null,
                 'pko_city' => $data['city'] ?? null,
                 'pko_country' => $data['country'] ?? 'FR',
             ]);
 
-            $groupHandle = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
-            $group = CustomerGroup::where('handle', $groupHandle)->first();
-            if ($group) {
-                $customer->customerGroups()->attach($group);
+            // Groupe par défaut attribué à toute nouvelle inscription (« Nouveau client »).
+            $groupIds = [];
+            $groupHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
+            $defaultGroup = CustomerGroup::where('handle', $groupHandle)->first();
+            if ($defaultGroup) {
+                $groupIds[$defaultGroup->id] = $defaultGroup->id;
+            }
+
+            // Groupe « métier » choisi à l'inscription (liste déroulante). On ne
+            // rattache que des groupes réellement marqués métier, pour éviter
+            // qu'une valeur forgée n'attribue un groupe arbitraire.
+            if (! empty($data['customer_group_id'])) {
+                $metierGroup = CustomerGroup::where('id', $data['customer_group_id'])
+                    ->where('pko_is_metier', true)
+                    ->first();
+                if ($metierGroup) {
+                    $groupIds[$metierGroup->id] = $metierGroup->id;
+                }
+            }
+
+            if ($groupIds !== []) {
+                $customer->customerGroups()->attach(array_values($groupIds));
             }
 
             $user = User::create([
@@ -94,6 +116,21 @@ class RegisterProCustomer
                 'email' => $result['user']->email,
                 'error' => $e->getMessage(),
             ]);
+        }
+
+        // Notification interne à l'administrateur (récap des coordonnées). Même
+        // isolation que le mail client : un échec SMTP ne compromet pas l'inscription.
+        // Priorité au réglage back-office (Storefront → Paramètres), puis config/env.
+        $adminEmail = brand_setting('admin_email') ?: config('customer-auth.admin_notification_email');
+        if (! empty($adminEmail)) {
+            try {
+                Mail::to($adminEmail)->send(new CustomerRegisteredAdminMail($result['customer'], $result['user']));
+            } catch (\Throwable $e) {
+                logger()->error('CustomerRegisteredAdminMail failed', [
+                    'email' => $adminEmail,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return $result;

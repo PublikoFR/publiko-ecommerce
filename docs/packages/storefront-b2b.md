@@ -68,18 +68,25 @@ Tarifs HT contractuels propres à un client (équivalent des *« Prix spécifiqu
 - ⚠️ **Gotcha parsing Sirene v3** : `etatAdministratifEtablissement` et `activitePrincipaleEtablissement` sont des variables **historisées** → elles vivent dans `etablissement.periodesEtablissement[]`, **pas** à la racine de `etablissement`. La période courante est celle dont `dateFin` est `null` (l'API trie du plus récent au plus ancien). Les lire à la racine renvoie toujours `null` → tout établissement actif était classé `Inactive` (« SIRET non valide » côté inscription). Couvert par `tests/Feature/CustomerAuth/SireneVerifyTest.php`.
 
 `RegisterProCustomer::handle($dto)` :
-- Transaction : crée `Lunar\Models\Customer` (raison, TVA FR depuis clé, meta.siret/naf/adresse INSEE), attache group `installateurs`, crée `User` lié via pivot `customer_user`. Retourne `['user', 'customer', 'sirene']`.
+- Transaction : crée `Lunar\Models\Customer` (raison, TVA FR depuis clé, meta.siret/naf/adresse INSEE), attache le **groupe par défaut** (`config('customer-auth.default_customer_group_handle')` = `nouveau-client`) + le **groupe métier** choisi à l'inscription (`customer_group_id`, uniquement si `pko_is_metier=true`), crée `User` lié via pivot `customer_user`. Retourne `['user', 'customer', 'sirene']`.
 - Si `Status::Inactive` → `DomainException` bloquante.
-- `pko_status` = `active` si SIRET confirmé actif par l'INSEE (accès pro immédiat, sans validation manuelle), sinon `pending`.
+- **`pko_status` = `pending` à la création (toujours)**, même SIRET actif : le compte ne devient `active` qu'à la **vérification de l'e-mail** (route `verification.verify`), et uniquement si `sirene_status='active'` (sinon reste `pending` pour validation manuelle). Voir §15.5 vérification e-mail.
 - **`email_verified_at` reste `null`** : l'utilisateur confirme son adresse via un lien signé. Ne jamais le marquer vérifié à la création.
+- **Notification admin** : après l'inscription, un `CustomerRegisteredAdminMail` récapitulant toutes les coordonnées est envoyé à `brand_setting('admin_email')` (fallback config `customer-auth.admin_notification_email`). Envoi isolé en try/catch (un échec SMTP ne compromet pas l'inscription).
+
+**Groupes clients** (`lunar_customer_groups`) :
+- Colonne custom `pko_is_metier` (bool, migration customer-auth) : un groupe « métier » est proposé dans la liste déroulante du formulaire d'inscription (`RegisterPage`), pour typer le nouveau client dès la création. Toggle éditable via `CustomerGroupFieldsExtension` (form + colonne Filament).
+- Groupe par défaut `nouveau-client` (« Nouveau client ») : attribué d'office à toute inscription **et** cible de réattribution à la suppression d'un groupe.
+- **Suppression d'un groupe** (`CustomerGroupGuard` + `CustomerGroupDeletionGuardExtension`) : les **clients** ne bloquent plus la suppression — ils sont détachés puis réattribués au groupe par défaut (`reassignCustomersToDefault()`), évitant la FK 1451 et les clients orphelins. Les autres références (collections, prix, produits, livraison, remises, taxes) restent bloquantes, ainsi que le groupe Lunar `default` et le groupe pro.
 
 `RegisterPage` (Livewire) :
 - **Vérif SIRET asynchrone** : au blur du champ SIRET (`wire:model.blur` → hook `updatedSiret`), appel INSEE avec loader (slot `trailing` du composant `<x-ui.input>`). Si actif → coche verte + préremplissage des champs société **encore vides** (raison sociale, activité/NAF, adresse). Si invalide/inactif → message d'erreur inline. La revalidation serveur au submit reste la source de vérité.
-- Après création : `Status::Active` → `Auth::login()` + redirection `/compte` (friction minimale, même si e-mail non encore vérifié). `Status::Pending`/`Inactive` → **on ne connecte PAS**.
+- Après création : `Status::Active` → `Auth::login()` + redirection vers **l'accueil `/`** (le compte étant `pending` tant que l'e-mail n'est pas vérifié, `/compte` est gated ; rediriger dessus provoquerait un rebond vers `/connexion`). `Status::Pending`/`Inactive` → **on ne connecte PAS**.
 
-**Vérification d'e-mail** (accès complet entretemps, bandeau de rappel) :
+**Vérification d'e-mail** (le compte reste `pending` jusqu'à vérification, bandeau de rappel) :
 - Lien signé via `Pko\CustomerAuth\Support\EmailVerification::signedUrl()` (route `verification.verify`, middleware `signed`, valable 7 jours) — inclus dans le mail de bienvenue (`CustomerRegisteredMail`) et le renvoi (`EmailVerificationMail` + route `verification.send`, throttlée).
-- La route de vérif fonctionne **sans session préalable** (clic depuis n'importe quel appareil) : valide signature + hash e-mail, `markEmailAsVerified()`, puis auto-login.
+- La route de vérif fonctionne **sans session préalable** (clic depuis n'importe quel appareil) : valide signature + hash e-mail, `markEmailAsVerified()`, **promeut le(s) customer(s) `pending` → `active`** (si `sirene_status='active'`), puis auto-login.
+- `ProAccess::denialReason()` distingue le motif `pending` : e-mail non vérifié (message invitant à cliquer sur le lien) vs validation SIRET manuelle.
 - Bandeau de rappel dans le layout storefront tant que `! auth()->user()->hasVerifiedEmail()` (bouton « Renvoyer le lien »).
 
 **Anti-boucle de redirection (`ERR_TOO_MANY_REDIRECTS`)** — source unique de vérité :

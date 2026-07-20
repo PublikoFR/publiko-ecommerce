@@ -21,7 +21,8 @@ class CustomerGroupGuard
      * @var array<string, string> label FR => table
      */
     private const REFERENCE_TABLES = [
-        'client(s)' => 'lunar_customer_customer_group',
+        // NB : les clients ne bloquent PAS la suppression — ils sont détachés et
+        // réattribués au groupe par défaut (cf. reassignCustomersToDefault()).
         'collection(s)' => 'lunar_collection_customer_group',
         'tarif(s)' => 'lunar_prices',
         'produit(s)' => 'lunar_customer_group_product',
@@ -60,5 +61,43 @@ class CustomerGroupGuard
     public static function isDeletable(CustomerGroup $group): bool
     {
         return self::blockReason($group) === null;
+    }
+
+    /**
+     * Détache tous les clients du groupe et leur (ré)attribue le groupe par
+     * défaut ("Nouveau client"). À appeler avant la suppression d'un groupe :
+     * sans ça, la FK lunar_customer_customer_group plante en 1451 et le client
+     * se retrouverait sans aucun groupe.
+     *
+     * @return int nombre de clients réattribués
+     */
+    public static function reassignCustomersToDefault(CustomerGroup $group): int
+    {
+        $pivot = 'lunar_customer_customer_group';
+
+        $customerIds = DB::table($pivot)
+            ->where('customer_group_id', $group->id)
+            ->pluck('customer_id');
+
+        if ($customerIds->isEmpty()) {
+            return 0;
+        }
+
+        $defaultHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
+        $default = CustomerGroup::where('handle', $defaultHandle)->first();
+
+        if ($default && $default->id !== $group->id) {
+            $now = now();
+            foreach ($customerIds as $customerId) {
+                DB::table($pivot)->updateOrInsert(
+                    ['customer_id' => $customerId, 'customer_group_id' => $default->id],
+                    ['updated_at' => $now, 'created_at' => $now],
+                );
+            }
+        }
+
+        DB::table($pivot)->where('customer_group_id', $group->id)->delete();
+
+        return $customerIds->count();
     }
 }

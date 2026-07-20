@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\Status;
@@ -34,6 +35,9 @@ class RegisterPage extends Component
     public string $phone = '';
 
     public string $activity = '';
+
+    /** Groupe « métier » choisi dans la liste déroulante (facultatif). */
+    public ?int $metierGroupId = null;
 
     public string $street = '';
 
@@ -62,6 +66,7 @@ class RegisterPage extends Component
             'lastName' => ['required', 'string', 'max:80'],
             'companyName' => ['nullable', 'string', 'max:200'],
             'activity' => ['nullable', 'string', 'max:200'],
+            'metierGroupId' => ['nullable', 'integer', 'exists:lunar_customer_groups,id'],
             'street' => ['nullable', 'string', 'max:255'],
             'postcode' => ['nullable', 'string', 'max:10'],
             'city' => ['nullable', 'string', 'max:100'],
@@ -137,6 +142,7 @@ class RegisterPage extends Component
                 'first_name' => $validated['firstName'] ?? null,
                 'last_name' => $validated['lastName'] ?? null,
                 'activity' => $validated['activity'] ?? null,
+                'customer_group_id' => $validated['metierGroupId'] ?? null,
                 'company_name' => $validated['companyName'] ?? null,
                 'street' => $validated['street'] ?? null,
                 'postcode' => $validated['postcode'] ?? null,
@@ -148,15 +154,16 @@ class RegisterPage extends Component
         }
 
         // SIRET revalidé actif côté serveur → on connecte immédiatement pour
-        // limiter la friction. L'e-mail n'est pas encore vérifié : l'utilisateur
-        // reçoit un lien de validation dans le mail de bienvenue et voit un
-        // bandeau de rappel tant qu'il n'a pas cliqué (accès complet entretemps).
+        // limiter la friction. Le compte reste néanmoins « pending » : il ne
+        // deviendra pleinement actif qu'une fois l'adresse e-mail vérifiée (lien
+        // du mail de bienvenue). On redirige donc vers l'accueil (et non /compte,
+        // qui est gated tant que le compte n'est pas actif) avec un rappel.
         if ($result['sirene']->isActive()) {
             Auth::login($result['user']);
             session()->regenerate();
-            session()->flash('status', 'Bienvenue ! Votre compte pro est actif. Un e-mail de bienvenue vous a été envoyé : validez votre adresse e-mail en cliquant sur le lien qu\'il contient.');
+            session()->flash('status', 'Bienvenue ! Votre compte a bien été créé. Pour l\'activer, validez votre adresse e-mail en cliquant sur le lien reçu par e-mail.');
 
-            return redirect('/compte');
+            return redirect('/');
         }
 
         // Compte en attente de validation SIRET : on ne connecte PAS l'utilisateur.
@@ -171,6 +178,11 @@ class RegisterPage extends Component
     #[Layout('customer-auth::layouts.auth', ['containerClass' => 'max-w-3xl'])]
     public function render(): View
     {
-        return view('customer-auth::livewire.register-page');
+        return view('customer-auth::livewire.register-page', [
+            'metierGroups' => CustomerGroup::query()
+                ->where('pko_is_metier', true)
+                ->orderBy('name')
+                ->pluck('name', 'id'),
+        ]);
     }
 }

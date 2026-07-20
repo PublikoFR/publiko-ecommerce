@@ -37,7 +37,9 @@ class ProAccessRedirectTest extends TestCase
             'sirene_status' => $sireneStatus,
         ]);
 
-        $group = CustomerGroup::firstOrCreate(['handle' => 'installateurs'], ['name' => 'Installateurs']);
+        // Groupe requis pour l'accès pro (config default_customer_group_handle).
+        $handle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
+        $group = CustomerGroup::firstOrCreate(['handle' => $handle], ['name' => 'Nouveau client']);
         $customer->customerGroups()->attach($group);
         $customer->users()->attach($user);
 

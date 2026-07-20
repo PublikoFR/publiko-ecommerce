@@ -47,6 +47,15 @@
 
                     <x-ui.input wire:model="activity" label="Code NAF / APE" placeholder="Ex : 46.73A — détecté via le SIRET" :error="$errors->first('activity')" />
 
+                    @if ($metierGroups->isNotEmpty())
+                        <x-ui.select wire:model="metierGroupId" label="Votre métier" :error="$errors->first('metierGroupId')" hint="Optionnel — nous aide à personnaliser votre expérience.">
+                            <option value="">— Sélectionnez votre métier —</option>
+                            @foreach ($metierGroups as $id => $name)
+                                <option value="{{ $id }}">{{ $name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
+
                     <x-ui.input wire:model="street" label="Adresse" placeholder="Rue, avenue, lieu-dit…" :error="$errors->first('street')" />
 
                     <div class="grid grid-cols-2 gap-4">

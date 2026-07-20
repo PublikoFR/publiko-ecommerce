@@ -37,16 +37,38 @@ class CustomerGroupDeletionGuardTest extends TestCase
         $this->assertNotNull(CustomerGroupGuard::blockReason($group));
     }
 
-    public function test_referenced_custom_group_is_blocked(): void
+    public function test_group_referenced_only_by_customers_is_deletable(): void
+    {
+        // Un groupe uniquement référencé par des clients n'est PAS bloqué : les
+        // clients sont détachés et réattribués au groupe par défaut.
+        $group = CustomerGroup::create(['name' => 'Grossistes', 'handle' => 'grossistes', 'default' => false]);
+
+        $customer = Customer::create(['first_name' => 'A', 'last_name' => 'B', 'company_name' => 'ACME']);
+        $customer->customerGroups()->attach($group);
+
+        $this->assertNull(CustomerGroupGuard::blockReason($group));
+    }
+
+    public function test_customers_are_reassigned_to_default_group_on_deletion(): void
     {
         $group = CustomerGroup::create(['name' => 'Grossistes', 'handle' => 'grossistes', 'default' => false]);
 
         $customer = Customer::create(['first_name' => 'A', 'last_name' => 'B', 'company_name' => 'ACME']);
         $customer->customerGroups()->attach($group);
 
-        $reason = CustomerGroupGuard::blockReason($group);
-        $this->assertNotNull($reason);
-        $this->assertStringContainsString('client', $reason);
+        $reassigned = CustomerGroupGuard::reassignCustomersToDefault($group);
+        $this->assertSame(1, $reassigned);
+
+        $group->delete();
+        $this->assertNull(CustomerGroup::find($group->id));
+
+        // Le client a perdu le groupe supprimé et récupéré le groupe par défaut.
+        $handles = $customer->refresh()->customerGroups()->pluck('handle')->toArray();
+        $this->assertNotContains('grossistes', $handles);
+        $this->assertContains(
+            (string) config('customer-auth.default_customer_group_handle', 'nouveau-client'),
+            $handles
+        );
     }
 
     public function test_clean_custom_group_is_deletable(): void

@@ -34,6 +34,17 @@ Route::middleware(['web', 'signed'])
         if (! $user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();
             event(new Verified($user));
+
+            // L'e-mail vérifié lève le statut « pending » : le compte devient
+            // pleinement actif, à condition que le SIRET soit lui aussi actif
+            // (sinon il reste en attente de validation manuelle).
+            foreach ($user->customers()->get() as $customer) {
+                if ($customer->getAttribute('pko_status') === 'pending'
+                    && $customer->getAttribute('sirene_status') === 'active') {
+                    $customer->setAttribute('pko_status', 'active');
+                    $customer->save();
+                }
+            }
         }
 
         Auth::login($user);
