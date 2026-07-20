@@ -11,13 +11,8 @@ $variantsCount = $product->variants->count();
 $isNew = optional($product->created_at)->gt(now()->subDays(30));
 $stock = (int) ($firstVariant?->stock ?? 0);
 
-// Client pro connecté ? (prix + achat réservés aux pros)
-$user = auth()->user();
-$isPro = false;
-if ($user !== null) {
-    $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
-    $isPro = $customer !== null && $customer->getAttribute('sirene_status') === 'active';
-}
+// Prix + achat réservés aux clients connectés (tout compte authentifié).
+$isPro = auth()->check();
 
 // Statut de stock → tonalité DS
 if ($stock <= 0) {

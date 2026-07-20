@@ -1,12 +1,8 @@
 @props(['product' => null, 'variant' => null, 'style' => 'default'])
 
 @php
-$user = auth()->user();
-$isPro = false;
-if ($user !== null) {
-    $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
-    $isPro = $customer !== null && $customer->getAttribute('sirene_status') === 'active';
-}
+// Achat réservé aux clients connectés (tout compte authentifié).
+$isPro = auth()->check();
 
 $slug = $product?->defaultUrl?->slug;
 $productUrl = $slug ? route('product.view', $slug) : null;

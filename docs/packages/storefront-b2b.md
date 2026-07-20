@@ -42,10 +42,12 @@ Composants storefront : `product-card` (Foussier-like avec marque + code + N var
 ### 15.4 Price gating
 
 `<x-storefront.price-gate :product :variant size="md">` :
-- Si `auth()->user()` + `Customer::sirene_status='active'` + `CustomerGroup::handle='installateurs'` → `Pricing::for($variant)->get()->matched->price->formatted()`.
+- Si `auth()->check()` (tout compte authentifié) → `Pricing::for($variant)->get()->matched->price->formatted()`.
 - Sinon → `<x-ui.button href="/connexion" icon="user">Connectez-vous pour voir vos prix</x-ui.button>`.
 
-Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro.customer` : `/panier`, `/checkout*`, `/compte*`, `/achat-rapide`, `/compte/listes-achat*`.
+**Règle de visibilité des prix (depuis 2026-07)** : les prix (et l'achat) sont visibles dès qu'un client est **connecté**, sans condition supplémentaire de statut SIRET ni de groupe. Auparavant le gate exigeait `sirene_status='active'` + `CustomerGroup='installateurs'` ; la refonte SIRET ayant rendu `sirene_status` asynchrone (souvent `pending`/`null`), ce check strict privait de prix des pros pourtant approuvés (`pko_status='active'`) → régression. Le gate d'affichage est désormais découplé du statut de validation. L'**accès aux routes pro** (`/panier`, `/checkout`, `/compte`…) reste, lui, gardé par le middleware `pro.customer` (§15.6).
+
+Même logique (`auth()->check()`) sur `<x-storefront.product-card>` et `<x-storefront.add-to-cart>`. Routes gated par middleware `pro.customer` : `/panier`, `/checkout*`, `/compte*`, `/achat-rapide`, `/compte/listes-achat*`.
 
 ### 15.5 Inscription pro + vérification SIRET
 
@@ -143,6 +145,8 @@ Pro gated (middleware pro.customer = auth + CustomerGroup installateurs + sirene
 Admin :
   /admin  (Filament, Shield, intact)
 ```
+
+**Déconnexion exemptée de CSRF** (depuis 2026-07, `bootstrap/app.php` → `validateCsrfTokens(except: ['deconnexion'])`) : le storefront étant une SPA Livewire (`wire:navigate`), une page ouverte longtemps ou restaurée depuis le cache back/forward porte un token `@csrf` périmé ; le `POST /deconnexion` renvoyait alors un 419, l'utilisateur restait connecté sans pouvoir se déconnecter. La déconnexion étant idempotente et non destructive (risque CSRF négligeable), on l'exempte pour qu'elle aboutisse toujours.
 
 ### 15.7 Catalogue faceté (CollectionPage)
 

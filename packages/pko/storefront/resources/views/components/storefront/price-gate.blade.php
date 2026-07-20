@@ -3,12 +3,8 @@
 @php
 use Lunar\Facades\Pricing;
 
-$user = auth()->user();
-$isPro = false;
-if ($user !== null) {
-    $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
-    $isPro = $customer !== null && $customer->getAttribute('sirene_status') === 'active';
-}
+// Prix réservés aux clients connectés (tout compte authentifié).
+$isPro = auth()->check();
 
 $sizeClasses = [
     'sm' => 'font-display font-bold text-lg',
