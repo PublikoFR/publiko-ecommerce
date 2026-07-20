@@ -118,6 +118,8 @@ Le staff admin est une table séparée (`lunar_staff`). **Ne pas confondre** ave
 
 `kalnoy/nestedset` est épinglé à **`6.0.7`**. Les versions ultérieures utilisent `whenBooted()` qui n'existe pas en Laravel 11.
 
+**⚠️ Gotcha suppression d'une collection (catégorie)** : supprimer un nœud nested set efface tout le sous-arbre via une requête SQL brute (`delete ... where _lft between ? and ?`), donc **aucun event Eloquent ne se déclenche pour les descendants**. Leurs lignes pivot (`lunar_collection_customer_group`, `lunar_collection_product`, `lunar_collection_discount`, `lunar_brand_collection`, `pko_feature_family_collection`) restent et les FK NO ACTION font échouer le delete en `1451`. `App\Observers\CollectionDeleteObserver` (enregistré dans `AppServiceProvider::boot`) détache ces pivots pour la collection **et tout son sous-arbre** dès le `deleting` du nœud racine.
+
 ### 7.5 Slugs produits — `PkoProductUrlGenerator`
 
 **Format** : `{brand-slug}-{name-slug}-{mpn-slug}` (ex : `somfy-boitier-axroll-1822143`).

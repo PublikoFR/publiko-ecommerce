@@ -20,6 +20,7 @@ use App\Filament\Resources\PkoProductOptionResource;
 use App\Filament\Resources\PkoProductResource;
 use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
+use App\Observers\CollectionDeleteObserver;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Filament\View\PanelsRenderHook;
@@ -54,6 +55,7 @@ use Lunar\Admin\Filament\Resources\TaxZoneResource;
 use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Facades\Telemetry;
+use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
@@ -230,6 +232,11 @@ class AppServiceProvider extends ServiceProvider
         // qui casse le parse JS → Alpine/Livewire ne démarrent plus → formulaires en
         // POST natif (ex. admin/login → 405). optOut() coupe l'appel à la source.
         Telemetry::optOut();
+
+        // Nettoyage des pivots avant suppression d'une collection (catégorie) :
+        // le sous-arbre nested set est effacé en SQL brut (pas d'events par
+        // descendant), donc on détache les FK du sous-arbre à la racine.
+        LunarCollection::observe(CollectionDeleteObserver::class);
 
         // Garde-fou anti-effacement de la base DEV / LOCAL. Bloque au niveau
         // framework migrate:fresh / migrate:refresh / migrate:reset / db:wipe QUEL
