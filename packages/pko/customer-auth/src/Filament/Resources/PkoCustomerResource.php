@@ -9,6 +9,7 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCusto
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoListCustomers;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoViewCustomer;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\RelationManagers\NegotiatedPricesRelationManager;
 
 /**
  * Swap de la CustomerResource de Lunar (via AppServiceProvider::swapLunarResources).
@@ -23,6 +24,13 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoViewCustome
 class PkoCustomerResource extends CustomerResource
 {
     protected static ?string $slug = 'customers';
+
+    public static function getDefaultRelations(): array
+    {
+        return array_merge(parent::getDefaultRelations(), [
+            NegotiatedPricesRelationManager::class,
+        ]);
+    }
 
     public static function getDefaultPages(): array
     {

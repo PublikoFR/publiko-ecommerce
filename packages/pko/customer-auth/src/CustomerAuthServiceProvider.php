@@ -7,12 +7,14 @@ namespace Pko\CustomerAuth;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Lunar\Models\Customer;
 use Pko\CustomerAuth\Http\Middleware\RedirectIfProCustomer;
 use Pko\CustomerAuth\Http\Middleware\RequireProCustomer;
 use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
 use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
+use Pko\CustomerAuth\Models\NegotiatedPrice;
 use Pko\CustomerAuth\Sirene\SireneClient;
 
 class CustomerAuthServiceProvider extends ServiceProvider
@@ -37,6 +39,13 @@ class CustomerAuthServiceProvider extends ServiceProvider
 
         $router->aliasMiddleware('pro.customer', RequireProCustomer::class);
         $router->aliasMiddleware('redirect.if.pro', RedirectIfProCustomer::class);
+
+        // Relation « prix négociés » ajoutée au modèle Customer de Lunar sans le
+        // subclasser (utilisée par le RelationManager Filament + le pipeline pricing).
+        Customer::resolveRelationUsing(
+            'negotiatedPrices',
+            fn (Customer $customer) => $customer->hasMany(NegotiatedPrice::class, 'customer_id'),
+        );
 
         Livewire::component('customer-auth.login', LoginPage::class);
         Livewire::component('customer-auth.register', RegisterPage::class);

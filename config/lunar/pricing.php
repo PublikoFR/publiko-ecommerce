@@ -1,6 +1,7 @@
 <?php
 
 use Lunar\Pricing\DefaultPriceFormatter;
+use Pko\CustomerAuth\Pricing\NegotiatedPricePipeline;
 
 return [
 
@@ -35,7 +36,8 @@ return [
     |
     */
     'pipelines' => [
-        // App\Pipelines\Pricing\Example::class,
+        // Applique le prix négocié HT propre au client (le plus bas l'emporte).
+        NegotiatedPricePipeline::class,
     ],
 
 ];

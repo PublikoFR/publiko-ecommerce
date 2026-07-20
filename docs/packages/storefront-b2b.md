@@ -49,6 +49,16 @@ Composants storefront : `product-card` (Foussier-like avec marque + code + N var
 
 Même logique (`auth()->check()`) sur `<x-storefront.product-card>` et `<x-storefront.add-to-cart>`. Routes gated par middleware `pro.customer` : `/panier`, `/checkout*`, `/compte*`, `/achat-rapide`, `/compte/listes-achat*`.
 
+#### Prix négociés par client (depuis 2026-07)
+
+Tarifs HT contractuels propres à un client (équivalent des *« Prix spécifiques »* PrestaShop). Lunar ne price que par **groupe client**, jamais par client individuel → couche custom via le **pricing pipeline**.
+
+- **Table** `pko_negotiated_prices` (`customer_id`, `product_variant_id`, `currency_id`, `price` en centimes HT ; unique `pko_negotiated_prices_unique`). Migration dans `packages/pko/customer-auth`.
+- **Modèle** `Pko\CustomerAuth\Models\NegotiatedPrice`. Relation dynamique `Customer::negotiatedPrices` ajoutée sans subclasser le modèle Lunar via `Customer::resolveRelationUsing(...)` dans le ServiceProvider.
+- **Application** : `Pko\CustomerAuth\Pricing\NegotiatedPricePipeline`, enregistré dans `config/lunar/pricing.php` → `pipelines`. Réécrit `pricing->matched` **uniquement si le prix négocié est strictement inférieur** au prix déjà résolu → un prix dégressif par quantité (ou toute règle Lunar) plus bas est préservé, et les promotions (discounts) s'appliquent ensuite dans le pipeline panier. Objectif : toujours le prix le plus avantageux. Un seul point d'application → cohérent fiche produit / price-gate / panier / checkout / commande.
+- **Contexte client** : le pipeline lit `$manager->user` (auto-résolu depuis `Auth::user()` par le `PricingManager` s'il s'agit d'un utilisateur Lunar). En admin, l'utilisateur est un membre du staff (non-Lunar) → pipeline inactif ; une commande créée par un admin au nom d'un client passera par la future **impersonation** (qui posera un utilisateur Lunar).
+- **UI** : onglet **« Prix négociés »** sur la fiche client (`NegotiatedPricesRelationManager` sur `PkoCustomerResource`) — recherche produit (nom/réf) + saisie du prix HT en €. Produits mono-variante → la recherche vise la variante par défaut.
+
 ### 15.5 Inscription pro + vérification SIRET
 
 `Pko\CustomerAuth\Sirene\SireneClient` :
