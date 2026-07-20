@@ -1,6 +1,6 @@
 @props(['items' => []])
 
-<nav aria-label="Fil d'Ariane" class="text-sm">
+<nav aria-label="Fil d'Ariane" {{ $attributes->class('text-sm') }}>
     <ol class="flex flex-wrap items-center gap-1.5 text-neutral-500">
         <li>
             <a href="/" class="hover:text-primary-600 transition">Accueil</a>

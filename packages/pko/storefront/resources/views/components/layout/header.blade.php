@@ -44,7 +44,7 @@ $user = auth()->user();
 
                 {{-- Search --}}
                 <div class="hidden md:flex flex-1 min-w-0">
-                    @livewire('storefront.search-autocomplete')
+                    @livewire('storefront.search-autocomplete', key: 'search-desktop')
                 </div>
 
                 {{-- Actions --}}
@@ -73,9 +73,9 @@ $user = auth()->user();
                         </a>
                     @endif
 
-                    <a href="/achat-rapide" class="hidden lg:flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
-                        <x-ui.icon name="lightning" class="w-[22px] h-[22px]" />
-                        <span class="text-[11px] font-medium text-neutral-600">Achat rapide</span>
+                    <a href="/compte/listes-achat" class="hidden lg:flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
+                        <x-ui.icon name="list" class="w-[22px] h-[22px]" />
+                        <span class="text-[11px] font-medium text-neutral-600">Mes listes d'achat</span>
                     </a>
 
                     @auth
@@ -89,9 +89,11 @@ $user = auth()->user();
                 </div>
             </div>
 
-            {{-- Mobile search (row 2) --}}
+            {{-- Mobile search (row 2) — composant Livewire pour l'autocomplétion ajax
+                 (identique au desktop). L'ancienne search-bar statique (form GET) ne
+                 déclenchait pas la recherche ajax en mobile. --}}
             <div class="md:hidden pb-3">
-                <x-layout.search-bar />
+                @livewire('storefront.search-autocomplete', key: 'search-mobile')
             </div>
 
             {{-- Category nav (white, lime underline on active) --}}
