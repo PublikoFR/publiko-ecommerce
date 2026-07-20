@@ -153,4 +153,50 @@
         </div>
     </section>
 @endif
+
+@if ($this->relatedProducts->isNotEmpty())
+    <section class="pb-14 md:pb-20">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="font-display font-bold text-xl md:text-2xl text-neutral-900 mb-6">Ça peut aussi vous intéresser</h2>
+
+            @if ($this->relatedProducts->count() > 4)
+                {{-- Carrousel horizontal : plus de 4 produits associés --}}
+                <div x-data="{
+                    scrollBy(dir) {
+                        this.$refs.track.scrollBy({ left: dir * this.$refs.track.clientWidth * 0.8, behavior: 'smooth' });
+                    }
+                }" class="relative">
+                    <div x-ref="track"
+                         class="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1
+                                [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        @foreach ($this->relatedProducts as $related)
+                            <div wire:key="related_{{ $related->id }}"
+                                 class="snap-start shrink-0 w-[78%] sm:w-[46%] lg:w-[calc((100%-3.75rem)/4)]">
+                                <x-storefront.product-card :product="$related" />
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <button type="button" @click="scrollBy(-1)" aria-label="Précédent"
+                            class="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-white border border-neutral-200 shadow-md text-neutral-700 hover:text-primary-600 hover:border-primary-500 transition">
+                        <x-ui.icon name="chevron-left" class="w-5 h-5" />
+                    </button>
+                    <button type="button" @click="scrollBy(1)" aria-label="Suivant"
+                            class="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-white border border-neutral-200 shadow-md text-neutral-700 hover:text-primary-600 hover:border-primary-500 transition">
+                        <x-ui.icon name="chevron-right" class="w-5 h-5" />
+                    </button>
+                </div>
+            @else
+                {{-- Grille fixe : jusqu'à 4 produits associés --}}
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                    @foreach ($this->relatedProducts as $related)
+                        <div wire:key="related_{{ $related->id }}">
+                            <x-storefront.product-card :product="$related" />
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </section>
+@endif
 </div>

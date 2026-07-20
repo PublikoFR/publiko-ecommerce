@@ -158,6 +158,25 @@ class ProductPage extends Component
         return $supplierId !== null ? Supplier::find($supplierId) : null;
     }
 
+    /**
+     * Produits associés (cross-sell) définis dans le back-office, affichés en
+     * bas de fiche produit dans la section « Ça peut aussi vous intéresser ».
+     */
+    public function getRelatedProductsProperty(): Collection
+    {
+        return $this->product->associations()
+            ->where('type', 'cross-sell')
+            ->with([
+                'target.defaultUrl',
+                'target.brand',
+                'target.variants',
+            ])
+            ->get()
+            ->pluck('target')
+            ->filter()
+            ->values();
+    }
+
     public function getDocumentsProperty(): Collection
     {
         if (! auth()->check()) {
