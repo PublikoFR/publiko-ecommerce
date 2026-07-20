@@ -24,8 +24,10 @@ class RedirectIfProCustomer
             return redirect('/compte');
         }
 
-        // Authentifié mais compte en attente / non rattaché → accueil avec message.
-        // Pas de redirect vers /compte (qui renverrait vers /connexion → boucle).
-        return redirect('/')->with('status', 'Votre compte est en cours de validation. Vous serez notifié par e-mail dès activation.');
+        // Authentifié mais compte non-actif (SIRET pending, hors groupe, sans
+        // customer) → on laisse la page de connexion s'afficher. Surtout PAS de
+        // redirect vers /compte (qui renverrait vers /connexion → boucle), ni
+        // vers /, sinon l'utilisateur ne peut jamais atteindre /connexion.
+        return $next($request);
     }
 }
