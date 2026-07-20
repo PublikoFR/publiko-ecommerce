@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Filament\Resources;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Lunar\Admin\Filament\Resources\CustomerResource;
+use Lunar\Models\Customer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoListCustomers;
@@ -24,6 +29,62 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\RelationManagers\Neg
 class PkoCustomerResource extends CustomerResource
 {
     protected static ?string $slug = 'customers';
+
+    /**
+     * Liste clients : on ajoute e-mail + département (2 premiers chiffres du code
+     * postal) + filtre département, et on retire les colonnes identifiant fiscal
+     * (tax_identifier) et référence du compte (account_ref).
+     */
+    public static function getDefaultTable(Table $table): Table
+    {
+        $table = parent::getDefaultTable($table);
+
+        $columns = collect($table->getColumns())
+            ->reject(fn ($column) => in_array($column->getName(), ['tax_identifier', 'account_ref'], true))
+            ->keyBy(fn ($column) => $column->getName());
+
+        $email = TextColumn::make('users.email')
+            ->label('E-mail')
+            ->searchable()
+            ->sortable()
+            ->copyable();
+
+        $departement = TextColumn::make('pko_postcode')
+            ->label('Département')
+            ->formatStateUsing(fn (?string $state): string => filled($state) ? substr($state, 0, 2) : '—')
+            ->sortable();
+
+        // Ordre : prénom, nom, société, e-mail, département, groupes.
+        $ordered = array_values(array_filter([
+            $columns->get('first_name'),
+            $columns->get('last_name'),
+            $columns->get('company_name'),
+            $email,
+            $departement,
+            $columns->get('customerGroups.name'),
+        ]));
+
+        return $table
+            ->columns($ordered)
+            ->filters([
+                ...$table->getFilters(),
+                SelectFilter::make('departement')
+                    ->label('Département')
+                    ->options(fn (): array => Customer::query()
+                        ->whereNotNull('pko_postcode')
+                        ->where('pko_postcode', '!=', '')
+                        ->pluck('pko_postcode')
+                        ->map(fn (string $postcode): string => substr($postcode, 0, 2))
+                        ->unique()
+                        ->sort()
+                        ->values()
+                        ->mapWithKeys(fn (string $dep): array => [$dep => $dep])
+                        ->all())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
+                        ? $query->where('pko_postcode', 'like', $data['value'].'%')
+                        : $query),
+            ]);
+    }
 
     public static function getDefaultRelations(): array
     {

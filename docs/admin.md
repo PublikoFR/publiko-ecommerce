@@ -40,6 +40,8 @@ Structure actuelle :
 
 **Raccourcis Pilotage** : Dashboard, OrderResource, CarrierShipmentResource, CustomerResource apparaissent uniquement dans la section Pilotage (pas de doublon dans un groupe métier). Les raccourcis utilisent `NavigationItem::url()` pointant vers la Resource native → aucune URL n'a changé.
 
+**Liste clients (`PkoCustomerResource::getDefaultTable`)** : colonnes personnalisées via override de `getDefaultTable` (appel `parent` puis manipulation). Colonnes affichées : prénom, nom, société, **e-mail** (`users.email`), **département** (2 premiers chiffres de `pko_postcode`), groupes. Colonnes Lunar retirées : identifiant fiscal (`tax_identifier`) et référence du compte (`account_ref`). Filtre **Département** (`SelectFilter`, options = préfixes 2-chiffres distincts présents en base) en plus du filtre groupe.
+
 **Gotcha Filament** : Filament 3 ne supporte pas les sous-groupes imbriqués persistants côté sidebar. La section Configuration du cahier des charges est matérialisée par 4 groupes collapsed adjacents (Général / Imports et Données / Boutique / Paiement & Expédition) plutôt qu'un groupe unique Configuration avec sous-sections.
 
 **TreeManager** : anciennement 1 entrée nav, désormais 2 (`Catégories` et `Caractéristiques`) via `getNavigationItems()` retournant 2 `NavigationItem` avec query param `?tab=categories|features`. Toggle 3 modes sur la page (catégories seules, features seules, les deux).
