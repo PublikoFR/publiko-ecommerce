@@ -19,8 +19,8 @@ use Pko\CatalogFeatures\Models\FeatureFamily;
 /**
  * Page de recherche storefront avec facettes réactives (features + brands).
  * La recherche textuelle est faite par LIKE sur le nom produit (attribute_data
- * JSON, chemin $.name.value) et variants.sku/ean/mpn — compatible avec le moteur
- * Scout si activé, mais n'en dépend pas.
+ * JSON, chemin $.name.value), variants.sku/ean/mpn et les tags — compatible avec
+ * le moteur Scout si activé, mais n'en dépend pas.
  */
 class SearchPage extends Component
 {
@@ -74,7 +74,7 @@ class SearchPage extends Component
     }
 
     /**
-     * Base : produits matchant le terme de recherche (name/SKU/ean LIKE).
+     * Base : produits matchant le terme de recherche (name/SKU/ean/mpn/tag LIKE).
      *
      * @return Builder<Product>
      */
@@ -93,7 +93,8 @@ class SearchPage extends Component
                         $v->where('sku', 'like', $like)
                             ->orWhere('ean', 'like', $like)
                             ->orWhere('mpn', 'like', $like);
-                    });
+                    })
+                    ->orWhereHas('tags', fn ($t) => $t->where('value', 'like', $like));
             });
         }
 
