@@ -19,7 +19,6 @@ use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Lunar\Admin\Filament\Resources\BrandResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource;
-use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\DiscountResource;
 use Lunar\Admin\Filament\Resources\OrderResource;
 use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
@@ -32,6 +31,7 @@ use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\CatalogFeatures\Filament\Resources\FeatureFamilyResource;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
@@ -81,7 +81,7 @@ class Builder
     private static function sales(): array
     {
         return array_values(array_filter([
-            self::resItem(CustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
+            self::resItem(PkoCustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
             self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(2),
             self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(3),
             self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(4),

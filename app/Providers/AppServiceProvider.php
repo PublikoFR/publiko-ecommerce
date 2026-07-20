@@ -40,8 +40,6 @@ use Lunar\Admin\Filament\Resources\CurrencyResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource\Pages\EditCustomerGroup;
 use Lunar\Admin\Filament\Resources\CustomerResource;
-use Lunar\Admin\Filament\Resources\CustomerResource\Pages\CreateCustomer;
-use Lunar\Admin\Filament\Resources\CustomerResource\Pages\EditCustomer;
 use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
@@ -73,6 +71,9 @@ use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerSiretExtension;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCustomer;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
@@ -187,15 +188,18 @@ class AppServiceProvider extends ServiceProvider
                 HideLunarMediaExtension::class,
                 BrandContentExtension::class,
             ],
-            CustomerResource::class => [
+            // CustomerResource swappée par PkoCustomerResource (combined tabs) → les
+            // hooks Lunar utilisent static::class, donc les extensions doivent être
+            // keyées sur les classes Pko (resource + pages), sinon elles n'appliquent plus.
+            PkoCustomerResource::class => [
                 CustomerProfileExtension::class,
                 CustomerLoyaltyExtension::class,
                 CustomerAnonymizeExtension::class,
             ],
-            CreateCustomer::class => [
+            PkoCreateCustomer::class => [
                 CustomerCreateExtension::class,
             ],
-            EditCustomer::class => [
+            PkoEditCustomer::class => [
                 CustomerSiretExtension::class,
             ],
             CustomerGroupResource::class => [
@@ -409,6 +413,7 @@ class AppServiceProvider extends ServiceProvider
     private function swapLunarResources(): void
     {
         $swaps = [
+            CustomerResource::class => PkoCustomerResource::class,
             ProductResource::class => PkoProductResource::class,
             ProductTypeResource::class => PkoProductTypeResource::class,
             ProductOptionResource::class => PkoProductOptionResource::class,

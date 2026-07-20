@@ -42,4 +42,22 @@ class CustomerEditPageRenderTest extends TestCase
             ->assertOk()
             ->assertSee('SIRET');
     }
+
+    public function test_customer_list_and_create_render(): void
+    {
+        $this->get('/admin/customers')->assertOk();
+        $this->get('/admin/customers/create')->assertOk();
+    }
+
+    public function test_customer_view_page_renders_with_combined_tabs(): void
+    {
+        $customer = Customer::query()->firstOrFail();
+
+        // PkoViewCustomer fusionne contenu + relations : l'onglet de contenu porte
+        // le label 'Informations' (getContentTabLabel), preuve que le mode combiné
+        // est actif (sinon aucun onglet de contenu n'est rendu).
+        $this->get("/admin/customers/{$customer->id}")
+            ->assertOk()
+            ->assertSee('Informations');
+    }
 }
