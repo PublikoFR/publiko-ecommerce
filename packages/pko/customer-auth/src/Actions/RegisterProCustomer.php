@@ -55,7 +55,9 @@ class RegisterProCustomer
                 'sirene_status' => $sirene->status->value,
                 'sirene_verified_at' => $sirene->isActive() ? now() : null,
                 'naf_code' => $sirene->nafCode,
-                'pko_status' => 'pending',
+                // SIRET confirmé actif par l'INSEE → compte pro actif d'emblée
+                // (auto-login sans friction). Sinon en attente de validation manuelle.
+                'pko_status' => $sirene->isActive() ? 'active' : 'pending',
                 'pko_street' => $data['street'] ?? null,
                 'pko_postcode' => $data['postcode'] ?? null,
                 'pko_city' => $data['city'] ?? null,
@@ -73,9 +75,9 @@ class RegisterProCustomer
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
             ]);
-            // email_verified_at hors $fillable → assignation directe après create.
-            $user->email_verified_at = now();
-            $user->save();
+            // email_verified_at reste null : l'utilisateur doit confirmer son adresse
+            // via le lien signé du mail de bienvenue. Il a néanmoins un accès complet
+            // entretemps (bandeau de rappel côté storefront).
 
             $customer->users()->attach($user);
 

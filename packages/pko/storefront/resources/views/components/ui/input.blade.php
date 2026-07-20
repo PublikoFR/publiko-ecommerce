@@ -4,12 +4,14 @@
     'error' => null,
     'icon' => null,
     'id' => null,
+    'trailing' => null,
 ])
 
 @php
 $id = $id ?? ('inp-'.bin2hex(random_bytes(4)));
 $hasError = (bool) $error;
-$inputClass = 'block w-full rounded-md border-neutral-300 text-neutral-900 placeholder:text-neutral-400 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm '.($hasError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : '').' '.($icon ? 'pl-10' : '');
+$hasTrailing = ! is_null($trailing);
+$inputClass = 'block w-full rounded-md border-neutral-300 text-neutral-900 placeholder:text-neutral-400 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm '.($hasError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : '').' '.($icon ? 'pl-10' : '').' '.($hasTrailing ? 'pr-10' : '');
 @endphp
 
 <div class="w-full">
@@ -23,6 +25,9 @@ $inputClass = 'block w-full rounded-md border-neutral-300 text-neutral-900 place
             </div>
         @endif
         <input id="{{ $id }}" {{ $attributes->merge(['type' => 'text'])->class($inputClass) }} />
+        @if ($hasTrailing)
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center">{{ $trailing }}</div>
+        @endif
     </div>
     @if ($error)
         <p class="mt-1.5 text-sm text-danger-600">{{ $error }}</p>

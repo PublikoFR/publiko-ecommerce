@@ -58,11 +58,17 @@ Même logique sur `<x-storefront.add-to-cart>`. Routes gated par middleware `pro
 `RegisterProCustomer::handle($dto)` :
 - Transaction : crée `Lunar\Models\Customer` (raison, TVA FR depuis clé, meta.siret/naf/adresse INSEE), attache group `installateurs`, crée `User` lié via pivot `customer_user`. Retourne `['user', 'customer', 'sirene']`.
 - Si `Status::Inactive` → `DomainException` bloquante.
-- Si `Status::Pending` → compte créé mais `sirene_status='pending'` → middleware refuse tant que non promu active.
+- `pko_status` = `active` si SIRET confirmé actif par l'INSEE (accès pro immédiat, sans validation manuelle), sinon `pending`.
+- **`email_verified_at` reste `null`** : l'utilisateur confirme son adresse via un lien signé. Ne jamais le marquer vérifié à la création.
 
-`RegisterPage` (Livewire) après création :
-- `Status::Active` → `Auth::login()` + redirection `/compte` (accès immédiat).
-- `Status::Pending`/`Inactive` gérés en amont → **on ne connecte PAS** un compte pending à l'inscription.
+`RegisterPage` (Livewire) :
+- **Vérif SIRET asynchrone** : au blur du champ SIRET (`wire:model.blur` → hook `updatedSiret`), appel INSEE avec loader (slot `trailing` du composant `<x-ui.input>`). Si actif → coche verte + préremplissage des champs société **encore vides** (raison sociale, activité/NAF, adresse). Si invalide/inactif → message d'erreur inline. La revalidation serveur au submit reste la source de vérité.
+- Après création : `Status::Active` → `Auth::login()` + redirection `/compte` (friction minimale, même si e-mail non encore vérifié). `Status::Pending`/`Inactive` → **on ne connecte PAS**.
+
+**Vérification d'e-mail** (accès complet entretemps, bandeau de rappel) :
+- Lien signé via `Pko\CustomerAuth\Support\EmailVerification::signedUrl()` (route `verification.verify`, middleware `signed`, valable 7 jours) — inclus dans le mail de bienvenue (`CustomerRegisteredMail`) et le renvoi (`EmailVerificationMail` + route `verification.send`, throttlée).
+- La route de vérif fonctionne **sans session préalable** (clic depuis n'importe quel appareil) : valide signature + hash e-mail, `markEmailAsVerified()`, puis auto-login.
+- Bandeau de rappel dans le layout storefront tant que `! auth()->user()->hasVerifiedEmail()` (bouton « Renvoyer le lien »).
 
 **Anti-boucle de redirection (`ERR_TOO_MANY_REDIRECTS`)** — source unique de vérité :
 `Pko\CustomerAuth\Support\ProAccess::isActivePro()` / `::denialReason()`. Un utilisateur

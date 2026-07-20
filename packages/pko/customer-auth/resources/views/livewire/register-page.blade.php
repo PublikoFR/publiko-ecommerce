@@ -16,7 +16,25 @@
             </x-ui.alert>
 
             <div class="grid grid-cols-1 gap-5">
-                <x-ui.input wire:model="siret" label="SIRET (14 chiffres)" placeholder="12345678901234" required inputmode="numeric" :error="$errors->first('siret')" />
+                <x-ui.input wire:model.blur="siret" label="SIRET (14 chiffres)" placeholder="12345678901234" required inputmode="numeric" :error="$sireneError ?: $errors->first('siret')">
+                    <x-slot:trailing>
+                        {{-- Loader pendant l'appel INSEE --}}
+                        <svg wire:loading wire:target="siret" class="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        {{-- Établissement confirmé actif --}}
+                        @if ($sireneVerified)
+                            <svg wire:loading.remove wire:target="siret" class="h-5 w-5 text-success-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        @endif
+                    </x-slot:trailing>
+                </x-ui.input>
+
+                @if ($sireneVerified)
+                    <p class="-mt-3 text-sm text-success-700 flex items-center gap-1.5">Établissement vérifié auprès de l'INSEE — informations préremplies ci-dessous.</p>
+                @endif
 
                 <x-ui.input wire:model="companyName" label="Raison sociale" placeholder="Optionnel — détecté automatiquement" :error="$errors->first('companyName')" />
 

@@ -11,10 +11,17 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
+use Pko\CustomerAuth\Sirene\Status;
 
 class RegisterPage extends Component
 {
     public string $siret = '';
+
+    /** Établissement confirmé actif par l'INSEE (vérif async au blur du SIRET). */
+    public bool $sireneVerified = false;
+
+    /** Message d'erreur de la vérification SIRET async (null si OK / pas encore vérifié). */
+    public ?string $sireneError = null;
 
     public ?string $companyName = null;
 
@@ -63,6 +70,51 @@ class RegisterPage extends Component
         ];
     }
 
+    /**
+     * Vérification SIRET asynchrone déclenchée au blur du champ (wire:model.blur).
+     * Si l'établissement est actif, préremplit les champs société encore vides.
+     */
+    public function updatedSiret(): void
+    {
+        $this->sireneError = null;
+        $this->sireneVerified = false;
+
+        $digits = preg_replace('/\D/', '', (string) $this->siret) ?? '';
+        $this->siret = $digits;
+
+        if ($digits === '') {
+            return;
+        }
+
+        if (! SireneClient::validateSiret($digits)) {
+            $this->sireneError = 'SIRET invalide : 14 chiffres attendus (clé de contrôle incorrecte).';
+
+            return;
+        }
+
+        $result = app(SireneClient::class)->verify($digits);
+
+        if ($result->status === Status::Inactive) {
+            $this->sireneError = 'Cet établissement ne semble pas actif dans la base INSEE. Vérifiez le numéro.';
+
+            return;
+        }
+
+        if ($result->status === Status::Active) {
+            $this->sireneVerified = true;
+
+            // Préremplissage : on ne remplace que les champs laissés vides par
+            // l'utilisateur (il garde la main sur ce qu'il a déjà saisi).
+            $this->companyName = $this->companyName ?: $result->raisonSociale;
+            $this->activity = $this->activity !== '' ? $this->activity : ($result->nafLabel ?? $result->nafCode ?? '');
+            $this->street = $this->street !== '' ? $this->street : ($result->addressLine1 ?? '');
+            $this->postcode = $this->postcode !== '' ? $this->postcode : ($result->postcode ?? '');
+            $this->city = $this->city !== '' ? $this->city : ($result->city ?? '');
+        }
+        // Status::Pending (API désactivée / indisponible) : ni erreur ni préremplissage,
+        // la revalidation serveur tranchera au submit.
+    }
+
     public function submit(RegisterProCustomer $action): mixed
     {
         // Normalise le SIRET : on accepte les espaces / séparateurs de saisie
@@ -94,11 +146,14 @@ class RegisterPage extends Component
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);
         }
 
-        // Un compte actif est connecté immédiatement et accède à l'espace pro.
+        // SIRET revalidé actif côté serveur → on connecte immédiatement pour
+        // limiter la friction. L'e-mail n'est pas encore vérifié : l'utilisateur
+        // reçoit un lien de validation dans le mail de bienvenue et voit un
+        // bandeau de rappel tant qu'il n'a pas cliqué (accès complet entretemps).
         if ($result['sirene']->isActive()) {
             Auth::login($result['user']);
             session()->regenerate();
-            session()->flash('status', 'Bienvenue ! Votre compte pro est actif.');
+            session()->flash('status', 'Bienvenue ! Votre compte pro est actif. Un e-mail de bienvenue vous a été envoyé : validez votre adresse e-mail en cliquant sur le lien qu\'il contient.');
 
             return redirect('/compte');
         }

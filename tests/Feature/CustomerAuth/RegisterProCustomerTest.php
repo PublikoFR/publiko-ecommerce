@@ -96,14 +96,26 @@ class RegisterProCustomerTest extends TestCase
         });
     }
 
-    public function test_email_verified_at_est_renseigne_a_la_creation(): void
+    public function test_email_reste_non_verifie_a_la_creation(): void
     {
         $this->mockSireneActive();
         Mail::fake();
 
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
 
-        $this->assertNotNull($result['user']->email_verified_at);
+        // L'e-mail doit être confirmé via le lien signé du mail de bienvenue.
+        $this->assertNull($result['user']->email_verified_at);
+        $this->assertFalse($result['user']->hasVerifiedEmail());
+    }
+
+    public function test_siret_actif_active_le_compte_pro(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+
+        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
     }
 
     public function test_groupe_pro_installateurs_est_attache(): void

@@ -15,6 +15,21 @@
 <body class="min-h-screen flex flex-col bg-neutral-50 text-neutral-900 font-sans antialiased">
     <x-layout.lateral-menu />
     <x-layout.header />
+
+    @auth
+        @if (! auth()->user()->hasVerifiedEmail())
+            <div class="bg-warning-50 border-b border-warning-200 text-warning-900">
+                <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+                    <span>Pensez à <strong>vérifier votre adresse e-mail</strong> pour sécuriser votre compte.</span>
+                    <form method="POST" action="{{ route('verification.send') }}" class="inline">
+                        @csrf
+                        <button type="submit" class="font-semibold underline hover:no-underline">Renvoyer le lien</button>
+                    </form>
+                </div>
+            </div>
+        @endif
+    @endauth
+
     <main class="flex-1">{{ $slot }}</main>
     <x-layout.footer />
     @livewire('purchase-lists.picker')
