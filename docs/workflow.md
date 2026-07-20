@@ -79,6 +79,8 @@ métier custom (ex. SIRET, paiement) doit être écrite directement en français
 
 - **Fixtures sur modèles Lunar guarded** : `Lunar\Models\Product` est `$guarded = ['*']` avec un `$fillable` restreint (`attribute_data, product_type_id, status, brand_id`). Un `$model->update([...])` en mass-assignment **droppe silencieusement** les colonnes custom `pko_*` non fillable (ex. `pko_supplier_id`). Pour poser un état de fixture déterministe, utiliser `forceFill([...])->save()` (ou affecter les attributs en direct), pas `update()`.
 
+- **JAMAIS `truncate()` dans un seeder** : `TRUNCATE` est du DDL → **COMMIT implicite** en MySQL. Quand un seeder tourne dans le `setUp()` d'un test `RefreshDatabase` (`$this->seed(DatabaseSeeder::class)`), le TRUNCATE committe la transaction d'isolation → les données de test ne sont plus rollback → elles s'accumulent entre les tests d'un même process → collisions d'unicité (`Duplicate entry … for key …_unique`) sur les tests suivants. Pire, l'erreur réelle est **masquée** par un `SQLSTATE[42000] 1305 SAVEPOINT trans2 does not exist` (le rollback du savepoint échoue car le COMMIT l'a libéré). Toujours utiliser `->delete()` (DML) pour purger un modèle dans un seeder idempotent.
+
 ---
 
 

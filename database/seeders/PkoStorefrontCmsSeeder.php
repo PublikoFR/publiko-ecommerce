@@ -26,7 +26,11 @@ class PkoStorefrontCmsSeeder extends Seeder
             ['label' => 'Page', 'url_segment' => 'page', 'icon' => 'heroicon-o-document-text', 'sort_order' => 20],
         );
 
-        HomeSlide::query()->truncate();
+        // delete() (DML) et non truncate() (DDL) : TRUNCATE provoque un COMMIT
+        // implicite en MySQL, ce qui casse la transaction d'isolation de
+        // RefreshDatabase quand ce seeder tourne dans un test (données non
+        // rollback → collisions d'unicité sur les tests suivants).
+        HomeSlide::query()->delete();
         foreach ([
             ['title' => 'Les performances qui font la différence', 'subtitle' => 'Gamme outillage pro Milwaukee — jusqu\'à -30% sur sélection', 'bg_color' => '#0f172a', 'text_color' => '#ffffff', 'cta_label' => 'J\'en profite', 'cta_url' => '/collections/outillage', 'position' => 1],
             ['title' => 'Votre partenaire portails & automatismes', 'subtitle' => '60 000 références pros disponibles en 24h', 'bg_color' => '#1e40af', 'text_color' => '#ffffff', 'cta_label' => 'Découvrir le catalogue', 'cta_url' => '/collections/portails-coulissants', 'position' => 2],
@@ -35,7 +39,7 @@ class PkoStorefrontCmsSeeder extends Seeder
             HomeSlide::create($slide);
         }
 
-        HomeTile::query()->truncate();
+        HomeTile::query()->delete();
         foreach ([
             ['title' => 'Portails coulissants', 'subtitle' => 'Motorisés ou manuels', 'cta_label' => 'Découvrir', 'cta_url' => '/collections/portails-coulissants', 'position' => 1],
             ['title' => 'Portails battants', 'subtitle' => 'Automatismes au choix', 'cta_label' => 'Découvrir', 'cta_url' => '/collections/portails-battants', 'position' => 2],
@@ -45,7 +49,7 @@ class PkoStorefrontCmsSeeder extends Seeder
             HomeTile::create($tile);
         }
 
-        HomeOffer::query()->truncate();
+        HomeOffer::query()->delete();
         foreach ([
             ['title' => 'Offres pros du trimestre', 'subtitle' => 'Remises dégressives jusqu\'à -25%', 'badge' => 'Jusqu\'au 30/06', 'cta_label' => 'Voir les offres', 'cta_url' => '/collections/offres', 'position' => 1],
             ['title' => 'Équipez vos chantiers', 'subtitle' => 'EPI, outillage, accessoires', 'badge' => 'Pack chantier', 'cta_label' => 'Composer mon pack', 'cta_url' => '/collections/epi', 'position' => 2],
