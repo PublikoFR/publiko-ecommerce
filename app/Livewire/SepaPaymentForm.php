@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Contracts\Cart as CartContract;
-use Stripe\Stripe as StripeClient;
 use Stripe\PaymentIntent;
+use Stripe\Stripe as StripeClient;
 
 class SepaPaymentForm extends Component
 {
@@ -67,7 +68,7 @@ class SepaPaymentForm extends Component
         return $this->cart->billingAddress;
     }
 
-    public function render(): \Illuminate\View\View
+    public function render(): View
     {
         return view('livewire.sepa-payment-form');
     }
