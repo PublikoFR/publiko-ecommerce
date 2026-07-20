@@ -643,20 +643,47 @@
                             </x-pko-product::chip>
                         @endforeach
                     </div>
-                    <div class="relative">
+                    <div
+                        class="relative"
+                        x-data="{
+                            hi: -1,
+                            items() { return this.$refs.results ? Array.from(this.$refs.results.querySelectorAll('[data-result]')) : []; },
+                            move(dir) {
+                                const items = this.items();
+                                if (! items.length) { this.hi = -1; return; }
+                                this.hi = (this.hi + dir + items.length) % items.length;
+                                items[this.hi]?.scrollIntoView({ block: 'nearest' });
+                            },
+                            choose() {
+                                const items = this.items();
+                                if (! items.length) return;
+                                (items[this.hi] ?? items[0])?.click();
+                                this.hi = -1;
+                            },
+                        }"
+                    >
                         <input
                             type="text"
                             wire:model.live.debounce.200ms="collectionSearch"
-                            placeholder="Rechercher une catégorie…"
+                            placeholder="Rechercher une catégorie… (↑ ↓ + Entrée)"
                             class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+                            autocomplete="off"
+                            x-on:input="hi = -1"
+                            x-on:keydown.arrow-down.prevent="move(1)"
+                            x-on:keydown.arrow-up.prevent="move(-1)"
+                            x-on:keydown.enter.prevent="choose()"
+                            x-on:keydown.escape="hi = -1"
                         />
                         @if ($collectionSearch !== '' && $this->collectionSearchResults->isNotEmpty())
-                            <div class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded shadow-lg max-h-60 overflow-y-auto">
+                            <div class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded shadow-lg max-h-60 overflow-y-auto" x-ref="results">
                                 @foreach ($this->collectionSearchResults as $coll)
                                     <button
                                         type="button"
+                                        data-result
                                         wire:click="addCollection({{ $coll->id }})"
                                         class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5"
+                                        x-bind:class="hi === {{ $loop->index }} ? 'bg-gray-100 dark:bg-white/10' : ''"
+                                        x-on:mouseenter="hi = {{ $loop->index }}"
                                     >
                                         {{ $coll->translateAttribute('name') }}
                                     </button>
