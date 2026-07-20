@@ -5,6 +5,7 @@
     'icon' => null,
     'id' => null,
     'trailing' => null,
+    'labelTrailing' => null,
 ])
 
 @php
@@ -18,12 +19,18 @@ $id = $id ?? ($wireModel
     : ($label ? 'inp-'.\Illuminate\Support\Str::slug($label) : 'inp-'.bin2hex(random_bytes(4))));
 $hasError = (bool) $error;
 $hasTrailing = ! is_null($trailing);
+$isRequired = $attributes->has('required');
 $inputClass = 'block w-full rounded-md border-neutral-300 text-neutral-900 placeholder:text-neutral-400 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm '.($hasError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : '').' '.($icon ? 'pl-10' : '').' '.($hasTrailing ? 'pr-10' : '');
 @endphp
 
 <div class="w-full">
     @if ($label)
-        <label for="{{ $id }}" class="block text-sm font-medium text-neutral-700 mb-1.5">{{ $label }}</label>
+        <div class="flex items-end justify-between gap-2 mb-1.5">
+            <label for="{{ $id }}" class="block text-sm font-medium text-neutral-700">{{ $label }}@if ($isRequired)<span class="text-danger-500"> *</span>@endif</label>
+            @if (! is_null($labelTrailing))
+                <div class="shrink-0">{{ $labelTrailing }}</div>
+            @endif
+        </div>
     @endif
     <div class="relative">
         @if ($icon)

@@ -17,7 +17,7 @@
     <x-layout.header />
 
     <main class="flex-1 flex items-center justify-center py-12 px-4">
-        <div class="w-full max-w-md">
+        <div class="w-full {{ $containerClass ?? 'max-w-md' }} mx-auto">
             @if (session('status'))
                 <div class="mb-6"><x-ui.alert variant="success">{{ session('status') }}</x-ui.alert></div>
             @endif

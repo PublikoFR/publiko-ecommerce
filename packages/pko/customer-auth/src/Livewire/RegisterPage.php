@@ -57,9 +57,9 @@ class RegisterPage extends Component
         return [
             'siret' => ['required', 'string'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'firstName' => ['nullable', 'string', 'max:80'],
-            'lastName' => ['nullable', 'string', 'max:80'],
+            'phone' => ['required', 'string', 'max:30'],
+            'firstName' => ['required', 'string', 'max:80'],
+            'lastName' => ['required', 'string', 'max:80'],
             'companyName' => ['nullable', 'string', 'max:200'],
             'activity' => ['nullable', 'string', 'max:200'],
             'street' => ['nullable', 'string', 'max:255'],
@@ -168,7 +168,7 @@ class RegisterPage extends Component
         return redirect('/connexion');
     }
 
-    #[Layout('customer-auth::layouts.auth')]
+    #[Layout('customer-auth::layouts.auth', ['containerClass' => 'max-w-3xl'])]
     public function render(): View
     {
         return view('customer-auth::livewire.register-page');
