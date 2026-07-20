@@ -3,6 +3,11 @@
 @php($enabled = $node['pko_enabled'] ?? true)
 <li data-id="{{ $node['id'] }}" class="{{ $enabled ? '' : 'opacity-50' }}">
     <div class="tree-node">
+        <input type="checkbox"
+               class="tree-node__select h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600"
+               title="Sélectionner pour l'export"
+               x-model="exportSelected[{{ $node['id'] }}]"
+               x-on:click.stop />
         <x-heroicon-o-bars-3 class="tree-node__handle h-4 w-4" />
         @if ($hasChildren)
             <button type="button" class="tree-node__toggle" x-on:click.stop="toggleNode($el)">

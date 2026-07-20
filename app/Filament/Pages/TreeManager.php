@@ -10,6 +10,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -53,6 +54,14 @@ class TreeManager extends BasePage implements HasActions, HasForms
     public ?int $collectionGroupId = null;
 
     public string $activeTab = 'both';
+
+    /**
+     * IDs des catégories cochées pour l'export (piloté côté client, synchronisé
+     * juste avant l'export). Vide = exporter toute l'arborescence.
+     *
+     * @var array<int, int>
+     */
+    public array $collectionExportSelection = [];
 
     public function switchTab(string $tab): void
     {
@@ -325,34 +334,18 @@ class TreeManager extends BasePage implements HasActions, HasForms
     }
 
     /**
-     * True when every collection of the current group is enabled.
-     * Drives the initial state of the "tout cocher / tout décocher" toggle.
+     * Tous les IDs de catégories du groupe courant. Sert à initialiser la
+     * sélection d'export côté client (« tout coché » par défaut).
+     *
+     * @return array<int, int>
      */
-    public function allCollectionsEnabled(): bool
+    public function allCollectionIds(): array
     {
-        return ! LunarCollection::query()
+        return LunarCollection::query()
             ->where('collection_group_id', $this->collectionGroupId)
-            ->where('pko_enabled', false)
-            ->exists();
-    }
-
-    /**
-     * Bulk enable / disable every collection of the current group in one shot.
-     */
-    public function setAllCollectionsEnabled(bool $enabled): void
-    {
-        LunarCollection::query()
-            ->where('collection_group_id', $this->collectionGroupId)
-            ->update(['pko_enabled' => $enabled]);
-
-        Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
-
-        unset($this->collectionsTree);
-
-        Notification::make()
-            ->title($enabled ? 'Toutes les catégories activées' : 'Toutes les catégories désactivées')
-            ->success()
-            ->send();
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 
     // =========================================================================
@@ -851,6 +844,19 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->modalHeading('Importer les catégories')
             ->modalSubmitActionLabel('Importer')
             ->form([
+                Radio::make('mode')
+                    ->label('Mode d\'import')
+                    ->options([
+                        'append' => 'Ajouter à la suite des catégories existantes',
+                        'replace' => 'Écraser : remplacer toutes les catégories existantes',
+                    ])
+                    ->descriptions([
+                        'append' => 'Les catégories importées sont ajoutées comme nouvelles entrées, les existantes sont conservées.',
+                        'replace' => 'Supprime d\'abord toutes les catégories du groupe, puis importe. Action irréversible.',
+                    ])
+                    ->default('append')
+                    ->required()
+                    ->inline(false),
                 Textarea::make('json_data')
                     ->label('Données JSON')
                     ->placeholder('Collez vos données JSON ici…')
@@ -870,10 +876,14 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     $payload = ['tree' => $this->flatMapToTree($payload)];
                 }
 
-                $this->importCollectionsPayload($payload);
+                $mode = ($data['mode'] ?? 'append') === 'replace' ? 'replace' : 'append';
+                $this->importCollectionsPayload($payload, $mode);
 
                 unset($this->collectionsTree);
-                Notification::make()->success()->title('Catégories importées')->send();
+                Notification::make()
+                    ->success()
+                    ->title($mode === 'replace' ? 'Catégories remplacées' : 'Catégories ajoutées')
+                    ->send();
             });
     }
 
@@ -1064,18 +1074,34 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
         $byParent = $collections->groupBy('parent_id');
 
-        $serialize = function (?int $parentId) use (&$serialize, $byParent): array {
+        // Sélection d'export : vide = tout exporter, sinon on ne garde que les
+        // catégories cochées (et leurs ancêtres, pour préserver l'arborescence).
+        $selected = array_map('intval', $this->collectionExportSelection);
+        $selectAll = $selected === [];
+
+        $serialize = function (?int $parentId) use (&$serialize, $byParent, $selected, $selectAll): array {
             /** @var SupportCollection<int, LunarCollection> $group */
             $group = $byParent->get($parentId, collect());
 
-            return $group->map(fn (LunarCollection $c): array => [
-                'id' => $c->id,
-                'name' => (string) ($c->translateAttribute('name', self::LOCALE) ?? ''),
-                'description' => $c->translateAttribute('description', self::LOCALE),
-                'meta_title' => $c->translateAttribute('meta_title', self::LOCALE),
-                'meta_description' => $c->translateAttribute('meta_description', self::LOCALE),
-                'children' => $serialize($c->id),
-            ])->values()->all();
+            return $group->reduce(function (array $carry, LunarCollection $c) use (&$serialize, $selected, $selectAll): array {
+                $children = $serialize($c->id);
+
+                // On garde le nœud s'il est coché, ou si un de ses descendants l'est.
+                if (! $selectAll && ! in_array((int) $c->id, $selected, true) && $children === []) {
+                    return $carry;
+                }
+
+                $carry[] = [
+                    'id' => $c->id,
+                    'name' => (string) ($c->translateAttribute('name', self::LOCALE) ?? ''),
+                    'description' => $c->translateAttribute('description', self::LOCALE),
+                    'meta_title' => $c->translateAttribute('meta_title', self::LOCALE),
+                    'meta_description' => $c->translateAttribute('meta_description', self::LOCALE),
+                    'children' => $children,
+                ];
+
+                return $carry;
+            }, []);
         };
 
         return [
@@ -1114,9 +1140,19 @@ class TreeManager extends BasePage implements HasActions, HasForms
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function importCollectionsPayload(array $payload): void
+    public function importCollectionsPayload(array $payload, string $mode = 'append'): void
     {
-        DB::transaction(function () use ($payload): void {
+        DB::transaction(function () use ($payload, $mode): void {
+            // Mode « écraser » : on purge d'abord toutes les catégories du groupe
+            // (pivots détachés au préalable pour éviter la FK 1451), puis on importe.
+            if ($mode === 'replace') {
+                $this->purgeCollectionsForCurrentGroup();
+            }
+
+            // En modes « ajouter » comme « écraser », on crée systématiquement de
+            // NOUVEAUX nœuds (les IDs entrants sont ignorés) : cela évite d'écraser
+            // par effet de bord des catégories d'un autre groupe et garantit un
+            // comportement additif prévisible.
             $walk = function (array $nodes, ?int $parentId) use (&$walk): void {
                 foreach ($nodes as $node) {
                     $data = [
@@ -1131,20 +1167,12 @@ class TreeManager extends BasePage implements HasActions, HasForms
                         continue;
                     }
 
-                    $existing = isset($node['id'])
-                        ? LunarCollection::query()->find($node['id'])
-                        : null;
-
-                    if ($existing === null) {
-                        $collection = new LunarCollection([
-                            'collection_group_id' => $this->collectionGroupId,
-                            'type' => 'static',
-                            'sort' => 'custom',
-                            'attribute_data' => collect(),
-                        ]);
-                    } else {
-                        $collection = $existing;
-                    }
+                    $collection = new LunarCollection([
+                        'collection_group_id' => $this->collectionGroupId,
+                        'type' => 'static',
+                        'sort' => 'custom',
+                        'attribute_data' => collect(),
+                    ]);
 
                     $this->persistCollectionAttributes($collection, $data);
 
@@ -1169,6 +1197,38 @@ class TreeManager extends BasePage implements HasActions, HasForms
         // Import de masse : vide le cache de nav une fois après commit
         // (l'arbre a pu changer massivement, hors events unitaires).
         Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
+    }
+
+    /**
+     * Supprime toutes les catégories du groupe courant (mode import « écraser »).
+     * On détache d'abord les pivots (FK NO ACTION → sinon 1451), puis on efface
+     * en masse. Cf. App\Observers\CollectionDeleteObserver pour le même problème
+     * côté suppression unitaire.
+     */
+    private function purgeCollectionsForCurrentGroup(): void
+    {
+        $ids = LunarCollection::query()
+            ->where('collection_group_id', $this->collectionGroupId)
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            return;
+        }
+
+        foreach ([
+            'lunar_collection_customer_group',
+            'lunar_collection_product',
+            'lunar_collection_discount',
+            'lunar_brand_collection',
+            'pko_feature_family_collection',
+        ] as $table) {
+            DB::table($table)->whereIn('collection_id', $ids)->delete();
+        }
+
+        LunarCollection::query()
+            ->where('collection_group_id', $this->collectionGroupId)
+            ->delete();
     }
 
     /**

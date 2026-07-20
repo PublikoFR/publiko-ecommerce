@@ -30,15 +30,16 @@
                     </span>
                 </x-filament::button>
                 <x-filament::button size="sm" color="gray"
-                    x-on:click="allEnabled = !allEnabled; $wire.setAllCollectionsEnabled(allEnabled)">
+                    title="Cocher / décocher toutes les catégories pour l'export (sans modifier leur activation)"
+                    x-on:click="toggleAllExportSelected()">
                     <span class="flex items-center gap-1">
-                        <x-heroicon-o-eye-slash class="h-4 w-4" x-cloak x-show="allEnabled" />
-                        <x-heroicon-o-eye class="h-4 w-4" x-cloak x-show="!allEnabled" />
-                        <span x-text="allEnabled ? 'Tout décocher' : 'Tout cocher'"></span>
+                        <x-heroicon-o-x-mark class="h-4 w-4" x-cloak x-show="allExportSelected" />
+                        <x-heroicon-o-check class="h-4 w-4" x-cloak x-show="!allExportSelected" />
+                        <span x-text="allExportSelected ? 'Tout décocher' : 'Tout cocher'"></span>
                     </span>
                 </x-filament::button>
                 <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-down-tray"
-                    wire:click="mountAction('exportCollections')">
+                    x-on:click="$wire.set('collectionExportSelection', selectedExportIds()).then(() => $wire.mountAction('exportCollections'))">
                     Export
                 </x-filament::button>
                 <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-up-tray"
@@ -290,7 +291,21 @@
         Alpine.data('treeManager', () => ({
             sortableMap: new WeakMap(),
             collapsed: { '.tree-list--collections': false, '.tree-list--families': false },
-            allEnabled: @js($this->allCollectionsEnabled()),
+
+            // Sélection des catégories à EXPORTER (indépendante de l'activation
+            // storefront pko_enabled). Tout coché par défaut.
+            exportSelected: Object.fromEntries(@js($this->allCollectionIds()).map(id => [String(id), true])),
+            get allExportSelected() {
+                const vals = Object.values(this.exportSelected);
+                return vals.length > 0 && vals.every(Boolean);
+            },
+            toggleAllExportSelected() {
+                const next = !this.allExportSelected;
+                for (const k in this.exportSelected) this.exportSelected[k] = next;
+            },
+            selectedExportIds() {
+                return Object.keys(this.exportSelected).filter(k => this.exportSelected[k]).map(Number);
+            },
 
             toggleCollapseAll(selector) {
                 const list = this.$root.querySelector(selector);
