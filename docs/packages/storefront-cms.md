@@ -109,3 +109,11 @@ Composant Livewire `Pko\AdminNav\Livewire\MaintenanceToggle` (alias `admin-nav::
 | Staff admin | Accès normal | Accès normal (bypass) |
 | Panel `/admin` | Non affecté (middleware non appliqué) | Non affecté |
 
+
+### Layout e-mail partagé
+
+Composant Blade anonyme `x-storefront-cms::mail.layout` (fichier `resources/views/components/mail/layout.blade.php`) : template HTML transactionnel réutilisable par **tous** les e-mails du site (customer-auth, shipping-common, contact…). Fournit en-tête avec logo dynamique (`brand_logo()`, résolu en URL absolue via `config('app.url')`), corps via `{{ $slot }}`, et pied avec contact (`contact.email`/`contact.phone` Setting → fallback config `storefront.contact`), réseaux sociaux et liens légaux (mentions légales, CGV, données personnelles, contact).
+
+- **Props** : `title` (balise `<title>`), `preheader` (texte d'aperçu masqué).
+- **Usage** : `<x-storefront-cms::mail.layout title="…" preheader="…"> …corps… </x-storefront-cms::mail.layout>`.
+- **Règle** : ne jamais recréer un `<!DOCTYPE html>` complet dans un e-mail — étendre ce layout. Branding lu depuis `Setting`/helpers, jamais codé en dur.

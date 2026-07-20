@@ -1,38 +1,26 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lien de paiement — commande sur devis</title>
-    <style>
-        body { font-family: sans-serif; color: #1a1a1a; background: #f5f5f5; margin: 0; padding: 24px; }
-        .card { background: #fff; border-radius: 8px; max-width: 560px; margin: 0 auto; padding: 32px; }
-        h1 { font-size: 20px; margin-bottom: 8px; }
-        .amount { font-size: 28px; font-weight: 700; color: #f59e0b; margin: 16px 0; }
-        .btn { display: inline-block; background: #f59e0b; color: #fff; text-decoration: none;
-               font-weight: 600; padding: 14px 32px; border-radius: 6px; margin-top: 24px; }
-        .footer { font-size: 12px; color: #666; margin-top: 32px; }
-        .url { word-break: break-all; font-size: 12px; color: #888; margin-top: 12px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Votre commande #{{ $order->reference }}</h1>
-        <p>Suite à votre demande de devis, nous avons établi le montant des frais de port pour votre commande :</p>
+<x-storefront-cms::mail.layout
+    title="Lien de paiement — commande sur devis"
+    preheader="Le montant des frais de port de votre commande #{{ $order->reference }} est disponible.">
 
-        <div class="amount">{{ number_format($transportCents / 100, 2, ',', ' ') }} € HT de frais de port</div>
+    <h1 style="margin:0 0 16px;font-size:20px;color:#00453e;">Votre commande #{{ $order->reference }}</h1>
 
-        <p>Cliquez sur le bouton ci-dessous pour procéder au paiement :</p>
+    <p style="margin:0 0 14px;">Suite à votre demande de devis, nous avons établi le montant des frais de port pour votre commande :</p>
 
-        <a href="{{ $paymentUrl }}" class="btn">Payer ma commande</a>
+    <div style="font-size:26px;font-weight:700;color:#00453e;margin:16px 0;">{{ number_format($transportCents / 100, 2, ',', ' ') }} € HT de frais de port</div>
 
-        <div class="url">
-            Lien direct : <a href="{{ $paymentUrl }}">{{ $paymentUrl }}</a>
-        </div>
+    <p style="margin:0 0 14px;">Cliquez sur le bouton ci-dessous pour procéder au paiement :</p>
 
-        <div class="footer">
-            Ce lien est sécurisé et valide 7 jours. Si vous avez des questions, répondez directement à cet e-mail.
-        </div>
-    </div>
-</body>
-</html>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;">
+        <tr>
+            <td align="center" style="border-radius:8px;background:#00453e;">
+                <a href="{{ $paymentUrl }}" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">Payer ma commande</a>
+            </td>
+        </tr>
+    </table>
+
+    <p style="margin:0 0 14px;font-size:12px;color:#98a29e;word-break:break-all;">
+        Lien direct : <a href="{{ $paymentUrl }}" style="color:#76817d;">{{ $paymentUrl }}</a>
+    </p>
+
+    <p style="margin:0;font-size:13px;color:#76817d;">Ce lien est sécurisé et valide 7 jours.</p>
+</x-storefront-cms::mail.layout>
