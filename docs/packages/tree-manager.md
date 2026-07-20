@@ -72,5 +72,17 @@ Le TreeManager gère 500+ nœuds (catégories + familles + valeurs). Six décisi
 
 **Tous les nœuds dépliés par défaut** — Le CSS affiche les nœuds dépliés (`.tree-children` visible). Le repliage se fait par toggle de la classe `.tree-collapsed`. Pas de vérification `offsetParent`.
 
+### 7.ter.7 Contrôles bulk d'en-tête + densité
+
+**Layout d'en-tête** : le titre + stats de chaque colonne sont rendus **au-dessus** du cadre blanc (`<x-filament::section>`), et les boutons occupent une **ligne pleine** (`flex flex-wrap justify-end`) en tête de la section — évite le chevauchement titre/boutons quand la barre d'actions est chargée.
+
+Trois contrôles ajoutés en tête de chaque section pour améliorer la vue d'ensemble :
+
+**Toggle « Tout réduire / Tout déplier »** (les deux sections) — bouton unique qui bascule son état au clic (label + icône changent via Alpine `x-text` / `x-show`). Fonction Alpine `toggleCollapseAll(selector)` : ajoute/retire la classe `.tree-collapsed` sur tous les `<li>` ayant un `.tree-children` direct de la liste ciblée. État suivi dans `collapsed['.tree-list--collections' | '.tree-list--families']` (persiste à travers les morphs Livewire). 100 % client, aucune requête serveur.
+
+**Toggle « Tout cocher / Tout décocher »** (catégories uniquement) — active/désactive `pko_enabled` sur **toutes** les collections du groupe en une requête. Méthode `setAllCollectionsEnabled(bool)` : `UPDATE` de masse + `Cache::forget(NAV_CACHE_KEY)` + `unset($this->collectionsTree)`. État initial du bouton dérivé de `allCollectionsEnabled()` (vrai si aucune collection `pko_enabled=false`), injecté dans Alpine via `allEnabled: @js($this->allCollectionsEnabled())`. Pas de toggle côté caractéristiques (pas d'état d'activation sur `FeatureFamily` / `FeatureValue`).
+
+**Densité compacte** — padding des `.tree-node` réduit (`0.1875rem 0.5rem`), label `0.8125rem`, badges `0.65rem`, indentation `.tree-children` resserrée — pour afficher davantage de nœuds en hauteur et améliorer la vue d'ensemble.
+
 ---
 
