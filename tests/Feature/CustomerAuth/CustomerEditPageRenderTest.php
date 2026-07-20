@@ -49,6 +49,16 @@ class CustomerEditPageRenderTest extends TestCase
         $this->get('/admin/customers/create')->assertOk();
     }
 
+    public function test_customer_list_rows_link_to_edit(): void
+    {
+        $customer = Customer::query()->firstOrFail();
+
+        // Le clic sur une ligne ouvre directement l'édition (recordUrl → edit).
+        $this->get('/admin/customers')
+            ->assertOk()
+            ->assertSee("/admin/customers/{$customer->id}/edit");
+    }
+
     public function test_customer_view_page_renders_with_combined_tabs(): void
     {
         $customer = Customer::query()->firstOrFail();

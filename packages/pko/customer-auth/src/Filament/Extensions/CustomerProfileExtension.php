@@ -15,7 +15,9 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Lunar\Admin\Support\Extending\ResourceExtension;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 
 class CustomerProfileExtension extends ResourceExtension
 {
@@ -113,7 +115,11 @@ class CustomerProfileExtension extends ResourceExtension
 
     public function extendTable(Table $table): Table
     {
-        return $table->columns([
+        // Un clic sur une ligne ouvre directement le formulaire d'édition
+        // (évite le détour par la fiche read-only ; l'œil « voir » reste dispo).
+        return $table->recordUrl(
+            fn (Model $record): string => PkoCustomerResource::getUrl('edit', ['record' => $record]),
+        )->columns([
             ...$table->getColumns(),
             TextColumn::make('pko_status')
                 ->label('Statut')
