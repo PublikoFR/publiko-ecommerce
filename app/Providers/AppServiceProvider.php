@@ -41,6 +41,7 @@ use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource\Pages\EditCustomerGroup;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\CustomerResource\Pages\CreateCustomer;
+use Lunar\Admin\Filament\Resources\CustomerResource\Pages\EditCustomer;
 use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
@@ -71,6 +72,7 @@ use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
+use Pko\CustomerAuth\Filament\Extensions\CustomerSiretExtension;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
@@ -192,6 +194,9 @@ class AppServiceProvider extends ServiceProvider
             ],
             CreateCustomer::class => [
                 CustomerCreateExtension::class,
+            ],
+            EditCustomer::class => [
+                CustomerSiretExtension::class,
             ],
             CustomerGroupResource::class => [
                 CustomerGroupDeletionGuardExtension::class,

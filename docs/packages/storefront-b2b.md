@@ -82,6 +82,8 @@ renvoyait vers `/compte` (car authentifié) → boucle. La symétrie corrige les
 Le piège se déclenchait surtout via la **connexion** (et non l'inscription) : `LoginPage`
 authentifie l'utilisateur, donc la seule garde à l'inscription ne suffisait pas.
 
+**SIRET éditable en back-office** (`CustomerSiretExtension`, `EditPageExtension` sur `EditCustomer`) : une entreprise peut changer de SIRET. Le champ `siret` de la fiche client (édition seulement) est virtuel — chargé depuis `meta['siret']` en `beforeFill`, réécrit en `beforeUpdate` **par fusion** (préserve les autres clés meta). Si le SIRET change et est Luhn-valide, on relance la vérification INSEE à l'enregistrement et on rafraîchit `naf_code` / `meta.sirene_address` / `sirene_status` / `sirene_verified_at`. SIRET invalide → `ValidationException` (pas d'enregistrement).
+
 Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_status` (indexed), `sirene_verified_at`, `naf_code`.
 
 ### Suppression d'un client = anonymisation RGPD (jamais de delete physique)

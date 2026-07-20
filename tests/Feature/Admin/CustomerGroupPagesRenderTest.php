@@ -7,6 +7,7 @@ namespace Tests\Feature\Admin;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Lunar\Admin\Models\Staff;
+use Lunar\Models\CustomerGroup;
 use Tests\TestCase;
 
 class CustomerGroupPagesRenderTest extends TestCase
@@ -34,6 +35,10 @@ class CustomerGroupPagesRenderTest extends TestCase
 
     public function test_customer_group_edit_renders(): void
     {
-        $this->get('/admin/customer-groups/1/edit')->assertOk();
+        // Id dynamique : l'auto-increment MySQL n'est pas transactionnel, donc
+        // on ne peut pas supposer que le premier groupe seedé porte l'id 1.
+        $group = CustomerGroup::query()->firstOrFail();
+
+        $this->get("/admin/customer-groups/{$group->id}/edit")->assertOk();
     }
 }

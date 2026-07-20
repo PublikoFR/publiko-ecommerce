@@ -33,11 +33,15 @@ class CustomerProfileExtension extends ResourceExtension
             ...$components,
             Section::make('Informations B2B')
                 ->schema([
-                    // Données Sirene (lecture seule — modifiées via re-vérification SIRET)
+                    // SIRET éditable : le modifier relance la vérification INSEE
+                    // à l'enregistrement (cf. CustomerSiretExtension::beforeUpdate).
+                    // Édition seule (sur create, la vérif passe par l'inscription front).
                     Grid::make(2)->schema([
-                        Placeholder::make('_siret')
+                        TextInput::make('siret')
                             ->label('SIRET')
-                            ->content(fn ($record) => $record?->meta['siret'] ?? '—'),
+                            ->helperText('Le modifier relance la vérification INSEE à l\'enregistrement.')
+                            ->visibleOn('edit')
+                            ->maxLength(20),
                         Placeholder::make('_naf')
                             ->label('Code NAF / Secteur')
                             ->content(function ($record): string {
