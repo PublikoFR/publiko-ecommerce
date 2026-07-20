@@ -45,7 +45,7 @@
 
                     <x-ui.input wire:model="companyName" label="Raison sociale" placeholder="Optionnel — détecté automatiquement" :error="$errors->first('companyName')" />
 
-                    <x-ui.input wire:model="activity" label="Activité / secteur" placeholder="Ex : installateur portails, automatismes…" :error="$errors->first('activity')" />
+                    <x-ui.input wire:model="activity" label="Code NAF / APE" placeholder="Ex : 46.73A — détecté via le SIRET" :error="$errors->first('activity')" />
 
                     <x-ui.input wire:model="street" label="Adresse" placeholder="Rue, avenue, lieu-dit…" :error="$errors->first('street')" />
 
