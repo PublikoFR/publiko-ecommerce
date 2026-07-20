@@ -157,6 +157,21 @@ source, aucune modif vendor). Symptôme trompeur : le serveur paraît sain (chaq
 en `curl`), c'est le **contenu** de la réponse qui est corrompu — se diagnostique en comparant le
 nombre de lignes servi vs `vendor/livewire/livewire/dist/livewire.js`, ou via la console navigateur.
 
+### 7.7 Composants Blade + Livewire : `id` **stable** obligatoire (morphing)
+
+Tout composant Blade réutilisé dans un formulaire Livewire (ex. `x-ui.input` du
+storefront) **doit** exposer un `id` **déterministe** entre deux rendus. Un `id`
+régénéré à chaque render (`bin2hex(random_bytes())`, `uniqid()`…) casse le
+morphing Livewire : le DOM diff voit un nouvel élément à chaque cycle, si bien
+que les **valeurs mises à jour côté serveur ne remontent jamais dans les inputs**
+liés en `wire:model`. Symptôme trompeur : la logique PHP est correcte (prouvable
+en test avec `assertSet`), mais l'UI ne reflète rien — ex. un préremplissage
+SIRET qui pose bien `companyName`/`city` côté composant sans que les champs ne se
+remplissent à l'écran.
+
+**Fix** : dériver l'`id` du nom du `wire:model` (`inp-{slug}`), sinon du label,
+random en dernier recours seulement. Cf. `packages/pko/storefront/resources/views/components/ui/input.blade.php`.
+
 ---
 
 

@@ -58,7 +58,8 @@
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
                 <x-ui.input wire:model="postcode" label="Code postal" placeholder="75001" inputmode="numeric" class="col-span-1" :error="$errors->first('postcode')" />
                 <x-ui.input wire:model="city" label="Ville" placeholder="Paris" class="col-span-1 sm:col-span-2" :error="$errors->first('city')" />
-                <x-ui.input wire:model="country" label="Pays" placeholder="FR" class="col-span-1" :error="$errors->first('country')" />
+                {{-- Livraison France uniquement : pays verrouillé, affiché en clair (pas de code ISO). --}}
+                <x-ui.input label="Pays" value="France" readonly class="col-span-1 bg-neutral-50 text-neutral-500 cursor-not-allowed" hint="France uniquement" />
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">

@@ -41,6 +41,7 @@ class RegisterPage extends Component
 
     public string $city = '';
 
+    /** Boutique livrant exclusivement en France : pays verrouillé, non éditable. */
     public string $country = 'FR';
 
     public string $password = '';
@@ -64,7 +65,7 @@ class RegisterPage extends Component
             'street' => ['nullable', 'string', 'max:255'],
             'postcode' => ['nullable', 'string', 'max:10'],
             'city' => ['nullable', 'string', 'max:100'],
-            'country' => ['nullable', 'string', 'size:2'],
+            'country' => ['required', 'string', 'in:FR'],
             'password' => ['required', 'string', 'min:8', 'confirmed:passwordConfirmation'],
             'terms' => ['accepted'],
         ];
