@@ -144,12 +144,34 @@ class CustomerProfileExtension extends ResourceExtension
                 return $components;
             }
 
-            if (method_exists($component, 'getChildComponents')) {
+            // On ne descend que dans les composants dont le schéma est déjà un
+            // tableau statique. Certains composants Lunar (ex. Attributes::make())
+            // définissent leur schéma via une Closure qui a besoin du container
+            // Livewire ($get, $livewire, $record) ; l'évaluer ici, pendant
+            // extendForm et hors container, casse avec
+            // "Component::$container must not be accessed before initialization".
+            if (method_exists($component, 'getChildComponents') && $this->hasArraySchema($component)) {
                 $children = $this->swapTitleComponent($component->getChildComponents(), $replacement);
                 $component->schema($children);
             }
         }
 
         return $components;
+    }
+
+    /**
+     * Vrai si le schéma du composant est un tableau statique (et non une Closure
+     * résolue tardivement dans le container). Sûr à évaluer/recurser hors container.
+     */
+    private function hasArraySchema(Component $component): bool
+    {
+        if (! property_exists($component, 'childComponents')) {
+            return false;
+        }
+
+        $property = new \ReflectionProperty($component, 'childComponents');
+        $property->setAccessible(true);
+
+        return is_array($property->getValue($component));
     }
 }
