@@ -63,7 +63,7 @@ class PurchaseListPage extends Component
                 $manager->add($item->purchasable, (int) $item->quantity);
             }
         }
-        $this->dispatch('cartUpdated');
+        $this->dispatch('open-cart-drawer');
         session()->flash('status', 'Articles ajoutés au panier.');
     }
 

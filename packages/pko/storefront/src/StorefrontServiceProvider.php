@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Lunar\Models\Collection;
 use Lunar\Models\Url;
+use Pko\Storefront\Livewire\CartBadge;
 use Pko\Storefront\Livewire\CartDrawer;
 use Pko\Storefront\Livewire\SearchAutocomplete;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -33,6 +34,7 @@ class StorefrontServiceProvider extends ServiceProvider
 
         Livewire::component('storefront.search-autocomplete', SearchAutocomplete::class);
         Livewire::component('storefront.cart-drawer', CartDrawer::class);
+        Livewire::component('storefront.cart-badge', CartBadge::class);
 
         $this->registerNavCacheInvalidation();
 
