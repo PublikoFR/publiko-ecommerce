@@ -32,7 +32,10 @@
 
     <main class="flex-1">{{ $slot }}</main>
     <x-layout.footer />
-    @livewire('purchase-lists.picker')
+    @auth
+        @livewire('storefront.cart-drawer')
+        @livewire('purchase-lists.picker')
+    @endauth
     @livewireScripts
     @stack('scripts')
 </body>
