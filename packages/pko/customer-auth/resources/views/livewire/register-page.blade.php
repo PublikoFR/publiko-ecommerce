@@ -83,16 +83,24 @@
                         />
                     @endif
 
-                    <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
-
-                    <x-ui.input wire:model="passwordConfirmation" label="Confirmer le mot de passe" type="password" required />
                 </div>
             </div>
 
-            <x-ui.checkbox wire:model="terms" :error="$errors->first('terms')">
-                J'accepte les <a href="/pages/cgv" class="text-primary-600 hover:underline">conditions générales</a> et la <a href="/pages/politique-donnees" class="text-primary-600 hover:underline">politique de données</a>.
-            </x-ui.checkbox>
-            @error('terms')<p class="text-sm text-danger-600 -mt-3">{{ $message }}</p>@enderror
+            {{-- Mots de passe sur une ligne pleine largeur : équilibre les deux colonnes,
+                 qui restent sinon de hauteurs très inégales. --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
+
+                <x-ui.input wire:model="passwordConfirmation" label="Confirmer le mot de passe" type="password" required />
+            </div>
+
+            <div class="flex flex-col items-center text-center">
+                {{-- x-ui.checkbox n'a pas de prop `error` : le message est rendu juste dessous. --}}
+                <x-ui.checkbox wire:model="terms">
+                    J'accepte les <a href="/pages/cgv" class="text-primary-600 hover:underline">conditions générales</a> et la <a href="/pages/politique-donnees" class="text-primary-600 hover:underline">politique de données</a>.
+                </x-ui.checkbox>
+                @error('terms')<p class="mt-1.5 text-sm text-danger-600">{{ $message }}</p>@enderror
+            </div>
 
             <x-ui.button type="submit" variant="accent" size="lg" fullWidth>Créer mon compte pro</x-ui.button>
         </form>
