@@ -29,7 +29,10 @@ if ($stock <= 0) {
        style="background: radial-gradient(120% 120% at 30% 20%, #ffffff 0%, var(--surface-brand-soft) 90%);">
         <div class="absolute inset-0 flex items-center justify-center">
             @if ($thumb)
-                <img src="{{ pko_media_url($thumb, 'medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                {{-- `object-contain` et non `cover` : sur des photos techniques
+                     (pièces détachées, motorisations), le recadrage amputait le
+                     produit. Le padding évite que l'image touche les bords. --}}
+                <img src="{{ pko_media_url($thumb, 'medium') }}" alt="{{ $product->translateAttribute('name') }}" loading="lazy" class="w-full h-full object-contain p-4 transition duration-300 group-hover:scale-105" />
             @else
                 <x-ui.icon name="package" class="w-16 h-16 text-primary-200" />
             @endif
