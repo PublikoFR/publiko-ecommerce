@@ -226,3 +226,89 @@ Traductions via `pko-shipping-common::admin.product.*` (lang `fr` dans `packages
 
 ---
 
+
+## Visibilité catalogue par groupe client — sémantique inversée (opt-out)
+
+**Règle : absence de ligne = visible.** Une ligne dans
+`lunar_collection_customer_group` / `lunar_customer_group_product` n'existe que
+pour **restreindre** un groupe.
+
+### Pourquoi on s'écarte de Lunar
+
+Lunar est en opt-in : le trait `HasCustomerGroups` (`vendor/lunarphp/core/src/Base/Traits/HasCustomerGroups.php:29`)
+sème, à la création de **chaque** collection et de **chaque** produit, une ligne
+pour **tous** les groupes clients existants, à `enabled = visible = $group->default`
+— donc à `false` pour tout groupe non défaut.
+
+Trois conséquences, toutes indésirables ici :
+
+1. **Asymétrie silencieuse.** Le semis est unidirectionnel : créer un
+   `CustomerGroup` ne sème rien (aucun hook `boot` dans `Lunar\Models\CustomerGroup`).
+   Un groupe créé *après* l'import du catalogue n'a donc aucune ligne — et le
+   scope Lunar (`whereHas` + `enabled OR visible`) lui masquerait la totalité du
+   catalogue, sans le moindre message.
+2. **Volume mort.** 494 collections × 7 groupes = 3 458 lignes ne portant aucune
+   décision humaine, plus autant par produit.
+3. **Suppression de groupe impossible.** Le garde-fou `CustomerGroupGuard`
+   comptait ces lignes comme des références : tout groupe neuf était réputé
+   « encore utilisé (494 collection(s)) » et devenait indéracinable.
+
+Choix produit associé : **tous les groupes clients voient tout le catalogue**,
+seuls les **tarifs** diffèrent (`lunar_prices`). Le storefront ne filtre donc
+jamais par groupe client.
+
+### Implémentation
+
+| Élément | Rôle |
+|---|---|
+| `app/Support/CatalogAvailability.php` | Sémantique centrale : `purge()`, `forget()`, `restrictionCount()` |
+| `app/Observers/CatalogAvailabilityObserver.php` (+ `Collection`/`Product`) | Efface, au `created`, les lignes que le trait vient de semer |
+| `app/Console/Commands/PruneCatalogAvailability.php` | `pko:catalog-availability:prune` — rattrapage **ciblé**, dry-run par défaut, idempotent |
+| `app/Support/CustomerGroupGuard.php` | Ne compte que les lignes **restrictives** pour ces deux pivots |
+| `app/Filament/Extensions/CustomerGroupAvailabilityExtension.php` | Ajoute `DetachAction` à l'onglet Disponibilité |
+
+### Rattrapage — ciblage, jamais de purge
+
+La commande ne vide **pas** la table : elle ne supprime que les lignes portant la
+**signature du semis automatique**, pour qu'une restriction saisie à la main
+survive. Les trois marqueurs, tous requis (`CatalogAvailability::seededRows()`) :
+
+1. tous les flags valent exactement `customer_group.default` — ce qu'écrit le trait ;
+2. `ends_at` est `NULL` — le trait ne pose jamais de date de fin ;
+3. `starts_at` **et** `created_at` tombent dans la même seconde (± 5 s) que la
+   création du parent — le semis est déclenché par le `created` du modèle, alors
+   qu'une saisie humaine intervient nécessairement plus tard.
+
+Le marqueur 3 est le discriminant : il sépare une ligne « tous flags à false »
+semée à l'import d'une restriction identique posée volontairement.
+
+Sans `--apply`, la commande se contente de rapporter (total / semées / conservées).
+Le comportement est verrouillé par
+`test_prune_removes_seeded_rows_but_keeps_manual_restrictions()`, vérifié
+discriminant : remplacer le ciblage par une purge globale le fait échouer.
+
+**Ligne restrictive** = au moins un flag de disponibilité à `0` (`enabled`,
+`visible`, plus `purchasable` pour les produits). Une ligne dont tous les flags
+sont à `1` est redondante avec le défaut implicite : elle ne bloque pas la
+suppression du groupe, mais reste détachée avant `delete()` (FK `NO ACTION`).
+
+### Pièges
+
+- **Ordre des listeners.** L'observer doit se déclencher **après** celui du trait,
+  sinon le sync réinsère les lignes et le correctif devient un no-op silencieux.
+  L'enregistrement passe donc par `Model::observe()` (qui fait `new static` et
+  boote le modèle, donc branche le trait en premier) et **jamais** par
+  `Model::created()`. Verrouillé par
+  `CatalogAvailabilityTest::test_creating_a_collection_seeds_no_rows()` — test
+  vérifié discriminant (il échoue si l'observer est retiré).
+- **Le scope Lunar `customerGroup()` suppose l'inverse** et ne doit pas être
+  utilisé tel quel : il exclut ce qui n'a pas de ligne. S'il fallait un jour
+  filtrer le storefront par groupe, il faudrait notre propre scope
+  (`whereDoesntHave` sur les lignes restrictives). Ce n'est pas au programme.
+- **Discounts et shipping methods restent en opt-in.** Le même trait les couvre,
+  mais là le rattachement explicite est voulu : une remise ne s'applique qu'aux
+  groupes qu'on lui a attachés. Ces pivots restent intégralement bloquants dans
+  `CustomerGroupGuard::REFERENCE_TABLES`.
+- **Pas de `DetachAction` chez Lunar.** Le `CustomerGroupRelationManager` n'expose
+  qu'`AttachAction` + `EditAction` — cohérent en opt-in, bloquant chez nous
+  (une restriction posée serait irréversible depuis l'admin). D'où l'extension.

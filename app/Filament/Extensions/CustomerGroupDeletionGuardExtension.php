@@ -53,6 +53,7 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
                             // Détache + réattribue les clients au groupe par défaut
                             // avant suppression (sinon FK 1451 + clients orphelins).
                             CustomerGroupGuard::reassignCustomersToDefault($group);
+                            CustomerGroupGuard::detachCatalogAvailability($group);
                             $group->delete();
                             $deleted++;
                         }
@@ -104,6 +105,7 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
                     // Détache + réattribue les clients au groupe par défaut avant
                     // suppression (sinon FK 1451 + clients orphelins).
                     CustomerGroupGuard::reassignCustomersToDefault($record);
+                    CustomerGroupGuard::detachCatalogAvailability($record);
                 });
             }
         }

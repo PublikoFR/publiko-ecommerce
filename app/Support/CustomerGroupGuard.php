@@ -16,19 +16,34 @@ use Lunar\Models\CustomerGroup;
 class CustomerGroupGuard
 {
     /**
-     * Tables pivot / références portant `customer_group_id`.
+     * Rattachements explicites : toute ligne est une décision saisie à la main,
+     * donc bloquante.
      *
      * @var array<string, string> label FR => table
      */
     private const REFERENCE_TABLES = [
         // NB : les clients ne bloquent PAS la suppression — ils sont détachés et
         // réattribués au groupe par défaut (cf. reassignCustomersToDefault()).
-        'collection(s)' => 'lunar_collection_customer_group',
         'tarif(s)' => 'lunar_prices',
-        'produit(s)' => 'lunar_customer_group_product',
         'méthode(s) de livraison' => 'lunar_customer_group_shipping_method',
         'remise(s)' => 'lunar_customer_group_discount',
         'zone(s) de taxe' => 'lunar_tax_zone_customer_groups',
+    ];
+
+    /**
+     * Visibilité catalogue : seules les lignes RESTRICTIVES bloquent.
+     *
+     * Ces pivots suivent la sémantique « pas de ligne = visible » (cf.
+     * App\Support\CatalogAvailability). Les compter intégralement rendait tout
+     * groupe indéracinable : Lunar y sème une ligne par collection et par produit
+     * à la création de chacun, si bien qu'un groupe neuf apparaissait aussitôt
+     * « utilisé (494 collections) » sans qu'on lui ait jamais rien rattaché.
+     *
+     * @var array<string, string> label FR => table
+     */
+    private const CATALOG_RESTRICTION_TABLES = [
+        'restriction(s) sur des catégories' => 'lunar_collection_customer_group',
+        'restriction(s) sur des produits' => 'lunar_customer_group_product',
     ];
 
     /** Retourne null si le groupe est supprimable, sinon le motif (FR) du blocage. */
@@ -46,6 +61,13 @@ class CustomerGroupGuard
         $used = [];
         foreach (self::REFERENCE_TABLES as $label => $tableName) {
             $count = DB::table($tableName)->where('customer_group_id', $group->id)->count();
+            if ($count > 0) {
+                $used[] = $count.' '.$label;
+            }
+        }
+
+        foreach (self::CATALOG_RESTRICTION_TABLES as $label => $tableName) {
+            $count = CatalogAvailability::restrictionCount($tableName, (int) $group->id);
             if ($count > 0) {
                 $used[] = $count.' '.$label;
             }
@@ -99,5 +121,26 @@ class CustomerGroupGuard
         DB::table($pivot)->where('customer_group_id', $group->id)->delete();
 
         return $customerIds->count();
+    }
+
+    /**
+     * Détache les lignes de visibilité catalogue résiduelles avant suppression.
+     *
+     * Un groupe jugé supprimable n'a par définition aucune ligne RESTRICTIVE, mais
+     * il peut rester des lignes permissives (tous flags à 1) : redondantes avec le
+     * défaut implicite, elles ne bloquent pas la suppression mais leur FK
+     * NO ACTION la ferait échouer en 1451.
+     *
+     * @return int nombre de lignes détachées
+     */
+    public static function detachCatalogAvailability(CustomerGroup $group): int
+    {
+        $detached = 0;
+
+        foreach (array_keys(CatalogAvailability::PIVOTS) as $table) {
+            $detached += DB::table($table)->where('customer_group_id', $group->id)->delete();
+        }
+
+        return $detached;
     }
 }

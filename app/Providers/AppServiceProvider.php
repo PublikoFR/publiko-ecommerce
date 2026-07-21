@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Filament\Extensions\CollectionEnabledExtension;
 use App\Filament\Extensions\CustomerAnonymizeExtension;
+use App\Filament\Extensions\CustomerGroupAvailabilityExtension;
 use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
 use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
@@ -20,7 +21,9 @@ use App\Filament\Resources\PkoProductOptionResource;
 use App\Filament\Resources\PkoProductResource;
 use App\Filament\Resources\PkoProductTypeResource;
 use App\Generators\PkoProductUrlGenerator;
+use App\Observers\CollectionAvailabilityObserver;
 use App\Observers\CollectionDeleteObserver;
+use App\Observers\ProductAvailabilityObserver;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Filament\View\PanelsRenderHook;
@@ -46,6 +49,7 @@ use Lunar\Admin\Filament\Resources\LanguageResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
+use Lunar\Admin\Filament\Resources\ProductResource\RelationManagers\CustomerGroupRelationManager;
 use Lunar\Admin\Filament\Resources\ProductTypeResource;
 use Lunar\Admin\Filament\Resources\StaffResource;
 use Lunar\Admin\Filament\Resources\TagResource;
@@ -56,6 +60,7 @@ use Lunar\Admin\LunarPanelManager;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Facades\Telemetry;
 use Lunar\Models\Collection as LunarCollection;
+use Lunar\Models\Product as LunarProduct;
 use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
@@ -219,6 +224,11 @@ class AppServiceProvider extends ServiceProvider
             Dashboard::class => [
                 DisableBrokenChartsExtension::class,
             ],
+            // RelationManager partagé par l'onglet Disponibilité des produits ET
+            // des collections (CollectionResource importe celui de ProductResource).
+            CustomerGroupRelationManager::class => [
+                CustomerGroupAvailabilityExtension::class,
+            ],
         ]);
     }
 
@@ -237,6 +247,13 @@ class AppServiceProvider extends ServiceProvider
         // le sous-arbre nested set est effacé en SQL brut (pas d'events par
         // descendant), donc on détache les FK du sous-arbre à la racine.
         LunarCollection::observe(CollectionDeleteObserver::class);
+
+        // Visibilité catalogue par groupe client : on empêche Lunar de semer une
+        // ligne de pivot par (collection|produit × groupe) à chaque création.
+        // Sémantique retenue : pas de ligne = visible. Cf. App\Support\CatalogAvailability.
+        // L'ordre compte — voir l'avertissement dans CatalogAvailabilityObserver.
+        LunarCollection::observe(CollectionAvailabilityObserver::class);
+        LunarProduct::observe(ProductAvailabilityObserver::class);
 
         // Garde-fou anti-effacement de la base DEV / LOCAL. Bloque au niveau
         // framework migrate:fresh / migrate:refresh / migrate:reset / db:wipe QUEL
