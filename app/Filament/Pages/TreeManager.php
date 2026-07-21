@@ -153,6 +153,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'name' => (string) ($node->translateAttribute('name', self::LOCALE) ?? '—'),
                     'product_count' => $node->products_count ?? 0,
                     'pko_enabled' => (bool) $node->pko_enabled,
+                    'pko_browse_children' => (bool) $node->pko_browse_children,
                     'image_url' => pko_media_url($node->getFirstMedia('images'), 'small'),
                     'children' => $build($node->id),
                 ];
@@ -340,6 +341,47 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
         Notification::make()
             ->title($enabling ? 'Catégorie activée' : 'Catégorie désactivée')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Bascule le mode « page de listing de catégories » : la catégorie n'affiche
+     * plus de produits mais ses sous-catégories en cartes, et le menu latéral la
+     * rend comme un lien simple.
+     *
+     * Le drapeau cascade sur toute la branche (activation ET désactivation) : on
+     * l'active une fois sur la racine et chaque descendant aiguille à son tour
+     * tant qu'il a des enfants. Sans la cascade, il faudrait cocher les ~25
+     * marques puis leurs machines une par une.
+     */
+    public function toggleCollectionBrowseChildren(int $id): void
+    {
+        /** @var LunarCollection $node */
+        $node = LunarCollection::query()->findOrFail($id);
+        $enabling = ! $node->pko_browse_children;
+
+        DB::transaction(function () use ($node, $enabling): void {
+            // Colonne custom non fillable sur le modèle Lunar : assignation
+            // directe obligatoire, un mass-assignment la droppe silencieusement.
+            $node->pko_browse_children = $enabling;
+            $node->save();
+
+            LunarCollection::query()
+                ->where('collection_group_id', $node->collection_group_id)
+                ->where('_lft', '>', $node->_lft)
+                ->where('_rgt', '<', $node->_rgt)
+                ->update(['pko_browse_children' => $enabling]);
+        });
+
+        Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
+
+        unset($this->collectionsTree);
+
+        Notification::make()
+            ->title($enabling
+                ? 'Page de listing de catégories activée (branche entière)'
+                : 'Retour au listing produits (branche entière)')
             ->success()
             ->send();
     }

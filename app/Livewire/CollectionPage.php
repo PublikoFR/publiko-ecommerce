@@ -100,16 +100,101 @@ class CollectionPage extends Component
     }
 
     /**
+     * Fil d'Ariane hiérarchique (ancêtres + catégorie courante). Le composant
+     * `x-ui.breadcrumb` pose « Accueil » lui-même, et rend le dernier item en
+     * texte non cliquable.
+     *
+     * @return array<int, array{label: string, url: string|null}>
+     */
+    public function getBreadcrumbItemsProperty(): array
+    {
+        $chain = CollectionModel::query()
+            ->where('collection_group_id', $this->collection->collection_group_id)
+            ->where('_lft', '<=', $this->collection->_lft)
+            ->where('_rgt', '>=', $this->collection->_rgt)
+            ->navVisible()
+            ->with('defaultUrl')
+            ->orderBy('_lft')
+            ->get();
+
+        return $chain->map(fn (CollectionModel $c): array => [
+            'label' => (string) $c->translateAttribute('name'),
+            'url' => $c->defaultUrl?->slug ? route('collection.view', $c->defaultUrl->slug) : null,
+        ])->all();
+    }
+
+    /**
+     * Un filtre est-il actif ? Détermine si une catégorie « listing de
+     * catégories » bascule en mode produits.
+     */
+    public function getHasActiveFiltersProperty(): bool
+    {
+        foreach ($this->selected as $values) {
+            if (array_filter((array) $values) !== []) {
+                return true;
+            }
+        }
+
+        return $this->selectedBrandIds() !== [];
+    }
+
+    /**
+     * Vrai quand la page doit afficher des cartes de sous-catégories plutôt que
+     * des produits : catégorie marquée « page de listing de catégories », ayant
+     * effectivement des enfants visibles, et sans filtre actif.
+     *
+     * Un filtre actif rebascule volontairement en mode produits, sur TOUTE la
+     * branche (cf. baseQuery) : « toutes les pièces FAAC en 24 V » sans avoir à
+     * descendre machine par machine.
+     */
+    public function getShowsChildCardsProperty(): bool
+    {
+        return (bool) $this->collection->pko_browse_children
+            && ! $this->hasActiveFilters
+            && $this->childCollections->isNotEmpty();
+    }
+
+    /**
+     * Sous-catégories directes, visibles, ordonnées comme dans l'arbre.
+     *
+     * @return Collection<int, CollectionModel>
+     */
+    public function getChildCollectionsProperty(): Collection
+    {
+        return CollectionModel::query()
+            ->where('parent_id', $this->collection->id)
+            ->navVisible()
+            ->with(['media', 'defaultUrl'])
+            ->defaultOrder()
+            ->get();
+    }
+
+    /**
      * Query de base : produits de la collection, sans aucun filtre feature/brand.
      * Filtre les produits sans collection nav-visible (pko_enabled cascade).
+     *
+     * Sur une branche « listing de catégories », les produits ne sont rattachés
+     * qu'aux feuilles : filtrer depuis un niveau intermédiaire ne renverrait
+     * rien si on se limitait à la collection courante. On élargit donc aux
+     * descendants via les bornes nestedset (_lft/_rgt).
      *
      * @return Builder<Product>
      */
     private function baseQuery(): Builder
     {
+        $collection = $this->collection;
+
+        if (! $collection->pko_browse_children) {
+            return Product::query()
+                ->storefrontVisible()
+                ->whereHas('collections', fn ($q) => $q->where('lunar_collections.id', $collection->id));
+        }
+
         return Product::query()
             ->storefrontVisible()
-            ->whereHas('collections', fn ($q) => $q->where('lunar_collections.id', $this->collection->id));
+            ->whereHas('collections', fn ($q) => $q
+                ->where('lunar_collections.collection_group_id', $collection->collection_group_id)
+                ->whereBetween('lunar_collections._lft', [$collection->_lft, $collection->_rgt]));
     }
 
     /**
@@ -219,10 +304,16 @@ class CollectionPage extends Component
 
     public function render(): View
     {
+        $showsChildCards = $this->showsChildCards;
+
         return view('livewire.collection-page', [
-            'products' => $this->products,
+            // En mode cartes, on n'exécute pas la requête produits : inutile et
+            // coûteuse sur une branche de 200 catégories.
+            'products' => $showsChildCards ? null : $this->products,
             'families' => $this->families,
             'brands' => $this->brands,
+            'showsChildCards' => $showsChildCards,
+            'childCollections' => $showsChildCards ? $this->childCollections : collect(),
         ]);
     }
 }

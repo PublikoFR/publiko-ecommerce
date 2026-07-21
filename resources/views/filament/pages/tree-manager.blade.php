@@ -207,6 +207,19 @@
         [x-cloak] {
             display: none !important;
         }
+        .tree-node__badge--browse {
+            background-color: rgb(224 231 255);
+            color: rgb(55 48 163);
+        }
+        .dark .tree-node__badge--browse {
+            background-color: rgb(49 46 129);
+            color: rgb(199 210 254);
+        }
+        .tree-node__menu-item small {
+            display: block;
+            font-size: 0.6875rem;
+            opacity: 0.65;
+        }
         .tree-node__thumb {
             object-fit: contain;
             border-radius: 0.1875rem;

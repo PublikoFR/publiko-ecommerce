@@ -90,6 +90,32 @@ Inclus dans : **`resources/views/layouts/storefront.blade.php`** (layout projet,
 
 **État Alpine** : `{ open, l1, l2 }` — `l1` = id Collection L1 sélectionnée, `l2` = id Collection L2 sélectionnée. Réinitialisés à la fermeture.
 
+### Navigation en cascade — « page de listing de catégories » (`pko_browse_children`)
+
+Certaines branches se parcourent en **descendant les pages** plutôt qu'en tombant directement sur des produits. Cas d'usage : pièces détachées → marque → machine → pièces. Colonne `pko_browse_children` (booléenne, indexée) sur `lunar_collections`, migration `2026_07_21_120000_add_pko_browse_children_to_lunar_collections.php`.
+
+**Activation** : depuis le TreeManager, entrée « Page de listing de catégories » du menu d'actions. Le drapeau **cascade sur toute la branche** (activation comme désactivation, via les bornes nestedset) — sans ça il faudrait cocher chaque marque puis chaque machine. Un badge « listing catégories » marque les nœuds concernés dans l'arbre.
+
+**Comportement storefront** (`App\Livewire\CollectionPage`) :
+
+| Situation | Rendu |
+|---|---|
+| Marquée, a des enfants visibles, aucun filtre actif | Cartes des sous-catégories (`showsChildCards`), pas de tri ni de pagination |
+| Marquée, sans enfant (feuille) | Listing produits classique — la cascade s'arrête d'elle-même |
+| Marquée, **filtre actif** | Bascule en listing produits sur **toute la branche** |
+| Non marquée | Inchangé |
+
+Deux points structurants :
+
+- **`baseQuery()` s'élargit aux descendants** quand la catégorie est marquée (`whereBetween` sur `_lft` entre les bornes du nœud). Les produits ne sont rattachés qu'aux feuilles : filtrer depuis un niveau intermédiaire ne renverrait rien sans cet élargissement. C'est ce qui permet « toutes les pièces FAAC en 24 V » sans descendre machine par machine.
+- **En mode cartes, la requête produits n'est pas exécutée** (`products` vaut `null` dans la vue) : inutile et coûteuse sur une branche de 200 catégories. Toute évolution de la vue doit donc garder les accès `$products->…` derrière le `@if (! $showsChildCards)`.
+
+**Menu latéral** : une catégorie marquée est rendue comme un **lien simple**, sans chevron ni sous-menu au survol (`$colHasChildren` neutralisé dans `lateral-menu.blade.php`) — la navigation se fait par les pages. Le cache nav (`NAV_CACHE_KEY`) est vidé par la bascule.
+
+**Fil d'Ariane** : `CollectionPage::getBreadcrumbItemsProperty()` remonte la chaîne d'ancêtres nestedset (`Accueil / Pièces détachées / Pièces détachées FAAC`). Auparavant seule la catégorie courante était affichée, ce qui perdait le visiteur au 3ᵉ niveau.
+
+Couverture : `tests/Feature/Storefront/CollectionBrowseChildrenTest.php` (cartes, feuille, non marquée, remontée des produits descendants, fil d'Ariane).
+
 ### Filtrage storefront — catégories et produits désactivés
 
 **Scopes Eloquent** (macros enregistrées dans `AppServiceProvider::boot()`) :

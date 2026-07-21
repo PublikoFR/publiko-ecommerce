@@ -1,8 +1,8 @@
 <section class="py-8 md:py-12">
     <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <x-ui.breadcrumb class="mb-4" :items="[
-            ['label' => $this->collection->translateAttribute('name')],
-        ]" />
+        {{-- Fil d'Ariane hiérarchique : sur une navigation en cascade, afficher
+             la seule catégorie courante perdrait le visiteur au 3ᵉ niveau. --}}
+        <x-ui.breadcrumb class="mb-4" :items="$this->breadcrumbItems" />
 
         <header class="mb-8">
             <h1 class="font-display font-bold text-3xl md:text-4xl text-neutral-900">
@@ -13,7 +13,13 @@
                     {!! $this->collection->translateAttribute('description') !!}
                 </div>
             @endif
-            <p class="mt-3 text-sm text-neutral-500">{{ $products->total() }} produits</p>
+            <p class="mt-3 text-sm text-neutral-500">
+                @if ($showsChildCards)
+                    {{ $childCollections->count() }} {{ Str::plural('catégorie', $childCollections->count()) }}
+                @else
+                    {{ $products->total() }} produits
+                @endif
+            </p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
@@ -83,6 +89,41 @@
             </aside>
 
             <div>
+                {{-- Mode « page de listing de catégories » : on aiguille vers le
+                     niveau inférieur au lieu de vendre. Le tri et la pagination
+                     produits n'ont pas d'objet ici. --}}
+                @if ($showsChildCards)
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        @foreach ($childCollections as $child)
+                            @php($childImage = pko_media_url($child->getFirstMedia('images'), 'medium'))
+                            <a href="{{ $child->defaultUrl?->slug ? route('collection.view', $child->defaultUrl->slug) : '#' }}"
+                               wire:key="child-{{ $child->id }}"
+                               class="group flex flex-col rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                                {{-- `relative` + enfant `absolute inset-0` : l'image sort
+                                     du flux, elle ne peut donc pas étirer le conteneur
+                                     au-delà du ratio (un flex item garde `min-height: auto`
+                                     et s'étend sinon à la hauteur naturelle de l'image). --}}
+                                <div class="relative aspect-[4/3] overflow-hidden">
+                                    <div class="absolute inset-0 flex items-center justify-center p-6">
+                                        @if ($childImage)
+                                            <img src="{{ $childImage }}"
+                                                 alt="{{ $child->translateAttribute('name') }}"
+                                                 loading="lazy"
+                                                 class="w-full h-full object-contain" />
+                                        @else
+                                            <x-ui.icon name="shopping-bag" class="w-10 h-10 text-neutral-300" />
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="px-4 pb-4">
+                                    <h2 class="font-semibold text-primary-800 group-hover:text-primary-600 transition-colors">
+                                        {{ $child->translateAttribute('name') }}
+                                    </h2>
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                @else
                 <div class="flex items-center justify-between mb-5">
                     <div class="text-sm text-neutral-500">
                         Affichage {{ $products->firstItem() ?? 0 }}–{{ $products->lastItem() ?? 0 }} / {{ $products->total() }}
@@ -112,6 +153,7 @@
                         @endforeach
                     </div>
                     <div class="mt-8">{{ $products->links() }}</div>
+                @endif
                 @endif
             </div>
         </div>

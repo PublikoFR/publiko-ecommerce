@@ -1,6 +1,7 @@
 @php($children = $node['children'] ?? [])
 @php($hasChildren = count($children) > 0)
 @php($enabled = $node['pko_enabled'] ?? true)
+@php($browseChildren = $node['pko_browse_children'] ?? false)
 <li data-id="{{ $node['id'] }}" class="{{ $enabled ? '' : 'opacity-50' }}">
     <div class="tree-node">
         <input type="checkbox"
@@ -28,6 +29,9 @@
             {{ $node['name'] }}
             @if (! $enabled)
                 <span class="tree-node__badge tree-node__badge--disabled">désactivée</span>
+            @endif
+            @if ($browseChildren && $hasChildren)
+                <span class="tree-node__badge tree-node__badge--browse" title="Affiche ses sous-catégories, pas de produits">listing catégories</span>
             @endif
             <span class="tree-node__badge">{{ $node['product_count'] }}</span>
         </span>
@@ -66,6 +70,19 @@
                     @else
                         <x-heroicon-o-eye class="h-4 w-4 flex-shrink-0" />
                         <span>Activer la catégorie</span>
+                    @endif
+                </button>
+                {{-- Cascade sur toute la branche : le libellé le dit, sinon on
+                     croit n'agir que sur la ligne cliquée. --}}
+                <button type="button"
+                        class="tree-node__menu-item"
+                        wire:click="toggleCollectionBrowseChildren({{ $node['id'] }})">
+                    @if ($browseChildren)
+                        <x-heroicon-o-shopping-bag class="h-4 w-4 flex-shrink-0" />
+                        <span>Revenir au listing produits<br><small>toute la branche</small></span>
+                    @else
+                        <x-heroicon-o-squares-2x2 class="h-4 w-4 flex-shrink-0" />
+                        <span>Page de listing de catégories<br><small>toute la branche</small></span>
                     @endif
                 </button>
                 <button type="button"
