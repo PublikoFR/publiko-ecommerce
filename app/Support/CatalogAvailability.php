@@ -71,19 +71,25 @@ class CatalogAvailability
      * métier et doit survivre. Une ligne est réputée semée si — et seulement si —
      * elle réunit tous les marqueurs suivants :
      *
-     *   1. tous ses flags valent exactement `customer_group.default` — c'est ce
-     *      qu'écrit le trait (`'enabled' => $customerGroup->default`, etc.) ;
+     *   1. tous ses flags sont UNIFORMES (tous à 0, ou tous à 1) — le trait les
+     *      écrit tous à `$customerGroup->default`, donc à la même valeur ;
      *   2. `ends_at` est NULL — le trait ne pose jamais de date de fin ;
      *   3. `starts_at` ET `created_at` tombent dans la même seconde que la
      *      création du parent — le semis est déclenché par le `created` du
      *      modèle, alors qu'une saisie humaine intervient nécessairement plus tard.
      *
-     * Le point 3 est le plus discriminant : il distingue une ligne « tous flags à
+     * Le point 3 est le vrai discriminant : il distingue une ligne « tous flags à
      * false » semée à l'import d'une restriction identique posée volontairement.
      *
-     * Vérifié sur la base de développement : les 3 458 lignes de collections et
-     * les 100 lignes de produits réunissent les trois marqueurs, aucune ligne
-     * saisie à la main n'existe.
+     * ⚠️ On compare les flags entre eux, PAS à `customer_group.default`. Le groupe
+     * par défaut change dans le temps : sur dev, 258 lignes semées le 10/07 quand
+     * « Particuliers » était le défaut portaient des flags à 1, alors que le défaut
+     * est devenu « Pro » depuis. Les comparer au défaut actuel les faisait passer
+     * à tort pour des décisions humaines. L'uniformité, elle, reste vraie quelle
+     * que soit l'époque du semis.
+     *
+     * Une ligne aux flags panachés (ex. visible=1, purchasable=0) est forcément
+     * une saisie : le trait ne produit jamais ça. Elle est donc conservée.
      */
     private static function seededRows(string $table): Builder
     {
@@ -93,13 +99,18 @@ class CatalogAvailability
 
         $query = DB::table($table)
             ->join($parent, "{$parent}.id", '=', "{$table}.{$config['fk']}")
-            ->join('lunar_customer_groups', 'lunar_customer_groups.id', '=', "{$table}.customer_group_id")
             ->whereNull("{$table}.ends_at")
             ->whereRaw("ABS(TIMESTAMPDIFF(SECOND, {$table}.created_at, {$parent}.created_at)) <= ?", [$tolerance])
             ->whereRaw("ABS(TIMESTAMPDIFF(SECOND, {$table}.starts_at, {$parent}.created_at)) <= ?", [$tolerance]);
 
-        foreach ($config['flags'] as $flag) {
-            $query->whereRaw("{$table}.{$flag} = lunar_customer_groups.`default`");
+        // Uniformité des flags : tous égaux au premier. Le trait les écrit tous à
+        // `$customerGroup->default`, donc identiques entre eux — sans dépendre de
+        // ce que vaut `default` aujourd'hui.
+        $flags = $config['flags'];
+        $reference = array_shift($flags);
+
+        foreach ($flags as $flag) {
+            $query->whereRaw("{$table}.{$flag} = {$table}.{$reference}");
         }
 
         return $query;

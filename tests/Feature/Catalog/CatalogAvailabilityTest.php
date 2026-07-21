@@ -208,6 +208,58 @@ class CatalogAvailabilityTest extends TestCase
         $this->assertContains($other->id, $remaining, 'Une restriction manuelle a été détruite.');
     }
 
+    /**
+     * Cas rencontré sur dev : des lignes semées à une époque où un AUTRE groupe
+     * était le défaut portent des flags à 1 sur un groupe aujourd'hui non défaut.
+     * Comparer au `default` actuel les prenait à tort pour des saisies humaines.
+     */
+    public function test_prune_removes_rows_seeded_under_a_former_default_group(): void
+    {
+        $collection = $this->makeCollection();
+        $formerDefault = CustomerGroup::create([
+            'name' => 'Particuliers', 'handle' => 'particuliers', 'default' => false,
+        ]);
+
+        // Semée quand ce groupe était le défaut : flags à 1, horodatée avec le parent.
+        DB::table(self::COLLECTION_PIVOT)->insert([
+            'collection_id' => $collection->id,
+            'customer_group_id' => $formerDefault->id,
+            'enabled' => true,
+            'visible' => true,
+            'starts_at' => $collection->created_at,
+            'ends_at' => null,
+            'created_at' => $collection->created_at,
+            'updated_at' => $collection->created_at,
+        ]);
+
+        $this->artisan('pko:catalog-availability:prune', ['--apply' => true])->assertExitCode(0);
+
+        $this->assertSame(0, DB::table(self::COLLECTION_PIVOT)->count());
+    }
+
+    /** Flags panachés = saisie humaine certaine : le trait ne produit jamais ça. */
+    public function test_prune_keeps_rows_with_mixed_flags(): void
+    {
+        $product = $this->makeProduct();
+        $group = CustomerGroup::create(['name' => 'Pro', 'handle' => 'pro', 'default' => false]);
+
+        DB::table(self::PRODUCT_PIVOT)->insert([
+            'product_id' => $product->id,
+            'customer_group_id' => $group->id,
+            'enabled' => true,
+            'visible' => true,
+            'purchasable' => false, // visible mais non achetable → décision explicite
+            'starts_at' => $product->created_at,
+            'ends_at' => null,
+            'created_at' => $product->created_at,
+            'updated_at' => $product->created_at,
+        ]);
+
+        $this->artisan('pko:catalog-availability:prune', ['--apply' => true])->assertExitCode(0);
+
+        $this->assertSame(1, DB::table(self::PRODUCT_PIVOT)->count());
+    }
+
     /** Sans --apply, la commande ne touche à rien. */
     public function test_prune_is_dry_run_by_default(): void
     {

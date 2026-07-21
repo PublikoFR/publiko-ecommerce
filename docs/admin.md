@@ -273,7 +273,8 @@ La commande ne vide **pas** la table : elle ne supprime que les lignes portant l
 **signature du semis automatique**, pour qu'une restriction saisie à la main
 survive. Les trois marqueurs, tous requis (`CatalogAvailability::seededRows()`) :
 
-1. tous les flags valent exactement `customer_group.default` — ce qu'écrit le trait ;
+1. tous les flags sont **uniformes** (tous à 0, ou tous à 1) — le trait les écrit
+   tous à `$customerGroup->default`, donc identiques entre eux ;
 2. `ends_at` est `NULL` — le trait ne pose jamais de date de fin ;
 3. `starts_at` **et** `created_at` tombent dans la même seconde (± 5 s) que la
    création du parent — le semis est déclenché par le `created` du modèle, alors
@@ -281,6 +282,14 @@ survive. Les trois marqueurs, tous requis (`CatalogAvailability::seededRows()`) 
 
 Le marqueur 3 est le discriminant : il sépare une ligne « tous flags à false »
 semée à l'import d'une restriction identique posée volontairement.
+
+⚠️ Les flags sont comparés **entre eux**, jamais à `customer_group.default` : le
+groupe par défaut change dans le temps. Sur dev, 258 lignes semées le 10/07 —
+quand « Particuliers » était le défaut — portaient des flags à 1 alors que le
+défaut est devenu « Pro » depuis ; les comparer au défaut actuel les faisait
+passer à tort pour des décisions humaines. Une ligne aux flags **panachés**
+(ex. `visible=1, purchasable=0`) est en revanche forcément une saisie : le trait
+ne produit jamais ça, elle est conservée.
 
 Sans `--apply`, la commande se contente de rapporter (total / semées / conservées).
 Le comportement est verrouillé par
