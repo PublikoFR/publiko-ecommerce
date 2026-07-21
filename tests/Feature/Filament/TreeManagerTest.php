@@ -119,6 +119,85 @@ class TreeManagerTest extends TestCase
         $this->assertSame('SEO description', $found['meta_description']);
     }
 
+    /**
+     * L'export PrestaShop a une racine `categories` (et non `tree`). Avant, ce
+     * payload tombait dans le parseur de map plate `flatMapToTree()` et levait
+     * « Array to string conversion » (500). Il doit être reconnu tel quel, en
+     * conservant l'arborescence.
+     */
+    public function test_import_accepts_prestashop_categories_root(): void
+    {
+        $groupId = CollectionGroup::query()->orderBy('id')->value('id');
+
+        $component = Livewire::test(TreeManager::class);
+        /** @var TreeManager $instance */
+        $instance = $component->instance();
+
+        $payload = ['categories' => [[
+            'name' => 'Portes',
+            'img_src' => '',
+            'children' => [[
+                'name' => 'Portes blindées',
+                'img_src' => '',
+                'children' => [],
+            ]],
+        ]]];
+
+        $instance->importCollectionsPayload(
+            ['tree' => $this->invokeResolvePayload($instance, $payload)],
+            'append',
+        );
+
+        $names = LunarCollection::query()
+            ->where('collection_group_id', $groupId)
+            ->get()
+            ->map(fn (LunarCollection $c): string => (string) $c->translateAttribute('name', 'fr'));
+
+        $this->assertContains('Portes', $names);
+        $this->assertContains('Portes blindées', $names);
+
+        $parent = LunarCollection::query()
+            ->where('collection_group_id', $groupId)
+            ->get()
+            ->first(fn (LunarCollection $c): bool => $c->translateAttribute('name', 'fr') === 'Portes');
+        $child = LunarCollection::query()
+            ->where('collection_group_id', $groupId)
+            ->get()
+            ->first(fn (LunarCollection $c): bool => $c->translateAttribute('name', 'fr') === 'Portes blindées');
+
+        $this->assertSame((int) $parent->id, (int) $child->parent_id, 'La hiérarchie doit être préservée.');
+    }
+
+    /**
+     * Un `img_src` vide ne doit déclencher aucun import média.
+     */
+    public function test_blank_img_src_imports_no_media(): void
+    {
+        $groupId = CollectionGroup::query()->orderBy('id')->value('id');
+
+        $component = Livewire::test(TreeManager::class);
+        /** @var TreeManager $instance */
+        $instance = $component->instance();
+
+        $stats = $instance->importCollectionsPayload([
+            'tree' => [['name' => 'Sans visuel', 'img_src' => '', 'children' => []]],
+        ], 'append');
+
+        $this->assertSame(['imported' => 0, 'skipped' => 0, 'errors' => 0], $stats);
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @return list<array<string, mixed>>
+     */
+    private function invokeResolvePayload(TreeManager $instance, array $payload): array
+    {
+        $method = new \ReflectionMethod($instance, 'resolveCollectionsTreePayload');
+        $method->setAccessible(true);
+
+        return $method->invoke($instance, $payload);
+    }
+
     public function test_import_features_round_trip(): void
     {
         FeatureFamily::query()->delete();

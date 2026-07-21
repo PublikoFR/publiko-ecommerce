@@ -37,7 +37,9 @@ use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\CollectionGroup;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
+use Pko\LunarMediaCore\Services\MediaLibraryImporter;
 use Pko\Storefront\StorefrontServiceProvider;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TreeManager extends BasePage implements HasActions, HasForms
@@ -50,6 +52,9 @@ class TreeManager extends BasePage implements HasActions, HasForms
     protected static string $view = 'filament.pages.tree-manager';
 
     protected const LOCALE = 'fr';
+
+    /** Slug du dossier médiathèque recevant les visuels de catégorie. */
+    protected const CATEGORY_MEDIA_FOLDER = 'categories';
 
     public ?int $collectionGroupId = null;
 
@@ -872,17 +877,16 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 $payload = $this->resolveImportPayload($data);
                 abort_if(! is_array($payload), 422, 'JSON invalide.');
 
-                if (! isset($payload['tree'])) {
-                    $payload = ['tree' => $this->flatMapToTree($payload)];
-                }
+                $payload = ['tree' => $this->resolveCollectionsTreePayload($payload)];
 
                 $mode = ($data['mode'] ?? 'append') === 'replace' ? 'replace' : 'append';
-                $this->importCollectionsPayload($payload, $mode);
+                $stats = $this->importCollectionsPayload($payload, $mode);
 
                 unset($this->collectionsTree);
                 Notification::make()
                     ->success()
                     ->title($mode === 'replace' ? 'Catégories remplacées' : 'Catégories ajoutées')
+                    ->body($this->formatImageImportStats($stats))
                     ->send();
             });
     }
@@ -992,6 +996,52 @@ class TreeManager extends BasePage implements HasActions, HasForms
     }
 
     /**
+     * URL réutilisable du visuel de catégorie pour l'export : on privilégie
+     * l'URL source d'origine (import distant) et on retombe sur l'URL publique
+     * du média local sinon. Chaîne vide si la catégorie n'a pas d'image.
+     */
+    protected function collectionImageSource(LunarCollection $collection): string
+    {
+        $media = $collection->getFirstMedia('images');
+        if ($media === null) {
+            return '';
+        }
+
+        return (string) ($media->getCustomProperty('source_url') ?: $media->getFullUrl());
+    }
+
+    /**
+     * Normalise les formats d'entrée acceptés vers une liste de nœuds
+     * `[{name, img_src?, children: [...]}]` :
+     *  - `{"tree": [...]}`        → format d'export natif
+     *  - `{"categories": [...]}`  → export PrestaShop (porte `img_src`)
+     *  - `[{"name": …}, …]`       → liste de nœuds nue
+     *  - `{"Parent": ["Enfant"]}` → map plate (legacy)
+     *
+     * @param  array<mixed>  $payload
+     * @return list<array<string, mixed>>
+     */
+    private function resolveCollectionsTreePayload(array $payload): array
+    {
+        foreach (['tree', 'categories'] as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                return array_values($payload[$key]);
+            }
+        }
+
+        // Liste de nœuds nue : au moins une entrée possédant une clé `name`.
+        if (array_is_list($payload)) {
+            foreach ($payload as $node) {
+                if (is_array($node) && array_key_exists('name', $node)) {
+                    return array_values($payload);
+                }
+            }
+        }
+
+        return $this->flatMapToTree($payload);
+    }
+
+    /**
      * Convert {"Parent": ["Child1", "Child2"], "Child1": ["GrandChild"]} into
      * [{"name": "Parent", "children": [{"name": "Child1", "children": [...]}]}].
      *
@@ -1094,6 +1144,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 $carry[] = [
                     'id' => $c->id,
                     'name' => (string) ($c->translateAttribute('name', self::LOCALE) ?? ''),
+                    'img_src' => $this->collectionImageSource($c),
                     'description' => $c->translateAttribute('description', self::LOCALE),
                     'meta_title' => $c->translateAttribute('meta_title', self::LOCALE),
                     'meta_description' => $c->translateAttribute('meta_description', self::LOCALE),
@@ -1140,9 +1191,16 @@ class TreeManager extends BasePage implements HasActions, HasForms
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function importCollectionsPayload(array $payload, string $mode = 'append'): void
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{imported:int, skipped:int, errors:int}
+     */
+    public function importCollectionsPayload(array $payload, string $mode = 'append'): array
     {
-        DB::transaction(function () use ($payload, $mode): void {
+        /** @var list<array{id:int, url:string, name:string}> $pendingImages */
+        $pendingImages = [];
+
+        DB::transaction(function () use ($payload, $mode, &$pendingImages): void {
             // Mode « écraser » : on purge d'abord toutes les catégories du groupe
             // (pivots détachés au préalable pour éviter la FK 1451), puis on importe.
             if ($mode === 'replace') {
@@ -1153,7 +1211,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
             // NOUVEAUX nœuds (les IDs entrants sont ignorés) : cela évite d'écraser
             // par effet de bord des catégories d'un autre groupe et garantit un
             // comportement additif prévisible.
-            $walk = function (array $nodes, ?int $parentId) use (&$walk): void {
+            $walk = function (array $nodes, ?int $parentId) use (&$walk, &$pendingImages): void {
                 foreach ($nodes as $node) {
                     $data = [
                         'name' => (string) ($node['name'] ?? ''),
@@ -1184,6 +1242,18 @@ class TreeManager extends BasePage implements HasActions, HasForms
                         $collection->appendToNode($parent)->save();
                     }
 
+                    // Les téléchargements distants sont différés APRÈS le commit :
+                    // une centaine d'appels HTTP dans la transaction la garderait
+                    // ouverte plusieurs minutes (locks + risque de timeout).
+                    $imgSrc = trim((string) ($node['img_src'] ?? ''));
+                    if ($imgSrc !== '') {
+                        $pendingImages[] = [
+                            'id' => (int) $collection->id,
+                            'url' => $imgSrc,
+                            'name' => $data['name'],
+                        ];
+                    }
+
                     if (! empty($node['children']) && is_array($node['children'])) {
                         $walk($node['children'], $collection->id);
                     }
@@ -1194,9 +1264,118 @@ class TreeManager extends BasePage implements HasActions, HasForms
             LunarCollection::fixTree();
         });
 
+        $stats = $this->importCollectionImages($pendingImages);
+
         // Import de masse : vide le cache de nav une fois après commit
         // (l'arbre a pu changer massivement, hors events unitaires).
         Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
+
+        return $stats;
+    }
+
+    /**
+     * Télécharge les `img_src` des catégories importées dans la médiathèque
+     * (dossier « Catégories », créé au besoin) puis rattache le fichier à la
+     * catégorie Lunar.
+     *
+     * La déduplication est portée par MediaLibraryImporter : `source_url` +
+     * `sha1` en `custom_properties`. Ré-importer le même JSON ne recrée donc
+     * pas de doublon dans la médiathèque — le média existant est réutilisé.
+     *
+     * @param  list<array{id:int, url:string, name:string}>  $pending
+     * @return array{imported:int, skipped:int, errors:int}
+     */
+    protected function importCollectionImages(array $pending): array
+    {
+        $stats = ['imported' => 0, 'skipped' => 0, 'errors' => 0];
+        if ($pending === []) {
+            return $stats;
+        }
+
+        $importer = app(MediaLibraryImporter::class);
+        $folder = $importer->resolveFolder(self::CATEGORY_MEDIA_FOLDER, 'Catégories');
+
+        foreach ($pending as $item) {
+            try {
+                $media = $importer->importIntoFolder($folder, $item['url'], $item['name']);
+                if ($media === null) {
+                    $stats['errors']++;
+
+                    continue;
+                }
+
+                /** @var LunarCollection|null $collection */
+                $collection = LunarCollection::query()->find($item['id']);
+                if ($collection === null) {
+                    $stats['errors']++;
+
+                    continue;
+                }
+
+                if ($this->attachLibraryMediaToCollection($collection, $media, $item['url'])) {
+                    $stats['imported']++;
+                } else {
+                    $stats['skipped']++;
+                }
+            } catch (\Throwable $e) {
+                report($e);
+                $stats['errors']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Copie le fichier du média bibliothèque dans la collection Spatie `images`
+     * de la catégorie — c'est celle que lit le storefront
+     * (`getFirstMediaUrl('images', 'small')`), et elle seule génère les
+     * conversions Lunar. Idempotent via `source_url`.
+     */
+    protected function attachLibraryMediaToCollection(LunarCollection $collection, Media $media, string $sourceUrl): bool
+    {
+        $already = $collection->getMedia('images')
+            ->contains(fn (Media $m): bool => (string) $m->getCustomProperty('source_url') === $sourceUrl);
+
+        if ($already) {
+            return false;
+        }
+
+        $path = $media->getPath();
+        if (! is_file($path)) {
+            return false;
+        }
+
+        $collection->thumbnail?->delete();
+
+        $collection
+            ->addMedia($path)
+            ->preservingOriginal()
+            ->usingFileName($media->file_name)
+            ->withCustomProperties(['primary' => true, 'source_url' => $sourceUrl])
+            ->toMediaCollection('images');
+
+        return true;
+    }
+
+    /**
+     * @param  array{imported:int, skipped:int, errors:int}  $stats
+     */
+    protected function formatImageImportStats(array $stats): ?string
+    {
+        if (array_sum($stats) === 0) {
+            return null;
+        }
+
+        $parts = ["{$stats['imported']} image(s) importée(s)"];
+        if ($stats['skipped'] > 0) {
+            $parts[] = "{$stats['skipped']} déjà présente(s)";
+        }
+        if ($stats['errors'] > 0) {
+            $parts[] = "{$stats['errors']} en échec";
+        }
+
+        return implode(' · ', $parts).'.';
     }
 
     /**
