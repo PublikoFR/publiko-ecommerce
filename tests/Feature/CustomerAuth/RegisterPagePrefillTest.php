@@ -64,6 +64,9 @@ class RegisterPagePrefillTest extends TestCase
             ->set('siret', '98104397900021')
             ->assertSet('sireneVerified', true)
             ->assertSet('companyName', 'ACME SAS')
+            // Le code NAF n'est plus affiché dans le formulaire mais reste renseigné
+            // côté serveur pour être persisté sur le customer.
+            ->assertSet('activity', '43.21A')
             ->assertSet('street', '10 RUE DE LA PAIX')
             ->assertSet('postcode', '75002')
             ->assertSet('city', 'PARIS');
@@ -82,9 +85,14 @@ class RegisterPagePrefillTest extends TestCase
             ->assertSet('city', 'Lyon');
     }
 
-    public function test_country_stays_locked_to_france(): void
+    /**
+     * Le champ Pays a été retiré du formulaire : la validation du SIRET auprès de
+     * l'INSEE garantit déjà une entreprise française. Le pays reste forcé à « FR »
+     * côté action (cf. RegisterProCustomerTest).
+     */
+    public function test_country_field_is_absent_from_the_form(): void
     {
         Livewire::test(RegisterPage::class)
-            ->assertSet('country', 'FR');
+            ->assertDontSee('Pays');
     }
 }

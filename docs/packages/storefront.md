@@ -63,6 +63,22 @@ Le `CheckoutPage` du starter kit visait Livewire 2 et était cassé sur ce proje
 - **Navigation** : `Navigation::getCollectionsProperty()` charge toutes les collections en arbre à chaque requête — à mettre en cache si le catalogue explose.
 - **UI** : starter kit basique non-production ready, sera amené à être refondu (Inertia+Vue kit à surveiller).
 
+### Combobox filtrable (`x-ui.searchable-select`)
+
+Composant Blade anonyme (`components/ui/searchable-select.blade.php`) : alternative
+au `<select>` natif dès qu'une liste dépasse la vingtaine d'entrées.
+
+- API : `wire:model="prop"`, `:options="$collection"` (tableau/collection `[valeur => libellé]`),
+  `label`, `hint`, `error`, `placeholder`, `search-placeholder`, `empty-text`.
+- Liaison Livewire via `@entangle` sur le nom résolu de `wire:model` — le composant
+  fonctionne donc **uniquement à l'intérieur d'un composant Livewire**.
+- Recherche **insensible aux accents et à la casse** (`normalize('NFD')` + strip des
+  diacritiques) : « plombier » matche « Plômbier ».
+- Accessibilité : déclencheur et options sont des `<button>` (focusables clavier),
+  `aria-haspopup`/`aria-expanded`/`role="listbox"`, navigation ↑/↓ + Entrée + Échap.
+- Premier usage : choix du métier sur le formulaire d'inscription pro (cf.
+  `docs/packages/storefront-b2b.md` §15.5).
+
 ### Menu latéral off-canvas (`x-layout.lateral-menu`)
 
 Composant : `packages/pko/storefront/resources/views/components/layout/lateral-menu.blade.php`  

@@ -45,9 +45,6 @@ class RegisterPage extends Component
 
     public string $city = '';
 
-    /** Boutique livrant exclusivement en France : pays verrouillé, non éditable. */
-    public string $country = 'FR';
-
     public string $password = '';
 
     public string $passwordConfirmation = '';
@@ -70,7 +67,6 @@ class RegisterPage extends Component
             'street' => ['nullable', 'string', 'max:255'],
             'postcode' => ['nullable', 'string', 'max:10'],
             'city' => ['nullable', 'string', 'max:100'],
-            'country' => ['required', 'string', 'in:FR'],
             'password' => ['required', 'string', 'min:8', 'confirmed:passwordConfirmation'],
             'terms' => ['accepted'],
         ];
@@ -147,7 +143,8 @@ class RegisterPage extends Component
                 'street' => $validated['street'] ?? null,
                 'postcode' => $validated['postcode'] ?? null,
                 'city' => $validated['city'] ?? null,
-                'country' => $validated['country'] ?? 'FR',
+                // Le SIRET (INSEE) garantit une entreprise française : pas de champ pays.
+                'country' => 'FR',
             ]);
         } catch (\DomainException $e) {
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);

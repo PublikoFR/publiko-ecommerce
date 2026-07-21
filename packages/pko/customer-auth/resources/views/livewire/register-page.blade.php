@@ -45,16 +45,10 @@
 
                     <x-ui.input wire:model="companyName" label="Raison sociale" placeholder="Optionnel — détecté automatiquement" :error="$errors->first('companyName')" />
 
-                    <x-ui.input wire:model="activity" label="Code NAF / APE" placeholder="Ex : 46.73A — détecté via le SIRET" :error="$errors->first('activity')" />
-
-                    @if ($metierGroups->isNotEmpty())
-                        <x-ui.select wire:model="metierGroupId" label="Votre métier" :error="$errors->first('metierGroupId')" hint="Optionnel — nous aide à personnaliser votre expérience.">
-                            <option value="">— Sélectionnez votre métier —</option>
-                            @foreach ($metierGroups as $id => $name)
-                                <option value="{{ $id }}">{{ $name }}</option>
-                            @endforeach
-                        </x-ui.select>
-                    @endif
+                    {{-- Code NAF / APE : renseigné automatiquement depuis l'INSEE et
+                         persisté en base, mais non exposé à l'utilisateur (donnée
+                         technique sans valeur ajoutée à la saisie). --}}
+                    @error('activity')<p class="-mt-3 text-sm text-danger-600">Code NAF / APE : {{ $message }}</p>@enderror
 
                     <x-ui.input wire:model="street" label="Adresse" placeholder="Rue, avenue, lieu-dit…" :error="$errors->first('street')" />
 
@@ -62,9 +56,6 @@
                         <x-ui.input wire:model="postcode" label="Code postal" placeholder="75001" inputmode="numeric" :error="$errors->first('postcode')" />
                         <x-ui.input wire:model="city" label="Ville" placeholder="Paris" :error="$errors->first('city')" />
                     </div>
-
-                    {{-- Livraison France uniquement : pays verrouillé, affiché en clair (pas de code ISO). --}}
-                    <x-ui.input label="Pays" value="France" readonly class="bg-neutral-50 text-neutral-500 cursor-not-allowed" hint="France uniquement" />
                 </div>
 
                 {{-- Colonne 2 — Contact & accès --}}
@@ -78,6 +69,19 @@
                         <x-ui.input wire:model="email" label="E-mail pro" type="email" required :error="$errors->first('email')" />
                         <x-ui.input wire:model="phone" label="Téléphone" required :error="$errors->first('phone')" />
                     </div>
+
+                    @if ($metierGroups->isNotEmpty())
+                        <x-ui.searchable-select
+                            wire:model="metierGroupId"
+                            label="Votre métier"
+                            :options="$metierGroups"
+                            placeholder="— Sélectionnez votre métier —"
+                            search-placeholder="Rechercher un métier…"
+                            empty-text="Aucun métier ne correspond"
+                            :error="$errors->first('metierGroupId')"
+                            hint="Renseignez votre métier pour bénéficier de réductions dédiées à votre secteur d'activité."
+                        />
+                    @endif
 
                     <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
 
