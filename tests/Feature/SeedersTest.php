@@ -26,7 +26,9 @@ class SeedersTest extends TestCase
 
         $this->assertSame(50, Product::query()->count());
         $this->assertGreaterThanOrEqual(3, LunarCollection::query()->count());
-        $this->assertSame(2, CustomerGroup::query()->count());
+        // nouveau-client (défaut) + particuliers + 4 groupes « métier »
+        // (installateurs, plombiers, electriciens, revendeurs) — cf. PkoCustomerGroupSeeder.
+        $this->assertSame(6, CustomerGroup::query()->count());
         $this->assertSame(10, Order::query()->count());
         $this->assertGreaterThanOrEqual(5, Brand::query()->count());
     }
