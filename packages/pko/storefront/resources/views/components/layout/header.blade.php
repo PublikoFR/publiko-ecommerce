@@ -30,16 +30,19 @@ $user = auth()->user();
     {{-- Main bar --}}
     <div class="bg-white border-b border-neutral-200">
         <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center gap-4 lg:gap-7 h-[78px]">
+            <div class="flex items-center gap-2 sm:gap-4 lg:gap-7 h-[78px]">
                 {{-- Mobile burger --}}
-                <button type="button" class="lg:hidden text-neutral-700" x-data @click="$dispatch('open-lateral-menu')" aria-label="Menu">
+                <button type="button" class="lg:hidden shrink-0 text-neutral-700" x-data @click="$dispatch('open-lateral-menu')" aria-label="Menu">
                     <x-ui.icon name="menu" class="w-6 h-6" />
                 </button>
 
                 {{-- Logo --}}
-                <a href="/" class="flex items-center shrink-0" wire:navigate>
+                {{-- Le logo de repli est un SVG 220x44 : à h-14 il fait 280px de large et
+                     pousse le bloc actions hors du viewport en mobile (scroll horizontal).
+                     On borne donc sa largeur tant qu'on n'est pas en desktop. --}}
+                <a href="/" class="flex items-center shrink-0 min-w-0" wire:navigate>
                     <span class="sr-only">{{ brand_name() }}</span>
-                    <x-layout.logo class="h-14 w-auto" />
+                    <x-layout.logo class="h-9 w-auto max-w-[34vw] object-contain sm:h-11 sm:max-w-[200px] lg:h-14 lg:max-w-none" />
                 </a>
 
                 {{-- Search --}}
@@ -52,9 +55,9 @@ $user = auth()->user();
                     @if ($user)
                         <x-ui.dropdown align="right" width="w-64">
                             <x-slot:trigger>
-                                <button type="button" class="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
+                                <button type="button" class="flex flex-col items-center gap-0.5 px-1.5 sm:px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
                                     <x-ui.icon name="user" class="w-[22px] h-[22px]" />
-                                    <span class="text-[11px] font-medium text-neutral-600 max-w-[8rem] truncate">{{ $user->name ?? $user->email }}</span>
+                                    <span class="text-[11px] font-medium text-neutral-600 max-w-[5rem] sm:max-w-[8rem] truncate">{{ $user->name ?? $user->email }}</span>
                                 </button>
                             </x-slot:trigger>
                             <x-ui.dropdown-item href="/compte" icon="user">Mon tableau de bord</x-ui.dropdown-item>
@@ -67,7 +70,7 @@ $user = auth()->user();
                             </form>
                         </x-ui.dropdown>
                     @else
-                        <a href="/connexion" class="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
+                        <a href="/connexion" class="flex flex-col items-center gap-0.5 px-1.5 sm:px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
                             <x-ui.icon name="user" class="w-[22px] h-[22px]" />
                             <span class="text-[11px] font-medium text-neutral-600">Compte pro</span>
                         </a>
@@ -81,7 +84,7 @@ $user = auth()->user();
                     @auth
                         @livewire('storefront.cart-badge')
                     @else
-                        <a href="/connexion" class="relative flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
+                        <a href="/connexion" class="relative flex flex-col items-center gap-0.5 px-1.5 sm:px-2.5 py-1.5 rounded-md text-primary-600 hover:bg-primary-50 transition">
                             <x-ui.icon name="cart" class="w-[22px] h-[22px]" />
                             <span class="text-[11px] font-medium text-neutral-600">Panier</span>
                         </a>

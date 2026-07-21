@@ -100,6 +100,10 @@
 
     body {
         @apply font-sans text-neutral-900 bg-neutral-50;
+        /* Garde-fou : un élément trop large ne doit jamais créer de scroll
+           horizontal (fond qui s'arrête net à droite du contenu). `clip`
+           plutôt que `hidden` pour ne pas casser le sticky du header. */
+        overflow-x: clip;
     }
 
     /* Display face for storefront headings */

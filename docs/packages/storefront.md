@@ -153,6 +153,26 @@ Couverture : `tests/Feature/Storefront/CollectionBrowseChildrenTest.php` (cartes
 
 **Accessibilité** : `role="dialog" aria-modal` sur le conteneur, `role="menu/menuitem"` sur les listes, `aria-expanded` sur les chevrons, focus géré via fermeture Esc, `overflow-hidden` sur `body` quand ouvert.
 
+### Header responsive — pas de débordement horizontal
+
+Le logo de repli (`components/layout/logo.blade.php`, cas « aucun logo uploadé ») est un
+SVG `viewBox="0 0 220 44"` : sa largeur suit sa hauteur au ratio 5:1. Rendu en `h-14` il
+occupe **280 px**, ce qui — additionné au burger, aux gaps et au bloc actions (`shrink-0`) —
+dépassait la largeur du viewport mobile. Conséquence visible : scroll horizontal, le fond
+blanc du header s'arrêtant net à droite du contenu.
+
+Règles à respecter dans le header (`components/layout/header.blade.php`) :
+
+- Le logo est **borné en largeur** tant qu'on n'est pas en `lg` :
+  `h-9 max-w-[34vw]` → `sm:h-11 sm:max-w-[200px]` → `lg:h-14 lg:max-w-none`.
+- Gaps et paddings progressifs (`gap-2 sm:gap-4 lg:gap-7`, `px-1.5 sm:px-2.5`) : ne jamais
+  poser un padding desktop sur la barre mobile.
+- Tout libellé de longueur variable (nom de l'utilisateur connecté) est `truncate` + `max-w-*`.
+
+**Garde-fou global** : `resources/css/app.css` pose `overflow-x: clip` sur `body`. `clip` et
+non `hidden` — `overflow: hidden` sur un ancêtre casserait le `position: sticky` du header.
+C'est un filet de sécurité, pas une excuse pour laisser un élément déborder.
+
 ### Impact back-office
 - Aucun. `/admin` (Filament + Shield) inchangé, routes et middlewares séparés.
 
