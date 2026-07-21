@@ -10,6 +10,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -28,6 +29,7 @@ use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Lunar\Admin\Support\Pages\BasePage;
@@ -407,7 +409,9 @@ class TreeManager extends BasePage implements HasActions, HasForms
             ->icon('heroicon-o-pencil-square')
             ->modalHeading('Modifier la catégorie')
             ->modalWidth(MaxWidth::TwoExtraLarge)
-            ->form($this->collectionFormSchema())
+            ->form(fn (array $arguments): array => $this->collectionFormSchema(
+                isset($arguments['id']) ? (int) $arguments['id'] : null,
+            ))
             ->fillForm(function (array $arguments): array {
                 /** @var LunarCollection $collection */
                 $collection = LunarCollection::query()->findOrFail($arguments['id']);
@@ -455,11 +459,14 @@ class TreeManager extends BasePage implements HasActions, HasForms
     }
 
     /**
+     * @param  int|null  $collectionId  Renseigné en édition : permet d'afficher
+     *                                  l'image actuellement liée à la catégorie.
      * @return array<int, Component>
      */
-    protected function collectionFormSchema(): array
+    protected function collectionFormSchema(?int $collectionId = null): array
     {
         return [
+            ...$this->currentImagePreview($collectionId),
             TextInput::make('name')
                 ->label('Titre (affiché sur la page)')
                 ->required()
@@ -477,12 +484,52 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 ->rows(3)
                 ->helperText('Recommandé : 150–160 caractères.'),
             FileUpload::make('image')
-                ->label('Image de catégorie')
+                ->label(fn (): string => $collectionId !== null ? 'Remplacer l\'image' : 'Image de catégorie')
                 ->image()
                 ->imageEditor()
                 ->directory('tree-manager/uploads')
                 ->disk('local')
                 ->helperText('Laisser vide pour conserver l\'image actuelle.'),
+        ];
+    }
+
+    /**
+     * Aperçu de l'image actuellement liée à la catégorie (édition uniquement).
+     * `pko_media_url()` retombe sur l'original quand la conversion demandée n'a
+     * pas encore été générée — les conversions partent en queue (redis), donc
+     * elles sont absentes juste après un import.
+     *
+     * @return array<int, Component>
+     */
+    protected function currentImagePreview(?int $collectionId): array
+    {
+        if ($collectionId === null) {
+            return [];
+        }
+
+        $collection = LunarCollection::query()->find($collectionId);
+        $media = $collection?->getFirstMedia('images');
+
+        if ($media === null) {
+            return [
+                Placeholder::make('current_image')
+                    ->label('Image actuelle')
+                    ->content('Aucune image pour cette catégorie.'),
+            ];
+        }
+
+        $url = pko_media_url($media, 'small');
+
+        return [
+            Placeholder::make('current_image')
+                ->label('Image actuelle')
+                ->content(new HtmlString(sprintf(
+                    '<img src="%s" alt="" style="max-height:8rem;width:auto;border-radius:.5rem;'
+                    .'box-shadow:0 0 0 1px rgba(0,0,0,.08);object-fit:contain;" />'
+                    .'<span style="display:block;margin-top:.35rem;font-size:.75rem;color:#6b7280;">%s</span>',
+                    e($url),
+                    e($media->file_name),
+                ))),
         ];
     }
 
