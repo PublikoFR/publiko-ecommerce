@@ -43,9 +43,14 @@ class PruneCatalogAvailability extends Command
         $this->table(['Table', 'Total', 'Semées (à supprimer)', 'Conservées'], $rows);
 
         if ($totalKept > 0) {
+            // Ne pas surqualifier : une ligne conservée est une ligne dont les
+            // valeurs s'écartent du semis. Ce peut être une restriction (flags à 0
+            // sur un groupe par défaut) comme une autorisation explicite (flags à 1
+            // sur un groupe non défaut) — cas observé en dev. Dans les deux cas
+            // c'est une divergence assumée qu'on n'a pas à écraser.
             $this->warn(
-                "{$totalKept} ligne(s) ne portent pas la signature du semis et seront CONSERVÉES ".
-                '— ce sont des restrictions saisies manuellement.'
+                "{$totalKept} ligne(s) s'écartent du semis automatique et seront CONSERVÉES ".
+                '(restrictions ou autorisations explicites).'
             );
         }
 
