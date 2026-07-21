@@ -29,6 +29,10 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
         open: false,
         l1: null,
         l2: null,
+        // Le chevron L1 est partagé mobile/desktop : sur mobile il déplie un
+        // accordéon (rotation = bonne affordance), sur desktop il ouvre une
+        // colonne latérale (rotation trompeuse). Réactif au redimensionnement.
+        isDesktop: window.innerWidth >= 1024,
         openMenu() {
             this.open = true;
             this.l1 = null;
@@ -42,6 +46,7 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
             document.body.classList.remove('overflow-hidden');
         },
     }"
+    @resize.window="isDesktop = window.innerWidth >= 1024"
     @open-modal-mobile-nav.window="openMenu()"
     @open-lateral-menu.window="openMenu()"
     @keydown.escape.window="if (open) closeMenu()"
@@ -99,7 +104,10 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                 @forelse ($lateralCollections as $col)
                     @php
                         $colUrl = $col->defaultUrl?->slug ? route('collection.view', $col->defaultUrl->slug) : '#';
-                        $colHasChildren = $col->children->isNotEmpty();
+                        // Une catégorie « page de listing de catégories » se
+                        // parcourt en descendant les pages, pas via un sous-menu :
+                        // on la rend comme un lien simple (ni chevron, ni survol).
+                        $colHasChildren = $col->children->isNotEmpty() && ! $col->pko_browse_children;
                         $colImg = $col->getFirstMediaUrl('images', 'small');
                     @endphp
                     <li role="none">
@@ -146,7 +154,10 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                                     <x-ui.icon
                                         name="chevron-right"
                                         class="w-4 h-4 text-neutral-400 transition-transform duration-200"
-                                        x-bind:class="{ 'rotate-90 text-primary-500': l1 === {{ $col->id }} }"
+                                        x-bind:class="{
+                                            'rotate-90': l1 === {{ $col->id }} && ! isDesktop,
+                                            'text-primary-500': l1 === {{ $col->id }},
+                                        }"
                                     />
                                 </button>
                             @endif
@@ -226,8 +237,11 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                                                     >
                                                         <x-ui.icon
                                                             name="chevron-right"
-                                                            class="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-transform duration-200"
-                                                            x-bind:class="{ 'rotate-90 text-primary-500': l2 === {{ $child->id }} }"
+                                                            {{-- Pas de rotation : ce panneau est desktop-only et
+                                                                 ouvre une colonne latérale, pas un dépliant. La
+                                                                 flèche doit continuer de pointer vers la droite. --}}
+                                                            class="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-colors duration-200"
+                                                            x-bind:class="{ 'text-primary-500': l2 === {{ $child->id }} }"
                                                         />
                                                     </button>
                                                 @endif
