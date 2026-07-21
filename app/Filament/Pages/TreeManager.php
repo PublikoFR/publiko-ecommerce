@@ -134,6 +134,9 @@ class TreeManager extends BasePage implements HasActions, HasForms
         /** @var EloquentCollection<int, LunarCollection> $collections */
         $collections = LunarCollection::query()
             ->where('collection_group_id', $this->collectionGroupId)
+            // `media` eager-loadé : l'arbre affiche la vignette de chaque nœud,
+            // soit ~500 requêtes de plus sans ça.
+            ->with('media')
             ->withCount('products')
             ->defaultOrder()
             ->get();
@@ -150,6 +153,7 @@ class TreeManager extends BasePage implements HasActions, HasForms
                     'name' => (string) ($node->translateAttribute('name', self::LOCALE) ?? '—'),
                     'product_count' => $node->products_count ?? 0,
                     'pko_enabled' => (bool) $node->pko_enabled,
+                    'image_url' => pko_media_url($node->getFirstMedia('images'), 'small'),
                     'children' => $build($node->id),
                 ];
             })->values()->all();

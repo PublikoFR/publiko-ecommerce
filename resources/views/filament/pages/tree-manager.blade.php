@@ -204,6 +204,13 @@
             background-color: rgb(55 65 81);
             color: rgb(209 213 219);
         }
+        [x-cloak] {
+            display: none !important;
+        }
+        .tree-node__thumb {
+            object-fit: contain;
+            border-radius: 0.1875rem;
+        }
         .tree-node__actions {
             display: flex;
             gap: 0.25rem;
@@ -211,9 +218,68 @@
             transition: opacity 0.15s;
             flex-shrink: 0;
             margin-left: auto;
+            position: relative;
         }
-        .tree-node:hover .tree-node__actions {
+        .tree-node:hover .tree-node__actions,
+        .tree-node__actions.is-open {
             opacity: 1;
+        }
+        /* Ancré sous l'engrenage, sans interstice : un écart ferait remonter un
+           mouseleave entre le bouton et le menu. z-index élevé car les nœuds
+           suivants sont rendus après dans le flux. */
+        .tree-node__menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            z-index: 50;
+            min-width: 13.5rem;
+            padding: 0.25rem;
+            border-radius: 0.5rem;
+            background-color: rgb(255 255 255);
+            border: 1px solid rgb(229 231 235);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .dark .tree-node__menu {
+            background-color: rgb(31 41 55);
+            border-color: rgb(55 65 81);
+        }
+        .tree-node__menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.375rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.8125rem;
+            line-height: 1.25;
+            text-align: left;
+            white-space: nowrap;
+            color: rgb(55 65 81);
+        }
+        .dark .tree-node__menu-item {
+            color: rgb(209 213 219);
+        }
+        .tree-node__menu-item:hover {
+            background-color: rgb(243 244 246);
+            color: rgb(17 24 39);
+        }
+        .dark .tree-node__menu-item:hover {
+            background-color: rgb(55 65 81);
+            color: rgb(243 244 246);
+        }
+        .tree-node__menu-item--danger {
+            color: rgb(185 28 28);
+        }
+        .tree-node__menu-item--danger:hover {
+            background-color: rgb(254 242 242);
+            color: rgb(153 27 27);
+        }
+        .dark .tree-node__menu-item--danger {
+            color: rgb(248 113 113);
+        }
+        .dark .tree-node__menu-item--danger:hover {
+            background-color: rgb(127 29 29);
+            color: rgb(254 226 226);
         }
         .tree-node__action {
             padding: 0.25rem;

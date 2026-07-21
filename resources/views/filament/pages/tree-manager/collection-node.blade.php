@@ -14,7 +14,16 @@
                 <x-heroicon-o-chevron-right class="h-3.5 w-3.5" />
             </button>
         @endif
-        <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 {{ $enabled ? 'text-gray-400' : 'text-red-300' }}" />
+        {{-- Vignette si la catégorie a une image, sinon picto dossier : permet de
+             repérer d'un coup d'œil les catégories sans visuel. --}}
+        @if (filled($node['image_url'] ?? null))
+            <img src="{{ $node['image_url'] }}"
+                 alt=""
+                 loading="lazy"
+                 class="tree-node__thumb h-4 w-4 flex-shrink-0" />
+        @else
+            <x-heroicon-o-folder class="h-4 w-4 flex-shrink-0 {{ $enabled ? 'text-gray-400' : 'text-red-300' }}" />
+        @endif
         <span class="tree-node__label">
             {{ $node['name'] }}
             @if (! $enabled)
@@ -22,35 +31,62 @@
             @endif
             <span class="tree-node__badge">{{ $node['product_count'] }}</span>
         </span>
-        <div class="tree-node__actions">
-            <button type="button"
-                    class="tree-node__action {{ $enabled ? 'text-green-600 hover:text-green-800' : 'text-gray-400 hover:text-green-600' }}"
-                    title="{{ $enabled ? 'Désactiver la catégorie' : 'Activer la catégorie' }}"
-                    wire:click="toggleCollectionEnabled({{ $node['id'] }})">
-                @if ($enabled)
-                    <x-heroicon-o-eye class="h-4 w-4" />
-                @else
-                    <x-heroicon-o-eye-slash class="h-4 w-4" />
-                @endif
-            </button>
-            <button type="button"
-                    class="tree-node__action"
-                    title="Ajouter une sous-catégorie"
-                    wire:click="mountAction('createCollectionAction', { parent_id: {{ $node['id'] }} })">
-                <x-heroicon-o-plus class="h-4 w-4" />
-            </button>
+        {{-- Une seule entrée (engrenage) qui déplie un menu au survol : 4 pictos ×
+             ~500 lignes saturaient visuellement l'arbre. Les libellés lèvent
+             l'ambiguïté des icônes (l'œil se lisait « voir » et non « masquer »).
+             `is-open` force la visibilité : le menu déborde de `.tree-node`, donc
+             `.tree-node:hover` ne suffit pas à le garder affiché. --}}
+        <div class="tree-node__actions"
+             x-data="{ open: false }"
+             :class="{ 'is-open': open }"
+             x-on:mouseenter="open = true"
+             x-on:mouseleave="open = false">
             <button type="button"
                     class="tree-node__action"
-                    title="Modifier"
-                    wire:click="mountAction('editCollectionAction', { id: {{ $node['id'] }} })">
-                <x-heroicon-o-pencil-square class="h-4 w-4" />
+                    aria-haspopup="true"
+                    :aria-expanded="open ? 'true' : 'false'"
+                    aria-label="Actions sur la catégorie"
+                    x-on:click.stop="open = ! open">
+                <x-heroicon-o-cog-6-tooth class="h-4 w-4" />
             </button>
-            <button type="button"
-                    class="tree-node__action tree-node__action--danger"
-                    title="Supprimer"
-                    wire:click="mountAction('deleteCollectionAction', { id: {{ $node['id'] }} })">
-                <x-heroicon-o-trash class="h-4 w-4" />
-            </button>
+
+            <div class="tree-node__menu"
+                 x-show="open"
+                 x-cloak
+                 x-transition.opacity.duration.100ms
+                 x-on:click.outside="open = false">
+                {{-- L'icône montre l'ACTION, pas l'état : œil barré = cliquer pour
+                     masquer. L'état reste lisible via la ligne grisée + le badge. --}}
+                <button type="button"
+                        class="tree-node__menu-item"
+                        wire:click="toggleCollectionEnabled({{ $node['id'] }})">
+                    @if ($enabled)
+                        <x-heroicon-o-eye-slash class="h-4 w-4 flex-shrink-0" />
+                        <span>Désactiver la catégorie</span>
+                    @else
+                        <x-heroicon-o-eye class="h-4 w-4 flex-shrink-0" />
+                        <span>Activer la catégorie</span>
+                    @endif
+                </button>
+                <button type="button"
+                        class="tree-node__menu-item"
+                        wire:click="mountAction('createCollectionAction', { parent_id: {{ $node['id'] }} })">
+                    <x-heroicon-o-plus class="h-4 w-4 flex-shrink-0" />
+                    <span>Ajouter une sous-catégorie</span>
+                </button>
+                <button type="button"
+                        class="tree-node__menu-item"
+                        wire:click="mountAction('editCollectionAction', { id: {{ $node['id'] }} })">
+                    <x-heroicon-o-pencil-square class="h-4 w-4 flex-shrink-0" />
+                    <span>Modifier la catégorie</span>
+                </button>
+                <button type="button"
+                        class="tree-node__menu-item tree-node__menu-item--danger"
+                        wire:click="mountAction('deleteCollectionAction', { id: {{ $node['id'] }} })">
+                    <x-heroicon-o-trash class="h-4 w-4 flex-shrink-0" />
+                    <span>Supprimer la catégorie</span>
+                </button>
+            </div>
         </div>
     </div>
     @if ($hasChildren)

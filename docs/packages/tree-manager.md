@@ -59,6 +59,19 @@ Bascule npm envisageable si une 2ᵉ page admin a besoin de la même lib — cr�
 - Image ou SEO sur `FeatureFamily` / `FeatureValue` (décision : caractéristiques restent purement fonctionnelles)
 - Authorization fine : réutilise la policy Shield `page_TreeManager` générée automatiquement, rattachée au rôle `admin`. À régénérer via `make artisan CMD='shield:generate --panel=lunar'` après déploiement.
 
+### 7.ter.5bis Ligne de l'arbre — vignette et menu d'actions
+
+**Vignette** : quand la catégorie a un média dans sa collection Spatie `images`, une vignette 16×16 (`.tree-node__thumb`, `object-fit: contain`) remplace le picto dossier. Repérage immédiat des catégories sans visuel. L'URL vient de `pko_media_url($media, 'small')` (fallback original si la conversion n'est pas générée). `collectionsTree()` **doit** eager-loader `media` : sans `->with('media')`, l'affichage coûte ~500 requêtes supplémentaires. Mesuré après eager-loading : **5 requêtes SQL et ~300 ms pour 494 nœuds**.
+
+**Menu d'actions** : les 4 pictos par ligne (œil / plus / crayon / poubelle) sont remplacés par un **engrenage unique** qui déplie un menu au survol, chaque entrée portant picto **et** libellé. Motifs : 4 pictos × ~500 lignes saturaient l'arbre, et l'œil se lisait « voir la catégorie » alors qu'il la désactive.
+
+Points d'implémentation à ne pas casser :
+- L'icône de bascule montre l'**action**, pas l'état : œil barré quand la catégorie est active (= cliquer pour masquer). L'état reste porté par la ligne grisée, le badge « désactivée » et le dossier rouge.
+- `.tree-node__actions` passe en `position: relative` et reçoit la classe `is-open` quand le menu est ouvert : le menu déborde de `.tree-node`, donc `.tree-node:hover` ne suffit pas à le maintenir visible.
+- Le menu est ancré en `top: 100%` **sans interstice** avec l'engrenage : le moindre écart déclenche un `mouseleave` en traversant vers le menu.
+- `[x-cloak]` est déclaré dans le `<style>` de la page pour éviter que les 494 menus n'apparaissent avant l'init d'Alpine.
+- Les `title=""` natifs ont disparu (délai d'affichage du navigateur) ; les libellés du menu les remplacent.
+
 ### 7.ter.6 Architecture performance (500+ nœuds)
 
 Le TreeManager gère 500+ nœuds (catégories + familles + valeurs). Six décisions architecturales garantissent la fluidité :
