@@ -139,7 +139,12 @@
             </div>
         @endif
 
-        <div class="mlib-grid" x-show="pending.length > 0 || {{ $medias->count() }} > 0">
+        {{-- La visibilité de la grille ne doit PAS dépendre de l'état Alpine :
+             si `pending` n'est pas résolu (factory non initialisée, erreur JS…),
+             `x-show` évalue à falsy et masque la grille ENTIÈRE alors que le
+             serveur a rendu les tuiles. On ne conserve `x-show` que pour le cas
+             « dossier vide » où seules les tuiles optimistes d'upload comptent. --}}
+        <div class="mlib-grid" @if ($medias->isEmpty()) x-show="pending.length > 0" @endif>
             {{-- Tuiles optimistes --}}
             <template x-for="item in pending" :key="item.id">
                 <div class="mlib-tile is-uploading">

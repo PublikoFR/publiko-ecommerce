@@ -204,7 +204,14 @@
         </template>
     @endif
 
-    @script
+    {{-- @assets et non @script : Livewire sérialise le contenu d'un bloc @script
+         dans `wire:effects` et ne l'exécute qu'APRÈS l'initialisation du composant.
+         Or `x-data="pkoMediaLibraryUploader()"` est évalué par Alpine à l'init de
+         l'arbre, donc avant. La fonction était alors indéfinie → `pending` absent
+         du scope → `x-show="pending.length > 0 || N > 0"` en erreur → toute la
+         grille masquée (bug invisible tant qu'aucun dossier n'avait de média).
+         @assets est injecté une seule fois, en amont, comme vrai <script>. --}}
+    @assets
     <script>
         window.pkoMediaLibraryUploader = function () {
             return {
@@ -245,5 +252,5 @@
             };
         };
     </script>
-    @endscript
+    @endassets
 </div>

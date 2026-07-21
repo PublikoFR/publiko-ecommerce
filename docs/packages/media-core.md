@@ -66,6 +66,33 @@ Vue racine `resources/views/livewire/pko-media-library.blade.php` qui branche su
 
 Factory JS unifiée : `window.pkoMediaLibraryUploader()` (anciennement `window.mdeMediaPicker` / `window.mlibUploader`).
 
+> **Piège — la visibilité de la grille ne doit pas dépendre de l'état Alpine.**
+> `.mlib-grid` portait `x-show="pending.length > 0 || {{ $medias->count() }} > 0"`.
+> Quand `pending` n'est pas résolu, l'expression évalue à *falsy* et Alpine pose
+> `display:none` sur la grille **entière**, alors que le serveur a bien rendu les
+> tuiles. Symptôme très trompeur : le compteur du dossier affichait « (122) », le
+> HTML servi contenait les 122 `<img>` (URLs en HTTP 200) et le CSS compilé était
+> correct — mais rien ne s'affichait, seule la dropzone restait visible.
+> Le bug est resté invisible tant qu'aucun dossier n'avait de média (grille vide
+> = masquée de toute façon) ; il n'est apparu qu'au premier import réel.
+>
+> **Correctif appliqué** : `x-show` n'est conservé que dans le cas « dossier
+> vide » (où seules les tuiles optimistes d'upload comptent). Dès que le serveur
+> sait qu'il y a des médias, la grille est rendue sans condition JS.
+>
+> **Correctif connexe** : la factory `window.pkoMediaLibraryUploader` a été
+> déplacée de `@script` vers `@assets`. Livewire sérialise le contenu d'un bloc
+> `@script` dans l'attribut `wire:effects` et ne l'exécute qu'après
+> l'initialisation du composant, alors que `x-data="pkoMediaLibraryUploader()"`
+> est évalué par Alpine dès l'init de l'arbre DOM — la factory pouvait donc être
+> indéfinie au moment de son usage. `@assets` est injecté une seule fois, en
+> amont, comme véritable `<script>`. `this.$wire` reste résolu à l'exécution dans
+> les méthodes du composant, donc rien à adapter côté code.
+> À noter : ce second changement seul **n'a pas suffi** à rétablir l'affichage —
+> c'est la suppression du `x-show` qui a débloqué la grille. La cause exacte de
+> la non-résolution de `pending` n'a pas été isolée ; **l'uploader (drag & drop,
+> « Coller une URL ») reste donc à vérifier**, il dépend du même scope Alpine.
+
 **Dossier par défaut** : setting `media.default_folder_id` (clé de `pko_storefront_settings`, valeur = ID du dossier). Sélectionné automatiquement à l'ouverture (page comme modale) et épinglé en tête de la sidebar des dossiers. Tant que le setting n'est pas posé, fallback sur le dossier dont `collection = 'products'`. En mode page, une étoile au survol de chaque dossier (`setDefaultFolder(int $id)`) permet de changer le choix.
 
 ### Service `MediaLibraryImporter` (import URL + dédup)
