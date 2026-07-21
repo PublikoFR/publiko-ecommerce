@@ -321,3 +321,66 @@ suppression du groupe, mais reste détachée avant `delete()` (FK `NO ACTION`).
 - **Pas de `DetachAction` chez Lunar.** Le `CustomerGroupRelationManager` n'expose
   qu'`AttachAction` + `EditAction` — cohérent en opt-in, bloquant chez nous
   (une restriction posée serait irréversible depuis l'admin). D'où l'extension.
+
+## Suppression d'un groupe client — cascade dans les deux sens
+
+**Principe : une liaison se nettoie quel que soit le côté supprimé.**
+
+### Sens objet → groupe (déjà assuré par Lunar)
+
+| suppression de… | détache le groupe | où |
+|---|---|---|
+| réduction | ✓ | `DiscountObserver::deleting()` |
+| méthode de livraison | ✓ | `ShippingMethod::deleting()` |
+| produit | ✓ | `ProductObserver::deleting()` |
+| catégorie | ✓ (sous-arbre compris) | `CollectionObserver` + `App\Observers\CollectionDeleteObserver` |
+
+Couvert par `CustomerGroupCascadeTest` pour détecter une régression d'un upgrade Lunar.
+
+### Sens groupe → objet (`App\Support\CustomerGroupDeletionImpact`)
+
+Toutes les FK vers `lunar_customer_groups` sont en `NO ACTION` : sans cascade
+explicite, le delete plante en `1451`. À la suppression d'un groupe :
+
+| élément | traitement |
+|---|---|
+| clients | réattribués au groupe par défaut |
+| visibilité catalogue | détachée |
+| réductions, livraison, zones de taxe | détachées |
+| **tarifs** | **supprimés** |
+
+**Les tarifs ne sont jamais détachés.** `lunar_prices.customer_group_id` est
+nullable et un prix à `NULL` s'applique à **tous** les groupes : les détacher
+publierait des tarifs négociés en prix public. Verrouillé par
+`test_group_prices_are_deleted_never_nulled()`.
+
+### Éléments orphelins — le choix revient à l'utilisateur
+
+Si le groupe supprimé est le dernier auquel un élément est **activement** rattaché,
+la modale le nomme et propose : *le supprimer aussi* ou *le conserver*. Conservé,
+il reste en base mais ne s'applique plus à personne — le scope Lunar est un
+`whereHas`, un objet sans groupe ne remonte dans aucune requête. On préfère poser
+la question que de neutraliser en silence.
+
+En suppression **de masse**, la question ne peut pas être posée par groupe : on
+conserve (choix non destructif) et la notification indique combien d'éléments sont
+devenus inactifs.
+
+### Piège — les liaisons auto-semées faussent le comptage
+
+`HasCustomerGroups` est monté sur `Discount` et `ShippingMethod` aussi : créer une
+réduction sème une ligne par groupe existant, à `enabled = false`. Un comptage brut
+ferait donc paraître **toute** réduction rattachée à **tous** les groupes.
+
+`analyse()` ne considère donc que les liaisons **actives** (`enabled = true`). Une
+ligne semée inactive ne rattache rien : ni partage, ni orphelin.
+
+⚠️ Contrairement aux pivots catalogue, on ne purge pas ces lignes : `DiscountManager`
+utilise réellement ce scope, `enabled = false` y a un sens fonctionnel (« cette
+réduction ne s'applique pas à ce groupe »). C'est du vrai état, pas du bruit.
+
+### Ce qui reste bloquant
+
+Faute de cascade possible : le groupe par défaut Lunar, le groupe de l'inscription
+professionnelle (`customer-auth.default_customer_group_handle`), et les restrictions
+catalogue explicites.

@@ -4,24 +4,35 @@ declare(strict_types=1);
 
 namespace App\Filament\Extensions;
 
+use App\Support\CustomerGroupDeletionImpact;
 use App\Support\CustomerGroupGuard;
 use Filament\Actions\DeleteAction as PageDeleteAction;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Notifications\Notification;
 use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 
 /**
- * Garde-fou de suppression des groupes clients. Toutes les FK vers
- * `lunar_customer_groups` (customers, collections, prices, products, shipping,
- * tax, discounts) sont en NO ACTION → un delete natif plante en 1451 dès qu'un
- * groupe est référencé. On bloque proprement (message FR) :
+ * Suppression d'un groupe client : cascade + confirmation éclairée.
+ *
+ * Toutes les FK vers `lunar_customer_groups` sont en NO ACTION → un delete natif
+ * plante en 1451 dès qu'un groupe est référencé. On cascade donc explicitement
+ * (clients réattribués au groupe par défaut, catalogue / réductions / livraison /
+ * taxes détachés, tarifs supprimés), en annonçant l'impact dans la modale.
+ *
+ * Restent bloquants, faute de cascade possible :
  *   - le groupe par défaut Lunar ;
  *   - le groupe pro (config default_customer_group_handle) ;
- *   - tout groupe encore référencé.
- * Un groupe custom sans aucune référence reste supprimable.
+ *   - les restrictions catalogue explicites (cf. CustomerGroupGuard).
+ *
+ * Quand un élément ne dépend QUE du groupe supprimé, l'utilisateur choisit de le
+ * supprimer aussi ou de le conserver — le détacher en silence le rendrait inactif
+ * sans prévenir (le scope Lunar est un `whereHas`).
  *
  * Enregistré à la fois sur CustomerGroupResource (extendTable → bulk delete de la
  * liste) et sur EditCustomerGroup (headerActions → delete de la page d'édition).
@@ -41,6 +52,7 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
                     ->modalHeading('Supprimer les groupes clients sélectionnés ?')
                     ->action(function (Collection $records): void {
                         $deleted = 0;
+                        $orphans = 0;
                         $blocked = [];
 
                         foreach ($records as $group) {
@@ -50,11 +62,12 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
 
                                 continue;
                             }
-                            // Détache + réattribue les clients au groupe par défaut
-                            // avant suppression (sinon FK 1451 + clients orphelins).
-                            CustomerGroupGuard::reassignCustomersToDefault($group);
-                            CustomerGroupGuard::detachCatalogAvailability($group);
-                            $group->delete();
+                            // Cascade complète. En masse on ne peut pas poser la
+                            // question par groupe : on CONSERVE les éléments qui
+                            // deviendraient orphelins (choix non destructif), et on
+                            // le signale dans la notification.
+                            $orphans += count(CustomerGroupDeletionImpact::analyse($group)['orphans']);
+                            CustomerGroupDeletionImpact::apply($group, deleteOrphans: false);
                             $deleted++;
                         }
 
@@ -69,6 +82,9 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
                             Notification::make()
                                 ->success()
                                 ->title($deleted.' groupe(s) supprimé(s)')
+                                ->body($orphans > 0
+                                    ? $orphans.' élément(s) ne dépendaient que d’un groupe supprimé et ont été conservés — ils sont désormais inactifs.'
+                                    : null)
                                 ->send();
                         }
                     })
@@ -88,28 +104,93 @@ class CustomerGroupDeletionGuardExtension extends ResourceExtension
     {
         foreach ($actions as $action) {
             if ($action instanceof PageDeleteAction) {
-                $action->before(function ($record, PageDeleteAction $action): void {
-                    $reason = CustomerGroupGuard::blockReason($record);
-                    if ($reason !== null) {
-                        Notification::make()
-                            ->warning()
-                            ->title('Suppression impossible')
-                            ->body(($record->name ?: $record->handle).' — '.$reason)
-                            ->persistent()
-                            ->send();
-                        $action->cancel();
+                $action
+                    ->modalDescription(fn ($record): string => self::describeImpact($record))
+                    ->form(fn ($record): array => self::impactForm($record))
+                    ->before(function ($record, array $data, PageDeleteAction $action): void {
+                        $reason = CustomerGroupGuard::blockReason($record);
+                        if ($reason !== null) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Suppression impossible')
+                                ->body(($record->name ?: $record->handle).' — '.$reason)
+                                ->persistent()
+                                ->send();
+                            $action->cancel();
 
-                        return;
-                    }
+                            return;
+                        }
 
-                    // Détache + réattribue les clients au groupe par défaut avant
-                    // suppression (sinon FK 1451 + clients orphelins).
-                    CustomerGroupGuard::reassignCustomersToDefault($record);
-                    CustomerGroupGuard::detachCatalogAvailability($record);
-                });
+                        // Cascade complète (clients, catalogue, réductions, livraison,
+                        // taxes, tarifs). Filament exécute le delete du groupe ensuite.
+                        CustomerGroupDeletionImpact::prepare(
+                            $record,
+                            ($data['orphan_strategy'] ?? 'keep') === 'delete',
+                        );
+                    });
             }
         }
 
         return $actions;
+    }
+
+    /** Récapitulatif des conséquences, affiché au-dessus du formulaire de confirmation. */
+    private static function describeImpact($record): string
+    {
+        $lines = CustomerGroupDeletionImpact::summarise(
+            CustomerGroupDeletionImpact::analyse($record)
+        );
+
+        if ($lines === []) {
+            return 'Cette action est irréversible.';
+        }
+
+        return "Cette action est irréversible.\n\n".implode("\n", array_map(
+            fn (string $line): string => '• '.$line,
+            $lines
+        ));
+    }
+
+    /**
+     * Choix explicite quand des éléments ne dépendent QUE de ce groupe.
+     *
+     * Sans ce choix, les détacher silencieusement les rendrait inactifs : le scope
+     * Lunar est un `whereHas`, une réduction sans aucun groupe ne s'applique plus
+     * à personne. On préfère poser la question plutôt que de décider à la place
+     * de l'utilisateur.
+     *
+     * @return array<int, mixed>
+     */
+    private static function impactForm($record): array
+    {
+        $orphans = CustomerGroupDeletionImpact::analyse($record)['orphans'];
+
+        if ($orphans === []) {
+            return [];
+        }
+
+        $list = implode("\n", array_map(
+            fn (array $o): string => "• {$o['label']} « {$o['name']} »",
+            $orphans
+        ));
+
+        return [
+            Placeholder::make('orphans_warning')
+                ->label('Éléments rattachés à ce seul groupe')
+                ->content(new HtmlString(
+                    nl2br(e(
+                        "Les éléments suivants ne dépendent que de ce groupe :\n{$list}\n\n".
+                        'Conservés, ils resteront en base mais ne s’appliqueront plus à aucun client.'
+                    ))
+                )),
+            Radio::make('orphan_strategy')
+                ->label('Que faire de ces éléments ?')
+                ->options([
+                    'keep' => 'Conserver (ils deviendront inactifs)',
+                    'delete' => 'Les supprimer également',
+                ])
+                ->default('keep')
+                ->required(),
+        ];
     }
 }

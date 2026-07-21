@@ -16,14 +16,18 @@ use Lunar\Models\CustomerGroup;
 class CustomerGroupGuard
 {
     /**
-     * Rattachements explicites : toute ligne est une décision saisie à la main,
-     * donc bloquante.
+     * Ces rattachements ne bloquent plus la suppression : ils sont cascadés, et
+     * leur impact est annoncé dans la modale de confirmation
+     * (cf. CustomerGroupDeletionImpact). Les liaisons se nettoient ainsi dans les
+     * deux sens — Lunar détache déjà le groupe quand on supprime une réduction,
+     * une méthode de livraison, un produit ou une catégorie.
+     *
+     * Seul reste bloquant ce qu'aucune cascade ne peut résoudre : le groupe par
+     * défaut, le groupe pro, et les restrictions catalogue explicites.
      *
      * @var array<string, string> label FR => table
      */
-    private const REFERENCE_TABLES = [
-        // NB : les clients ne bloquent PAS la suppression — ils sont détachés et
-        // réattribués au groupe par défaut (cf. reassignCustomersToDefault()).
+    private const CASCADED_TABLES = [
         'tarif(s)' => 'lunar_prices',
         'méthode(s) de livraison' => 'lunar_customer_group_shipping_method',
         'remise(s)' => 'lunar_customer_group_discount',
@@ -53,18 +57,15 @@ class CustomerGroupGuard
             return 'groupe client par défaut, non supprimable.';
         }
 
-        $proHandle = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
+        // Même fallback que packages/pko/customer-auth/config/customer-auth.php.
+        // Il valait 'installateurs' ici, ce qui protégeait un groupe différent de
+        // celui réellement utilisé par l'inscription si la config était absente.
+        $proHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
         if ($group->handle === $proHandle) {
             return "utilisé par l'inscription professionnelle, non supprimable.";
         }
 
         $used = [];
-        foreach (self::REFERENCE_TABLES as $label => $tableName) {
-            $count = DB::table($tableName)->where('customer_group_id', $group->id)->count();
-            if ($count > 0) {
-                $used[] = $count.' '.$label;
-            }
-        }
 
         foreach (self::CATALOG_RESTRICTION_TABLES as $label => $tableName) {
             $count = CatalogAvailability::restrictionCount($tableName, (int) $group->id);
