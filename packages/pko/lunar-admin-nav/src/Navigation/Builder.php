@@ -30,7 +30,6 @@ use Pko\AdminNav\Filament\Resources\PkoStaffResource;
 use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
-use Pko\CatalogFeatures\Filament\Resources\FeatureFamilyResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
@@ -102,7 +101,12 @@ class Builder
                     fn (): string => TreeManager::getUrl().'?tab=categories',
                     fn (): bool => request()->routeIs('filament.lunar.pages.tree-manager') && request()->query('tab') !== 'features',
                 ),
-                self::resItem(FeatureFamilyResource::class, 'heroicon-o-list-bullet', 'Caractéristiques'),
+                self::linkItem(
+                    'Caractéristiques',
+                    'heroicon-o-list-bullet',
+                    fn (): string => TreeManager::getUrl().'?tab=features',
+                    fn (): bool => request()->routeIs('filament.lunar.pages.tree-manager') && request()->query('tab') === 'features',
+                ),
                 self::resItem(BrandResource::class, 'heroicon-o-bookmark-square', 'Marques'),
                 self::resItem(PkoProductTypeResource::class, 'heroicon-o-cube-transparent', 'Types de produits'),
                 self::resItem(PkoAttributeGroupResource::class, 'heroicon-o-rectangle-group', 'Groupes d\'attributs'),
