@@ -10,9 +10,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Models\Customer;
+use Pko\CustomerAuth\Actions\ImpersonateCustomerUser;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoListCustomers;
@@ -76,7 +76,7 @@ class PkoCustomerResource extends CustomerResource
                     ->color('warning')
                     ->requiresConfirmation()
                     ->modalHeading('Se connecter en tant que ce client ?')
-                    ->modalDescription('Vous serez connecté sur le site (front) avec le compte de ce client. Pour revenir, il suffit de vous déconnecter normalement.')
+                    ->modalDescription('Vous serez connecté sur le site (front) avec le compte de ce client. L\'accès à l\'espace pro est forcé, même si le compte est en attente de validation ou son e-mail non confirmé : ce que vous verrez peut donc différer de ce que voit réellement le client. Pour revenir, il suffit de vous déconnecter normalement.')
                     ->visible(fn (Customer $record): bool => $record->users()->exists())
                     ->action(function (Customer $record) {
                         $user = $record->users()->first();
@@ -92,7 +92,10 @@ class PkoCustomerResource extends CustomerResource
 
                         // Connexion sur le guard front (web / provider users) —
                         // distinct du guard staff admin, qui reste inchangé.
-                        Auth::guard('web')->login($user);
+                        // Cf. ImpersonateCustomerUser : la bascule temporaire du
+                        // guard par défaut est indispensable, sans quoi les
+                        // listeners Lunar du Login tapent sur le Staff.
+                        app(ImpersonateCustomerUser::class)($user);
 
                         return redirect('/');
                     }),

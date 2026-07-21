@@ -44,6 +44,14 @@ Structure actuelle :
 
 **Impersonation client** : action de ligne « Se connecter en tant que » sur la liste clients — connecte l'admin sur le **guard front `web`** (provider `users`) avec l'utilisateur du client puis redirige vers `/`. Le guard staff admin reste inchangé (guards distincts). Pas de bouton retour : on quitte l'impersonation via la déconnexion front normale. Visible uniquement si le client a un utilisateur rattaché.
 
+Le login passe **obligatoirement** par `Pko\CustomerAuth\Actions\ImpersonateCustomerUser`, jamais par un `Auth::guard('web')->login()` direct. Raison : pendant une requête Filament, le panel Lunar bascule le guard **par défaut** sur `staff`, et les listeners branchés sur l'événement `Login` (`Lunar\Listeners\CartSessionAuthListener` → `CartSession::current()`) résolvent l'utilisateur via ce guard par défaut, pas via celui qui a émis l'événement. Sans bascule temporaire, le listener récupère le Staff connecté et appelle `Staff::carts()` → `BadMethodCallException`, HTTP 500. L'action bascule donc le guard par défaut sur `web` le temps du login puis restaure l'ancien (`try/finally`). Même précaution à prendre pour tout futur login front déclenché depuis l'admin.
+
+**Bypass du gate pro** (décision produit) : l'action pose en session `ProAccess::IMPERSONATOR_SESSION_KEY` (= id du staff). `ProAccess::denialReason()` retourne alors `null` quel que soit l'état du compte : un admin peut faire du support sur un client `pko_status = pending` ou dont l'e-mail n'est pas confirmé, cas où le client lui-même serait renvoyé sur `/connexion` par `RequireProCustomer`. Contrepartie assumée : **ce que voit l'admin n'est pas ce que voit le client** — la modale de confirmation le rappelle.
+
+Le bypass est doublement conditionné (`ProAccess::isImpersonating()`) : flag de session **et** session `staff` toujours authentifiée. Il meurt donc avec la session admin et ne peut pas survivre à une déconnexion du panel ; la déconnexion front (`/deconnexion` → `session()->invalidate()`) l'efface aussi.
+
+Régressions couvertes par `tests/Feature/CustomerAuth/ImpersonateCustomerUserTest.php` (crash `Staff::carts()`, bypass du gate, gate toujours fermé hors impersonation, mort du bypass avec la session staff).
+
 **Gotcha Filament** : Filament 3 ne supporte pas les sous-groupes imbriqués persistants côté sidebar. La section Configuration du cahier des charges est matérialisée par 4 groupes collapsed adjacents (Général / Imports et Données / Boutique / Paiement & Expédition) plutôt qu'un groupe unique Configuration avec sous-sections.
 
 **TreeManager** : anciennement 1 entrée nav, désormais 2 (`Catégories` et `Caractéristiques`) via `getNavigationItems()` retournant 2 `NavigationItem` avec query param `?tab=categories|features`. Toggle 3 modes sur la page (catégories seules, features seules, les deux).
