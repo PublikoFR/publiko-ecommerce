@@ -15,6 +15,9 @@ use Lunar\Models\Discount;
 use Lunar\Models\Language;
 use Lunar\Models\Price;
 use Lunar\Models\ProductVariant;
+use Lunar\Shipping\Models\ShippingMethod;
+use Lunar\Shipping\Models\ShippingRate;
+use Lunar\Shipping\Models\ShippingZone;
 use Tests\TestCase;
 
 /**
@@ -228,6 +231,47 @@ class CustomerGroupCascadeTest extends TestCase
 
         $this->assertCount(1, $impact['orphans']);
         $this->assertSame('Réservée aux pros', $impact['orphans'][0]['name']);
+    }
+
+    /**
+     * Régression : supprimer une méthode de livraison orpheline plantait en 1451.
+     *
+     * Elle était supprimée par `DB::table()->delete()`, un DELETE brut qui ne
+     * déclenche aucun observer — or `ShippingMethod::deleting()` est ce qui efface
+     * les `lunar_shipping_rates` enfants. La FK sautait donc sur la table enfant.
+     * Même piège pour TaxZone (taxRates) et Discount (discountables).
+     */
+    public function test_deleting_an_orphan_shipping_method_cascades_to_its_rates(): void
+    {
+        $this->makeGroup('particuliers', default: true);
+        $pro = $this->makeGroup('pro');
+
+        $zone = ShippingZone::create(['name' => 'France', 'type' => 'countries']);
+
+        $method = ShippingMethod::create([
+            'name' => 'Colissimo',
+            'code' => 'colissimo',
+            'driver' => 'ship-by',
+            'data' => [],
+            'enabled' => true,
+        ]);
+        $method->customerGroups()->detach();
+        $method->customerGroups()->attach($pro, ['enabled' => true, 'starts_at' => now()]);
+
+        ShippingRate::create([
+            'shipping_method_id' => $method->id,
+            'shipping_zone_id' => $zone->id,
+            'enabled' => true,
+        ]);
+
+        $this->assertSame(1, DB::table('lunar_shipping_rates')->count());
+        $this->assertCount(1, CustomerGroupDeletionImpact::analyse($pro)['orphans']);
+
+        // Ne doit plus lever QueryException 1451.
+        CustomerGroupDeletionImpact::apply($pro, deleteOrphans: true);
+
+        $this->assertNull(ShippingMethod::find($method->id));
+        $this->assertSame(0, DB::table('lunar_shipping_rates')->count(), 'Les tarifs de livraison devaient suivre.');
     }
 
     /** Le groupe par défaut et le groupe pro restent protégés malgré la cascade. */

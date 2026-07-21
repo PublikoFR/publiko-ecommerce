@@ -379,6 +379,22 @@ ligne semée inactive ne rattache rien : ni partage, ni orphelin.
 utilise réellement ce scope, `enabled = false` y a un sens fonctionnel (« cette
 réduction ne s'applique pas à ce groupe »). C'est du vrai état, pas du bruit.
 
+### Piège — supprimer un orphelin passe OBLIGATOIREMENT par Eloquent
+
+Les modèles Lunar nettoient leurs dépendances dans `deleting()` :
+`ShippingMethod` → `shippingRates`, `TaxZone` → `taxRates`, `Discount` →
+`discountables`. Un `DB::table()->delete()` court-circuite ces observers et fait
+planter la suppression en `1451` sur la table enfant :
+
+```
+Cannot delete or update a parent row: a foreign key constraint fails
+(`lunar_shipping_rates`, CONSTRAINT `lunar_shipping_rates_shipping_method_id_foreign`)
+```
+
+La suppression des orphelins utilise donc `$model::find($id)?->delete()`.
+Verrouillé par `test_deleting_an_orphan_shipping_method_cascades_to_its_rates()`,
+vérifié discriminant (rétablir le `DB::table()` reproduit le 1451 à l'identique).
+
 ### Ce qui reste bloquant
 
 Faute de cascade possible : le groupe par défaut Lunar, le groupe de l'inscription

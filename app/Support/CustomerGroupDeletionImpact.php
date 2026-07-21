@@ -6,6 +6,9 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 use Lunar\Models\CustomerGroup;
+use Lunar\Models\Discount;
+use Lunar\Models\TaxZone;
+use Lunar\Shipping\Models\ShippingMethod;
 
 /**
  * Calcule ce que la suppression d'un groupe client entraînerait.
@@ -39,6 +42,7 @@ class CustomerGroupDeletionImpact
         'lunar_customer_group_discount' => [
             'fk' => 'discount_id',
             'model_table' => 'lunar_discounts',
+            'model' => Discount::class,
             'label' => 'réduction',
             'name_column' => 'name',
             'enabled_column' => 'enabled',
@@ -46,6 +50,7 @@ class CustomerGroupDeletionImpact
         'lunar_customer_group_shipping_method' => [
             'fk' => 'shipping_method_id',
             'model_table' => 'lunar_shipping_methods',
+            'model' => ShippingMethod::class,
             'label' => 'méthode de livraison',
             'name_column' => 'name',
             'enabled_column' => 'enabled',
@@ -53,6 +58,7 @@ class CustomerGroupDeletionImpact
         'lunar_tax_zone_customer_groups' => [
             'fk' => 'tax_zone_id',
             'model_table' => 'lunar_tax_zones',
+            'model' => TaxZone::class,
             'label' => 'zone de taxe',
             'name_column' => 'name',
             // Ce pivot ne porte pas de flag : toute ligne vaut rattachement.
@@ -109,6 +115,7 @@ class CustomerGroupDeletionImpact
 
                 $orphans[] = [
                     'table' => $config['model_table'],
+                    'model' => $config['model'],
                     'fk' => $fk,
                     'pivot' => $pivot,
                     'id' => (int) $linkedId,
@@ -153,7 +160,12 @@ class CustomerGroupDeletionImpact
 
             if ($deleteOrphans) {
                 foreach ($impact['orphans'] as $orphan) {
-                    DB::table($orphan['table'])->where('id', $orphan['id'])->delete();
+                    // IMPÉRATIF : passer par Eloquent, jamais par DB::table().
+                    // Ces modèles nettoient leurs dépendances dans `deleting()`
+                    // (ShippingMethod → shippingRates, TaxZone → taxRates,
+                    // Discount → discountables). Un DELETE brut les court-circuite
+                    // et fait planter la suppression en 1451 sur la table enfant.
+                    $orphan['model']::find($orphan['id'])?->delete();
                 }
             }
         });
