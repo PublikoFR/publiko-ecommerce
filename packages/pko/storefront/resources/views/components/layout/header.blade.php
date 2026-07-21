@@ -44,7 +44,7 @@ $user = auth()->user();
 
                 {{-- Search --}}
                 <div class="hidden md:flex flex-1 min-w-0">
-                    @livewire('storefront.search-autocomplete', key: 'search-desktop')
+                    @livewire('storefront.search-autocomplete', [], key('search-desktop'))
                 </div>
 
                 {{-- Actions --}}
@@ -93,7 +93,7 @@ $user = auth()->user();
                  (identique au desktop). L'ancienne search-bar statique (form GET) ne
                  déclenchait pas la recherche ajax en mobile. --}}
             <div class="md:hidden pb-3">
-                @livewire('storefront.search-autocomplete', key: 'search-mobile')
+                @livewire('storefront.search-autocomplete', [], key('search-mobile'))
             </div>
 
             {{-- Category nav (white, lime underline on active) --}}
