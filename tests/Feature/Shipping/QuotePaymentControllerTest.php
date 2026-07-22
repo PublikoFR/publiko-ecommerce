@@ -171,7 +171,7 @@ class QuotePaymentControllerTest extends TestCase
 
             \DB::table('lunar_order_lines')->insert([
                 'order_id' => $id,
-                'purchasable_type' => ProductVariant::class,
+                'purchasable_type' => (new ProductVariant)->getMorphClass(),
                 'purchasable_id' => $variant->id,
                 'type' => 'physical',
                 'description' => 'Test',

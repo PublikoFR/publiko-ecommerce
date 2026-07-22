@@ -13,12 +13,6 @@ use Tests\TestCase;
 
 class WeightCalculatorFreeShippingTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private function makeLine(float $weightKg, bool $freeShipping, int $qty = 1): object

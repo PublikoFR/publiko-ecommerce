@@ -28,12 +28,6 @@ class ShippingOptionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private function makeOption(string $identifier, int $priceCents, bool $franco = false): ShippingOption

@@ -82,7 +82,7 @@ class QuoteOrderTest extends TestCase
         // Ligne ProductVariant normale
         \DB::table('lunar_order_lines')->insert([
             'order_id' => $order->id,
-            'purchasable_type' => ProductVariant::class,
+            'purchasable_type' => (new ProductVariant)->getMorphClass(),
             'purchasable_id' => $variant->id,
             'type' => 'physical',
             'description' => 'Produit normal',
@@ -147,7 +147,7 @@ class QuoteOrderTest extends TestCase
         // Create a minimal order line via DB to avoid full cart pipeline
         \DB::table('lunar_order_lines')->insert([
             'order_id' => $order->id,
-            'purchasable_type' => ProductVariant::class,
+            'purchasable_type' => (new ProductVariant)->getMorphClass(),
             'purchasable_id' => $variant->id,
             'type' => 'physical',
             'description' => 'Test',
@@ -187,7 +187,7 @@ class QuoteOrderTest extends TestCase
         // Ligne produit quote_only
         \DB::table('lunar_order_lines')->insert([
             'order_id' => $order->id,
-            'purchasable_type' => ProductVariant::class,
+            'purchasable_type' => (new ProductVariant)->getMorphClass(),
             'purchasable_id' => $variant->id,
             'type' => 'physical',
             'description' => 'Produit quote-only',

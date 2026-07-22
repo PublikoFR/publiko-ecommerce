@@ -25,12 +25,6 @@ class SurchargeModifierTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private function makeCart(string $postcode, string $countryIso = 'FR'): Cart&MockInterface

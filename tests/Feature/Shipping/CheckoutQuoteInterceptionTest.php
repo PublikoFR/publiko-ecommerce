@@ -20,6 +20,7 @@ use Lunar\Models\Order;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
 use Mockery;
+use Tests\Stubs\FakeStripePaymentForm;
 use Tests\TestCase;
 
 /**
@@ -36,12 +37,10 @@ class CheckoutQuoteInterceptionTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-    }
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
+        // Le formulaire de paiement Stripe est rendu par la page de checkout et
+        // appelle l'API Stripe dès le rendu : on le remplace par un stub inerte.
+        Livewire::component('stripe.payment', FakeStripePaymentForm::class);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -105,7 +104,9 @@ class CheckoutQuoteInterceptionTest extends TestCase
         $this->bindEmptyManifest();
         $cart = $this->makeCartWith(quoteOnly: true);
 
-        // Aucun paiement ne doit être déclenché.
+        // Aucun paiement ne doit être déclenché : le composant résout son driver
+        // via Payments::driver($this->paymentType) avant d'appeler cart().
+        Payments::shouldReceive('driver')->never();
         Payments::shouldReceive('cart')->never();
 
         Livewire::test(CheckoutPage::class)
@@ -126,12 +127,14 @@ class CheckoutQuoteInterceptionTest extends TestCase
         $this->bindEmptyManifest();
         $cart = $this->makeCartWith(quoteOnly: false);
 
-        // Le flux normal doit passer par le manager de paiement.
+        // Le flux normal doit passer par le manager de paiement : le composant
+        // sélectionne d'abord le driver (carte / SEPA) puis lui passe le panier.
         $driver = Mockery::mock();
+        $driver->shouldReceive('cart')->once()->andReturnSelf();
         $driver->shouldReceive('withData')->andReturnSelf();
         $driver->shouldReceive('authorize')->andReturn(new PaymentAuthorize(success: true));
 
-        Payments::shouldReceive('cart')->once()->andReturn($driver);
+        Payments::shouldReceive('driver')->once()->andReturn($driver);
 
         Livewire::test(CheckoutPage::class)
             ->call('checkout')

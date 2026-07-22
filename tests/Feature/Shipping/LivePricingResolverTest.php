@@ -71,12 +71,6 @@ class LivePricingResolverTest extends TestCase
         $this->currentMode = PricingMode::GRID;
     }
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     private PricingMode $currentMode = PricingMode::GRID;
 
     public function test_grid_mode_bypasses_live_call(): void

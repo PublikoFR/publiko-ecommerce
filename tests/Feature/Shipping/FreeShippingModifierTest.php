@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Shipping;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Lunar\Base\ShippingManifestInterface;
 use Lunar\DataTypes\ShippingOption;
 use Lunar\Facades\ShippingManifest;
 use Lunar\Models\Cart;
 use Lunar\Models\Currency;
+use Lunar\Models\TaxClass;
 use Mockery;
 use Mockery\MockInterface;
 use Pko\ShippingCommon\Modifiers\FreeShippingModifier;
@@ -17,10 +19,18 @@ use Tests\TestCase;
 
 class FreeShippingModifierTest extends TestCase
 {
-    protected function tearDown(): void
+    // Le modifier construit une ShippingOption, dont le taxClass est non nullable :
+    // il lui faut une TaxClass par défaut en base. On la crée nous-mêmes dans une
+    // transaction RefreshDatabase — s'appuyer sur une classe de taxe laissée par un
+    // autre test (données committées par erreur) rendait ce test dépendant de
+    // l'ordre d'exécution.
+    use RefreshDatabase;
+
+    protected function setUp(): void
     {
-        Mockery::close();
-        parent::tearDown();
+        parent::setUp();
+
+        TaxClass::query()->firstOrCreate(['name' => 'TVA 20%'], ['default' => true]);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
