@@ -155,7 +155,17 @@ Trois sources d'exception ont été corrigées :
 
 À quoi s'ajoute une dépendance à l'ordre d'exécution : `FreeShippingModifierTest` s'appuyait sur une `TaxClass` laissée en base par un autre test au lieu de la créer lui-même sous `RefreshDatabase`.
 
-**Validé** : chunk `Shipping` vert (66 tests) dans le run chunké complet, là où il produisait ~39 échecs.
+**Validé** : plus aucune `DeadlockException` sur 3 runs chunkés complets, là où le chunk `Shipping` produisait ~39 échecs. Le chunk passe à 66 tests verts quand il n'est pas interrompu par le segfault aléatoire décrit ci-dessous — lequel est un problème **distinct**, préexistant, et non résolu par ce fix.
+
+### Segfault "signal 11" aléatoire — l'explication cumulative ne tient plus
+
+Mesures du 2026-07-22 (3 runs chunkés complets + 1 run à raison d'un conteneur Docker par chunk) : le signal 11 frappe **2 à 4 chunks par run, jamais les mêmes**, et **après** que tous les tests du chunk sont passés (le résumé `Tests:` n'est simplement jamais imprimé).
+
+Cela contredit la « Cause 2 » documentée plus haut (accumulation au-delà de ~250 tests dans un process) : les chunks touchés font 13 à 66 tests. Deux hypothèses écartées par la mesure :
+- *chunk devenu trop gros* → non : `Unit` (218 tests) passe dans les runs où `Filament` (13 tests) segfaulte ;
+- *état partagé par le conteneur enchaînant les 13 chunks* → non : le découpage en un conteneur Docker par chunk segfaulte autant (4 chunks).
+
+Reste à investiguer : pression mémoire de l'hôte, limites du conteneur (`shm_size`), ou extension C. **Ne pas conclure d'un chunk vert isolé que la suite est stable** — il faut plusieurs runs complets.
 
 **Méthode de repro** (un `make test` complet prend ~30 min — ne pas itérer dessus) : lancer le chunk suspect en isolation *et* dans l'enchaînement chunké, puis comparer. Un chunk vert isolé et rouge en chaîne = fuite d'état, pas bug métier.
 
