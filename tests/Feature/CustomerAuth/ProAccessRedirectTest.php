@@ -24,19 +24,27 @@ class ProAccessRedirectTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    private function makeUser(string $email, string $sireneStatus): User
+    /**
+     * Un compte est actif ⟺ son e-mail est vérifié (le SIRET est validé à
+     * l'inscription, il ne gate pas l'accès). On modélise donc l'état via
+     * `pko_status` + `email_verified_at`, jamais via `sirene_status`.
+     */
+    private function makeUser(string $email, string $pkoStatus): User
     {
         $user = User::create([
             'name' => 'Test',
             'email' => $email,
             'password' => Hash::make('password'),
+            'email_verified_at' => $pkoStatus === 'active' ? now() : null,
         ]);
 
         $customer = Customer::create([
             'first_name' => '',
             'last_name' => '',
             'company_name' => 'Test SARL',
-            'sirene_status' => $sireneStatus,
+            'pko_status' => $pkoStatus,
+            // SIRET volontairement 'pending' (INSEE indisponible) : ne doit rien gater.
+            'sirene_status' => 'pending',
         ]);
 
         // Groupe requis pour l'accès pro (config default_customer_group_handle).
@@ -66,6 +74,15 @@ class ProAccessRedirectTest extends TestCase
         $this->actingAs($user);
 
         $this->get('/connexion')->assertRedirect('/compte');
+    }
+
+    public function test_verified_account_is_active_even_when_siret_is_pending(): void
+    {
+        // Cœur de la correction : un compte e-mail-vérifié (pko_status='active')
+        // avec un SIRET 'pending' (INSEE off) accède normalement — le SIRET ne gate plus.
+        $user = $this->makeUser('verified@example.test', 'active');
+
+        $this->assertNull(ProAccess::denialReason($user));
     }
 
     public function test_freshly_registered_pending_user_keeps_full_access(): void

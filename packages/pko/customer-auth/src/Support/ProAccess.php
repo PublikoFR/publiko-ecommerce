@@ -64,19 +64,17 @@ class ProAccess
             return 'Votre compte a été suspendu. Contactez-nous pour plus d\'informations.';
         }
         if ($pkoStatus === 'pending') {
-            // Distingue le motif : e-mail non vérifié (action possible par le client)
-            // vs validation manuelle du SIRET (rien à faire côté client).
-            if (method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()) {
-                return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
-            }
-
-            return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
+            // Un compte s'active en vérifiant son e-mail (clic du lien reçu à
+            // l'inscription) — c'est le CLIENT qui active, pas l'admin. Le SIRET est
+            // validé à l'inscription (le compte n'existe pas s'il est mauvais), il
+            // ne gate donc rien ici. Un compte encore `pending` n'a pas confirmé
+            // son e-mail : on l'invite à le faire (LoginPage renvoie le lien).
+            return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
         }
 
-        $status = $customer->getAttribute('sirene_status');
-        if ($status !== null && $status !== 'active') {
-            return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
-        }
+        // Pas de gate sur `sirene_status` : le SIRET est vérifié à l'inscription,
+        // il n'intervient plus dans l'accès (INSEE peut renvoyer `pending` quand
+        // l'API est indisponible — ça ne doit pas bloquer un compte déjà vérifié).
 
         $required = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
         if (! $customer->customerGroups()->where('handle', $required)->exists()) {

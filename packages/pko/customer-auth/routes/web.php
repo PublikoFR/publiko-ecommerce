@@ -37,12 +37,11 @@ Route::middleware(['web', 'signed'])
             $user->markEmailAsVerified();
             event(new Verified($user));
 
-            // L'e-mail vérifié lève le statut « pending » : le compte devient
-            // pleinement actif, à condition que le SIRET soit lui aussi actif
-            // (sinon il reste en attente de validation manuelle).
+            // L'e-mail vérifié active le compte. C'est le SEUL critère : le SIRET
+            // a déjà été validé à l'inscription (le compte n'existe pas s'il est
+            // mauvais), il n'intervient pas ici. Un compte `banned` reste banni.
             foreach ($user->customers()->get() as $customer) {
-                if ($customer->getAttribute('pko_status') === 'pending'
-                    && $customer->getAttribute('sirene_status') === 'active') {
+                if ($customer->getAttribute('pko_status') === 'pending') {
                     $customer->setAttribute('pko_status', 'active');
                     $customer->save();
                 }

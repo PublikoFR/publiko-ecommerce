@@ -197,4 +197,27 @@ class RegisterProCustomerTest extends TestCase
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
         $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
     }
+
+    public function test_verification_email_active_le_compte_meme_si_siret_pending(): void
+    {
+        // INSEE indisponible → SIRET 'pending'. La vérification e-mail doit quand
+        // même activer le compte : le SIRET est validé à l'inscription, il ne gate
+        // pas l'activation (c'est le clic du client sur le lien qui active).
+        $mock = $this->createMock(SireneClient::class);
+        $mock->method('verify')->willReturn(new SireneResult(
+            status: Status::Pending,
+            siret: '98104397900021',
+        ));
+        $this->app->instance(SireneClient::class, $mock);
+        Mail::fake();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+
+        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
+        $this->assertSame('pending', Customer::find($result['customer']->id)->sirene_status);
+
+        $this->get(EmailVerification::signedUrl($result['user']));
+
+        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
+    }
 }
