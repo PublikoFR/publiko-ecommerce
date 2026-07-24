@@ -42,6 +42,17 @@ class ProAccess
             return null;
         }
 
+        // Auto-login juste après l'inscription : le compte reste `pending` (e-mail
+        // pas encore vérifié) mais on lui accorde un accès complet le temps de sa
+        // session, pour ne pas casser le parcours d'entrée. Sans ce bypass,
+        // l'auto-login ne produit qu'une « semi-connexion » (nom affiché sous le
+        // profil mais toutes les routes pro rebondissent vers /connexion). Le flag
+        // meurt avec la session : une fois déconnecté, le compte pending redevient
+        // non-connectable tant que son e-mail n'est pas vérifié (cf. LoginPage).
+        if (JustRegistered::isActive()) {
+            return null;
+        }
+
         $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
 
         if (! $customer) {

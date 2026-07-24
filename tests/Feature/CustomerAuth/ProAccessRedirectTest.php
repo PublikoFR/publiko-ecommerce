@@ -10,6 +10,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Support\JustRegistered;
+use Pko\CustomerAuth\Support\ProAccess;
 use Tests\TestCase;
 
 class ProAccessRedirectTest extends TestCase
@@ -64,5 +66,31 @@ class ProAccessRedirectTest extends TestCase
         $this->actingAs($user);
 
         $this->get('/connexion')->assertRedirect('/compte');
+    }
+
+    public function test_freshly_registered_pending_user_keeps_full_access(): void
+    {
+        // Régression « demi-connexion » : après inscription, l'utilisateur est
+        // auto-connecté alors que son compte est encore `pending` (e-mail non
+        // vérifié). Le flag JustRegistered doit lui accorder un accès COMPLET le
+        // temps de sa session — pas seulement afficher son nom pendant que toutes
+        // les routes pro rebondissent vers /connexion.
+        $user = $this->makeUser('fresh@example.test', 'active');
+        $user->customers()->first()->update(['pko_status' => 'pending']);
+        $user = $user->fresh();
+
+        // Sans le flag : compte pending → accès refusé (comportement de durcissement).
+        $this->assertNotNull(ProAccess::denialReason($user));
+
+        // Avec le flag (posé par RegisterPage juste après l'auto-login) : accès accordé.
+        JustRegistered::flag();
+        $this->assertNull(ProAccess::denialReason($user));
+
+        // Et de bout en bout : /compte ne rebondit pas, l'utilisateur reste connecté.
+        $this->actingAs($user)
+            ->withSession(['pko.just_registered' => true])
+            ->get('/compte')
+            ->assertOk();
+        $this->assertAuthenticatedAs($user);
     }
 }

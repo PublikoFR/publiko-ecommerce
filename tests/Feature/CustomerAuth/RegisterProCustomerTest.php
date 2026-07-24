@@ -148,6 +148,29 @@ class RegisterProCustomerTest extends TestCase
         $this->assertContains($metier->handle, $handles, 'Le groupe métier choisi doit être attaché.');
     }
 
+    public function test_groupe_metier_et_groupe_par_defaut_sont_attaches_ensemble(): void
+    {
+        // Régression : à l'inscription avec un métier choisi, le client doit être
+        // rattaché AUX DEUX groupes simultanément — « Nouveau client » (défaut) ET
+        // le métier. Un test qui vérifie chaque groupe isolément ne détecte pas une
+        // régression où le métier écrase le groupe par défaut (ou l'inverse).
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $metier = CustomerGroup::where('pko_is_metier', true)->firstOrFail();
+
+        $result = app(RegisterProCustomer::class)->handle(
+            $this->defaultData(['customer_group_id' => $metier->id])
+        );
+
+        $handles = $result['customer']->customerGroups()->pluck('handle')->toArray();
+        $default = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
+
+        $this->assertContains($default, $handles, 'Le groupe par défaut doit rester attaché même quand un métier est choisi.');
+        $this->assertContains($metier->handle, $handles, 'Le groupe métier choisi doit être attaché.');
+        $this->assertCount(2, $handles, 'Exactement deux groupes attendus : défaut + métier.');
+    }
+
     public function test_groupe_attache_correspond_au_groupe_en_base(): void
     {
         $group = CustomerGroup::where('handle', (string) config('customer-auth.default_customer_group_handle', 'nouveau-client'))->first();

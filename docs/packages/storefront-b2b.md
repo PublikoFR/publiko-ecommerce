@@ -84,7 +84,7 @@ Tarifs HT contractuels propres à un client (équivalent des *« Prix spécifiqu
 - **Code NAF / APE masqué** : le champ n'est plus affiché (donnée technique sans valeur ajoutée à la saisie). La propriété `activity` reste préremplie par `updatedSiret()` depuis l'INSEE et **persistée sur le customer** — seule une éventuelle erreur de validation est rendue en colonne société. Verrouillé par `RegisterPagePrefillTest::test_valid_siret_prefills_company_fields_server_side`.
 - **Choix du métier** (colonne « Contact & accès », sous e-mail/téléphone pour équilibrer les deux colonnes) : combobox filtrable `<x-ui.searchable-select>` (Alpine, recherche insensible aux accents via `normalize('NFD')`, navigation clavier ↑/↓/Entrée/Échap, valeur `@entangle` sur `metierGroupId`). Remplace le `<select>` natif, devenu peu praticable avec un grand nombre de métiers. Le hint annonce l'intérêt métier : des **réductions dédiées au secteur d'activité**.
 - **Pas de champ Pays** : la vérification SIRET (INSEE) ne peut valider qu'une entreprise française, le champ était donc redondant. Le pays est forcé à `FR` dans `RegisterPage::submit()` (et `RegisterProCustomer` conserve son défaut `FR`).
-- Après création : `Status::Active` → `Auth::login()` + redirection vers **l'accueil `/`** (le compte étant `pending` tant que l'e-mail n'est pas vérifié, `/compte` est gated ; rediriger dessus provoquerait un rebond vers `/connexion`). `Status::Pending`/`Inactive` → **on ne connecte PAS**.
+- Après création : `Status::Active` → `Auth::login()` + `JustRegistered::flag()` + redirection vers **l'accueil `/`** (avec message de bienvenue invitant à vérifier l'e-mail). Le compte reste `pending` tant que l'e-mail n'est pas vérifié, mais le flag `JustRegistered` lui accorde un **accès complet** le temps de sa session (cf. § « semi-connexion » plus bas) — pas de rebond vers `/connexion`. `Status::Pending`/`Inactive` → **on ne connecte PAS**.
 
 **Vérification d'e-mail** (le compte reste `pending` jusqu'à vérification, bandeau de rappel) :
 - Lien signé via `Pko\CustomerAuth\Support\EmailVerification::signedUrl()` (route `verification.verify`, middleware `signed`, valable 7 jours) — inclus dans le mail de bienvenue (`CustomerRegisteredMail`) et le renvoi (`EmailVerificationMail` + route `verification.send`, throttlée).
@@ -103,6 +103,50 @@ renvoyait vers `/compte` (car authentifié) → boucle. La symétrie corrige les
 
 Le piège se déclenchait surtout via la **connexion** (et non l'inscription) : `LoginPage`
 authentifie l'utilisateur, donc la seule garde à l'inscription ne suffisait pas.
+
+### Un compte non-actif n'est JAMAIS authentifié (pas de « semi-connexion »)
+
+**Règle produit** : un compte `pending` (e-mail non vérifié, SIRET en attente, hors groupe, sans customer) ne doit pas dépasser le formulaire de connexion. Auparavant `LoginPage::authenticate()` appelait `Auth::attempt()` puis se contentait de **rediriger** : l'utilisateur restait authentifié sans accès à aucune page — son nom s'affichait sous le picto profil, ce qui laissait croire à une connexion réussie.
+
+| Endroit | Comportement |
+|---|---|
+| `LoginPage::authenticate()` | Connexion **refusée** : `Auth::guard('web')->logout()` + `ValidationException` sur le champ e-mail, et **renvoi automatique du lien de vérification** si c'est le motif du blocage. |
+| `RequireProCustomer` | Déconnecte tout utilisateur authentifié mais sans accès (`denialReason() !== null`), au lieu de le laisser à moitié connecté. Les cas volontaires (impersonation, inscription) sont déjà écartés en amont par `denialReason()` → jamais logués out ici. |
+
+**Deux exceptions assumées**, seules situations où un compte `pending` peut rester connecté **avec un accès complet** :
+
+1. **Impersonation admin** — `ProAccess::isImpersonating()` (cf. `docs/admin.md`).
+2. **Auto-login juste après l'inscription** — flag `Pko\CustomerAuth\Support\JustRegistered` posé en session par `RegisterPage`, pour ne pas casser le parcours d'entrée. Le flag meurt avec la session : une fois déconnecté, le compte pending redevient non-connectable tant que son e-mail n'est pas vérifié.
+
+**Le bypass se fait dans `ProAccess::denialReason()` (source unique), pas ailleurs.** `JustRegistered::isActive()` (lecture session directe, comme `isImpersonating()`) y renvoie `null` — donc accès accordé à **toutes** les routes pro (`/compte`, `/panier`, `/checkout`…) le temps de la session d'inscription. **Piège corrigé (régression « demi-connexion » n° 51)** : auparavant le flag n'était consulté que dans `RequireProCustomer` pour *suppimer le logout*, mais **pas la redirection** — `denialReason()` renvoyait quand même « confirmez votre e-mail », donc chaque route pro rebondissait vers `/connexion`. Résultat : l'utilisateur restait authentifié (nom affiché sous le profil) mais n'avait accès à rien = exactement la demi-connexion qu'on voulait éviter. Le flag doit accorder l'accès **au niveau de `denialReason()`**, sinon la moitié des gates l'ignore. Régression verrouillée par `ProAccessRedirectTest::test_freshly_registered_pending_user_keeps_full_access`. `RequireProCustomer` n'a donc plus à connaître `JustRegistered` : un compte flaggé n'atteint jamais sa branche logout.
+
+**Piège CSRF (419 « This page has expired »)** : pour *refuser* une connexion, utiliser `logout()` **seul**. Un `session()->invalidate()` / `regenerateToken()` périme le token CSRF de la page de connexion encore affichée → la tentative suivante part en 419 et Livewire affiche « This page has expired ». `Auth::attempt()` ayant déjà régénéré l'id de session, il n'y a aucun risque de fixation à ne pas invalider. Même règle dans `RequireProCustomer` (pages Livewire déjà ouvertes). Régression verrouillée par `PendingAccountCannotLoginTest`.
+
+`SESSION_LIFETIME` est passé à `10080` (7 jours) : une session de 2 h expirait en cours de journée de dev et produisait le même 419 sur les onglets ouverts.
+
+### Déconnexion — logout simple (le lien est un `<form>` POST plein-page)
+
+**Décision (2026-07)** : la déconnexion est une **route closure toute simple** (`routes/web.php`), logout Laravel standard, sans machinerie hors-session. Une itération précédente avait construit une révocation d'id de session dans le cache (`FrontSessionRevocation`) + un middleware `EnforceFrontLogout` sur tout le groupe web pour parer une « session zombie ». **Supprimé** : ça traitait un symptôme qui ne se manifeste pas avec le montage actuel. Pas de contrôleur dédié (une closure suffit, cohérent avec les routes `verification.*` du même fichier ; `route:cache` est de toute façon hors-jeu, ces routes étant des closures).
+
+```php
+// routes/web.php — hors impersonation admin
+Auth::guard('web')->logout();
+$request->session()->invalidate();
+$request->session()->regenerateToken();
+```
+
+**Pourquoi c'est suffisant ici — et pourquoi une « session zombie » était crainte.** Une session Laravel est lue en début de requête puis réécrite en fin (« last write wins »). Une requête `POST /livewire/update` partie *avant* le clic « Se déconnecter » mais terminée *après* réécrit son snapshot, clé `login_web_*` comprise : **côté serveur** la session ressuscite bel et bien (reproduit contre redis). **Mais le navigateur ne l'adopte jamais** : le lien de déconnexion est un `<form method="POST" action="/deconnexion">` **plein-page** (header + layout compte), pas un lien `wire:navigate` ni une action Livewire. Une navigation dure **abandonne les XHR en vol** et **ignore leur `Set-Cookie`** — le navigateur garde donc la session vidée par `invalidate()`, la session ressuscitée reste orpheline (et expire seule). Le zombie n'est un risque que si la déconnexion se fait en **navigation SPA** (`wire:navigate`), ce qui n'est pas le cas.
+
+**Règle à préserver** : le lien de déconnexion doit rester un `<form>` POST plein-page. Ne pas lui ajouter `wire:navigate`, ne pas le transformer en action Livewire — ce serait rouvrir la fenêtre de résurrection.
+
+Détails d'implémentation :
+
+- **Guard `web` visé explicitement**, jamais `Auth::logout()` sur le guard par défaut — il vaut `staff` en requête Filament (cf. `docs/admin.md`, impersonation).
+- **Impersonation** : si un staff est connecté sur la même session, on ne fait **pas** d'`invalidate()` (qui éjecterait l'admin de son panel) — on retire seulement la clé du guard web + le marqueur `IMPERSONATOR_SESSION_KEY`.
+- **POST uniquement** pour `/deconnexion` (un GET serait déclenchable par un prefetch). Route **exemptée de CSRF** (`bootstrap/app.php`) pour qu'un token périmé (page mise en cache par `wire:navigate`) ne renvoie pas 419.
+- `JustRegistered::clear()` : la session n'étant pas toujours invalidée (branche impersonation), on retire explicitement le flag « fraîchement inscrit » pour qu'un compte pending ne se reconnecte pas dans la même session (cf. § semi-connexion).
+
+Couvert par `tests/Feature/CustomerAuth/LogoutTest.php` (sans CSRF, idempotence, invalidation de session, flag JustRegistered nettoyé, impersonation staff préservée).
 
 **Fiche client — onglets fusionnés** : `CustomerResource` est swappée par `Pko\CustomerAuth\Filament\Resources\PkoCustomerResource` (via `swapLunarResources`, slug `customers` conservé). `PkoViewCustomer::hasCombinedRelationManagerTabsWithContent() = true` fusionne l'infolist et les relations (Commandes/Adresses/Utilisateur) en un seul groupe d'onglets, 1er onglet = « Informations » (infos client). Comme pour tout swap Lunar (§3.2 CLAUDE.md), les 4 pages ont des sous-classes Pko redéclarant `$resource`, et les extensions sont re-keyées sur les classes Pko (`PkoCustomerResource` / `PkoCreateCustomer` / `PkoEditCustomer`). Nav `AdminNav\Builder` pointe sur `PkoCustomerResource`.
 
