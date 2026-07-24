@@ -90,7 +90,7 @@ Tarifs HT contractuels propres à un client (équivalent des *« Prix spécifiqu
 - Lien signé via `Pko\CustomerAuth\Support\EmailVerification::signedUrl()` (route `verification.verify`, middleware `signed`, valable 7 jours) — inclus dans le mail de bienvenue (`CustomerRegisteredMail`) et le renvoi (`EmailVerificationMail` + route `verification.send`, throttlée).
 - La route de vérif fonctionne **sans session préalable** (clic depuis n'importe quel appareil) : valide signature + hash e-mail, `markEmailAsVerified()`, **promeut le(s) customer(s) `pending` → `active`** (si `sirene_status='active'`), puis auto-login.
 - `ProAccess::denialReason()` distingue le motif `pending` : e-mail non vérifié (message invitant à cliquer sur le lien) vs validation SIRET manuelle.
-- Bandeau de rappel dans le layout storefront tant que `! auth()->user()->hasVerifiedEmail()` (bouton « Renvoyer le lien »).
+- Bandeau de rappel dans le layout storefront tant que `! auth()->user()->hasVerifiedEmail()` **ET** que le customer est encore `pending` (bouton « Renvoyer le lien »). **Un compte déjà `active`** (activé en back-office, dont l'e-mail n'est pas « vérifié » au sens Laravel) **ne voit pas le bandeau** : pour lui la vérification n'active plus rien, le nagger était un bug. Verrouillé par `EmailVerificationBannerTest`.
 
 **Anti-boucle de redirection (`ERR_TOO_MANY_REDIRECTS`)** — source unique de vérité :
 `Pko\CustomerAuth\Support\ProAccess::isActivePro()` / `::denialReason()`. Un utilisateur

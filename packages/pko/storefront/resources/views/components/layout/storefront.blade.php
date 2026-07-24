@@ -17,7 +17,14 @@
     <x-layout.header />
 
     @auth
-        @if (! auth()->user()->hasVerifiedEmail())
+        @php
+            // Le bandeau de vérification e-mail ne concerne QUE les comptes encore
+            // `pending` : pour eux, valider l'e-mail est l'étape qui active le compte.
+            // Un compte déjà `active` (activé en back-office, e-mail non « vérifié »
+            // au sens Laravel) ne doit pas être nagué — c'était le bug.
+            $__pkoStatus = auth()->user()->customers()->first()?->getAttribute('pko_status');
+        @endphp
+        @if (! auth()->user()->hasVerifiedEmail() && $__pkoStatus === 'pending')
             <div class="bg-warning-50 border-b border-warning-200 text-warning-900">
                 <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
                     <span>Pensez à <strong>vérifier votre adresse e-mail</strong> pour sécuriser votre compte.</span>
