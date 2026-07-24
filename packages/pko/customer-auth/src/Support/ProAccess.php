@@ -65,16 +65,17 @@ class ProAccess
         }
         if ($pkoStatus === 'pending') {
             // Un compte s'active en vérifiant son e-mail (clic du lien reçu à
-            // l'inscription) — c'est le CLIENT qui active, pas l'admin. Le SIRET est
-            // validé à l'inscription (le compte n'existe pas s'il est mauvais), il
-            // ne gate donc rien ici. Un compte encore `pending` n'a pas confirmé
-            // son e-mail : on l'invite à le faire (LoginPage renvoie le lien).
+            // l'inscription) — c'est le CLIENT qui active, pas l'admin. Le SIRET
+            // n'est PAS un critère : selon la config il peut n'être que la valeur
+            // saisie par le client (vérif INSEE désactivée → simple contrôle Luhn),
+            // voire absent. Un compte encore `pending` n'a pas confirmé son e-mail :
+            // on l'invite à le faire (LoginPage renvoie le lien).
             return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
         }
 
-        // Pas de gate sur `sirene_status` : le SIRET est vérifié à l'inscription,
-        // il n'intervient plus dans l'accès (INSEE peut renvoyer `pending` quand
-        // l'API est indisponible — ça ne doit pas bloquer un compte déjà vérifié).
+        // Pas de gate sur `sirene_status` : le SIRET n'est pas une valeur fiable
+        // (non vérifié quand INSEE est off, voire null), il ne peut donc pas
+        // conditionner l'accès. Seule la vérification e-mail fait foi.
 
         $required = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
         if (! $customer->customerGroups()->where('handle', $required)->exists()) {

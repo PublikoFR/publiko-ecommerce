@@ -38,8 +38,8 @@ Route::middleware(['web', 'signed'])
             event(new Verified($user));
 
             // L'e-mail vérifié active le compte. C'est le SEUL critère : le SIRET
-            // a déjà été validé à l'inscription (le compte n'existe pas s'il est
-            // mauvais), il n'intervient pas ici. Un compte `banned` reste banni.
+            // n'est pas une valeur fiable (non vérifié quand INSEE est off, voire
+            // null), il n'intervient donc pas ici. Un compte `banned` reste banni.
             foreach ($user->customers()->get() as $customer) {
                 if ($customer->getAttribute('pko_status') === 'pending') {
                     $customer->setAttribute('pko_status', 'active');

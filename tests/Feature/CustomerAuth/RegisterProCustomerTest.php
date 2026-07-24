@@ -201,8 +201,8 @@ class RegisterProCustomerTest extends TestCase
     public function test_verification_email_active_le_compte_meme_si_siret_pending(): void
     {
         // INSEE indisponible → SIRET 'pending'. La vérification e-mail doit quand
-        // même activer le compte : le SIRET est validé à l'inscription, il ne gate
-        // pas l'activation (c'est le clic du client sur le lien qui active).
+        // même activer le compte : le SIRET (non vérifié quand INSEE est off) ne
+        // gate pas l'activation — c'est le clic du client sur le lien qui active.
         $mock = $this->createMock(SireneClient::class);
         $mock->method('verify')->willReturn(new SireneResult(
             status: Status::Pending,

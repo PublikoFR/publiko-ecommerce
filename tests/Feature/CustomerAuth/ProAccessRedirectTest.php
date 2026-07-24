@@ -25,9 +25,9 @@ class ProAccessRedirectTest extends TestCase
     }
 
     /**
-     * Un compte est actif ⟺ son e-mail est vérifié (le SIRET est validé à
-     * l'inscription, il ne gate pas l'accès). On modélise donc l'état via
-     * `pko_status` + `email_verified_at`, jamais via `sirene_status`.
+     * Un compte est actif ⟺ son e-mail est vérifié. Le SIRET (valeur non fiable :
+     * non vérifiée quand INSEE est off, voire null) ne gate pas l'accès. On modélise
+     * donc l'état via `pko_status` + `email_verified_at`, jamais via `sirene_status`.
      */
     private function makeUser(string $email, string $pkoStatus): User
     {
