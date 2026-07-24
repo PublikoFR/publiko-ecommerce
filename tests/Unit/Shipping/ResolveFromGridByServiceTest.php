@@ -71,12 +71,6 @@ class ResolveFromGridByServiceTest extends TestCase
         Cache::store('array')->flush();
     }
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     private function makeResolver(array $services, array $gridBySvcCode): LivePricingResolver
     {
         $gridRepo = Mockery::mock(CarrierGridRepository::class);

@@ -19,6 +19,11 @@ use Lunar\Models\ProductVariant;
  * relation — shipping lines have purchasable_type=ShippingOption (a DataType, not an
  * Eloquent model), which triggers ArgumentCountError when Eloquent tries to resolve
  * the polymorphic relation. whereHas on a MorphTo is also unsupported in Laravel.
+ *
+ * Le filtre sur purchasable_type passe par getMorphClass() : Lunar enregistre une
+ * morph map (ModelManifest::morphMap()), donc la colonne contient l'alias
+ * `product_variant` et jamais le FQCN — comparer à ProductVariant::class ne
+ * matchait aucune ligne et le statut restait à `awaiting-payment`.
  */
 final class MarkQuoteOrderAwaitingQuote
 {
@@ -30,7 +35,7 @@ final class MarkQuoteOrderAwaitingQuote
         )->pluck('id');
 
         $hasQuoteOnly = $quoteVariantIds->isNotEmpty() && $order->lines()
-            ->where('purchasable_type', ProductVariant::class)
+            ->where('purchasable_type', (new ProductVariant)->getMorphClass())
             ->whereIn('purchasable_id', $quoteVariantIds)
             ->exists();
 

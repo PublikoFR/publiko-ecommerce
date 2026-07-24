@@ -141,6 +141,37 @@ Les chunks tournent **en série** et partagent la même base de test (un seul à
 ---
 
 
+## Deadlocks MySQL (SQLSTATE 1213) en run chunké — fuite de transaction `RefreshDatabase`
+
+**Symptôme** (session du 2026-07-20) : le chunk `tests/Feature/Shipping/` échouait avec ~39 tests rouges, en majorité des `DeadlockException` (SQLSTATE 1213), plus quelques `ViewException` et `TypeError`. **Le même chunk lancé en isolation était 100% vert.** D'où l'hypothèse initiale — fausse — d'une contention DB entre chunks, imputée aux row/gap locks du `delete()` introduit dans `PkoStorefrontCmsSeeder` (commit `b3bf3a3`, cf. § « JAMAIS `truncate()` dans un seeder »).
+
+**Cause réelle** : les deadlocks sont un **symptôme**, pas la maladie. Quand une exception est levée pendant un test, la transaction ouverte par `RefreshDatabase` peut ne pas être rollback ; les verrous restent tenus, et le test suivant — ou le chunk suivant — deadlocke dessus. En isolation le premier test échoue silencieusement dans le bruit et la cascade ne se voit pas ; en run chunké elle se propage. **Chercher toujours la première exception, jamais le premier deadlock.**
+
+Trois sources d'exception ont été corrigées :
+
+1. **Morph map Lunar.** Lunar enregistre une morph map (`ModelManifest::morphMap()`) : la colonne `purchasable_type` contient l'alias `product_variant`, **jamais** le FQCN. Comparer à `ProductVariant::class` ne matche aucune ligne. Toujours passer par `(new ProductVariant)->getMorphClass()` — dans le code applicatif comme dans les fixtures de test qui insèrent en `DB::table()`.
+2. **Stripe appelé au rendu.** Le composant Livewire `stripe.payment` (`Lunar\Stripe\Components\PaymentForm`) appelle `Stripe::createIntent()` **dès le rendu**. Sans clé d'API → `ViewException` ; avec une clé factice → tout le SDK se déroule (segfault intermittent observé). Le SDK Stripe utilise son propre client cURL : ni `Http::fake()` ni `Http::preventStrayRequests()` ne le couvrent. Parade : `Stripe::fake()` dans `Tests\TestCase::setUp()` (substitue un `MockClient`), plus un stub Livewire inerte (`Tests\Stubs\FakeStripePaymentForm`) pour les tests qui rendent la page de checkout.
+3. **`Mockery::close()` appelé à la main.** Plusieurs `tearDown()` maison appelaient `Mockery::close()` puis `parent::tearDown()`, court-circuitant le teardown du framework. Ne jamais le faire : Laravel s'en charge dans le bon ordre.
+
+À quoi s'ajoute une dépendance à l'ordre d'exécution : `FreeShippingModifierTest` s'appuyait sur une `TaxClass` laissée en base par un autre test au lieu de la créer lui-même sous `RefreshDatabase`.
+
+**Validé** : plus aucune `DeadlockException` sur 3 runs chunkés complets, là où le chunk `Shipping` produisait ~39 échecs. Le chunk passe à 66 tests verts quand il n'est pas interrompu par le segfault aléatoire décrit ci-dessous — lequel est un problème **distinct**, préexistant, et non résolu par ce fix.
+
+### Segfault "signal 11" aléatoire — l'explication cumulative ne tient plus
+
+Mesures du 2026-07-22 (3 runs chunkés complets + 1 run à raison d'un conteneur Docker par chunk) : le signal 11 frappe **2 à 4 chunks par run, jamais les mêmes**, et **après** que tous les tests du chunk sont passés (le résumé `Tests:` n'est simplement jamais imprimé).
+
+Cela contredit la « Cause 2 » documentée plus haut (accumulation au-delà de ~250 tests dans un process) : les chunks touchés font 13 à 66 tests. Deux hypothèses écartées par la mesure :
+- *chunk devenu trop gros* → non : `Unit` (218 tests) passe dans les runs où `Filament` (13 tests) segfaulte ;
+- *état partagé par le conteneur enchaînant les 13 chunks* → non : le découpage en un conteneur Docker par chunk segfaulte autant (4 chunks).
+
+Reste à investiguer : pression mémoire de l'hôte, limites du conteneur (`shm_size`), ou extension C. **Ne pas conclure d'un chunk vert isolé que la suite est stable** — il faut plusieurs runs complets.
+
+**Méthode de repro** (un `make test` complet prend ~30 min — ne pas itérer dessus) : lancer le chunk suspect en isolation *et* dans l'enchaînement chunké, puis comparer. Un chunk vert isolé et rouge en chaîne = fuite d'état, pas bug métier.
+
+---
+
+
 ## Garde anti-wipe DB (dev / local)
 
 **Problème** : `compose.yaml` fige `container_name: weklo-*`. Un `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` lancé — par un agent PKOS, un `make artisan` brut, ou par accident — retombe sur le conteneur principal et **vide la base de dev `weklo`** (staff, produits, configs). Incidents constatés les 2026-06-02 et 2026-07-16. Le premier garde (limité au flag `PKOS_WORKTREE`) laissait passer tout `php artisan migrate:fresh` lancé **hors worktree**, dans le conteneur principal — d'où le second wipe.

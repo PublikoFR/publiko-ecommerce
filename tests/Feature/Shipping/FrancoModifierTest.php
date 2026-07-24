@@ -19,12 +19,6 @@ use Tests\TestCase;
 
 class FrancoModifierTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private function makeLine(
