@@ -61,6 +61,27 @@ class PendingAccountCannotLoginTest extends TestCase
         Mail::assertSent(EmailVerificationMail::class);
     }
 
+    public function test_a_stale_just_registered_flag_does_not_let_a_pending_account_login(): void
+    {
+        // Régression : le flag `JustRegistered` accorde un accès complet à un compte
+        // pending (bypass de `denialReason()`). Il ne doit valoir QUE pour l'auto-login
+        // juste après l'inscription. Un flag résiduel en session (fuite, reste d'une
+        // inscription antérieure) ne doit PAS transformer une connexion au formulaire
+        // en bypass — sinon un compte pending peut se connecter au formulaire.
+        Mail::fake();
+        $this->pendingUser();
+
+        session()->put('pko.just_registered', true);
+
+        Livewire::test(LoginPage::class)
+            ->set('email', 'pending@example.test')
+            ->set('password', 'secret-password')
+            ->call('authenticate')
+            ->assertHasErrors('email');
+
+        $this->assertGuest('web');
+    }
+
     public function test_an_active_account_still_logs_in(): void
     {
         $user = $this->pendingUser();

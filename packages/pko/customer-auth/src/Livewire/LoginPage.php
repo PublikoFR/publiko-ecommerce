@@ -13,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Pko\CustomerAuth\Mail\EmailVerificationMail;
+use Pko\CustomerAuth\Support\JustRegistered;
 use Pko\CustomerAuth\Support\ProAccess;
 use Throwable;
 
@@ -40,12 +41,19 @@ class LoginPage extends Component
             ]);
         }
 
+        // Une connexion au FORMULAIRE n'est jamais l'auto-login d'inscription :
+        // on purge un éventuel flag `JustRegistered` résiduel (session mal nettoyée,
+        // reste d'une inscription antérieure) AVANT d'évaluer le gate. Sinon ce flag
+        // ferait passer `denialReason()` à null et un compte pending pourrait se
+        // connecter — or le SEUL moment où un pending reste connecté est l'auto-login
+        // juste après la création du compte (cf. RegisterPage).
+        JustRegistered::clear();
+
         // Compte non-actif (e-mail non vérifié, SIRET en attente, hors groupe) :
         // la connexion est REFUSÉE, pas seulement redirigée. Le laisser
         // authentifié produisait une « semi-connexion » — nom affiché sous le
         // profil, mais aucune page accessible. Un compte pending ne doit jamais
-        // dépasser le formulaire de connexion (seules exceptions : impersonation
-        // admin et auto-login juste après l'inscription).
+        // dépasser le formulaire de connexion (seule exception : impersonation admin).
         $user = Auth::user();
         $reason = ProAccess::denialReason($user);
 
