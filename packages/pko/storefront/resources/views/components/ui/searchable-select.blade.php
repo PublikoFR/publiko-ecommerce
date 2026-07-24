@@ -114,7 +114,9 @@ $normalizedOptions = collect($options)
             </div>
 
             <ul class="max-h-60 overflow-y-auto py-1 text-sm" role="listbox">
-                <li>
+                {{-- Option de désélection : affichée seulement quand une valeur est choisie,
+                     sinon elle ferait doublon avec le placeholder déjà visible sur le bouton. --}}
+                <li x-show="selected" x-cloak>
                     <button type="button" x-on:click="choose(null)" class="block w-full px-3 py-2 text-left text-neutral-500 hover:bg-neutral-50">
                         {{ $placeholder }}
                     </button>
