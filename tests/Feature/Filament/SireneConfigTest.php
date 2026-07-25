@@ -78,7 +78,9 @@ class SireneConfigTest extends TestCase
         Http::fake([
             '*/siret/*' => Http::response([
                 'etablissement' => [
-                    'etatAdministratifEtablissement' => 'A',
+                    'periodesEtablissement' => [
+                        ['dateFin' => null, 'etatAdministratifEtablissement' => 'A'],
+                    ],
                     'uniteLegale' => ['denominationUniteLegale' => 'ACME SARL'],
                     'adresseEtablissement' => [],
                 ],
