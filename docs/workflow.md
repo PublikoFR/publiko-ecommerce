@@ -165,9 +165,45 @@ Cela contredit la « Cause 2 » documentée plus haut (accumulation au-delà de 
 - *chunk devenu trop gros* → non : `Unit` (218 tests) passe dans les runs où `Filament` (13 tests) segfaulte ;
 - *état partagé par le conteneur enchaînant les 13 chunks* → non : le découpage en un conteneur Docker par chunk segfaulte autant (4 chunks).
 
-Reste à investiguer : pression mémoire de l'hôte, limites du conteneur (`shm_size`), ou extension C. **Ne pas conclure d'un chunk vert isolé que la suite est stable** — il faut plusieurs runs complets.
+#### Diagnostic (investigation du 2026-07-25) — dépassement de pile C au shutdown
 
-**Méthode de repro** (un `make test` complet prend ~30 min — ne pas itérer dessus) : lancer le chunk suspect en isolation *et* dans l'enchaînement chunké, puis comparer. Un chunk vert isolé et rouge en chaîne = fuite d'état, pas bug métier.
+Le signal 11 survient **au shutdown du process PHP**, une fois tous les tests du chunk
+passés mais **avant** l'impression du résumé `Tests:`. À ce moment PHP déroule la
+destruction du graphe d'objets accumulé (container Laravel, composants Livewire,
+cart/modifiers Lunar, resources Filament) : une **récursion C** (`__destruct` en chaîne,
+puis nettoyage `zend_objects_store` + `gc_collect_cycles`). Cette récursion s'exécute sur
+la **pile principale du process**, plafonnée par défaut à **8 Mo** (`ulimit -s 8192`).
+Quand la profondeur du graphe dépasse ce plafond → `SIGSEGV` (exit 139). C'est le
+seul mécanisme qui explique **tous** les faits observés :
+- **exit 139 (SIGSEGV), pas 137 (OOM)** : une pression mémoire tuerait par OOM-kill (137),
+  pas par segfault. L'hôte avait d'ailleurs ~29 Go libres à la reproduction ;
+- **au shutdown, jamais pendant un test** : la destruction du graphe n'a lieu qu'à la fin ;
+- **chunks aléatoires, jamais les mêmes** : la profondeur atteinte dépend du layout heap
+  (ASLR, fragmentation), non-déterministe d'un run à l'autre — pas d'un chunk « trop gros ».
+
+**Non reproductible à froid** : 40 runs `Filament` isolés + 40 runs en concurrence sur la
+base `testing` partagée, le 2026-07-25 sur un hôte peu chargé (29 Go libres) → **zéro
+crash**. Le déclenchement dépend des conditions hôte au moment du run du 2026-07-22
+(charge/fragmentation), pas d'un bug métier reproductible. On ne poursuit pas la chasse à
+un crash aléatoire non reproductible (discipline anti-exploration-sans-fin) : on borne le
+risque à sa racine.
+
+**Parade appliquée** (préventive — élargit la ressource dont l'épuisement produit le SIGSEGV) :
+1. `scripts/run-tests-chunked.sh` relève `ulimit -s` à **65536** (64 Mo) avant chaque chunk :
+   8× de marge sur la pile C → la récursion de destruction ne peut plus l'atteindre en
+   pratique.
+2. `docker/app/php.ini` active `zend.max_allowed_stack_size = -1` (auto-détecté depuis
+   `RLIMIT_STACK`, donc SAPI-safe : ~8 Mo en apache, ~64 Mo en CLI de test). Si un
+   dépassement **userland** survenait encore, il devient une `\Error` **catchable avec
+   stack trace** au lieu d'un segfault muet → tout futur cas sera diagnosticable.
+
+**Limite honnête** : n'ayant pas pu reproduire le crash à froid, la parade n'est pas
+*prouvée* contre une occurrence vivante. Elle cible directement le mécanisme le plus
+probable (SIGSEGV = pile épuisée) et est sans risque. Le garde `zend.max_allowed_stack_size`
+n'intercepte que la récursion *userland* (appels VM `__destruct`) ; la récursion *C* pure de
+l'engine (cleanup `zend_objects_store`) n'est couverte que par l'élargissement `ulimit -s`.
+
+**Méthode de repro** (un `make test` complet prend ~30 min — ne pas itérer dessus) : lancer le chunk suspect en isolation *et* dans l'enchaînement chunké, puis comparer. Un chunk vert isolé et rouge en chaîne = fuite d'état, pas bug métier. Si un segfault réapparaît malgré la parade, chercher d'abord une `\Error: Maximum call stack size` dans la sortie (grâce à `zend.max_allowed_stack_size`) — sa stack trace pointera la récursion fautive.
 
 ---
 
