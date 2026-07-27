@@ -134,6 +134,26 @@ Ordre : **1. Informations générales · 2. Tarification · 3. Médias/Vidéos �
 
 **Lien « Voir sur la boutique »** : dans la carte sidebar *Statut & visibilité*, affiché uniquement si `status === 'published'` et `productSlug !== ''`. Pointe vers `route('product.view', $productSlug)` (nouvel onglet). Le slug provient de `$product->defaultUrl?->slug` chargé au `mount()`.
 
+## Section « Inventaire & expédition » (layout 2 colonnes)
+
+La carte n'utilise **pas** le composant `x-pko-product::card` mais une `<section>` bespoke (en-tête custom + corps 2 colonnes + pied de synthèse) tout en réutilisant les mêmes classes de conteneur pour rester visuellement homogène.
+
+- **En-tête** : titre + pastille de statut dynamique (stock suivi / rupture / sur commande / non suivi), couleur dérivée en PHP dans le bloc `@php`.
+- **Colonne gauche (Stock)** : toggles `trackStock` / `allowBackorder` + champs `stock`, `lowStockThreshold`, `safetyStock`, `leadTime`.
+- **Colonne droite (Expédition)** : `logisticsClass`, poids/dimensions en grille 4 colonnes (`weight`, `length`, `width`, `height`), champ transport dédié (visible si classe C), toggle `francoEligible`.
+- **Facturation du port** : segmented control 3 états **mutuellement exclusifs** (Tarif standard / Port offert / Sur devis) piloté par la méthode `setPortMode(string $mode)` qui pose les deux booléens persistés `freeShipping` (offert) et `quoteOnly` (devis). La logique de `save()` reste inchangée (les deux props sont écrites indépendamment).
+- **Pied « Côté client »** : phrase de synthèse entièrement dynamique (stock, mode d'expédition, backorder + délai, franco), calculée dans le bloc `@php` (`$clientStock`, `$clientPort`, `$clientBackorder`, `$clientFranco`) — aucun texte figé.
+
+## Convention border-radius (page produit ↔ dashboard)
+
+Les tokens `borderRadius` sont **redéfinis** dans `tailwind.config.js` (`md:10px`, `lg:14px`, `xl:20px`). Pour rester aligné avec les composants Filament natifs du reste du dashboard :
+
+- **Cartes / sections** → `rounded-xl` (20px). Appliqué dans le partial `partials/card.blade.php` (donc toutes les cartes de la page) et la `<section>` Inventaire.
+- **Inputs / selects / textarea** → `rounded-lg` (14px), y compris les champs groupés (`rounded-l-lg` / `rounded-r-lg`). Ne pas utiliser `rounded` (= 4px, non redéfini) sur un champ de formulaire.
+- Un suffixe d'unité (€, u.) se rend en **span positionné en absolu** (`relative` + `pr-8` + `absolute right-3`), pas via un conteneur `flex … overflow-hidden` : ce dernier clippe le fond du suffixe sur le content-box et casse le radius des angles.
+
+Toute nouvelle classe utilitaire rare (ex. `grid-cols-4`) doit passer par un `npm run build` : le thème Filament est purgé, une classe absente du CSS compilé n'a aucun effet au rendu.
+
 ## Fichiers clés
 
 - `app/Filament/Resources/PkoProductResource.php`
