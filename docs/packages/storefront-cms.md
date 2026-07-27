@@ -90,8 +90,11 @@ Interrupteur d'urgence pour couper l'accès public au storefront sans arrêter l
 ### Mécanisme
 
 - **Setting** : `storefront.maintenance` (bool, table `pko_storefront_settings`). Clé cachée (TTL 1h, invalidée à chaque `Setting::set()`).
-- **Middleware** : `Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance` — appliqué à toutes les routes `routes/web.php` via le groupe externe `Route::middleware([CheckStorefrontMaintenance::class])`. Les membres staff (`lunar_staff`) passent toujours. Les visiteurs non-staff voient `storefront-cms::maintenance` (503).
+- **Middleware** : `Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance` — **appliqué globalement au groupe `web`** via `$middleware->web(append: [...])` dans `bootstrap/app.php`. Il couvre donc **toutes** les pages front, y compris celles déclarées par les packages (compte, auth, store-locator, brands, posts…), et pas seulement `routes/web.php` — c'était le bug : les routes des packages échappaient au middleware et affichaient le site normalement. Les membres staff (`lunar_staff`) passent toujours. Les visiteurs non-staff voient `storefront-cms::maintenance` (503).
+- **Exception `livewire/*`** : l'endpoint Livewire partagé (`/livewire/update`, groupe `web`) est laissé passer, car il porte aussi la soumission du formulaire de connexion admin Filament alors que le staff n'est pas encore authentifié — le bloquer enfermerait l'admin dehors. Sans risque de fuite : les pages front étant coupées au GET, aucun composant front non-staff n'est monté.
+- **Panel `/admin`** : pile de middleware Filament propre (hors groupe `web`) → jamais impacté, l'admin reste toujours accessible.
 - **Vue** : `packages/pko/storefront-cms/resources/views/maintenance.blade.php` — page standalone (pas de layout storefront, pas de Livewire) avec nom de marque dynamique via `brand_name()`.
+- **Bandeau staff** : composant Blade anonyme `x-storefront.maintenance-banner` (`packages/pko/storefront/resources/views/components/storefront/maintenance-banner.blade.php`), inclus en tête du header partagé (`x-layout.header`) + du layout checkout. Il n'apparaît **que** pour un membre staff naviguant sur le front pendant que la maintenance est active : bandeau rouge (`bg-danger-600`) rappelant que le site est masqué aux visiteurs, avec lien vers l'admin.
 
 ### Toggle topbar admin
 
@@ -104,10 +107,10 @@ Composant Livewire `Pko\AdminNav\Livewire\MaintenanceToggle` (alias `admin-nav::
 
 | Visiteur | Maintenance OFF | Maintenance ON |
 |---|---|---|
-| Non authentifié | Accès normal | 503 maintenance |
+| Non authentifié | Accès normal | 503 maintenance (toutes routes front, packages inclus) |
 | Client pro authentifié | Accès normal | 503 maintenance |
-| Staff admin | Accès normal | Accès normal (bypass) |
-| Panel `/admin` | Non affecté (middleware non appliqué) | Non affecté |
+| Staff admin | Accès normal | Accès normal + bandeau rouge « site en maintenance » |
+| Panel `/admin` | Non affecté (pile Filament hors groupe web) | Non affecté (login inclus) |
 
 
 ### Layout e-mail partagé

@@ -7,6 +7,8 @@ $delivery = config('storefront.banner.text') ?: 'Livraison chantier · Retrait e
 $user = auth()->user();
 @endphp
 
+<x-storefront.maintenance-banner />
+
 <header class="sticky top-0 z-40">
     {{-- Utility bar (forest) --}}
     <div class="hidden md:block bg-primary-600 text-white text-sm">
