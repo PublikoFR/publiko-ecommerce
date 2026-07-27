@@ -21,26 +21,8 @@
             @if ($products->isEmpty() && $brands->isEmpty() && $collections->isEmpty())
                 <div class="p-6 text-center text-sm text-neutral-500">Aucun résultat pour "{{ $term }}".</div>
             @else
-                @if ($brands->isNotEmpty())
-                    <div class="p-2">
-                        <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Marques</p>
-                        @foreach ($brands as $brand)
-                            <a href="/recherche?term={{ urlencode($brand->name) }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $brand->name }}</a>
-                        @endforeach
-                    </div>
-                @endif
-
-                @if ($collections->isNotEmpty())
-                    <div class="p-2 border-t border-neutral-100">
-                        <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Catégories</p>
-                        @foreach ($collections as $collection)
-                            <a href="{{ $collection->defaultUrl?->slug ? route('collection.view', $collection->defaultUrl->slug) : '#' }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $collection->translateAttribute('name') }}</a>
-                        @endforeach
-                    </div>
-                @endif
-
                 @if ($products->isNotEmpty())
-                    <div class="p-2 border-t border-neutral-100">
+                    <div class="p-2">
                         <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Produits ({{ $products->count() }})</p>
                         @foreach ($products as $product)
                             <a href="{{ $product->defaultUrl?->slug ? route('product.view', $product->defaultUrl->slug) : '#' }}" class="flex items-center gap-3 px-3 py-2 rounded hover:bg-primary-50 transition">
@@ -60,6 +42,24 @@
                                     </p>
                                 </div>
                             </a>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if ($collections->isNotEmpty())
+                    <div class="p-2 border-t border-neutral-100">
+                        <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Catégories</p>
+                        @foreach ($collections as $collection)
+                            <a href="{{ $collection->defaultUrl?->slug ? route('collection.view', $collection->defaultUrl->slug) : '#' }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $collection->translateAttribute('name') }}</a>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if ($brands->isNotEmpty())
+                    <div class="p-2 border-t border-neutral-100">
+                        <p class="px-3 py-1.5 text-xs font-bold text-neutral-500 uppercase tracking-wider">Marques</p>
+                        @foreach ($brands as $brand)
+                            <a href="/recherche?term={{ urlencode($brand->name) }}" class="block px-3 py-2 rounded text-sm hover:bg-primary-50 hover:text-primary-700 transition">{{ $brand->name }}</a>
                         @endforeach
                     </div>
                 @endif

@@ -42,6 +42,17 @@ class ProAccess
             return null;
         }
 
+        // Auto-login juste après l'inscription : le compte reste `pending` (e-mail
+        // pas encore vérifié) mais on lui accorde un accès complet le temps de sa
+        // session, pour ne pas casser le parcours d'entrée. Sans ce bypass,
+        // l'auto-login ne produit qu'une « semi-connexion » (nom affiché sous le
+        // profil mais toutes les routes pro rebondissent vers /connexion). Le flag
+        // meurt avec la session : une fois déconnecté, le compte pending redevient
+        // non-connectable tant que son e-mail n'est pas vérifié (cf. LoginPage).
+        if (JustRegistered::isActive()) {
+            return null;
+        }
+
         $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
 
         if (! $customer) {
@@ -53,19 +64,18 @@ class ProAccess
             return 'Votre compte a été suspendu. Contactez-nous pour plus d\'informations.';
         }
         if ($pkoStatus === 'pending') {
-            // Distingue le motif : e-mail non vérifié (action possible par le client)
-            // vs validation manuelle du SIRET (rien à faire côté client).
-            if (method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()) {
-                return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
-            }
-
-            return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
+            // Un compte s'active en vérifiant son e-mail (clic du lien reçu à
+            // l'inscription) — c'est le CLIENT qui active, pas l'admin. Le SIRET
+            // n'est PAS un critère : selon la config il peut n'être que la valeur
+            // saisie par le client (vérif INSEE désactivée → simple contrôle Luhn),
+            // voire absent. Un compte encore `pending` n'a pas confirmé son e-mail :
+            // on l'invite à le faire (LoginPage renvoie le lien).
+            return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
         }
 
-        $status = $customer->getAttribute('sirene_status');
-        if ($status !== null && $status !== 'active') {
-            return 'Votre compte est en cours de validation. Vous serez notifié par e-mail.';
-        }
+        // Pas de gate sur `sirene_status` : le SIRET n'est pas une valeur fiable
+        // (non vérifié quand INSEE est off, voire null), il ne peut donc pas
+        // conditionner l'accès. Seule la vérification e-mail fait foi.
 
         $required = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
         if (! $customer->customerGroups()->where('handle', $required)->exists()) {

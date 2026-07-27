@@ -148,7 +148,18 @@ class LoyaltyManager
 
         $allTiers = LoyaltyTier::query()->where('active', true)->orderBy('points_required')->get();
 
-        $nextTier = $allTiers->firstWhere(fn ($t) => (int) $t->points_required > $totalPoints);
+        // Paliers déjà atteints (points_required <= solde) → point de départ du wizard.
+        $prevPoints = (int) ($allTiers
+            ->filter(fn ($t) => (int) $t->points_required <= $totalPoints)
+            ->max('points_required') ?? 0);
+
+        // Les 2 prochains cadeaux à débloquer (paliers strictement au-dessus du solde).
+        $upcomingTiers = $allTiers
+            ->filter(fn ($t) => (int) $t->points_required > $totalPoints)
+            ->take(2)
+            ->values();
+
+        $nextTier = $upcomingTiers->first();
 
         $progress = 0.0;
         $pointsToNext = 0;
@@ -160,15 +171,23 @@ class LoyaltyManager
         $unlocked = GiftHistory::query()
             ->with('tier')
             ->where('customer_id', $customerId)
-            ->orderBy('unlocked_at')
+            ->orderByDesc('unlocked_at')
+            ->get();
+
+        $pointsHistory = PointsHistory::query()
+            ->where('customer_id', $customerId)
+            ->orderByDesc('created_at')
             ->get();
 
         return [
             'total_points' => $totalPoints,
+            'prev_points' => $prevPoints,
             'next_tier' => $nextTier,
+            'upcoming_tiers' => $upcomingTiers,
             'progress_percent' => round($progress, 1),
             'points_to_next' => $pointsToNext,
             'unlocked_tiers' => $unlocked,
+            'points_history' => $pointsHistory,
             'total_active_tiers' => $allTiers->count(),
             'all_tiers_unlocked' => $allTiers->isNotEmpty() && $nextTier === null && $totalPoints > 0,
             'no_tiers_configured' => $allTiers->isEmpty(),

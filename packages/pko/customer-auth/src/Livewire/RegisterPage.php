@@ -13,6 +13,7 @@ use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\Status;
+use Pko\CustomerAuth\Support\JustRegistered;
 
 class RegisterPage extends Component
 {
@@ -158,6 +159,9 @@ class RegisterPage extends Component
         if ($result['sirene']->isActive()) {
             Auth::login($result['user']);
             session()->regenerate();
+            // Exception assumée à la règle « un compte pending ne reste jamais
+            // connecté » : on ne casse pas le parcours d'inscription.
+            JustRegistered::flag();
             session()->flash('status', 'Bienvenue ! Votre compte a bien été créé. Pour l\'activer, validez votre adresse e-mail en cliquant sur le lien reçu par e-mail.');
 
             return redirect('/');

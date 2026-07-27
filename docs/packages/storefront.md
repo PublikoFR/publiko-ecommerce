@@ -139,7 +139,9 @@ Couverture : `tests/Feature/Storefront/CollectionBrowseChildrenTest.php` (cartes
 | Macro | Modèle cible | Comportement |
 |---|---|---|
 | `navVisible()` | `Lunar\Models\Collection` | `pko_enabled=true` ET aucun ancêtre nestedset désactivé (sous-requête EXISTS sur `_lft/_rgt`). |
-| `storefrontVisible()` | `Lunar\Models\Product` | EXISTS au moins une collection navVisible via `lunar_collection_product`. Sous-requête indexée (pas de N+1). |
+| `storefrontVisible()` | `Lunar\Models\Product` | EXISTS au moins une collection navVisible via `lunar_collection_product`. Sous-requête indexée (pas de N+1). Sert à la **navigation par catégories**. |
+| `storefrontSearchable()` | `Lunar\Models\Product` | `status='published'` ET possède une URL par défaut (`whereHas('defaultUrl')`). Indépendant des collections : sert à la **recherche** (un produit publié non catégorisé reste trouvable, sa fiche s'ouvre en « Non classé »). |
+| `storefrontSearchMatch(term)` | `Lunar\Models\Product` | Filtre texte **partagé** par l'autocomplete et la page résultats. Cherche dans : `name`, `description`, `short_description` (attribute_data JSON), identifiants variant `sku`/`ean`/`mpn`/`gtin`, et `tags`. Insensible à la casse. |
 
 **Appliqué dans** :
 - `Navigation::getCollectionsProperty()` — nav header
@@ -147,8 +149,8 @@ Couverture : `tests/Feature/Storefront/CollectionBrowseChildrenTest.php` (cartes
 - `CollectionPage::mount()` — abort 404 si la collection cible est désactivée (ou a un ancêtre désactivé)
 - `CollectionPage::baseQuery()` — produits dans la collection filtrés `storefrontVisible`
 - `ProductPage::mount()` — abort 404 **uniquement** si le produit possède des collections mais qu'aucune n'est navVisible. Un produit **sans aucune collection** reste affichable (traité comme « Non classé ») : sa fiche s'ouvre normalement (le fil d'Ariane n'affiche que le nom du produit). Ceci évite le 404 sur les produits mis en avant / nouveautés de l'accueil (`HomeFeaturedProducts` fallback `latest()`) qui n'ont pas de catégorie. Note : ces produits restent exclus des listings filtrés `storefrontVisible` (recherche, pages catégorie) puisque ce scope exige au moins une collection navVisible.
-- `SearchPage::baseQuery()` — résultats de recherche filtrés `storefrontVisible`
-- `SearchAutocomplete::render()` — suggestions collections (`navVisible`) + produits (`storefrontVisible`)
+- `SearchPage::baseQuery()` — `storefrontSearchable()` (produits publiés, même non catégorisés) + `storefrontSearchMatch($term)` pour la couverture texte
+- `SearchAutocomplete::render()` — mêmes scopes (`storefrontSearchable` + `storefrontSearchMatch`, limit 10). Produits **d'abord**, puis catégories (`navVisible`), puis marques. Ordre du dropdown : Produits → Catégories → Marques.
 - `lateral-menu.blade.php` — L1/L2/L3 filtrés `->where('pko_enabled', true)` (redondant avec cascade, mais explicite)
 
 **Accessibilité** : `role="dialog" aria-modal` sur le conteneur, `role="menu/menuitem"` sur les listes, `aria-expanded` sur les chevrons, focus géré via fermeture Esc, `overflow-hidden` sur `body` quand ouvert.

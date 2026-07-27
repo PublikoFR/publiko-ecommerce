@@ -42,15 +42,10 @@ class SearchAutocomplete extends Component
 
             $products = Product::query()
                 ->with(['thumbnail', 'brand', 'defaultUrl', 'variants'])
-                ->storefrontVisible()
-                ->where(function ($qq) use ($like): void {
-                    // Nom produit : stocké dans attribute_data (JSON), chemin $.name.value.
-                    // Groupé (nom OU sku OU tag) pour rester ET-scopé avec storefrontVisible().
-                    $qq->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value"))) LIKE ?', [$like])
-                        ->orWhereHas('variants', fn ($q) => $q->whereRaw('LOWER(sku) LIKE ?', [$like]))
-                        ->orWhereHas('tags', fn ($q) => $q->whereRaw('LOWER(value) LIKE ?', [$like]));
-                })
-                ->limit(8)
+                ->storefrontSearchable()
+                // Couverture texte partagée (nom/description/short_description/sku/ean/mpn/gtin/tags).
+                ->storefrontSearchMatch($this->term)
+                ->limit(10)
                 ->get();
 
             $brands = Brand::query()->whereRaw('LOWER(name) LIKE ?', [$like])->limit(3)->get();

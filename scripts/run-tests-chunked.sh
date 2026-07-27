@@ -17,6 +17,13 @@
 # A executer DEPUIS la racine du projet (cwd = /var/www/html dans le conteneur).
 set -u
 
+# Stack C elargi (defaut 8 Mo -> 64 Mo). Le signal 11 aleatoire observe frappait
+# au SHUTDOWN du process PHP (apres que tous les tests du chunk soient passes) :
+# la destruction recursive du graphe d'objets accumule (container Laravel, Livewire,
+# Lunar) depassait par moments la pile C de 8 Mo -> SIGSEGV. Elargir la pile borne
+# ce risque. Voir docs/workflow.md, section "Segfault signal 11".
+ulimit -s 65536 2>/dev/null || true
+
 rc=0
 
 run() {

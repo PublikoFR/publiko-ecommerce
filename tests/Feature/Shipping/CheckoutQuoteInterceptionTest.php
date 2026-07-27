@@ -109,14 +109,17 @@ class CheckoutQuoteInterceptionTest extends TestCase
         Payments::shouldReceive('driver')->never();
         Payments::shouldReceive('cart')->never();
 
-        Livewire::test(CheckoutPage::class)
+        $component = Livewire::test(CheckoutPage::class)
             ->call('checkout')
-            ->assertHasNoErrors()
-            ->assertRedirect(route('checkout-success.view'));
+            ->assertHasNoErrors();
 
         $order = Order::query()->where('cart_id', $cart->id)->first();
 
         $this->assertNotNull($order, 'Une commande doit être créée pour le panier sur devis.');
+        // Commande sur devis : redirigée vers le récap, sans bannière de confirmation de paiement.
+        $component
+            ->assertRedirect(route('account.order.view', ['order' => $order->id]))
+            ->assertSessionMissing('checkout_confirmed');
         $this->assertSame('awaiting-quote', $order->status);
         $this->assertNotNull($order->placed_at, 'La commande sur devis doit être passée (placed_at).');
         $this->assertCount(0, $order->transactions, 'Aucune transaction de paiement ne doit exister.');
@@ -132,13 +135,15 @@ class CheckoutQuoteInterceptionTest extends TestCase
         $driver = Mockery::mock();
         $driver->shouldReceive('cart')->once()->andReturnSelf();
         $driver->shouldReceive('withData')->andReturnSelf();
-        $driver->shouldReceive('authorize')->andReturn(new PaymentAuthorize(success: true));
+        $driver->shouldReceive('authorize')->andReturn(new PaymentAuthorize(success: true, orderId: 4242));
 
         Payments::shouldReceive('driver')->once()->andReturn($driver);
 
+        // Paiement réussi → redirection vers le récap de la commande + bannière de confirmation.
         Livewire::test(CheckoutPage::class)
             ->call('checkout')
-            ->assertRedirect(route('checkout-success.view'));
+            ->assertRedirect(route('account.order.view', ['order' => 4242]))
+            ->assertSessionHas('checkout_confirmed');
 
         // La bifurcation « devis » ne doit pas s'être déclenchée :
         // aucune commande awaiting-quote n'est créée hors du flux de paiement mocké.

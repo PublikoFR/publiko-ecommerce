@@ -10,6 +10,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Support\JustRegistered;
+use Pko\CustomerAuth\Support\ProAccess;
 use Tests\TestCase;
 
 class ProAccessRedirectTest extends TestCase
@@ -22,19 +24,27 @@ class ProAccessRedirectTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    private function makeUser(string $email, string $sireneStatus): User
+    /**
+     * Un compte est actif ⟺ son e-mail est vérifié. Le SIRET (valeur non fiable :
+     * non vérifiée quand INSEE est off, voire null) ne gate pas l'accès. On modélise
+     * donc l'état via `pko_status` + `email_verified_at`, jamais via `sirene_status`.
+     */
+    private function makeUser(string $email, string $pkoStatus): User
     {
         $user = User::create([
             'name' => 'Test',
             'email' => $email,
             'password' => Hash::make('password'),
+            'email_verified_at' => $pkoStatus === 'active' ? now() : null,
         ]);
 
         $customer = Customer::create([
             'first_name' => '',
             'last_name' => '',
             'company_name' => 'Test SARL',
-            'sirene_status' => $sireneStatus,
+            'pko_status' => $pkoStatus,
+            // SIRET volontairement 'pending' (INSEE indisponible) : ne doit rien gater.
+            'sirene_status' => 'pending',
         ]);
 
         // Groupe requis pour l'accès pro (config default_customer_group_handle).
@@ -64,5 +74,40 @@ class ProAccessRedirectTest extends TestCase
         $this->actingAs($user);
 
         $this->get('/connexion')->assertRedirect('/compte');
+    }
+
+    public function test_verified_account_is_active_even_when_siret_is_pending(): void
+    {
+        // Cœur de la correction : un compte e-mail-vérifié (pko_status='active')
+        // avec un SIRET 'pending' (INSEE off) accède normalement — le SIRET ne gate plus.
+        $user = $this->makeUser('verified@example.test', 'active');
+
+        $this->assertNull(ProAccess::denialReason($user));
+    }
+
+    public function test_freshly_registered_pending_user_keeps_full_access(): void
+    {
+        // Régression « demi-connexion » : après inscription, l'utilisateur est
+        // auto-connecté alors que son compte est encore `pending` (e-mail non
+        // vérifié). Le flag JustRegistered doit lui accorder un accès COMPLET le
+        // temps de sa session — pas seulement afficher son nom pendant que toutes
+        // les routes pro rebondissent vers /connexion.
+        $user = $this->makeUser('fresh@example.test', 'active');
+        $user->customers()->first()->update(['pko_status' => 'pending']);
+        $user = $user->fresh();
+
+        // Sans le flag : compte pending → accès refusé (comportement de durcissement).
+        $this->assertNotNull(ProAccess::denialReason($user));
+
+        // Avec le flag (posé par RegisterPage juste après l'auto-login) : accès accordé.
+        JustRegistered::flag();
+        $this->assertNull(ProAccess::denialReason($user));
+
+        // Et de bout en bout : /compte ne rebondit pas, l'utilisateur reste connecté.
+        $this->actingAs($user)
+            ->withSession(['pko.just_registered' => true])
+            ->get('/compte')
+            ->assertOk();
+        $this->assertAuthenticatedAs($user);
     }
 }
