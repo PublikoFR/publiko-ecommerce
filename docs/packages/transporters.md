@@ -256,11 +256,13 @@ Service pur (`Pko\ShippingCommon\Shipping\ShipmentSplitter`) sans accès DB, tes
 
 ### SupplierResource
 
-CRUD Filament pour `pko_suppliers` (modèle `Pko\ShippingCommon\Models\Supplier`). Cluster **Expédition**, `navigationSort = 20`.
+CRUD Filament pour `pko_suppliers` (modèle `Pko\ShippingCommon\Models\Supplier`). Resource **top-level** (hors cluster) : surfacée comme item de menu dédié **« Fournisseurs »** placé sous **« Marques »** dans le groupe *Catalogue → Catégorisation* (via `lunar-admin-nav` `Builder::catalogue()`). Usage strictement **interne** — aucune page publique côté storefront (contrairement aux Marques). Route : `/admin/suppliers`.
+
+> Historique : initialement rangée dans le cluster *Expédition* (`navigationSort = 20`). Sortie du cluster (suppression de `$cluster`) pour devenir un item de premier niveau, le fournisseur étant une info catalogue interne plutôt qu'un réglage d'expédition.
 
 Champs : `name`, `bl_neutre` (toggle "BL neutre / livraison directe fournisseur → client"), `lead_time_min_days`, `lead_time_max_days`, `notes`.
 
-Enregistré via `TransportersPlugin::register()` — pas besoin de toucher `AppServiceProvider`.
+Enregistrée dans le panel via `TransportersPlugin::register()` (`$panel->resources([...])`) — pas besoin de toucher `AppServiceProvider`. Le **placement dans le menu** est piloté par `pko/lunar-admin-nav`.
 
 ### ShippingSurchargeResource
 

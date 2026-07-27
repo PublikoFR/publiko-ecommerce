@@ -936,6 +936,18 @@ class EditProductUnified extends Page implements HasForms
         $this->save();
     }
 
+    /**
+     * Segmented control « Facturation du port » : les modes standard / port
+     * offert / sur devis sont mutuellement exclusifs et pilotent les deux
+     * booléens persistés indépendamment ($freeShipping, $quoteOnly).
+     */
+    public function setPortMode(string $mode): void
+    {
+        $this->freeShipping = $mode === 'offert';
+        $this->quoteOnly = $mode === 'devis';
+        $this->isDirty = true;
+    }
+
     public function saveAndPublish(): void
     {
         $this->status = 'published';

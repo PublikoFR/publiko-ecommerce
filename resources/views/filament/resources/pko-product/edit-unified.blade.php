@@ -88,25 +88,25 @@
                         type="text"
                         wire:model.blur="productName"
                         required
-                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
+                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
                     />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">SKU *</label>
                         <div class="flex">
-                            <span class="inline-flex items-center px-2 text-gray-500 bg-gray-50 dark:bg-white/5 border border-r-0 border-gray-300 dark:border-white/10 rounded-l text-sm">#</span>
-                            <input type="text" wire:model.blur="sku" required class="flex-1 text-sm border border-gray-300 dark:border-white/10 rounded-r px-3 py-[7px] bg-white dark:bg-gray-900" />
+                            <span class="inline-flex items-center px-2 text-gray-500 bg-gray-50 dark:bg-white/5 border border-r-0 border-gray-300 dark:border-white/10 rounded-l-lg text-sm">#</span>
+                            <input type="text" wire:model.blur="sku" required class="flex-1 text-sm border border-gray-300 dark:border-white/10 rounded-r-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                         </div>
                     </div>
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Code-barres EAN / UPC</label>
-                        <input type="text" wire:model.blur="ean" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
+                        <input type="text" wire:model.blur="ean" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                     </div>
                 </div>
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Description courte</label>
-                    <textarea wire:model.blur="shortDesc" rows="3" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-2 bg-white dark:bg-gray-900"></textarea>
+                    <textarea wire:model.blur="shortDesc" rows="3" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-gray-900"></textarea>
                     <p class="text-xs text-gray-500 mt-1">Résumé affiché en tête de fiche et dans les listes.</p>
                 </div>
             </x-pko-product::card>
@@ -117,21 +117,21 @@
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Prix HT *</label>
                         <div class="relative">
-                            <input type="text" wire:model.blur="price" required class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
+                            <input type="text" wire:model.blur="price" required class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
                             <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
                         </div>
                     </div>
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Prix comparatif (barré)</label>
                         <div class="relative">
-                            <input type="text" wire:model.blur="comparePrice" class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
+                            <input type="text" wire:model.blur="comparePrice" class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
                             <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
                         </div>
                     </div>
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Prix d'achat (coût)</label>
                         <div class="relative">
-                            <input type="text" wire:model.blur="cost" class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
+                            <input type="text" wire:model.blur="cost" class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
                             <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
                         </div>
                     </div>
@@ -148,7 +148,7 @@
                 @endif
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Classe de taxe *</label>
-                    <select wire:model="taxClassId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">
+                    <select wire:model="taxClassId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
                         <option value="">—</option>
                         @foreach ($this->taxClassOptions as $tax)
                             <option value="{{ $tax->id }}">{{ $tax->name }}</option>
@@ -281,157 +281,347 @@
             </x-pko-product::card>
 
             {{-- 6. Caractéristiques techniques (CatalogFeatures) --}}
-            <x-pko-product::card title="Caractéristiques techniques" icon="heroicon-o-list-bullet">
-                <div class="space-y-3">
-                    @forelse ($this->featureFamilies as $family)
-                        <div class="grid grid-cols-[180px_1fr] gap-3 items-start">
-                            <div class="pt-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ $family->name }}
-                                @if ($family->multi_value)
-                                    <span class="ml-1 text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
-                                @endif
-                            </div>
-                            <div class="flex flex-wrap gap-1.5">
-                                @if ($family->multi_value)
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @else
-                                    <label class="cursor-pointer select-none">
-                                        <input type="radio" wire:model="featureValues.{{ $family->id }}" value="" class="peer sr-only" />
-                                        <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-500 transition hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-500 peer-checked:text-white dark:border-white/10 dark:bg-gray-900 dark:text-gray-400">
-                                            —
-                                        </span>
-                                    </label>
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="radio"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @endif
+            @php
+                $familiesMeta = $this->featureFamilies->map(fn ($f) => [
+                    'id' => (int) $f->id,
+                    'name' => (string) $f->name,
+                    'multi' => (bool) $f->multi_value,
+                    'values' => $f->values
+                        ->map(fn ($v) => ['id' => (int) $v->id, 'name' => (string) $v->name])
+                        ->values()
+                        ->all(),
+                ])->values()->all();
+            @endphp
+            {{--
+                Composant Alpine INLINE (et non un global window.pkoFeatures + @assets) :
+                sous Filament, Alpine.start() peut précéder l'exécution du script @assets
+                → un global n'existe pas encore au montage du composant → panneau vide.
+                L'objet littéral inline est évalué par Alpine au montage, sans dépendance.
+                Données injectées via @js (hex-échappe " ' < > → aucun guillemet brut dans
+                l'attribut). État local synchronisé en différé vers la prop Livewire.
+            --}}
+            <section
+                x-data="{
+                    q: '',
+                    sel: @js($featureValues),
+                    meta: @js($familiesMeta),
+                    _n(id) { return String(id); },
+                    isOn(fam, id) {
+                        const s = this.sel[fam];
+                        return Array.isArray(s) ? s.map(this._n).includes(this._n(id)) : this._n(s) === this._n(id);
+                    },
+                    toggle(fam, id, multi) {
+                        if (multi) {
+                            const s = Array.isArray(this.sel[fam]) ? [...this.sel[fam]] : [];
+                            const i = s.map(this._n).indexOf(this._n(id));
+                            if (i >= 0) s.splice(i, 1); else s.push(id);
+                            this.sel[fam] = s;
+                        } else {
+                            this.sel[fam] = this._n(this.sel[fam]) === this._n(id) ? '' : id;
+                        }
+                        this.sync();
+                    },
+                    clearFam(fam, multi) { this.sel[fam] = multi ? [] : ''; this.sync(); },
+                    count(fam) { const s = this.sel[fam]; return Array.isArray(s) ? s.length : (s ? 1 : 0); },
+                    totalValues() { return this.meta.reduce((n, m) => n + this.count(m.id), 0); },
+                    filledFams() { return this.meta.filter((m) => this.count(m.id) > 0).length; },
+                    preview() { return this.meta.filter((m) => this.count(m.id) > 0); },
+                    valNames(m) {
+                        const s = this.sel[m.id];
+                        const ids = (Array.isArray(s) ? s : [s]).map(this._n);
+                        return m.values.filter((v) => ids.includes(this._n(v.id))).map((v) => v.name).join(', ');
+                    },
+                    matchFam(m) {
+                        const q = this.q.trim().toLowerCase();
+                        return !q || m.name.toLowerCase().includes(q) || m.values.some((v) => v.name.toLowerCase().includes(q));
+                    },
+                    matchVal(m, v) {
+                        const q = this.q.trim().toLowerCase();
+                        return !q || m.name.toLowerCase().includes(q) || v.name.toLowerCase().includes(q);
+                    },
+                    anyMatch() { return this.meta.some((m) => this.matchFam(m)); },
+                    highlight(text) {
+                        const safe = this._esc(text);
+                        const q = this.q.trim();
+                        if (!q) return safe;
+                        const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+                        return safe.replace(re, '<mark>$1</mark>');
+                    },
+                    _esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); },
+                    sync() {
+                        const clean = JSON.parse(JSON.stringify(this.sel));
+                        this.$wire.set('featureValues', clean, false);
+                        this.$wire.set('isDirty', true, false);
+                    },
+                }"
+                class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden"
+            >
+                {{-- En-tête : titre + compteur familles / valeurs --}}
+                <header class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+                    <div class="flex items-center gap-2">
+                        <x-filament::icon icon="heroicon-o-list-bullet" class="w-4 h-4 text-gray-500" />
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Caractéristiques techniques</h3>
+                    </div>
+                    <span
+                        x-show="filledFams() > 0"
+                        x-cloak
+                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300"
+                        x-text="filledFams() + ' famille' + (filledFams() > 1 ? 's' : '') + ' · ' + totalValues() + ' valeur' + (totalValues() > 1 ? 's' : '')"
+                    ></span>
+                </header>
+
+                {{-- Aucune famille définie --}}
+                <template x-if="!meta.length">
+                    <p class="p-[18px] text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
+                </template>
+
+                <div x-show="meta.length" class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
+                    {{-- Colonne gauche : recherche + liste des familles --}}
+                    <div class="min-w-0">
+                        <div class="px-4 pt-4">
+                            <div class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-900 px-3 py-2 focus-within:border-primary-600 focus-within:ring-2 focus-within:ring-primary-600/15">
+                                <x-filament::icon icon="heroicon-o-magnifying-glass" class="w-4 h-4 text-gray-400 shrink-0" />
+                                <input
+                                    type="text"
+                                    x-model="q"
+                                    placeholder="Chercher une valeur ou une famille…"
+                                    class="flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-0"
+                                />
+                                <button type="button" x-show="q.trim()" x-on:click="q = ''" class="shrink-0 text-xs text-gray-400 hover:text-gray-600">Effacer</button>
                             </div>
                         </div>
-                    @empty
-                        <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
-                    @endforelse
+
+                        <div class="p-4 space-y-1 max-h-[560px] overflow-auto">
+                            <template x-for="m in meta" :key="m.id">
+                                <div x-show="matchFam(m)" class="py-2.5 border-b border-gray-100 dark:border-white/5 last:border-0">
+                                    <div class="flex items-baseline gap-2 mb-2">
+                                        <span class="text-[12.5px] font-medium text-gray-700 dark:text-gray-300" x-html="highlight(m.name)"></span>
+                                        <span
+                                            class="text-[11px] font-semibold tabular-nums"
+                                            :class="count(m.id) ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'"
+                                            x-text="count(m.id) ? count(m.id) + ' sélectionné' + (count(m.id) > 1 ? 's' : '') : 'aucune'"
+                                        ></span>
+                                        <span x-show="m.multi" class="text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="v in m.values" :key="v.id">
+                                            <button
+                                                type="button"
+                                                x-show="matchVal(m, v)"
+                                                x-on:click="toggle(m.id, v.id, m.multi)"
+                                                class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs transition"
+                                                :class="isOn(m.id, v.id)
+                                                    ? 'border-primary-600 bg-primary-600 text-white font-medium'
+                                                    : 'border-gray-300 dark:border-white/10 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:border-primary-400 hover:text-primary-600'"
+                                                x-html="highlight(v.name)"
+                                            ></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <p x-show="q.trim() && !anyMatch()" class="py-2 text-xs italic text-gray-400" x-text="'Aucune caractéristique ne correspond à « ' + q + ' ».'"></p>
+                        </div>
+                    </div>
+
+                    {{-- Colonne droite : aperçu fiche produit (live) --}}
+                    <div class="border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-white/[0.02] p-4 max-h-[614px] overflow-auto">
+                        <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Aperçu fiche produit</div>
+                        <p x-show="!preview().length" class="text-xs italic text-gray-400">Rien de sélectionné pour l'instant.</p>
+                        <table x-show="preview().length" x-cloak class="w-full border-collapse text-[12.5px]">
+                            <tbody>
+                                <template x-for="m in preview()" :key="m.id">
+                                    <tr class="border-b border-gray-200/70 dark:border-white/5 last:border-0 align-top">
+                                        <td class="w-[44%] py-1.5 pr-2 text-gray-500" x-text="m.name"></td>
+                                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">
+                                            <span x-text="valNames(m)"></span>
+                                            <button type="button" x-on:click="clearFam(m.id, m.multi)" title="Vider cette famille" class="ml-1.5 text-gray-400 hover:text-danger-500">×</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </x-pko-product::card>
+            </section>
 
             {{-- 7. Inventaire & expédition --}}
-            <x-pko-product::card title="Inventaire & expédition" icon="heroicon-o-cube">
-                {{-- Classe logistique — en haut de section --}}
-                <div>
-                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
-                    <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900">
-                        <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
-                        <option value="A">{{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
-                        <option value="B">{{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
-                        <option value="C">{{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
-                    </select>
-                </div>
+            @php
+                $portMode = $quoteOnly ? 'devis' : ($freeShipping ? 'offert' : 'standard');
 
-                <hr class="border-gray-200 dark:border-white/10" />
+                // Pastille de statut affichée dans l'en-tête.
+                if (! $trackStock) {
+                    $stockPill = ['label' => 'Stock non suivi', 'class' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
+                } elseif ($stock > 0) {
+                    $stockPill = ['label' => $stock.' en stock · expédiable', 'class' => 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'];
+                } elseif ($allowBackorder) {
+                    $stockPill = ['label' => 'Rupture · sur commande', 'class' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'];
+                } else {
+                    $stockPill = ['label' => 'Rupture de stock', 'class' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'];
+                }
 
-                <x-pko-product::switch-row label="Suivre le stock de ce produit" description="Décrémente automatiquement à chaque commande." model="trackStock" />
-                <div class="grid grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Stock actuel</label>
-                        <div class="relative">
-                            <input type="number" wire:model.blur="stock" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums" />
-                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">u.</span>
+                // Synthèse « côté client » en bas de section.
+                $clientStock = ! $trackStock
+                    ? 'stock non suivi'
+                    : ($stock > 0 ? $stock.' unité'.($stock > 1 ? 's' : '').' disponible'.($stock > 1 ? 's' : '') : 'en rupture');
+                $clientPort = match ($portMode) {
+                    'offert' => 'port offert (dropshipping)',
+                    'devis' => 'commande sur devis, sans paiement immédiat',
+                    default => 'expédition au tarif standard',
+                };
+                $clientBackorder = $allowBackorder
+                    ? ' Commande possible même en rupture'.($leadTime !== '' ? ' (délai '.$leadTime.')' : '').'.'
+                    : '';
+                $clientFranco = $francoEligible ? ' Compte dans le franco de port.' : ' Exclu du franco de port.';
+            @endphp
+            <section class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
+                {{-- En-tête : titre + statut stock --}}
+                <header class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+                    <div class="flex items-center gap-2">
+                        <x-filament::icon icon="heroicon-o-cube" class="w-4 h-4 text-gray-500" />
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Inventaire &amp; expédition</h3>
+                    </div>
+                    <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $stockPill['class'] }}">
+                        {{ $stockPill['label'] }}
+                    </span>
+                </header>
+
+                {{-- Corps 2 colonnes : Stock | Expédition --}}
+                <div class="grid grid-cols-1 lg:grid-cols-2 lg:divide-x divide-gray-200 dark:divide-white/10">
+                    {{-- Colonne gauche : Stock --}}
+                    <div class="p-[18px] space-y-4">
+                        <div class="flex items-center gap-2">
+                            <x-filament::icon icon="heroicon-o-cube" class="w-3.5 h-3.5 text-primary-600" />
+                            <span class="text-[12.5px] font-semibold text-gray-900 dark:text-white">Stock</span>
+                        </div>
+
+                        <x-pko-product::switch-row label="Suivre le stock" description="Décrémente à chaque commande." model="trackStock" />
+
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Stock actuel</label>
+                                <div class="relative max-w-[180px]">
+                                    <input type="number" wire:model.blur="stock" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums" />
+                                    <span class="absolute right-3 top-[9px] text-xs text-gray-500">u.</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Seuil d'alerte</label>
+                                    <input type="number" wire:model.blur="lowStockThreshold" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
+                                </div>
+                                <div>
+                                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Stock sécurité</label>
+                                    <input type="number" wire:model.blur="safetyStock" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="border-gray-200 dark:border-white/10" />
+
+                        <x-pko-product::switch-row label="Commandes en rupture" description="Vente autorisée à stock zéro." model="allowBackorder" />
+
+                        <div>
+                            <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Délai annoncé au client</label>
+                            <input type="text" wire:model.blur="leadTime" placeholder="ex: 3-5 jours ouvrés" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Seuil d'alerte</label>
-                        <input type="number" wire:model.blur="lowStockThreshold" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
-                    </div>
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Stock de sécurité</label>
-                        <input type="number" wire:model.blur="safetyStock" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
-                    </div>
-                </div>
-                <x-pko-product::switch-row label="Autoriser les commandes en rupture" description="Les clients peuvent commander même quand le stock est à zéro." model="allowBackorder" />
-                <div>
-                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Délai de réapprovisionnement</label>
-                    <input type="text" wire:model.blur="leadTime" placeholder="ex: 3-5 jours ouvrés" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
-                </div>
 
-                <hr class="border-gray-200 dark:border-white/10" />
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Poids (kg)</label>
-                        <input type="text" wire:model.blur="weight" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
-                    </div>
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Dimensions (L × l × H en cm)</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <input type="text" wire:model.blur="length" placeholder="L" class="text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
-                            <input type="text" wire:model.blur="width" placeholder="l" class="text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
-                            <input type="text" wire:model.blur="height" placeholder="H" class="text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
+                    {{-- Colonne droite : Expédition --}}
+                    <div class="p-[18px] space-y-4 bg-gray-50/60 dark:bg-white/[0.02]">
+                        <div class="flex items-center gap-2">
+                            <x-filament::icon icon="heroicon-o-truck" class="w-3.5 h-3.5 text-primary-600" />
+                            <span class="text-[12.5px] font-semibold text-gray-900 dark:text-white">Expédition</span>
                         </div>
-                    </div>
-                </div>
 
-                <hr class="border-gray-200 dark:border-white/10" />
+                        <div>
+                            <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
+                            <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900">
+                                <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
+                                <option value="A">{{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
+                                <option value="B">{{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
+                                <option value="C">{{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
+                            </select>
+                        </div>
 
-                <x-pko-product::switch-row
-                    label="Frais de port offert"
-                    description="Expédié directement par le fournisseur (dropshipping), port inclus dans le prix d'achat. Les lignes concernées sont exclues du calcul de livraison."
-                    model="freeShipping"
-                />
+                        <div>
+                            <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Poids &amp; dimensions</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                @foreach ([['weight', 'kg'], ['length', 'L cm'], ['width', 'l cm'], ['height', 'H cm']] as [$prop, $unit])
+                                    <div class="flex flex-col gap-1">
+                                        <input type="text" wire:model.blur="{{ $prop }}" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900 text-right tabular-nums" />
+                                        <span class="text-[11px] text-gray-400 text-center">{{ $unit }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
 
-                {{-- Franco éligible --}}
-                <x-pko-product::switch-row
-                    :label="__('pko-shipping-common::admin.product.franco_eligible')"
-                    :description="__('pko-shipping-common::admin.product.franco_eligible_help')"
-                    model="francoEligible"
-                />
+                        <hr class="border-gray-200 dark:border-white/10" />
 
-                {{-- Prix transport dédié — visible uniquement si classe C --}}
-                @if ($logisticsClass === 'C')
-                    <div>
-                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.transport_price') }}</label>
-                        <div class="relative">
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                wire:model.blur="transportPriceEuros"
-                                class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums"
-                                placeholder="0.00"
+                        <div class="text-[11px] font-semibold text-gray-400 tracking-wide uppercase">Facturation du port</div>
+                        <div class="flex gap-1 p-[3px] bg-gray-100 dark:bg-white/5 rounded-lg">
+                            @foreach (['standard' => 'Tarif standard', 'offert' => 'Port offert', 'devis' => 'Sur devis'] as $mode => $modeLabel)
+                                <button
+                                    type="button"
+                                    wire:click="setPortMode('{{ $mode }}')"
+                                    @class([
+                                        'flex-1 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition',
+                                        'bg-white dark:bg-gray-800 text-primary-600 shadow-sm' => $portMode === $mode,
+                                        'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' => $portMode !== $mode,
+                                    ])
+                                >{{ $modeLabel }}</button>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            @switch($portMode)
+                                @case('offert')
+                                    Port inclus dans le prix d'achat (dropshipping) — exclu du calcul de livraison.
+                                    @break
+                                @case('devis')
+                                    Commande en attente de devis transport, sans paiement immédiat.
+                                    @break
+                                @default
+                                    Le tarif transporteur habituel s'applique selon poids et dimensions.
+                            @endswitch
+                        </p>
+
+                        {{-- Prix transport dédié — visible uniquement si classe C --}}
+                        @if ($logisticsClass === 'C')
+                            <div>
+                                <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.transport_price') }}</label>
+                                <div class="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        wire:model.blur="transportPriceEuros"
+                                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-8 text-right tabular-nums"
+                                        placeholder="0.00"
+                                    />
+                                    <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">{{ __('pko-shipping-common::admin.product.transport_price_help') }}</p>
+                            </div>
+                        @endif
+
+                        <div class="pt-1">
+                            <x-pko-product::switch-row
+                                :label="__('pko-shipping-common::admin.product.franco_eligible')"
+                                :description="__('pko-shipping-common::admin.product.franco_eligible_help')"
+                                model="francoEligible"
                             />
-                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">{{ __('pko-shipping-common::admin.product.transport_price_help') }}</p>
                     </div>
-                @endif
+                </div>
 
-                {{-- Sur devis --}}
-                <x-pko-product::switch-row
-                    :label="__('pko-shipping-common::admin.product.quote_only')"
-                    :description="__('pko-shipping-common::admin.product.quote_only_help')"
-                    model="quoteOnly"
-                />
-            </x-pko-product::card>
+                {{-- Synthèse « côté client » --}}
+                <div class="px-[18px] py-3 border-t border-gray-200 dark:border-white/10 bg-primary-50/60 dark:bg-primary-500/[0.06] flex items-start gap-2.5">
+                    <x-filament::icon icon="heroicon-o-information-circle" class="w-4 h-4 text-primary-600 mt-0.5 shrink-0" />
+                    <div class="text-[12.5px] text-primary-800 dark:text-primary-200 leading-relaxed">
+                        <strong class="font-semibold">Côté client :</strong>
+                        {{ ucfirst($clientStock) }}, {{ $clientPort }}.{{ $clientBackorder }}{{ $clientFranco }}
+                    </div>
+                </div>
+            </section>
 
             {{-- 8. Variantes --}}
             @php $variants = $this->variants; @endphp
@@ -508,7 +698,7 @@
                         wire:model.live.debounce.300ms="relatedSearch"
                         wire:keydown.enter.prevent="addRelatedProductFromSearch"
                         placeholder="Rechercher par nom, SKU, EAN, tag…"
-                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900 pr-8"
+                        class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-8"
                     />
                     <span class="absolute right-3 top-[9px] text-gray-400 pointer-events-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
@@ -544,7 +734,7 @@
                             'text-danger-600' => $this->seoTitleStatus === 'danger',
                         ])>{{ $this->seoTitleCount }} / 60</span>
                     </label>
-                    <input type="text" wire:model.live="seoTitle" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
+                    <input type="text" wire:model.live="seoTitle" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                 </div>
 
                 <div>
@@ -557,16 +747,16 @@
                             'text-danger-600' => $this->seoDescStatus === 'danger',
                         ])>{{ $this->seoDescCount }} / 160</span>
                     </label>
-                    <textarea wire:model.live="seoDesc" rows="3" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-2 bg-white dark:bg-gray-900"></textarea>
+                    <textarea wire:model.live="seoDesc" rows="3" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-gray-900"></textarea>
                 </div>
 
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">URL (slug)</label>
                     <div class="flex">
-                        <span class="inline-flex items-center px-2 text-xs text-gray-500 bg-gray-50 dark:bg-white/5 border border-r-0 border-gray-300 dark:border-white/10 rounded-l font-mono">
+                        <span class="inline-flex items-center px-2 text-xs text-gray-500 bg-gray-50 dark:bg-white/5 border border-r-0 border-gray-300 dark:border-white/10 rounded-l-lg font-mono">
                             {{ parse_url(url('/'), PHP_URL_HOST) }}/produits/
                         </span>
-                        <input type="text" value="{{ $productSlug }}" readonly class="flex-1 text-xs font-mono border border-gray-300 dark:border-white/10 rounded-r px-2 py-[7px] bg-gray-50 dark:bg-white/5 text-gray-600" />
+                        <input type="text" value="{{ $productSlug }}" readonly class="flex-1 text-xs font-mono border border-gray-300 dark:border-white/10 rounded-r-lg px-2 py-[7px] bg-gray-50 dark:bg-white/5 text-gray-600" />
                     </div>
                     <p class="text-xs text-gray-500 mt-1">Généré automatiquement à partir de la marque, du nom et du MPN.</p>
                 </div>
@@ -574,11 +764,11 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">URL canonique</label>
-                        <input type="text" wire:model.blur="canonical" placeholder="Auto" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
+                        <input type="text" wire:model.blur="canonical" placeholder="Auto" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                     </div>
                     <div>
                         <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Indexation</label>
-                        <select wire:model="robots" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">
+                        <select wire:model="robots" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
                             <option value="index,follow">Indexer, suivre les liens</option>
                             <option value="noindex,follow">Ne pas indexer, suivre les liens</option>
                             <option value="noindex,nofollow">Ne pas indexer, ne pas suivre</option>
@@ -605,7 +795,7 @@
                             <span class="inline-flex items-center gap-1 text-xs font-medium text-warning-700 bg-warning-50 dark:bg-warning-500/10 dark:text-warning-400 px-2 py-0.5 rounded">● {{ ucfirst($status) }}</span>
                         @endif
                     </div>
-                    <select wire:model="status" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900 mb-3">
+                    <select wire:model="status" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900 mb-3">
                         <option value="published">Publié</option>
                         <option value="draft">Brouillon</option>
                         <option value="scheduled">Programmé</option>
@@ -615,7 +805,7 @@
                     @if ($status === 'scheduled')
                         <div class="mt-2">
                             <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Date de publication</label>
-                            <input type="datetime-local" wire:model="publishAt" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-3 py-[7px] bg-white dark:bg-gray-900" />
+                            <input type="datetime-local" wire:model="publishAt" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900" />
                         </div>
                     @endif
                     @if ($status === 'published' && $productSlug !== '')
@@ -666,7 +856,7 @@
                             type="text"
                             wire:model.live.debounce.200ms="collectionSearch"
                             placeholder="Rechercher une catégorie… (↑ ↓ + Entrée)"
-                            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+                            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900"
                             autocomplete="off"
                             x-on:input="hi = -1"
                             x-on:keydown.arrow-down.prevent="move(1)"
@@ -696,7 +886,7 @@
                 {{-- Marque --}}
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Marque</label>
-                    <select wire:model="brandId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">
+                    <select wire:model="brandId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
                         <option value="">—</option>
                         @foreach ($this->brandOptions as $brand)
                             <option value="{{ $brand->id }}">{{ $brand->name }}</option>
@@ -707,7 +897,7 @@
                 {{-- Fournisseur --}}
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.supplier') }}</label>
-                    <select wire:model="supplierId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-[7px] bg-white dark:bg-gray-900">
+                    <select wire:model="supplierId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
                         <option value="">— {{ __('pko-shipping-common::admin.product.supplier_none') }} —</option>
                         @foreach ($this->supplierOptions as $supplier)
                             <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
@@ -731,7 +921,7 @@
                             wire:model="newTag"
                             wire:keydown.enter.prevent="addTag"
                             placeholder="Nouveau tag…"
-                            class="flex-1 text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+                            class="flex-1 text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900"
                         />
                         <button type="button" wire:click="addTag" class="text-xs px-2 py-1 border border-gray-300 dark:border-white/10 rounded hover:bg-gray-50 dark:hover:bg-white/5">+</button>
                     </div>

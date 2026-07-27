@@ -217,13 +217,13 @@ Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
 [Catalogue]        Produits · Médias · ⌄ Catégorisation · Imports
 [Marketing]        Réductions · Fidélité · Newsletter
 [Boutique]         Slider accueil · Tuiles accueil · Offres du moment · Contenus
-[Configuration]    ⌄ Réglages · ⌄ Paiements & Facturation · Configurations LLM
+[Configuration]    ⌄ Réglages · ⌄ Financier · Configurations LLM
 ```
 
 `⌄` = **sous-menu imbriqué dropdown animé dans la sidebar** :
-- Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
+- Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Fournisseurs (interne, `SupplierResource` hors cluster), Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
 - Réglages : Paramètres, Canaux, Activités, Rôles, Personnel
-- Paiements & Facturation : Devises, Taxes, Stripe, Pennylane
+- Financier : Devises, Taxes, Stripe, Pennylane
 
 ### Système de sous-menu imbriqué (réutilisable)
 
@@ -240,6 +240,16 @@ Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
   > **Re-diff contre l'upstream à chaque montée de version Filament.**
   > Styles (rotation flèche, indentation) en **inline** pour ne pas dépendre du build
   > Tailwind — à repasser en classes via thème compilé lors du figement.
+
+### Apparence de la sidebar (largeur, scrollbar, habillage)
+
+Piloté par `app/Providers/AppServiceProvider.php` (panel) + `resources/css/filament/admin/modules/sidebar.css` (importé dans le thème Filament) :
+
+- **Largeur** : `->sidebarWidth('18rem')` sur le panel (−10 % vs défaut Filament `20rem`) pour élargir la zone de contenu.
+- **Scrollbar custom** : thumb forest-600 (fin, gouttière transparente), **piste vert très pâle** (`rgba(0,69,62,0.06)`, dark `rgba(170,201,50,0.08)`) — volontairement non transparente pour matérialiser une coupure visible. Thumb → lime pendant le drag.
+- **Habillage des niveaux** (lecture des imbrications) : fonds forest de plus en plus soutenus avec la profondeur — `.fi-sidebar-group` (section top-level) ≈ 0.03, `.fi-sidebar-sub-group-items` (sous-menu déplié) ≈ 0.06, coins arrondis. Bascule vers du lime dilué en dark.
+
+> Toute nouvelle classe/valeur passe par `npm run build` (le CSS module est bundlé dans le thème compilé).
 
 ### Masquage du sub-nav on-page (réversible)
 

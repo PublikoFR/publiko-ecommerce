@@ -35,6 +35,7 @@ use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
+use Pko\ShippingCommon\Filament\Resources\SupplierResource;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\Resources\HomeOfferResource;
@@ -48,7 +49,7 @@ use Pko\StorefrontCms\Filament\Resources\PostResource;
  *
  * 1 raccourci (Tableau de bord) + 5 groupes : Ventes & Clients, Catalogue,
  * Marketing, Boutique, Configuration. Deux sous-menus IMBRIQUÉS animés dans la
- * sidebar (Catégorisation, et Réglages / Paiements & Facturation) via
+ * sidebar (Catégorisation, et Réglages / Financier) via
  * self::nestedMenu() — le rendu (flèche dépliable + animation x-collapse +
  * indentation) est assuré par l'override de vue
  * resources/views/vendor/filament-panels/components/sidebar/item.blade.php.
@@ -108,6 +109,7 @@ class Builder
                     fn (): bool => request()->routeIs('filament.lunar.pages.tree-manager') && request()->query('tab') === 'features',
                 ),
                 self::resItem(BrandResource::class, 'heroicon-o-bookmark-square', 'Marques'),
+                self::resItem(SupplierResource::class, 'heroicon-o-building-office-2', 'Fournisseurs'),
                 self::resItem(PkoProductTypeResource::class, 'heroicon-o-cube-transparent', 'Types de produits'),
                 self::resItem(PkoAttributeGroupResource::class, 'heroicon-o-rectangle-group', 'Groupes d\'attributs'),
                 self::resItem(PkoCollectionGroupResource::class, 'heroicon-o-folder', 'Groupes de collections'),
@@ -153,7 +155,7 @@ class Builder
                 self::resItem(RoleResource::class, 'heroicon-o-shield-check', 'Rôles'),
                 self::resItem(PkoStaffResource::class, 'heroicon-o-user-circle', 'Personnel'),
             ], sort: 1),
-            self::nestedMenu('Paiements & Facturation', 'heroicon-o-credit-card', [
+            self::nestedMenu('Financier', 'heroicon-o-credit-card', [
                 self::resItem(PkoCurrencyResource::class, 'heroicon-o-banknotes', 'Devises'),
                 self::resItem(PkoTaxesCluster::class, 'heroicon-o-calculator', 'Taxes'),
                 self::resItem(StripeConfig::class, 'heroicon-o-credit-card', 'Stripe'),

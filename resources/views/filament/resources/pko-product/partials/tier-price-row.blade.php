@@ -4,7 +4,7 @@
     <td class="px-3 py-2">
         <select
             wire:model="tierPrices.{{ $index }}.customer_group_id"
-            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900"
+            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900"
         >
             <option value="">Tous les clients</option>
             @foreach ($this->customerGroupOptions as $group)
@@ -16,7 +16,7 @@
         <input
             type="number" min="1"
             wire:model="tierPrices.{{ $index }}.min_quantity"
-            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900 text-right"
+            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900 text-right"
         />
     </td>
     <td class="px-3 py-2 w-40">
@@ -25,7 +25,7 @@
                 type="text"
                 wire:model="tierPrices.{{ $index }}.price"
                 placeholder="0.00"
-                class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900 text-right tabular-nums pr-6"
+                class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900 text-right tabular-nums pr-6"
             />
             <span class="absolute right-2 top-1.5 text-xs text-gray-500">€</span>
         </div>

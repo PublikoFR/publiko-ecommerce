@@ -23,7 +23,7 @@
             type="number"
             value="{{ $variant->stock }}"
             wire:change="updateVariantStock({{ $variant->id }}, $event.target.value)"
-            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded px-2 py-1 bg-white dark:bg-gray-900 text-right tabular-nums"
+            class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-1 bg-white dark:bg-gray-900 text-right tabular-nums"
         />
     </td>
     <td class="px-3 py-2 text-center">

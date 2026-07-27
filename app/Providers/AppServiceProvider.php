@@ -132,6 +132,10 @@ class AppServiceProvider extends ServiceProvider
                     fn (): View => view('filament.hooks.maintenance-toggle'),
                 )
                 ->font('Hanken Grotesk')
+                // Sidebar resserrée (-10% vs défaut Filament 20rem) pour gagner
+                // un peu de largeur de contenu sans tronquer les libellés des
+                // sous-menus (indentés + à icône) — cf. modules/sidebar.css.
+                ->sidebarWidth('18rem')
                 ->colors([
                     'primary' => [
                         50 => '#eef5f3', 100 => '#d6e7e3', 200 => '#abccc5', 300 => '#79aaa1',

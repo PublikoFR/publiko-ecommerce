@@ -2,7 +2,7 @@
 
 <section
     {{ $attributes->merge([
-        'class' => 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+        'class' => 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
     ]) }}
 >
     @if ($title)
