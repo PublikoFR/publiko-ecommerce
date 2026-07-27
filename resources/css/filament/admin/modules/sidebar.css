@@ -8,7 +8,7 @@
 /* Firefox */
 .fi-sidebar-nav {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 69, 62, 0.28) transparent; /* forest-600 / piste transparente */
+    scrollbar-color: rgba(0, 69, 62, 0.28) rgba(0, 69, 62, 0.06); /* thumb forest-600 / piste vert très pâle (coupure visible) */
 }
 
 /* WebKit (Chrome, Edge, Safari) */
@@ -17,7 +17,8 @@
 }
 
 .fi-sidebar-nav::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(0, 69, 62, 0.06); /* vert très pâle : la piste reste discernable (coupure) sans être opaque */
+    border-radius: 9999px;
     margin: 6px 0;
 }
 
@@ -43,7 +44,11 @@
 
 /* Thème sombre : le forest foncé se fond dans le fond → passage au lime clair. */
 .dark .fi-sidebar-nav {
-    scrollbar-color: rgba(170, 201, 50, 0.3) transparent; /* lime-500 */
+    scrollbar-color: rgba(170, 201, 50, 0.3) rgba(170, 201, 50, 0.08); /* thumb lime-500 / piste lime très pâle */
+}
+
+.dark .fi-sidebar-nav::-webkit-scrollbar-track {
+    background: rgba(170, 201, 50, 0.08); /* piste lime très pâle en dark */
 }
 
 .dark .fi-sidebar-nav::-webkit-scrollbar-thumb {
@@ -60,4 +65,38 @@
 
 .dark .fi-sidebar-nav::-webkit-scrollbar-thumb:active {
     background-color: #c8dd72; /* lime-300 pendant le drag */
+}
+
+/* ==========================================================================
+   Habillage des niveaux de navigation
+   Fonds forest très pâles, de plus en plus marqués avec la profondeur, pour
+   lire d'un coup d'œil l'imbrication section (groupe top-level) → sous-section
+   (sous-menu déplié). Volontairement subtil (« léger »).
+   ========================================================================== */
+
+/* Niveau 1 — groupe (Ventes & Clients, Catalogue, Configuration…) :
+   chaque section devient une carte à fond forest quasi imperceptible. */
+.fi-sidebar-nav .fi-sidebar-group {
+    background-color: rgba(0, 69, 62, 0.03);
+    border-radius: 0.75rem;
+    padding: 0.25rem 0.375rem;
+}
+
+/* Niveau 2 — sous-menu imbriqué déplié (Catégorisation, Financier…) :
+   le bloc d'enfants se pose sur un fond un peu plus soutenu + coins arrondis,
+   conservant la ligne-guide verticale posée en inline par item.blade.php. */
+.fi-sidebar-nav .fi-sidebar-sub-group-items {
+    background-color: rgba(0, 69, 62, 0.06);
+    border-radius: 0.5rem;
+    padding-block: 0.375rem;
+    margin-block: 0.125rem 0.25rem;
+}
+
+/* Dark : les tons forest se noient sur fond sombre → bascule sur du lime dilué. */
+.dark .fi-sidebar-nav .fi-sidebar-group {
+    background-color: rgba(170, 201, 50, 0.035);
+}
+
+.dark .fi-sidebar-nav .fi-sidebar-sub-group-items {
+    background-color: rgba(170, 201, 50, 0.06);
 }

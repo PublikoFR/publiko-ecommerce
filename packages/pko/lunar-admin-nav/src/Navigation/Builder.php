@@ -49,7 +49,7 @@ use Pko\StorefrontCms\Filament\Resources\PostResource;
  *
  * 1 raccourci (Tableau de bord) + 5 groupes : Ventes & Clients, Catalogue,
  * Marketing, Boutique, Configuration. Deux sous-menus IMBRIQUÉS animés dans la
- * sidebar (Catégorisation, et Réglages / Paiements & Facturation) via
+ * sidebar (Catégorisation, et Réglages / Financier) via
  * self::nestedMenu() — le rendu (flèche dépliable + animation x-collapse +
  * indentation) est assuré par l'override de vue
  * resources/views/vendor/filament-panels/components/sidebar/item.blade.php.
@@ -155,7 +155,7 @@ class Builder
                 self::resItem(RoleResource::class, 'heroicon-o-shield-check', 'Rôles'),
                 self::resItem(PkoStaffResource::class, 'heroicon-o-user-circle', 'Personnel'),
             ], sort: 1),
-            self::nestedMenu('Paiements & Facturation', 'heroicon-o-credit-card', [
+            self::nestedMenu('Financier', 'heroicon-o-credit-card', [
                 self::resItem(PkoCurrencyResource::class, 'heroicon-o-banknotes', 'Devises'),
                 self::resItem(PkoTaxesCluster::class, 'heroicon-o-calculator', 'Taxes'),
                 self::resItem(StripeConfig::class, 'heroicon-o-credit-card', 'Stripe'),
