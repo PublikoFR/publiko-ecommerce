@@ -281,59 +281,168 @@
             </x-pko-product::card>
 
             {{-- 6. Caractéristiques techniques (CatalogFeatures) --}}
-            <x-pko-product::card title="Caractéristiques techniques" icon="heroicon-o-list-bullet">
-                <div class="space-y-3">
-                    @forelse ($this->featureFamilies as $family)
-                        <div class="grid grid-cols-[180px_1fr] gap-3 items-start">
-                            <div class="pt-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ $family->name }}
-                                @if ($family->multi_value)
-                                    <span class="ml-1 text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
-                                @endif
-                            </div>
-                            <div class="flex flex-wrap gap-1.5">
-                                @if ($family->multi_value)
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @else
-                                    <label class="cursor-pointer select-none">
-                                        <input type="radio" wire:model="featureValues.{{ $family->id }}" value="" class="peer sr-only" />
-                                        <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-500 transition hover:border-gray-400 peer-checked:border-gray-500 peer-checked:bg-gray-500 peer-checked:text-white dark:border-white/10 dark:bg-gray-900 dark:text-gray-400">
-                                            —
-                                        </span>
-                                    </label>
-                                    @foreach ($family->values as $value)
-                                        <label class="cursor-pointer select-none">
-                                            <input
-                                                type="radio"
-                                                wire:model="featureValues.{{ $family->id }}"
-                                                value="{{ $value->id }}"
-                                                class="peer sr-only"
-                                            />
-                                            <span class="inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs text-gray-600 transition hover:border-primary-400 peer-checked:border-primary-600 peer-checked:bg-primary-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
-                                                {{ $value->name }}
-                                            </span>
-                                        </label>
-                                    @endforeach
-                                @endif
+            @php
+                $familiesMeta = $this->featureFamilies->map(fn ($f) => [
+                    'id' => (int) $f->id,
+                    'name' => (string) $f->name,
+                    'multi' => (bool) $f->multi_value,
+                    'values' => $f->values
+                        ->map(fn ($v) => ['id' => (int) $v->id, 'name' => (string) $v->name])
+                        ->values()
+                        ->all(),
+                ])->values()->all();
+            @endphp
+            {{--
+                Composant Alpine INLINE (et non un global window.pkoFeatures + @assets) :
+                sous Filament, Alpine.start() peut précéder l'exécution du script @assets
+                → un global n'existe pas encore au montage du composant → panneau vide.
+                L'objet littéral inline est évalué par Alpine au montage, sans dépendance.
+                Données injectées via @js (hex-échappe " ' < > → aucun guillemet brut dans
+                l'attribut). État local synchronisé en différé vers la prop Livewire.
+            --}}
+            <section
+                x-data="{
+                    q: '',
+                    sel: @js($featureValues),
+                    meta: @js($familiesMeta),
+                    _n(id) { return String(id); },
+                    isOn(fam, id) {
+                        const s = this.sel[fam];
+                        return Array.isArray(s) ? s.map(this._n).includes(this._n(id)) : this._n(s) === this._n(id);
+                    },
+                    toggle(fam, id, multi) {
+                        if (multi) {
+                            const s = Array.isArray(this.sel[fam]) ? [...this.sel[fam]] : [];
+                            const i = s.map(this._n).indexOf(this._n(id));
+                            if (i >= 0) s.splice(i, 1); else s.push(id);
+                            this.sel[fam] = s;
+                        } else {
+                            this.sel[fam] = this._n(this.sel[fam]) === this._n(id) ? '' : id;
+                        }
+                        this.sync();
+                    },
+                    clearFam(fam, multi) { this.sel[fam] = multi ? [] : ''; this.sync(); },
+                    count(fam) { const s = this.sel[fam]; return Array.isArray(s) ? s.length : (s ? 1 : 0); },
+                    totalValues() { return this.meta.reduce((n, m) => n + this.count(m.id), 0); },
+                    filledFams() { return this.meta.filter((m) => this.count(m.id) > 0).length; },
+                    preview() { return this.meta.filter((m) => this.count(m.id) > 0); },
+                    valNames(m) {
+                        const s = this.sel[m.id];
+                        const ids = (Array.isArray(s) ? s : [s]).map(this._n);
+                        return m.values.filter((v) => ids.includes(this._n(v.id))).map((v) => v.name).join(', ');
+                    },
+                    matchFam(m) {
+                        const q = this.q.trim().toLowerCase();
+                        return !q || m.name.toLowerCase().includes(q) || m.values.some((v) => v.name.toLowerCase().includes(q));
+                    },
+                    matchVal(m, v) {
+                        const q = this.q.trim().toLowerCase();
+                        return !q || m.name.toLowerCase().includes(q) || v.name.toLowerCase().includes(q);
+                    },
+                    anyMatch() { return this.meta.some((m) => this.matchFam(m)); },
+                    highlight(text) {
+                        const safe = this._esc(text);
+                        const q = this.q.trim();
+                        if (!q) return safe;
+                        const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+                        return safe.replace(re, '<mark>$1</mark>');
+                    },
+                    _esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); },
+                    sync() {
+                        const clean = JSON.parse(JSON.stringify(this.sel));
+                        this.$wire.set('featureValues', clean, false);
+                        this.$wire.set('isDirty', true, false);
+                    },
+                }"
+                class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden"
+            >
+                {{-- En-tête : titre + compteur familles / valeurs --}}
+                <header class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10">
+                    <div class="flex items-center gap-2">
+                        <x-filament::icon icon="heroicon-o-list-bullet" class="w-4 h-4 text-gray-500" />
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Caractéristiques techniques</h3>
+                    </div>
+                    <span
+                        x-show="filledFams() > 0"
+                        x-cloak
+                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300"
+                        x-text="filledFams() + ' famille' + (filledFams() > 1 ? 's' : '') + ' · ' + totalValues() + ' valeur' + (totalValues() > 1 ? 's' : '')"
+                    ></span>
+                </header>
+
+                {{-- Aucune famille définie --}}
+                <template x-if="!meta.length">
+                    <p class="p-[18px] text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
+                </template>
+
+                <div x-show="meta.length" class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
+                    {{-- Colonne gauche : recherche + liste des familles --}}
+                    <div class="min-w-0">
+                        <div class="px-4 pt-4">
+                            <div class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-white/10 bg-white dark:bg-gray-900 px-3 py-2 focus-within:border-primary-600 focus-within:ring-2 focus-within:ring-primary-600/15">
+                                <x-filament::icon icon="heroicon-o-magnifying-glass" class="w-4 h-4 text-gray-400 shrink-0" />
+                                <input
+                                    type="text"
+                                    x-model="q"
+                                    placeholder="Chercher une valeur ou une famille…"
+                                    class="flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-0"
+                                />
+                                <button type="button" x-show="q.trim()" x-on:click="q = ''" class="shrink-0 text-xs text-gray-400 hover:text-gray-600">Effacer</button>
                             </div>
                         </div>
-                    @empty
-                        <p class="text-xs text-gray-500">Aucune famille de caractéristiques définie. Créez-en dans <strong>Catalogue → Caractéristiques</strong>.</p>
-                    @endforelse
+
+                        <div class="p-4 space-y-1 max-h-[560px] overflow-auto">
+                            <template x-for="m in meta" :key="m.id">
+                                <div x-show="matchFam(m)" class="py-2.5 border-b border-gray-100 dark:border-white/5 last:border-0">
+                                    <div class="flex items-baseline gap-2 mb-2">
+                                        <span class="text-[12.5px] font-medium text-gray-700 dark:text-gray-300" x-html="highlight(m.name)"></span>
+                                        <span
+                                            class="text-[11px] font-semibold tabular-nums"
+                                            :class="count(m.id) ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'"
+                                            x-text="count(m.id) ? count(m.id) + ' sélectionné' + (count(m.id) > 1 ? 's' : '') : 'aucune'"
+                                        ></span>
+                                        <span x-show="m.multi" class="text-[10px] font-normal uppercase tracking-wide text-gray-400">multi</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="v in m.values" :key="v.id">
+                                            <button
+                                                type="button"
+                                                x-show="matchVal(m, v)"
+                                                x-on:click="toggle(m.id, v.id, m.multi)"
+                                                class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs transition"
+                                                :class="isOn(m.id, v.id)
+                                                    ? 'border-primary-600 bg-primary-600 text-white font-medium'
+                                                    : 'border-gray-300 dark:border-white/10 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:border-primary-400 hover:text-primary-600'"
+                                                x-html="highlight(v.name)"
+                                            ></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <p x-show="q.trim() && !anyMatch()" class="py-2 text-xs italic text-gray-400" x-text="'Aucune caractéristique ne correspond à « ' + q + ' ».'"></p>
+                        </div>
+                    </div>
+
+                    {{-- Colonne droite : aperçu fiche produit (live) --}}
+                    <div class="border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-white/[0.02] p-4 max-h-[614px] overflow-auto">
+                        <div class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Aperçu fiche produit</div>
+                        <p x-show="!preview().length" class="text-xs italic text-gray-400">Rien de sélectionné pour l'instant.</p>
+                        <table x-show="preview().length" x-cloak class="w-full border-collapse text-[12.5px]">
+                            <tbody>
+                                <template x-for="m in preview()" :key="m.id">
+                                    <tr class="border-b border-gray-200/70 dark:border-white/5 last:border-0 align-top">
+                                        <td class="w-[44%] py-1.5 pr-2 text-gray-500" x-text="m.name"></td>
+                                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">
+                                            <span x-text="valNames(m)"></span>
+                                            <button type="button" x-on:click="clearFam(m.id, m.multi)" title="Vider cette famille" class="ml-1.5 text-gray-400 hover:text-danger-500">×</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </x-pko-product::card>
+            </section>
 
             {{-- 7. Inventaire & expédition --}}
             @php

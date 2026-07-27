@@ -55,7 +55,15 @@ Matrice inline, paginée (10/page) via `WithPagination`. Deux actions ciblées :
 
 ### Caractéristiques techniques
 
-Source : **`pko_feature_families` / `pko_feature_values`** (package `Pko\CatalogFeatures`). Les familles sont rendues dynamiquement ; les familles `multi_value` deviennent des `<select multiple>`, les autres des `<select>` simples. Sync via `FeatureManager::sync()`.
+Source : **`pko_feature_families` / `pko_feature_values`** (package `Pko\CatalogFeatures`). Sync via `FeatureManager::sync()`.
+
+**UI (Layout A) — recherche + chips + aperçu live**, section bespoke (pas le composant `card`) en 2 colonnes :
+
+- **Composant Alpine `pkoFeatures`** enregistré dans le bloc `@assets` de la page (`alpine:init` → `Alpine.data`). État local `sel` initialisé depuis `@js($featureValues)`, méta des familles passée via `@js($familiesMeta)` (id / name / multi / values).
+- **Colonne gauche** : champ de recherche client-side (filtre familles + valeurs, surlignage `<mark>` via `highlight()`), liste de familles, valeurs rendues en **chips toggle** (`toggle(fam, id, multi)`). Familles `multi_value` = sélection multiple (tableau) ; sinon mono (scalaire, re-clic = désélection). Compteur par famille + pastille d'en-tête (N familles · M valeurs).
+- **Colonne droite** : **aperçu « fiche produit » live** (`<template x-for="m in preview()">`) listant les familles renseignées + bouton × (`clearFam`) pour vider une famille.
+- **Persistance** : chaque changement appelle `sync()` → `$wire.set('featureValues', …, false)` (**différé**, aucun round-trip ni perte de focus à la frappe/au clic) + `isDirty=true`. `save()` lit `featureValues` inchangé. Le tout reste piloté par `collectFeatureValueIds()` → `FeatureManager::sync()`.
+- **Pas de champ « groupe »** sur `FeatureFamily` → liste plate (le regroupement par section de la maquette était propre à sa demo-data). Facile à réintroduire si une colonne groupe est ajoutée.
 
 ### Historique
 
