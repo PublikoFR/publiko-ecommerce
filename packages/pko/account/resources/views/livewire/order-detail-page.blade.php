@@ -1,4 +1,10 @@
 <div class="space-y-6">
+    @if (session('checkout_confirmed'))
+        <x-ui.alert variant="success" title="Commande validée">
+            Votre commande a bien été enregistrée et votre paiement confirmé. Merci pour votre confiance !
+        </x-ui.alert>
+    @endif
+
     <div>
         <a href="{{ route('account.orders') }}" class="text-sm text-primary-600 hover:text-primary-700 font-semibold">← Mes commandes</a>
         <h1 class="text-2xl font-display font-bold text-neutral-900 mt-1">Commande #{{ $order->reference ?? $order->id }}</h1>

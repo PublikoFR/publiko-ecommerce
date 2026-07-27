@@ -119,20 +119,21 @@ class CheckoutPage extends Component
             ])->authorize();
 
             if ($payment->success) {
-                redirect()->route('checkout-success.view');
+                $this->redirectToOrderConfirmation($payment->orderId, confirmed: true);
 
                 return;
             }
 
             // SEPA Direct Debit: Stripe returns 'processing' (async), not 'succeeded'.
             // The order was created by authorize() but placed_at is null until webhook confirms.
-            // We place it manually here so the customer sees the success page.
+            // We place it manually here so the customer sees the recap page.
             if ($this->paymentType === 'sepa' && $payment->orderId) {
                 Order::find($payment->orderId)?->update([
                     'placed_at' => now(),
                     'status' => 'payment-pending',
                 ]);
-                redirect()->route('checkout-success.view');
+                // Paiement SEPA encore en cours (processing) → pas de bannière verte.
+                $this->redirectToOrderConfirmation($payment->orderId, confirmed: false);
 
                 return;
             }
@@ -369,7 +370,8 @@ class CheckoutPage extends Component
 
             $order->update(['placed_at' => now()]);
 
-            return redirect()->route('checkout-success.view');
+            // Commande sur devis : soumise (awaiting-quote), pas encore payée → pas de bannière verte.
+            return $this->redirectToOrderConfirmation($order->id, confirmed: false);
         }
 
         $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
@@ -378,12 +380,31 @@ class CheckoutPage extends Component
         ])->authorize();
 
         if ($payment->success) {
-            redirect()->route('checkout-success.view');
-
-            return null;
+            return $this->redirectToOrderConfirmation($payment->orderId, confirmed: true);
         }
 
+        // Paiement non abouti : on ne redirige pas vers le récap de commande.
         return redirect()->route('checkout-success.view');
+    }
+
+    /**
+     * Vide le panier et renvoie le client vers le récap de sa commande.
+     *
+     * @param  bool  $confirmed  true = affiche la bannière verte « commande validée / paiement confirmé »
+     */
+    private function redirectToOrderConfirmation(?int $orderId, bool $confirmed): mixed
+    {
+        CartSession::forget();
+
+        if (! $orderId) {
+            return redirect()->route('account.orders');
+        }
+
+        if ($confirmed) {
+            session()->flash('checkout_confirmed', true);
+        }
+
+        return redirect()->route('account.order.view', ['order' => $orderId]);
     }
 
     /**
