@@ -36,13 +36,13 @@ class CustomerListRenderCheckTest extends TestCase
         $this->actingAs($staff, 'staff');
     }
 
-    public function test_customer_list_renders_with_anonymize_action(): void
+    public function test_customer_list_renders_with_rgpd_delete_action(): void
     {
         $this->actAsStaff();
 
         $this->get('/admin/customers')
             ->assertOk()
-            ->assertSee('Anonymiser');
+            ->assertSee('Supprimer (RGPD)');
     }
 
     public function test_customer_list_shows_clickable_email_below_name(): void

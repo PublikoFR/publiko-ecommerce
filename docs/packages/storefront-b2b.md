@@ -156,19 +156,33 @@ Couvert par `tests/Feature/CustomerAuth/LogoutTest.php` (sans CSRF, idempotence,
 
 Migration `2026_04_17_120000_add_sirene_columns_to_lunar_customers` : `sirene_status` (indexed), `sirene_verified_at`, `naf_code`.
 
-### Suppression d'un client = anonymisation RGPD (jamais de delete physique)
+### Suppression d'un client = traitement RGPD « intelligent » (delete vs anonymisation)
 
-Toutes les FK vers `lunar_customers` (orders, addresses, carts, pivots user/group/discount)
-sont en `NO ACTION` et le modèle Lunar `Customer` n'a **ni SoftDeletes ni cascade** → un
-`DeleteBulkAction` natif plante en `1451 FK constraint` dès qu'un client a une commande /
-un compte lié. Décision (RGPD + compta/Pennylane) : **on n'efface jamais la ligne client**.
+Les FK vers `lunar_customers` sont mixtes : `NO ACTION` (orders, addresses, carts, pivots
+user/group/discount) et `CASCADE` (loyalty, pennylane, purchase_lists, negotiated_prices).
+Le modèle Lunar `Customer` n'a **ni SoftDeletes** → un `DeleteBulkAction` natif plante en
+`1451 FK constraint` dès qu'un client a une commande / un compte lié.
 
-`App\Filament\Extensions\CustomerAnonymizeExtension` (extension sur `CustomerResource`)
-remplace le bulk delete par une action **« Anonymiser (RGPD) »** →
-`Pko\CustomerAuth\Actions\AnonymizeCustomer` :
-- efface les données perso du client (`first_name`/`last_name`/`company_name`/`tax_identifier`/`meta`/`sirene_*`), **garde la fiche et ses commandes** ;
-- supprime adresses + paniers du client, détache groupes/remises ;
-- **supprime les comptes de connexion (`User`) liés** : les FK `NO ACTION` vers `users` sont dénouées avant (les commandes sont conservées, `lunar_orders.user_id` → `null` ; `discount_user`/`customer_user`/carts supprimés).
+Décision (depuis 2026-07) : **un seul bouton « Supprimer (RGPD) »** qui choisit la stratégie
+selon la présence de commandes (`Pko\CustomerAuth\Actions\AnonymizeCustomer::purge()`) :
+- **client sans commande** → `deleteCompletely()` : suppression physique complète (la fiche
+  disparaît vraiment). Aucune pièce comptable à conserver ; loyalty/pennylane/listes/prix
+  négociés partent en `CASCADE`.
+- **client avec commande(s)** → `anonymize()` : la fiche `lunar_customers` et ses commandes
+  sont **conservées** (obligation légale de conservation comptable ~10 ans — le droit RGPD à
+  l'effacement ne s'applique pas aux factures). Données perso effacées, `pko_status='banned'`,
+  et `anonymized_at` horodaté.
+
+Dans les deux cas, `stripPersonalData()` efface adresses/paniers/groupes/remises et **supprime
+les comptes de connexion (`User`) liés** (FK `NO ACTION` vers `users` dénouées avant :
+`lunar_orders.user_id`→`null`, `discount_user`/`customer_user`/carts supprimés).
+
+**Masquage de la liste** : migration `2026_07_27_120000_add_anonymized_at_to_lunar_customers`
+(colonne `anonymized_at` nullable, indexée). `CustomerAnonymizeExtension` (extension sur
+`PkoCustomerResource`) ajoute un filtre **« Masquer les clients anonymisés » coché par défaut**
+(`whereNull('anonymized_at')`) → les fiches anonymisées disparaissent de la liste ; décocher
+pour les revoir. L'action existe en **row action** (par client) et en **bulk action** (le bulk
+remplace le delete natif ; la notification récapitule N supprimés / N anonymisés).
 
 ### Suppression d'un groupe client = garde-fou (jamais de 1451)
 

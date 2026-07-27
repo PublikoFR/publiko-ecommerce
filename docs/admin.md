@@ -48,7 +48,7 @@ Structure actuelle :
 
 Colonnes Lunar retirées : identifiant fiscal (`tax_identifier`) et référence du compte (`account_ref`). Filtre **Département** (`SelectFilter`, options = préfixes 2-chiffres distincts présents en base) en plus du filtre groupe. Rendu couvert par `CustomerListRenderCheckTest`.
 
-**Actions de ligne en dropdown** : toutes les actions (`ViewAction`, `EditAction`, **« Envoyer un e-mail »** (mailto, si e-mail), impersonation) sont regroupées dans un `ActionGroup` (dernière colonne, icône « … ») pour gagner de la place. Un clic sur la ligne ouvre l'édition (`recordUrl` posé par `CustomerProfileExtension`). L'anonymisation RGPD reste une **bulk action** (`CustomerAnonymizeExtension`), non affectée.
+**Actions de ligne en dropdown** : toutes les actions (`ViewAction`, `EditAction`, **« Envoyer un e-mail »** (mailto, si e-mail), impersonation) sont regroupées dans un `ActionGroup` (dernière colonne, icône « … ») pour gagner de la place. Un clic sur la ligne ouvre l'édition (`recordUrl` posé par `CustomerProfileExtension`). Le traitement RGPD **« Supprimer (RGPD) »** (`CustomerAnonymizeExtension`) est disponible en **row action** (danger) **et** en bulk action ; il supprime physiquement le client s'il n'a aucune commande, sinon l'anonymise et le masque de la liste (cf. `docs/packages/storefront-b2b.md`).
 
 **Impersonation client** : action « Se connecter en tant que » (dans le dropdown) — connecte l'admin sur le **guard front `web`** (provider `users`) avec l'utilisateur du client puis redirige vers `/`. Le guard staff admin reste inchangé (guards distincts). Pas de bouton retour : on quitte l'impersonation via la déconnexion front normale. Visible uniquement si le client a un utilisateur rattaché.
 

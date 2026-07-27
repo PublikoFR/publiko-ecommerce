@@ -69,4 +69,45 @@ class AnonymizeCustomerTest extends TestCase
         // Le compte de connexion est supprimé.
         $this->assertNull(User::find($user->id));
     }
+
+    public function test_purge_deletes_customer_without_orders(): void
+    {
+        $user = User::create([
+            'name' => 'Marie Martin',
+            'email' => 'marie@example.test',
+            'password' => Hash::make('password'),
+        ]);
+
+        $customer = Customer::create([
+            'first_name' => 'Marie',
+            'last_name' => 'Martin',
+            'company_name' => 'Prospect SARL',
+        ]);
+        $customer->users()->attach($user);
+
+        // Aucune commande → suppression physique complète.
+        $result = app(AnonymizeCustomer::class)->purge($customer);
+
+        $this->assertSame('deleted', $result);
+        $this->assertNull(Customer::find($customer->id), 'Le client sans commande doit être supprimé.');
+        $this->assertNull(User::find($user->id), 'Le compte de connexion doit être supprimé.');
+    }
+
+    public function test_purge_anonymizes_customer_with_orders(): void
+    {
+        $customer = Customer::create([
+            'first_name' => 'Paul',
+            'last_name' => 'Durand',
+            'company_name' => 'Client Actif SARL',
+        ]);
+        Order::factory()->create(['customer_id' => $customer->id]);
+
+        $result = app(AnonymizeCustomer::class)->purge($customer);
+
+        $this->assertSame('anonymized', $result);
+        $fresh = Customer::find($customer->id);
+        $this->assertNotNull($fresh, 'Le client avec commande doit être conservé (compta).');
+        $this->assertSame('anonymisé', $fresh->last_name);
+        $this->assertNotNull($fresh->anonymized_at, 'anonymized_at doit être horodaté.');
+    }
 }
