@@ -20,7 +20,7 @@ class LoyaltyPage extends Component
 
         if ($customer !== null && class_exists(LoyaltyManager::class)) {
             try {
-                $snapshot = app(LoyaltyManager::class)->getCustomerSnapshot($customer);
+                $snapshot = app(LoyaltyManager::class)->getCustomerSnapshot($customer->id);
             } catch (\Throwable) {
                 $snapshot = null;
             }

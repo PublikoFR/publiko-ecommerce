@@ -22,8 +22,14 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 - `LOYALTY_DEFAULT_RATIO` (défaut `1` — 1€HT = 1 point)
 - `LOYALTY_ADMIN_EMAIL` — destinataire des notifications de déblocage côté admin
 
+### Storefront — page fidélité client (`account.loyalty`)
+- Livewire `Pko\Account\Livewire\LoyaltyPage` (package `account`), vue `account::livewire.loyalty-page`.
+- Données via `LoyaltyManager::getCustomerSnapshot(int $customerId)` — signature **int**, passer `$customer->id` (pas l'objet `Customer`, sinon `TypeError` sous `strict_types` → page vide).
+- Sections affichées : solde de points + **stepper horizontal** (Vous → cadeau qui arrive au milieu → cadeau suivant à droite, les paliers au-delà ne sont pas montrés ; connecteur 1 rempli au prorata `prev_points → next_tier.points_required`). Fonctionne même sans commande (calculé sur les paliers actifs). Puis cadeaux débloqués (`unlocked_tiers`) et historique des points (`points_history`).
+- Clés du snapshot : `total_points`, `prev_points` (dernier palier atteint, base du wizard), `next_tier` (LoyaltyTier|null), `upcoming_tiers` (≤2 prochains LoyaltyTier), `progress_percent`, `points_to_next`, `unlocked_tiers` (GiftHistory[]), `points_history` (PointsHistory[]), `all_tiers_unlocked`, `no_tiers_configured`.
+- Icône `gift` ajoutée au set DS partagé `storefront::components.ui.icon`.
+
 ### Backlog phase 2
-- Storefront sections (progress / next gifts / unlocked / history) — data déjà exposée via `LoyaltyManager::getCustomerSnapshot()`.
 - Gestion remboursements / annulations (retrait points).
 - Commande artisan `loyalty:recalculate` pour rejouer historique clients existants.
 
