@@ -80,22 +80,13 @@ class SearchPage extends Component
      */
     private function baseQuery(): Builder
     {
-        $q = Product::query()->storefrontVisible();
+        $q = Product::query()->storefrontSearchable();
         $term = trim((string) $this->term);
 
         if ($term !== '' && strlen($term) >= 2) {
-            $like = '%'.addcslashes($term, '%_').'%';
-            $q->where(function ($qq) use ($like): void {
-                // Nom du produit : stocké dans attribute_data (JSON), chemin $.name.value
-                // (JSON_EXTRACT sur $.name renverrait l'objet {value, field_type} entier).
-                $qq->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.name.value")) LIKE ?', [$like])
-                    ->orWhereHas('variants', function ($v) use ($like): void {
-                        $v->where('sku', 'like', $like)
-                            ->orWhere('ean', 'like', $like)
-                            ->orWhere('mpn', 'like', $like);
-                    })
-                    ->orWhereHas('tags', fn ($t) => $t->where('value', 'like', $like));
-            });
+            // Couverture texte partagée avec l'autocomplete (nom/description/
+            // short_description/sku/ean/mpn/gtin/tags) via le scope commun.
+            $q->storefrontSearchMatch($term);
         }
 
         return $q;

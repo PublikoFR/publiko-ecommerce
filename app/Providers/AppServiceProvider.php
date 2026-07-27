@@ -341,6 +341,49 @@ class AppServiceProvider extends ServiceProvider
                     });
             });
         });
+
+        // ── Product scope : storefrontSearchable ─────────────────────────────
+        // La recherche est un chemin d'accès distinct de la navigation par
+        // catégories : un produit est trouvable dès qu'il est PUBLIÉ et possède
+        // une page publique (URL par défaut), même s'il n'est rangé dans aucune
+        // catégorie. On ne réutilise donc PAS storefrontVisible() (basé sur les
+        // collections) pour ne pas masquer des produits publiés non catégorisés.
+        Builder::macro('storefrontSearchable', function (): Builder {
+            /** @var Builder $this */
+            return $this->where('lunar_products.status', 'published')
+                ->whereHas('defaultUrl');
+        });
+
+        // ── Product scope : storefrontSearchMatch(term) ──────────────────────
+        // Filtre texte unique et partagé par la recherche (autocomplete + page
+        // résultats) pour garantir la MÊME couverture des deux côtés. Cherche
+        // dans : nom, description, description courte (attribute_data JSON),
+        // identifiants variant (sku/ean/mpn/gtin) et tags. Insensible à la casse.
+        Builder::macro('storefrontSearchMatch', function (string $term): Builder {
+            /** @var Builder $this */
+            $like = '%'.mb_strtolower(addcslashes($term, '%_')).'%';
+
+            return $this->where(function ($qq) use ($like): void {
+                // Attributs texte du produit (JSON, chemin $.<handle>.value).
+                foreach (['name', 'description', 'short_description'] as $attr) {
+                    $qq->orWhereRaw(
+                        'LOWER(JSON_UNQUOTE(JSON_EXTRACT(lunar_products.attribute_data, "$.'.$attr.'.value"))) LIKE ?',
+                        [$like]
+                    );
+                }
+
+                // Identifiants de variante.
+                $qq->orWhereHas('variants', function ($q) use ($like): void {
+                    $q->whereRaw('LOWER(sku) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(ean) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(mpn) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(gtin) LIKE ?', [$like]);
+                });
+
+                // Tags produit.
+                $qq->orWhereHas('tags', fn ($q) => $q->whereRaw('LOWER(value) LIKE ?', [$like]));
+            });
+        });
     }
 
     /**
