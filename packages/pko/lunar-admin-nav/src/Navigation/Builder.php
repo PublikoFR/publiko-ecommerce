@@ -35,6 +35,7 @@ use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
+use Pko\ShippingCommon\Filament\Resources\SupplierResource;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
 use Pko\StorefrontCms\Filament\Pages\StorefrontSettings;
 use Pko\StorefrontCms\Filament\Resources\HomeOfferResource;
@@ -108,6 +109,7 @@ class Builder
                     fn (): bool => request()->routeIs('filament.lunar.pages.tree-manager') && request()->query('tab') === 'features',
                 ),
                 self::resItem(BrandResource::class, 'heroicon-o-bookmark-square', 'Marques'),
+                self::resItem(SupplierResource::class, 'heroicon-o-building-office-2', 'Fournisseurs'),
                 self::resItem(PkoProductTypeResource::class, 'heroicon-o-cube-transparent', 'Types de produits'),
                 self::resItem(PkoAttributeGroupResource::class, 'heroicon-o-rectangle-group', 'Groupes d\'attributs'),
                 self::resItem(PkoCollectionGroupResource::class, 'heroicon-o-folder', 'Groupes de collections'),

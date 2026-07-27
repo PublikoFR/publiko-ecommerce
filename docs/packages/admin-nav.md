@@ -221,7 +221,7 @@ Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
 ```
 
 `⌄` = **sous-menu imbriqué dropdown animé dans la sidebar** :
-- Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
+- Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Fournisseurs (interne, `SupplierResource` hors cluster), Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
 - Réglages : Paramètres, Canaux, Activités, Rôles, Personnel
 - Paiements & Facturation : Devises, Taxes, Stripe, Pennylane
 

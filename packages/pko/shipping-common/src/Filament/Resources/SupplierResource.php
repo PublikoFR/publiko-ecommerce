@@ -6,11 +6,9 @@ namespace Pko\ShippingCommon\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Lunar\Admin\Support\Resources\BaseResource;
-use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\SupplierResource\Pages;
 use Pko\ShippingCommon\Models\Supplier;
 
@@ -18,11 +16,10 @@ class SupplierResource extends BaseResource
 {
     protected static ?string $model = Supplier::class;
 
-    protected static ?string $cluster = Shipping::class;
-
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
-
-    protected static ?int $navigationSort = 20;
+    // Resource top-level (hors cluster) : surfacée en item de menu dédié
+    // « Fournisseurs », placé sous « Marques » via lunar-admin-nav Builder.
+    // Usage strictement interne — aucune page publique côté storefront.
+    protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
     public static function getNavigationLabel(): string
     {
