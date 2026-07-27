@@ -6,10 +6,14 @@ namespace Pko\CustomerAuth\Filament\Resources;
 
 use Filament\Notifications\Notification;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Models\Customer;
 use Pko\CustomerAuth\Actions\ImpersonateCustomerUser;
@@ -34,9 +38,14 @@ class PkoCustomerResource extends CustomerResource
     protected static ?string $slug = 'customers';
 
     /**
-     * Liste clients : on ajoute e-mail + département (2 premiers chiffres du code
-     * postal) + filtre département, et on retire les colonnes identifiant fiscal
-     * (tax_identifier) et référence du compte (account_ref).
+     * Liste clients (compacte, pour tenir sur l'écran) :
+     * - colonne « Client » = nom + prénom, avec l'e-mail dessous (lien mailto),
+     *   recherchable sur prénom / nom / e-mail ;
+     * - département (2 premiers chiffres du code postal) + filtre ;
+     * - groupes limités aux 3 premiers (puis « … de plus ») ;
+     * - actions de ligne regroupées dans un dropdown (dernière colonne) ;
+     * - colonnes identifiant fiscal (tax_identifier) et référence compte
+     *   (account_ref) retirées.
      */
     public static function getDefaultTable(Table $table): Table
     {
@@ -46,59 +55,109 @@ class PkoCustomerResource extends CustomerResource
             ->reject(fn ($column) => in_array($column->getName(), ['tax_identifier', 'account_ref'], true))
             ->keyBy(fn ($column) => $column->getName());
 
-        $email = TextColumn::make('users.email')
-            ->label('E-mail')
-            ->searchable()
-            ->sortable()
-            ->copyable();
+        // Colonne unique nom + prénom, e-mail cliquable (mailto) en dessous.
+        // Recherche globale étendue à prénom / nom / e-mail (relation users).
+        $client = TextColumn::make('first_name')
+            ->label('Client')
+            ->html()
+            ->formatStateUsing(function (Customer $record): HtmlString {
+                $name = trim(($record->first_name ?? '').' '.($record->last_name ?? ''));
+
+                // Empilement vertical (nom en gras, e-mail dessous). Le wrapper
+                // cliquable de Filament est en `flex` (ligne) → on lui donne un
+                // enfant unique qui stacke lui-même en `flex-col`, aligné à gauche.
+                $html = '<span class="flex flex-col items-start leading-tight">'
+                    .'<span class="font-medium">'.e($name !== '' ? $name : '—').'</span>';
+
+                if (filled($email = $record->users()->first()?->email)) {
+                    $html .= '<span class="text-xs text-gray-500">'.e($email).'</span>';
+                }
+
+                return new HtmlString($html.'</span>');
+            })
+            // Pas de url() ici : la cellule retombe sur le lien de ligne (recordUrl →
+            // fiche client, posé par CustomerProfileExtension). L'e-mail reste du
+            // texte ; l'envoi de mail se fait via l'action « Envoyer un e-mail » du
+            // dropdown (évite un <a mailto> imbriqué dans le <a> de ligne).
+            ->searchable(query: fn (Builder $query, string $search): Builder => $query
+                ->where('first_name', 'like', "%{$search}%")
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhereHas('users', fn (Builder $q) => $q->where('email', 'like', "%{$search}%")))
+            ->sortable(['first_name', 'last_name']);
 
         $departement = TextColumn::make('pko_postcode')
             ->label('Département')
             ->formatStateUsing(fn (?string $state): string => filled($state) ? substr($state, 0, 2) : '—')
             ->sortable();
 
-        // Ordre : prénom, nom, société, e-mail, département, groupes.
+        // Groupes : 3 premiers affichés (badges), puis « … de plus » ; tooltip = liste complète.
+        $groups = TextColumn::make('customerGroups.name')
+            ->label('Groupes')
+            ->badge()
+            ->limitList(3)
+            ->tooltip(function (TextColumn $column, Customer $record): ?string {
+                if ($record->customerGroups->count() <= $column->getListLimit()) {
+                    return null;
+                }
+
+                return $record->customerGroups->map(fn ($group) => $group->name)->implode(', ');
+            });
+
+        // Ordre : client (nom + e-mail), société, département, groupes.
         $ordered = array_values(array_filter([
-            $columns->get('first_name'),
-            $columns->get('last_name'),
+            $client,
             $columns->get('company_name'),
-            $email,
             $departement,
-            $columns->get('customerGroups.name'),
+            $groups,
         ]));
+
+        $sendEmail = Action::make('sendEmail')
+            ->label('Envoyer un e-mail')
+            ->icon('heroicon-o-envelope')
+            ->color('gray')
+            ->visible(fn (Customer $record): bool => filled($record->users()->first()?->email))
+            ->url(fn (Customer $record): ?string => filled($email = $record->users()->first()?->email) ? 'mailto:'.$email : null);
+
+        $impersonate = Action::make('impersonate')
+            ->label('Se connecter en tant que')
+            ->icon('heroicon-o-arrow-right-on-rectangle')
+            ->color('warning')
+            ->requiresConfirmation()
+            ->modalHeading('Se connecter en tant que ce client ?')
+            ->modalDescription('Vous serez connecté sur le site (front) avec le compte de ce client. L\'accès à l\'espace pro est forcé, même si le compte est en attente de validation ou son e-mail non confirmé : ce que vous verrez peut donc différer de ce que voit réellement le client. Pour revenir, il suffit de vous déconnecter normalement.')
+            ->visible(fn (Customer $record): bool => $record->users()->exists())
+            ->action(function (Customer $record) {
+                $user = $record->users()->first();
+
+                if (! $user) {
+                    Notification::make()
+                        ->warning()
+                        ->title('Impossible : ce client n\'a aucun utilisateur rattaché.')
+                        ->send();
+
+                    return null;
+                }
+
+                // Connexion sur le guard front (web / provider users) —
+                // distinct du guard staff admin, qui reste inchangé.
+                // Cf. ImpersonateCustomerUser : la bascule temporaire du
+                // guard par défaut est indispensable, sans quoi les
+                // listeners Lunar du Login tapent sur le Staff.
+                app(ImpersonateCustomerUser::class)($user);
+
+                return redirect('/');
+            });
 
         return $table
             ->columns($ordered)
-            ->pushActions([
-                Action::make('impersonate')
-                    ->label('Se connecter en tant que')
-                    ->icon('heroicon-o-arrow-right-on-rectangle')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Se connecter en tant que ce client ?')
-                    ->modalDescription('Vous serez connecté sur le site (front) avec le compte de ce client. L\'accès à l\'espace pro est forcé, même si le compte est en attente de validation ou son e-mail non confirmé : ce que vous verrez peut donc différer de ce que voit réellement le client. Pour revenir, il suffit de vous déconnecter normalement.')
-                    ->visible(fn (Customer $record): bool => $record->users()->exists())
-                    ->action(function (Customer $record) {
-                        $user = $record->users()->first();
-
-                        if (! $user) {
-                            Notification::make()
-                                ->warning()
-                                ->title('Impossible : ce client n\'a aucun utilisateur rattaché.')
-                                ->send();
-
-                            return null;
-                        }
-
-                        // Connexion sur le guard front (web / provider users) —
-                        // distinct du guard staff admin, qui reste inchangé.
-                        // Cf. ImpersonateCustomerUser : la bascule temporaire du
-                        // guard par défaut est indispensable, sans quoi les
-                        // listeners Lunar du Login tapent sur le Staff.
-                        app(ImpersonateCustomerUser::class)($user);
-
-                        return redirect('/');
-                    }),
+            // Toutes les actions de ligne dans un dropdown (dernière colonne) → gain de place.
+            ->actions([
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    $sendEmail,
+                    $impersonate,
+                ]),
             ])
             ->filters([
                 ...$table->getFilters(),
