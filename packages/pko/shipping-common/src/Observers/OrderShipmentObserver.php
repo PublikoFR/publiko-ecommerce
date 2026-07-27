@@ -44,7 +44,10 @@ class OrderShipmentObserver
 
     private function createShipments(Order $order, string $carrier, string $serviceCode): void
     {
-        $lines = $order->lines()->with(['purchasable.product'])->get();
+        // productLines() exclut la ligne shipping (type=shipping) dont le purchasable
+        // est un Lunar\DataTypes\ShippingOption (value-object, non-Eloquent) : l'eager-load
+        // MorphTo de purchasable planterait sinon en ArgumentCountError.
+        $lines = $order->productLines()->with(['purchasable.product'])->get();
 
         $supplierIds = $lines
             ->map(fn ($l) => $l->purchasable?->product?->pko_supplier_id ?? null)

@@ -47,6 +47,10 @@ Les commandes `awaiting-quote` (produits `pko_quote_only`, cf. `docs/shipping.md
 - Ce flux n'utilise **pas** le webhook `stripe/webhook` de l'addon (celui-ci est lié au flux cart→order). La confirmation passe par le `return_url` + vérification serveur de l'intent.
 - Tests : `tests/Feature/Shipping/QuotePaymentControllerTest.php` (mock via `Lunar\Stripe\Facades\Stripe::fake()`, aucun appel Stripe réel).
 
+### 4.4b Lien dashboard Stripe sur les transactions (admin)
+
+Le composant infolist des transactions de commande (`lunarpanel::infolists.components.transaction`) est **overridé** dans `resources/views/vendor/lunarpanel/infolists/components/transaction.blade.php` (mécanisme de surcharge de vues Laravel, `vendor/` intact) : la référence de transaction du driver `stripe` devient un lien cliquable vers le paiement dans le dashboard Stripe (`https://dashboard.stripe.com/[test/]payments/{reference}`). La bascule test/live suit le préfixe de `config('services.stripe.key')` (`sk_test_`). Override full-file → surveiller le drift si Lunar met à jour ce blade.
+
 ### 4.5 PayPal (phase 2)
 
 `lunarphp/paypal` existe officiellement. À installer quand le besoin est confirmé côté front. **Attention** : il s'enregistre aussi sur le type `card`, ce qui entre en conflit avec Stripe. Options :
