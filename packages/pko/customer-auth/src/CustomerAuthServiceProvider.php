@@ -9,6 +9,7 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Console\BackfillDefaultCustomerGroupCommand;
 use Pko\CustomerAuth\Http\Middleware\RedirectIfProCustomer;
 use Pko\CustomerAuth\Http\Middleware\RequireProCustomer;
 use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
@@ -41,6 +42,10 @@ class CustomerAuthServiceProvider extends ServiceProvider
 
         $router->aliasMiddleware('pro.customer', RequireProCustomer::class);
         $router->aliasMiddleware('redirect.if.pro', RedirectIfProCustomer::class);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([BackfillDefaultCustomerGroupCommand::class]);
+        }
 
         // Le handle d'un groupe client doit rester un slug : l'inscription et le
         // contrôle d'accès pro résolvent le groupe par défaut par handle, et le
