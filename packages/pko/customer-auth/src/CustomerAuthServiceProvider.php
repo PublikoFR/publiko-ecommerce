@@ -8,6 +8,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Lunar\Models\Customer;
+use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Http\Middleware\RedirectIfProCustomer;
 use Pko\CustomerAuth\Http\Middleware\RequireProCustomer;
 use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
@@ -15,6 +16,7 @@ use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
 use Pko\CustomerAuth\Models\NegotiatedPrice;
+use Pko\CustomerAuth\Observers\CustomerGroupHandleObserver;
 use Pko\CustomerAuth\Sirene\SireneClient;
 
 class CustomerAuthServiceProvider extends ServiceProvider
@@ -39,6 +41,11 @@ class CustomerAuthServiceProvider extends ServiceProvider
 
         $router->aliasMiddleware('pro.customer', RequireProCustomer::class);
         $router->aliasMiddleware('redirect.if.pro', RedirectIfProCustomer::class);
+
+        // Le handle d'un groupe client doit rester un slug : l'inscription et le
+        // contrôle d'accès pro résolvent le groupe par défaut par handle, et le
+        // champ est librement éditable dans l'admin Lunar.
+        CustomerGroup::observe(CustomerGroupHandleObserver::class);
 
         // Relation « prix négociés » ajoutée au modèle Customer de Lunar sans le
         // subclasser (utilisée par le RelationManager Filament + le pipeline pricing).
