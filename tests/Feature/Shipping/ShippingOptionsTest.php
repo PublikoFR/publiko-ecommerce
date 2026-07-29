@@ -306,8 +306,8 @@ class ShippingOptionsTest extends TestCase
             $this->makeOption('chronopost.chrono13', 3890, false, [
                 'grid_price_cents' => 3890,
                 'flat_price_cents' => 8000,
-                'surcharge_cents'  => 0,
-                'franco'           => false,
+                'surcharge_cents' => 0,
+                'franco' => false,
             ]),
         ]);
 
@@ -324,8 +324,8 @@ class ShippingOptionsTest extends TestCase
             $this->makeOption('chronopost.chrono13', 1890, false, [
                 'grid_price_cents' => 1890,
                 'flat_price_cents' => 0,
-                'surcharge_cents'  => 0,
-                'franco'           => false,
+                'surcharge_cents' => 0,
+                'franco' => false,
             ]),
         ]);
 
@@ -341,8 +341,8 @@ class ShippingOptionsTest extends TestCase
             $this->makeOption('chronopost.chrono13', 3890, false, [
                 'grid_price_cents' => 3890,
                 'flat_price_cents' => 0,
-                'surcharge_cents'  => 800,
-                'franco'           => false,
+                'surcharge_cents' => 800,
+                'franco' => false,
             ]),
         ]);
 
