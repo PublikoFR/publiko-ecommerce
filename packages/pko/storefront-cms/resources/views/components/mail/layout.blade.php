@@ -59,14 +59,14 @@
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e0e4e2;border-radius:14px;overflow:hidden;">
                     {{-- En-tête / logo --}}
                     <tr>
-                        <td align="center" style="background:#00453e;padding:28px 28px 24px;">
+                        <td align="center" style="background:#ffffff;padding:28px 28px 24px;border-bottom:3px solid #aac932;">
                             @if ($logo)
                                 <img src="{{ $logo }}" alt="{{ $brand }}" height="44" style="display:block;height:44px;max-height:44px;width:auto;border:0;outline:none;text-decoration:none;">
                             @else
-                                <span style="font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;">{{ $brand }}</span>
+                                <span style="font-size:22px;font-weight:bold;color:#00453e;letter-spacing:0.5px;">{{ $brand }}</span>
                             @endif
                             @if ($tagline)
-                                <p style="margin:10px 0 0;font-size:12px;color:#aac932;letter-spacing:0.3px;">{{ $tagline }}</p>
+                                <p style="margin:10px 0 0;font-size:12px;color:#4a5a55;letter-spacing:0.3px;">{{ $tagline }}</p>
                             @endif
                         </td>
                     </tr>
