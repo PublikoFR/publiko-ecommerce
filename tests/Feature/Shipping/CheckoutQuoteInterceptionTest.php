@@ -25,7 +25,7 @@ use Tests\TestCase;
 
 /**
  * Couvre la bifurcation du checkout storefront (F3) :
- * un panier contenant un produit pko_quote_only court-circuite le paiement
+ * un panier contenant un produit pko_port_mode='quote' court-circuite le paiement
  * et crée la commande en statut « awaiting-quote » ; un panier normal suit
  * le flux de paiement habituel, inchangé.
  */
@@ -50,13 +50,13 @@ class CheckoutQuoteInterceptionTest extends TestCase
      * billing address. The variant is made non-shippable so the order-creation
      * validator only requires a billing address (the shipping branch is covered
      * by the pipeline test). The bifurcation under test depends solely on
-     * product.pko_quote_only.
+     * product.pko_port_mode.
      */
     private function makeCartWith(bool $quoteOnly): Cart
     {
         /** @var Product $product */
         $product = Product::query()->first();
-        $product->forceFill(['pko_quote_only' => $quoteOnly])->save();
+        $product->forceFill(['pko_port_mode' => $quoteOnly ? 'quote' : 'standard'])->save();
 
         /** @var ProductVariant $variant */
         $variant = $product->variants()->first();

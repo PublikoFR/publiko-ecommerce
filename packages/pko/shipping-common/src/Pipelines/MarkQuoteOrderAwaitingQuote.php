@@ -9,7 +9,7 @@ use Lunar\Models\Order;
 use Lunar\Models\ProductVariant;
 
 /**
- * Order-creation pipeline step: if any line contains a pko_quote_only product,
+ * Order-creation pipeline step: if any line contains a product with port mode 'quote',
  * override the order status to 'awaiting-quote' so the operator can send a
  * custom payment link before the client pays.
  *
@@ -31,7 +31,7 @@ final class MarkQuoteOrderAwaitingQuote
     {
         $quoteVariantIds = ProductVariant::whereHas(
             'product',
-            fn ($q) => $q->where('pko_quote_only', true),
+            fn ($q) => $q->where('pko_port_mode', 'quote'),
         )->pluck('id');
 
         $hasQuoteOnly = $quoteVariantIds->isNotEmpty() && $order->lines()

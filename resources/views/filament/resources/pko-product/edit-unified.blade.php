@@ -446,8 +446,6 @@
 
             {{-- 7. Inventaire & expédition --}}
             @php
-                $portMode = $quoteOnly ? 'devis' : ($freeShipping ? 'offert' : 'standard');
-
                 // Pastille de statut affichée dans l'en-tête.
                 if (! $trackStock) {
                     $stockPill = ['label' => 'Stock non suivi', 'class' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
@@ -464,8 +462,10 @@
                     ? 'stock non suivi'
                     : ($stock > 0 ? $stock.' unité'.($stock > 1 ? 's' : '').' disponible'.($stock > 1 ? 's' : '') : 'en rupture');
                 $clientPort = match ($portMode) {
-                    'offert' => 'port offert (dropshipping)',
-                    'devis' => 'commande sur devis, sans paiement immédiat',
+                    'free' => 'port offert (dropshipping)',
+                    'flat' => 'frais de port forfaitaires',
+                    'quote' => 'commande sur devis, sans paiement immédiat',
+                    'inherit' => 'port selon politique fournisseur',
                     default => 'expédition au tarif standard',
                 };
                 $clientBackorder = $allowBackorder
@@ -534,16 +534,6 @@
                         </div>
 
                         <div>
-                            <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.logistics_class') }}</label>
-                            <select wire:model.live="logisticsClass" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900">
-                                <option value="">— {{ __('pko-shipping-common::admin.product.logistics_class_none') }} —</option>
-                                <option value="A">{{ __('pko-shipping-common::admin.product.logistics_class_a') }}</option>
-                                <option value="B">{{ __('pko-shipping-common::admin.product.logistics_class_b') }}</option>
-                                <option value="C">{{ __('pko-shipping-common::admin.product.logistics_class_c') }}</option>
-                            </select>
-                        </div>
-
-                        <div>
                             <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Poids &amp; dimensions</label>
                             <div class="grid grid-cols-4 gap-2">
                                 @foreach ([['weight', 'kg'], ['length', 'L cm'], ['width', 'l cm'], ['height', 'H cm']] as [$prop, $unit])
@@ -558,13 +548,19 @@
                         <hr class="border-gray-200 dark:border-white/10" />
 
                         <div class="text-[11px] font-semibold text-gray-400 tracking-wide uppercase">Facturation du port</div>
-                        <div class="flex gap-1 p-[3px] bg-gray-100 dark:bg-white/5 rounded-lg">
-                            @foreach (['standard' => 'Tarif standard', 'offert' => 'Port offert', 'devis' => 'Sur devis'] as $mode => $modeLabel)
+                        <div class="flex flex-wrap gap-1 p-[3px] bg-gray-100 dark:bg-white/5 rounded-lg">
+                            @foreach ([
+                                'inherit'  => __('pko-shipping-common::admin.product.port_mode_inherit'),
+                                'standard' => __('pko-shipping-common::admin.product.port_mode_standard'),
+                                'flat'     => __('pko-shipping-common::admin.product.port_mode_flat'),
+                                'free'     => __('pko-shipping-common::admin.product.port_mode_free'),
+                                'quote'    => __('pko-shipping-common::admin.product.port_mode_quote'),
+                            ] as $mode => $modeLabel)
                                 <button
                                     type="button"
                                     wire:click="setPortMode('{{ $mode }}')"
                                     @class([
-                                        'flex-1 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition',
+                                        'flex-1 min-w-[80px] px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition',
                                         'bg-white dark:bg-gray-800 text-primary-600 shadow-sm' => $portMode === $mode,
                                         'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' => $portMode !== $mode,
                                     ])
@@ -573,19 +569,25 @@
                         </div>
                         <p class="text-xs text-gray-500">
                             @switch($portMode)
-                                @case('offert')
+                                @case('free')
                                     Port inclus dans le prix d'achat (dropshipping) — exclu du calcul de livraison.
                                     @break
-                                @case('devis')
+                                @case('flat')
+                                    Prix forfaitaire fixe — saisir le montant ci-dessous.
+                                    @break
+                                @case('quote')
                                     Commande en attente de devis transport, sans paiement immédiat.
+                                    @break
+                                @case('inherit')
+                                    Port selon la politique du fournisseur (champ « Port inclus » sur la fiche fournisseur).
                                     @break
                                 @default
                                     Le tarif transporteur habituel s'applique selon poids et dimensions.
                             @endswitch
                         </p>
 
-                        {{-- Prix transport dédié — visible uniquement si classe C --}}
-                        @if ($logisticsClass === 'C')
+                        {{-- Prix transport forfaitaire — visible uniquement si mode flat --}}
+                        @if ($portMode === 'flat')
                             <div>
                                 <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.transport_price') }}</label>
                                 <div class="relative">
@@ -603,12 +605,21 @@
                             </div>
                         @endif
 
+                        @php
+                            $derivedFranco = $portMode === 'standard';
+                            $francoForced = $portMode !== 'inherit' && $francoEligible !== $derivedFranco;
+                        @endphp
                         <div class="pt-1">
                             <x-pko-product::switch-row
                                 :label="__('pko-shipping-common::admin.product.franco_eligible')"
                                 :description="__('pko-shipping-common::admin.product.franco_eligible_help')"
                                 model="francoEligible"
                             />
+                            @if ($francoForced)
+                                <p class="mt-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                    {{ __('pko-shipping-common::admin.product.franco_forced_manually') }}
+                                </p>
+                            @endif
                         </div>
                     </div>
                 </div>

@@ -278,7 +278,7 @@ class LunarProductWriterTest extends TestCase
         $this->assertSame(5000, (int) $price->price->value);
     }
 
-    public function test_import_defaults_logistics_class_to_b(): void
+    public function test_import_defaults_port_mode_to_standard_without_supplier(): void
     {
         $job = ImportJob::create([
             'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
@@ -286,17 +286,17 @@ class LunarProductWriterTest extends TestCase
         $record = StagingRecord::create([
             'import_job_id' => $job->id,
             'row_number' => 1,
-            'data' => ['reference' => 'SKU-LOGB', 'name' => 'Produit classe B par défaut', 'price_cents' => 1000],
+            'data' => ['reference' => 'SKU-LOGB', 'name' => 'Produit sans fournisseur', 'price_cents' => 1000],
             'status' => StagingStatus::Pending,
         ]);
 
         (new LunarProductWriter)->write($record);
 
         $product = ProductVariant::where('sku', 'SKU-LOGB')->firstOrFail()->product;
-        $this->assertSame('B', $product->pko_logistics_class);
+        $this->assertSame('standard', $product->pko_port_mode);
     }
 
-    public function test_import_respects_explicit_logistics_class(): void
+    public function test_import_maps_logistics_class_a_to_standard(): void
     {
         $job = ImportJob::create([
             'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
@@ -311,25 +311,60 @@ class LunarProductWriterTest extends TestCase
         (new LunarProductWriter)->write($record);
 
         $product = ProductVariant::where('sku', 'SKU-LOGA')->firstOrFail()->product;
-        $this->assertSame('A', $product->pko_logistics_class);
+        $this->assertSame('standard', $product->pko_port_mode);
     }
 
-    public function test_update_does_not_overwrite_logistics_class_if_absent_from_source(): void
+    public function test_import_maps_logistics_class_c_to_quote(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 1,
+            'data' => ['reference' => 'SKU-LOGC', 'name' => 'Produit classe C', 'price_cents' => 1000, 'logistics_class' => 'C'],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $product = ProductVariant::where('sku', 'SKU-LOGC')->firstOrFail()->product;
+        $this->assertSame('quote', $product->pko_port_mode);
+    }
+
+    public function test_import_respects_explicit_port_mode(): void
+    {
+        $job = ImportJob::create([
+            'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
+        ]);
+        $record = StagingRecord::create([
+            'import_job_id' => $job->id,
+            'row_number' => 1,
+            'data' => ['reference' => 'SKU-FREE', 'name' => 'Produit port offert', 'price_cents' => 1000, 'port_mode' => 'free'],
+            'status' => StagingStatus::Pending,
+        ]);
+
+        (new LunarProductWriter)->write($record);
+
+        $product = ProductVariant::where('sku', 'SKU-FREE')->firstOrFail()->product;
+        $this->assertSame('free', $product->pko_port_mode);
+    }
+
+    public function test_update_does_not_overwrite_port_mode_if_absent_from_source(): void
     {
         $job = ImportJob::create([
             'input_file_path' => 'n/a', 'status' => 'pending', 'import_status' => 'pending', 'error_policy' => 'ignore',
         ]);
 
-        // Création avec classe A explicite.
         $r1 = StagingRecord::create([
             'import_job_id' => $job->id,
             'row_number' => 1,
-            'data' => ['reference' => 'SKU-LOG-UPD', 'name' => 'Test', 'price_cents' => 1000, 'logistics_class' => 'A'],
+            'data' => ['reference' => 'SKU-LOG-UPD', 'name' => 'Test', 'price_cents' => 1000, 'port_mode' => 'flat'],
             'status' => StagingStatus::Pending,
         ]);
         (new LunarProductWriter)->write($r1);
 
-        // Mise à jour sans logistics_class → ne doit pas changer la classe.
+        // Mise à jour sans port_mode → ne doit pas changer le mode.
         $r2 = StagingRecord::create([
             'import_job_id' => $job->id,
             'row_number' => 2,
@@ -339,6 +374,6 @@ class LunarProductWriterTest extends TestCase
         (new LunarProductWriter)->write($r2);
 
         $product = ProductVariant::where('sku', 'SKU-LOG-UPD')->firstOrFail()->product;
-        $this->assertSame('A', $product->pko_logistics_class);
+        $this->assertSame('flat', $product->pko_port_mode);
     }
 }

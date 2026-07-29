@@ -340,9 +340,9 @@ class CheckoutPage extends Component
     }
 
     /**
-     * Whether the current cart contains at least one quote-only product line.
+     * Whether the current cart contains at least one product line with port mode 'quote'.
      *
-     * A "quote-only" product (pko_quote_only = true) cannot be paid immediately:
+     * A "quote" product cannot be paid immediately:
      * the operator must set the shipping cost and send a payment link.
      */
     public function getIsQuoteOnlyCartProperty(): bool
@@ -354,7 +354,7 @@ class CheckoutPage extends Component
         return $this->cart
             ->lines
             ->loadMissing('purchasable.product')
-            ->contains(fn ($line) => (bool) ($line->purchasable?->product?->pko_quote_only ?? false));
+            ->contains(fn ($line) => ($line->purchasable?->product?->pko_port_mode ?? '') === 'quote');
     }
 
     public function checkout(): mixed

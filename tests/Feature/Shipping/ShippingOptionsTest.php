@@ -108,10 +108,8 @@ class ShippingOptionsTest extends TestCase
     {
         $product = (object) [
             'pko_franco_eligible' => $francoEligible,
-            'pko_logistics_class' => 'A',
-            'pko_quote_only' => false,
+            'pko_port_mode' => 'standard',
             'pko_supplier_id' => $supplierId,
-            'pko_free_shipping' => false,
         ];
 
         $variant = (object) [

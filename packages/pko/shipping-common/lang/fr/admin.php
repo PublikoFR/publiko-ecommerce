@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 return [
     'product' => [
-        'logistics_class' => 'Classe logistique',
-        'logistics_class_none' => 'Non définie',
-        'logistics_class_a' => 'En stock local',
-        'logistics_class_b' => 'Stock fournisseur',
-        'logistics_class_c' => 'Volumineux / Spécifique',
+        'port_mode' => 'Facturation du port',
+        'port_mode_inherit' => 'Fournisseur',
+        'port_mode_standard' => 'Standard',
+        'port_mode_flat' => 'Forfait',
+        'port_mode_free' => 'Offert',
+        'port_mode_quote' => 'Devis',
+        'port_mode_inherit_desc' => 'Port selon la politique du fournisseur.',
+        'port_mode_standard_desc' => 'Tarif transporteur habituel selon poids et dimensions.',
+        'port_mode_flat_desc' => 'Prix forfaitaire fixe — saisir le montant ci-dessous.',
+        'port_mode_free_desc' => 'Port inclus dans le prix d\'achat (dropshipping) — exclu du calcul de livraison.',
+        'port_mode_quote_desc' => 'Commande en attente de devis transport, sans paiement immédiat.',
         'franco_eligible' => 'Éligible au franco',
         'franco_eligible_help' => 'Décocher pour les produits volumineux, longs, fragiles, palettes, menuiseries, hors normes…',
-        'transport_price' => 'Prix transport dédié',
-        'transport_price_help' => 'Frais de transport spécifiques à ce produit (classe C).',
-        'quote_only' => 'Sur devis',
-        'quote_only_help' => 'Commande créée en attente de devis transport, sans paiement immédiat.',
+        'franco_forced_manually' => 'Forcé manuellement (diffère de la valeur dérivée du mode)',
+        'transport_price' => 'Prix transport forfaitaire',
+        'transport_price_help' => 'Frais de transport fixes appliqués à ce produit (mode forfait).',
         'supplier' => 'Fournisseur',
         'supplier_none' => 'Aucun',
+        'filter_port_a_trancher' => 'Port à trancher',
+        'filter_port_a_trancher_label' => 'Produits en héritage fournisseur (cas par cas)',
     ],
 
     'supplier' => [
@@ -29,6 +36,11 @@ return [
         'lead_time_min' => 'Délai min (jours)',
         'lead_time_max' => 'Délai max (jours)',
         'notes' => 'Notes',
+        'port_inclus' => 'Port inclus',
+        'port_inclus_help' => 'Indique si ce fournisseur facture ou non les frais de port sur ses expéditions.',
+        'port_inclus_oui' => 'Oui — port inclus',
+        'port_inclus_non' => 'Non — port facturé',
+        'port_inclus_cas_par_cas' => 'Cas par cas',
     ],
 
     'surcharge' => [

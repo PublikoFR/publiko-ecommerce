@@ -23,14 +23,13 @@ class FrancoModifierTest extends TestCase
 
     private function makeLine(
         bool $francoEligible,
-        string $logisticsClass = 'A',
-        bool $quoteOnly = false,
+        string $portMode = 'standard',
         int $subtotalHtCents = 20000,
     ): object {
         $product = (object) [
             'pko_franco_eligible' => $francoEligible,
-            'pko_logistics_class' => $logisticsClass,
-            'pko_quote_only' => $quoteOnly,
+            'pko_port_mode' => $portMode,
+            'pko_supplier_id' => null,
         ];
 
         $variant = (object) [
@@ -157,12 +156,12 @@ class FrancoModifierTest extends TestCase
         $this->assertSame(990, $chrono13->price->value, 'chrono13 doit garder son prix grille si panier mixte');
     }
 
-    public function test_franco_non_applique_si_ligne_classe_c(): void
+    public function test_franco_non_applique_si_ligne_mode_quote(): void
     {
-        // Classe logistique C → exclue du franco même si pko_franco_eligible=true
+        // Mode 'quote' → exclu du franco même si pko_franco_eligible=true
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, logisticsClass: 'A', subtotalHtCents: 30000),
-            $this->makeLine(francoEligible: true, logisticsClass: 'C', subtotalHtCents: 15000),
+            $this->makeLine(francoEligible: true, portMode: 'standard', subtotalHtCents: 30000),
+            $this->makeLine(francoEligible: true, portMode: 'quote', subtotalHtCents: 15000),
         ]);
 
         $options = $this->runModifier($cart, [
@@ -170,22 +169,7 @@ class FrancoModifierTest extends TestCase
         ]);
 
         $chrono13 = $options->first(fn (ShippingOption $o) => $o->getIdentifier() === 'chronopost.chrono13');
-        $this->assertSame(990, $chrono13->price->value, 'classe C doit bloquer le franco');
-    }
-
-    public function test_franco_non_applique_si_ligne_quote_only(): void
-    {
-        $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 30000),
-            $this->makeLine(francoEligible: true, quoteOnly: true, subtotalHtCents: 15000),
-        ]);
-
-        $options = $this->runModifier($cart, [
-            $this->makePaidShippingOption('chronopost.chrono13', 990),
-        ]);
-
-        $chrono13 = $options->first(fn (ShippingOption $o) => $o->getIdentifier() === 'chronopost.chrono13');
-        $this->assertSame(990, $chrono13->price->value, 'quote_only doit bloquer le franco');
+        $this->assertSame(990, $chrono13->price->value, 'mode quote doit bloquer le franco');
     }
 
     public function test_pas_de_doublon_didentifier_apres_remplacement(): void

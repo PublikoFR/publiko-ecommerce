@@ -108,17 +108,13 @@ class EditProductUnified extends Page implements HasForms
 
     public ?string $height = null;
 
-    public bool $freeShipping = false;
-
-    public ?string $logisticsClass = null;
+    public string $portMode = 'inherit';
 
     public bool $francoEligible = true;
 
     public ?int $transportPriceCents = null;
 
     public ?string $transportPriceEuros = null;
-
-    public bool $quoteOnly = false;
 
     public ?int $supplierId = null;
 
@@ -203,14 +199,12 @@ class EditProductUnified extends Page implements HasForms
 
         $this->status = (string) ($product->status ?? 'draft');
         $this->featured = (bool) ($product->featured ?? false);
-        $this->freeShipping = (bool) ($product->pko_free_shipping ?? false);
-        $this->logisticsClass = $product->pko_logistics_class;
+        $this->portMode = (string) ($product->pko_port_mode ?? 'inherit');
         $this->francoEligible = (bool) ($product->pko_franco_eligible ?? true);
         $this->transportPriceCents = $product->pko_transport_price_cents !== null ? (int) $product->pko_transport_price_cents : null;
         $this->transportPriceEuros = $this->transportPriceCents !== null
             ? number_format($this->transportPriceCents / 100, 2, '.', '')
             : null;
-        $this->quoteOnly = (bool) ($product->pko_quote_only ?? false);
         $this->supplierId = $product->pko_supplier_id !== null ? (int) $product->pko_supplier_id : null;
         $this->brandId = $product->brand_id;
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
@@ -863,14 +857,12 @@ class EditProductUnified extends Page implements HasForms
             $product->brand_id = $this->brandId;
             $product->status = $this->status;
             $product->featured = $this->featured;
-            $product->pko_free_shipping = $this->freeShipping;
-            $product->pko_logistics_class = $this->logisticsClass ?: null;
+            $product->pko_port_mode = $this->portMode;
             $product->pko_franco_eligible = $this->francoEligible;
             $transportCents = ($this->transportPriceEuros !== null && $this->transportPriceEuros !== '')
                 ? (int) round((float) str_replace(',', '.', $this->transportPriceEuros) * 100)
                 : null;
-            $product->pko_transport_price_cents = ($this->logisticsClass === 'C' && $transportCents !== null) ? $transportCents : null;
-            $product->pko_quote_only = $this->quoteOnly;
+            $product->pko_transport_price_cents = ($this->portMode === 'flat' && $transportCents !== null) ? $transportCents : null;
             $product->pko_supplier_id = $this->supplierId;
             $product->save();
 
@@ -937,14 +929,13 @@ class EditProductUnified extends Page implements HasForms
     }
 
     /**
-     * Segmented control « Facturation du port » : les modes standard / port
-     * offert / sur devis sont mutuellement exclusifs et pilotent les deux
-     * booléens persistés indépendamment ($freeShipping, $quoteOnly).
+     * Segmented control « Facturation du port » : 5 modes mutuellement exclusifs.
+     * Dérive l'éligibilité franco au passage (standard → éligible, autres → exclu).
      */
     public function setPortMode(string $mode): void
     {
-        $this->freeShipping = $mode === 'offert';
-        $this->quoteOnly = $mode === 'devis';
+        $this->portMode = $mode;
+        $this->francoEligible = ($mode === 'standard');
         $this->isDirty = true;
     }
 

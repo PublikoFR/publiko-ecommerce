@@ -23,7 +23,7 @@ final class WeightCalculator
     }
 
     /**
-     * Weight of taxable lines only (excludes lines where the product has pko_free_shipping = true).
+     * Weight of taxable lines only (excludes lines where the effective port mode is 'free').
      */
     public static function fromCartTaxable(Cart $cart): float
     {
@@ -31,7 +31,8 @@ final class WeightCalculator
 
         foreach ($cart->lines as $line) {
             $variant = $line->purchasable;
-            if ($variant?->product?->pko_free_shipping) {
+            $product = $variant?->product;
+            if ($product !== null && PortModeResolver::resolve($product) === 'free') {
                 continue;
             }
             $total += self::variantWeightKg($variant) * (int) $line->quantity;
@@ -41,7 +42,7 @@ final class WeightCalculator
     }
 
     /**
-     * Returns true when every line in the cart is flagged pko_free_shipping.
+     * Returns true when every line in the cart has an effective port mode of 'free'.
      * An empty cart returns false (no lines → nothing is "all free").
      */
     public static function allLinesFreeShipping(Cart $cart): bool
@@ -53,7 +54,8 @@ final class WeightCalculator
         }
 
         foreach ($lines as $line) {
-            if (! $line->purchasable?->product?->pko_free_shipping) {
+            $product = $line->purchasable?->product;
+            if ($product === null || PortModeResolver::resolve($product) !== 'free') {
                 return false;
             }
         }
@@ -64,7 +66,7 @@ final class WeightCalculator
     /**
      * Sum of sub-total HT (cents, ex-VAT) for lines eligible for franco de port.
      *
-     * Eligible = pko_franco_eligible is true AND pko_logistics_class !== 'C' AND pko_quote_only is false.
+     * Eligible = pko_franco_eligible is true AND effective port mode is not 'quote'.
      */
     public static function francoEligibleSubtotalHt(Cart $cart): int
     {
@@ -103,8 +105,7 @@ final class WeightCalculator
         }
 
         return $product->pko_franco_eligible === true
-            && $product->pko_logistics_class !== 'C'
-            && $product->pko_quote_only === false;
+            && PortModeResolver::resolve($product) !== 'quote';
     }
 
     public static function fromOrder(Order $order): float
