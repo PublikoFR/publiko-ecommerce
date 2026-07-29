@@ -171,13 +171,13 @@ class ShippingOptionsTest extends TestCase
     public function test_is_franco_reached_vrai_quand_seuil_atteint_sans_exclusion(): void
     {
         $cart = $this->mockCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 40000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
         ]);
 
         $this->assertTrue(
-            WeightCalculator::francoEligibleSubtotalHt($cart) >= 35000
+            WeightCalculator::francoEligibleSubtotalHt($cart) >= config('shipping.franco.threshold_ht_cents')
             && ! WeightCalculator::cartHasFrancoExcludedLine($cart),
-            'Franco doit être atteint : 400 € HT de lignes éligibles sans exclusion'
+            'Franco doit être atteint : 600 € HT de lignes éligibles sans exclusion'
         );
     }
 
@@ -188,7 +188,7 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         $this->assertFalse(
-            WeightCalculator::francoEligibleSubtotalHt($cart) >= 35000,
+            WeightCalculator::francoEligibleSubtotalHt($cart) >= config('shipping.franco.threshold_ht_cents'),
             'Franco ne doit pas être atteint avec seulement 200 € HT'
         );
     }

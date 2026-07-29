@@ -283,7 +283,7 @@ class ShippingOptions extends Component
     }
 
     /**
-     * True si le seuil franco 350 € HT est atteint sans lignes exclues.
+     * True si le seuil franco 500 € HT est atteint sans lignes exclues.
      */
     public function getIsFrancoReachedProperty(): bool
     {
@@ -292,7 +292,7 @@ class ShippingOptions extends Component
             return false;
         }
 
-        $threshold = (int) config('shipping.franco.threshold_ht_cents', 35000);
+        $threshold = (int) config('shipping.franco.threshold_ht_cents', 50000);
 
         return WeightCalculator::francoEligibleSubtotalHt($cart) >= $threshold
             && ! WeightCalculator::cartHasFrancoExcludedLine($cart);
