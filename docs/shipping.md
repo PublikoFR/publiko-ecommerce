@@ -212,7 +212,7 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 | Colonne | Type | Défaut | Rôle |
 |---|---|---|---|
 | `pko_port_mode` | `enum('inherit','standard','flat','free','quote')` | `'inherit'` | Mode de facturation du port (L3, remplace 3 colonnes L1) |
-| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 350 € HT (false = exclu ; override possible) |
+| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 500 € HT (false = exclu ; override possible) |
 | `pko_transport_price_cents` | `int unsigned nullable` | `null` | Prix transport forfaitaire (mode `flat` uniquement) |
 | `pko_supplier_id` | `bigint unsigned nullable FK` | `null` | Lien vers `pko_suppliers` (nullOnDelete) |
 
@@ -239,11 +239,11 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 **Colissimo** : grille inchangée (null service_code, prix partagé entre DOM et DOS). Aucune donnée migrée côté Colissimo.
 
-### 5.10 Franco de port 350 € HT — Chrono 13 offert (Lot L2)
+### 5.10 Franco de port 500 € HT — Chrono 13 offert (Lot L2)
 
 **Modifier** : `Pko\ShippingCommon\Modifiers\FrancoModifier` (enregistré dans `ShippingCommonServiceProvider`, après `FreeShippingModifier`).
 
-**Règle métier** : si le sous-total HT (hors taxe) des lignes **franco-éligibles** du panier est ≥ 350 € et qu'**aucune ligne** n'est exclue, le modifier remplace l'option `chronopost.chrono13` dans le manifest par une version à 0 €. Chrono Relais et Chrono 10 restent payants.
+**Règle métier** : si le sous-total HT (hors taxe) des lignes **franco-éligibles** du panier est ≥ 500 € et qu'**aucune ligne** n'est exclue, le modifier remplace l'option `chronopost.chrono13` dans le manifest par une version à 0 €. Chrono Relais et Chrono 10 restent payants.
 
 **Éligibilité d'une ligne** (les deux conditions sont cumulatives) :
 1. `product.pko_franco_eligible === true`
@@ -251,7 +251,7 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 **Politique de blocage** : si **au moins une ligne** est non éligible, le franco n'est pas appliqué (grille pleine sur tout). Le raffinement multi-expédition (franco partiel) viendra en Lot L6.
 
-**Seuil paramétrable** : `config('shipping.franco.threshold_ht_cents')` — défaut 35 000 centimes (= 350 € HT). Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+**Seuil paramétrable** : `config('shipping.franco.threshold_ht_cents')` — défaut 50 000 centimes (= 500 € HT). Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
 
 **Helpers WeightCalculator** :
 - `WeightCalculator::francoEligibleSubtotalHt(Cart $cart): int` — somme HT (cents, ex-VAT via `subTotal->value`) des lignes éligibles.
@@ -353,9 +353,9 @@ Montants et flag `enabled` éditables via le back-office (`ShippingSurchargeReso
 ```
 AbstractCarrierModifier (Chronopost, Colissimo) → FreeShippingModifier → FrancoModifier → SurchargeModifier
 ```
-Résultat pour un panier Corse ≥ 350 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
+Résultat pour un panier Corse ≥ 500 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
 
-**Note importante** : sur une Corse ≥ 350 € HT, le franco passe chrono13 à 0 €, puis le SurchargeModifier majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
+**Note importante** : sur une Corse ≥ 500 € HT, le franco passe chrono13 à 0 €, puis le SurchargeModifier majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
 
 ### 5.13 Base de taxe HT/TTC configurable + sélection point relais (Lot F4)
 
