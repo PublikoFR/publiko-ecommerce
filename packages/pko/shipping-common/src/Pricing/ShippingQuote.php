@@ -21,7 +21,7 @@ final class ShippingQuote
     /**
      * @param  CalculatedShippingOption[]  $options
      * @param  list<array<string, mixed>>  $banners
-     * @param  list<string>                $blockers
+     * @param  list<string>  $blockers
      */
     public function __construct(
         public readonly array $options,

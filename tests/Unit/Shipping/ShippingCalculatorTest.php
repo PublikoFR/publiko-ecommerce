@@ -14,7 +14,6 @@ use Mockery\MockInterface;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
-use Pko\ShippingCommon\Dto\QuoteRequest;
 use Pko\ShippingCommon\Dto\QuoteResponse;
 use Pko\ShippingCommon\Models\ShippingSurcharge;
 use Pko\ShippingCommon\Pricing\ShippingCalculator;

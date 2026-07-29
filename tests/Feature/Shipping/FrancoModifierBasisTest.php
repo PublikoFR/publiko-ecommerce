@@ -16,6 +16,7 @@ use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Dto\QuoteResponse;
 use Pko\ShippingCommon\Pricing\ShippingCalculator;
+use Pko\ShippingCommon\Pricing\ShippingQuote;
 use Pko\StorefrontCms\Models\Setting;
 use Tests\TestCase;
 
@@ -75,7 +76,7 @@ class FrancoModifierBasisTest extends TestCase
         ];
     }
 
-    private function calculate(array $lines, array $quotes = []): \Pko\ShippingCommon\Pricing\ShippingQuote
+    private function calculate(array $lines, array $quotes = []): ShippingQuote
     {
         $responses = array_map(
             fn (array $q) => new QuoteResponse($q[0], $q[1], $q[2]),

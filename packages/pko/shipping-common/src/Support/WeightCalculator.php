@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\ShippingCommon\Support;
 
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Lunar\Models\Cart;
 use Lunar\Models\Order;
@@ -27,9 +28,9 @@ final class WeightCalculator
      *
      * Used by ShippingCalculator which partitions lines before calling this.
      *
-     * @param  \Illuminate\Support\Collection<int, object>  $lines
+     * @param  Collection<int, object>  $lines
      */
-    public static function fromLines(\Illuminate\Support\Collection $lines): float
+    public static function fromLines(Collection $lines): float
     {
         $total = 0.0;
 

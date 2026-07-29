@@ -459,7 +459,7 @@ final class ShippingCalculator
     /**
      * Partitionne les lignes du panier par port-mode résolu.
      *
-     * @return array{Collection, Collection, Collection, Collection}  [standard, flat, free, quote]
+     * @return array{Collection, Collection, Collection, Collection} [standard, flat, free, quote]
      */
     private function partitionLines(Collection $allLines): array
     {
