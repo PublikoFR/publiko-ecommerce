@@ -53,10 +53,10 @@ class ShippingSettingsPage extends BasePage implements HasForms
     {
         $this->form->fill([
             'threshold_eur' => ShippingSettings::thresholdCents() / 100,
-            'services'      => ShippingSettings::francoServices(),
-            'basis'         => ShippingSettings::francoBasis(),
+            'services' => ShippingSettings::francoServices(),
+            'basis' => ShippingSettings::francoBasis(),
             'tax_price_base' => ShippingSettings::taxPriceBase(),
-            'tax_display'   => ShippingSettings::taxDisplay(),
+            'tax_display' => ShippingSettings::taxDisplay(),
         ]);
     }
 
@@ -84,11 +84,11 @@ class ShippingSettingsPage extends BasePage implements HasForms
                             ->helperText(__('pko-shipping-common::admin.settings.basis_help'))
                             ->options([
                                 'eligible_only' => __('pko-shipping-common::admin.settings.basis_eligible_only'),
-                                'cart_total'    => __('pko-shipping-common::admin.settings.basis_cart_total'),
+                                'cart_total' => __('pko-shipping-common::admin.settings.basis_cart_total'),
                             ])
                             ->icons([
                                 'eligible_only' => 'heroicon-o-shield-check',
-                                'cart_total'    => 'heroicon-o-shopping-cart',
+                                'cart_total' => 'heroicon-o-shopping-cart',
                             ])
                             ->inline()
                             ->required(),
@@ -100,7 +100,7 @@ class ShippingSettingsPage extends BasePage implements HasForms
                             ->label(__('pko-shipping-common::admin.settings.tax_price_base'))
                             ->helperText(__('pko-shipping-common::admin.settings.tax_price_base_help'))
                             ->options([
-                                'ht'  => __('pko-shipping-common::admin.settings.tax_price_base_ht'),
+                                'ht' => __('pko-shipping-common::admin.settings.tax_price_base_ht'),
                                 'ttc' => __('pko-shipping-common::admin.settings.tax_price_base_ttc'),
                             ])
                             ->required(),
@@ -110,8 +110,8 @@ class ShippingSettingsPage extends BasePage implements HasForms
                             ->helperText(__('pko-shipping-common::admin.settings.tax_display_help'))
                             ->options([
                                 'both' => __('pko-shipping-common::admin.settings.tax_display_both'),
-                                'ht'   => __('pko-shipping-common::admin.settings.tax_display_ht'),
-                                'ttc'  => __('pko-shipping-common::admin.settings.tax_display_ttc'),
+                                'ht' => __('pko-shipping-common::admin.settings.tax_display_ht'),
+                                'ttc' => __('pko-shipping-common::admin.settings.tax_display_ttc'),
                             ])
                             ->required(),
                     ]),

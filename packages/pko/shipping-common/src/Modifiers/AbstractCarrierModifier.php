@@ -17,6 +17,7 @@ use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Dto\QuoteRequest;
 use Pko\ShippingCommon\Models\ShippingSurcharge;
+use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use Pko\ShippingCommon\Support\ZoneResolver;
 
@@ -71,7 +72,7 @@ abstract class AbstractCarrierModifier extends ShippingModifier
 
         // Base de taxe des prix de grille (cf. ShippingSettings::taxPriceBase()).
         // 'ttc' → reconvertir en net via le taux réel pour garder la TVA ventilée.
-        $priceBase = \Pko\ShippingCommon\Settings\ShippingSettings::taxPriceBase();
+        $priceBase = ShippingSettings::taxPriceBase();
         $taxRate = ($priceBase === 'ttc' && $taxClass !== null)
             ? $this->effectiveTaxRate($taxClass, $address, $currency)
             : 0.0;

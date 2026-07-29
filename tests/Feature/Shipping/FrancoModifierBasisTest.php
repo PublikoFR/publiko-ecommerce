@@ -16,7 +16,6 @@ use Lunar\Models\TaxClass;
 use Mockery;
 use Mockery\MockInterface;
 use Pko\ShippingCommon\Modifiers\FrancoModifier;
-use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\StorefrontCms\Models\Setting;
 use Tests\TestCase;
 
@@ -198,7 +197,7 @@ class FrancoModifierBasisTest extends TestCase
 
         $chrono13 = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono13');
         $chrono10 = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono10');
-        $relais   = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono_relais');
+        $relais = $options->first(fn ($o) => $o->getIdentifier() === 'chronopost.chrono_relais');
 
         $this->assertSame(0, $chrono13->price->value, 'chrono13 doit être gratuit');
         $this->assertSame(0, $chrono10->price->value, 'chrono10 doit être gratuit');
