@@ -84,6 +84,20 @@ final class WeightCalculator
     }
 
     /**
+     * Sum of sub-total HT (cents, ex-VAT) for ALL cart lines (basis = cart_total).
+     */
+    public static function cartSubtotalHt(Cart $cart): int
+    {
+        $total = 0;
+
+        foreach ($cart->lines as $line) {
+            $total += (int) ($line->subTotal?->value ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
      * Returns true when at least one cart line is NOT eligible for franco de port.
      */
     public static function cartHasFrancoExcludedLine(Cart $cart): bool

@@ -69,9 +69,9 @@ abstract class AbstractCarrierModifier extends ShippingModifier
         $taxClass = TaxClass::getDefault();
         $displayName = $this->carrierDisplayName();
 
-        // Base de taxe des prix de grille (cf. config shipping.tax.price_base).
+        // Base de taxe des prix de grille (cf. ShippingSettings::taxPriceBase()).
         // 'ttc' → reconvertir en net via le taux réel pour garder la TVA ventilée.
-        $priceBase = (string) config('shipping.tax.price_base', 'ht');
+        $priceBase = \Pko\ShippingCommon\Settings\ShippingSettings::taxPriceBase();
         $taxRate = ($priceBase === 'ttc' && $taxClass !== null)
             ? $this->effectiveTaxRate($taxClass, $address, $currency)
             : 0.0;

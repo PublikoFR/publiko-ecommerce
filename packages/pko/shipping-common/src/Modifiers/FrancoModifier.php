@@ -11,50 +11,71 @@ use Lunar\DataTypes\Price;
 use Lunar\DataTypes\ShippingOption;
 use Lunar\Models\Contracts\Cart;
 use Lunar\Models\Currency;
+use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
 /**
- * Rend Chrono 13 gratuit quand le panier atteint 500 € HT de produits franco-éligibles
- * et qu'aucune ligne n'est exclue du franco.
+ * Rend gratuits les services franco configurés (ShippingSettings::francoServices())
+ * quand le panier atteint le seuil HT (ShippingSettings::thresholdCents()).
  *
- * Doit être enregistré APRÈS les AbstractCarrierModifier (Chronopost, Colissimo)
- * afin que l'option chronopost.chrono13 soit déjà dans le manifest.
+ * Deux bases de calcul (ShippingSettings::francoBasis()) :
+ *   - eligible_only : seules les lignes franco-éligibles comptent ;
+ *                     une ligne exclue bloque le franco.
+ *   - cart_total    : toutes les lignes comptent, aucune ligne n'est bloquante.
+ *
+ * Doit être enregistré APRÈS les AbstractCarrierModifier pour que les options
+ * transporteur soient déjà dans le manifest.
  */
 class FrancoModifier extends ShippingModifier
 {
+    /**
+     * Constante de rétro-compatibilité (identifier par défaut du service franco).
+     * Ne plus utiliser dans la logique franco — passer par ShippingSettings::francoServices().
+     */
     public const CHRONO13_IDENTIFIER = 'chronopost.chrono13';
 
-    public function handle(Cart $cart, Closure $next)
+    public function handle(Cart $cart, Closure $next): mixed
     {
-        $threshold = (int) config('shipping.franco.threshold_ht_cents', 50000);
+        $threshold = ShippingSettings::thresholdCents();
+        $basis = ShippingSettings::francoBasis();
+        $francoServices = ShippingSettings::francoServices();
 
-        $eligibleHt = WeightCalculator::francoEligibleSubtotalHt($cart);
-        $hasExcluded = WeightCalculator::cartHasFrancoExcludedLine($cart);
+        if ($basis === 'cart_total') {
+            $shouldApply = WeightCalculator::cartSubtotalHt($cart) >= $threshold;
+        } else {
+            $shouldApply = WeightCalculator::francoEligibleSubtotalHt($cart) >= $threshold
+                && ! WeightCalculator::cartHasFrancoExcludedLine($cart);
+        }
 
-        if ($eligibleHt >= $threshold && ! $hasExcluded) {
-            $manifest = app(ShippingManifestInterface::class);
+        if (! $shouldApply) {
+            return $next($cart);
+        }
 
+        $manifest = app(ShippingManifestInterface::class);
+
+        foreach ($francoServices as $serviceCode) {
             $existing = $manifest->options->first(
-                fn ($o) => $o->getIdentifier() === self::CHRONO13_IDENTIFIER
+                fn ($o) => ($o->meta['service_code'] ?? null) === $serviceCode
             );
 
-            if ($existing !== null) {
-                // Retire l'option grille puis réinsère la version gratuite au même identifier.
-                $manifest->options = $manifest->options->reject(
-                    fn ($o) => $o->getIdentifier() === self::CHRONO13_IDENTIFIER
-                );
-
-                $currency = $cart->currency ?? Currency::getDefault();
-
-                $manifest->addOption(new ShippingOption(
-                    name: 'Livraison standard offerte',
-                    description: $existing->description,
-                    identifier: self::CHRONO13_IDENTIFIER,
-                    price: new Price(0, $currency, 1),
-                    taxClass: $existing->taxClass,
-                    meta: array_merge($existing->meta ?? [], ['franco' => true]),
-                ));
+            if ($existing === null) {
+                continue;
             }
+
+            $manifest->options = $manifest->options->reject(
+                fn ($o) => ($o->meta['service_code'] ?? null) === $serviceCode
+            );
+
+            $currency = $cart->currency ?? Currency::getDefault();
+
+            $manifest->addOption(new ShippingOption(
+                name: 'Livraison standard offerte',
+                description: $existing->description,
+                identifier: $existing->getIdentifier(),
+                price: new Price(0, $currency, 1),
+                taxClass: $existing->taxClass,
+                meta: array_merge($existing->meta ?? [], ['franco' => true]),
+            ));
         }
 
         return $next($cart);

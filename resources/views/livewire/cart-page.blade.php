@@ -64,7 +64,7 @@
                             </div>
                         @endif
                         <x-ui.button variant="accent" size="lg" href="/checkout" fullWidth iconRight="arrow-right" class="mt-6">Passer la commande</x-ui.button>
-                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(config('shipping.franco.threshold_ht_cents', 50000) / 100, 0, ',', ' ') }} € HT</p>
+                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(\Pko\ShippingCommon\Settings\ShippingSettings::thresholdCents() / 100, 0, ',', ' ') }} € HT</p>
                     </x-ui.card>
                 </aside>
             </div>

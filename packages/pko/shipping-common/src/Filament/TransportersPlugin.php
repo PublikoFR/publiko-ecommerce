@@ -7,6 +7,7 @@ namespace Pko\ShippingCommon\Filament;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
+use Pko\ShippingCommon\Filament\Pages\ShippingSettingsPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
 use Pko\ShippingCommon\Filament\Resources\SupplierResource;
@@ -34,11 +35,9 @@ class TransportersPlugin implements Plugin
         ]);
 
         $registry = app(CarrierRegistry::class);
-        $pages = $registry->configPageClasses();
+        $pages = array_merge([ShippingSettingsPage::class], $registry->configPageClasses());
 
-        if ($pages !== []) {
-            $panel->pages($pages);
-        }
+        $panel->pages($pages);
     }
 
     public function boot(Panel $panel): void

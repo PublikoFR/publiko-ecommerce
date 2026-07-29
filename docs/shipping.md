@@ -199,20 +199,21 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 | Source | État après L1 | Rôle restant |
 |---|---|---|
-| `config('shipping.franco.threshold_ht_cents')` | **Seule source** — défaut 50 000 ¢ (= 500 € HT) | `FrancoModifier`, bandeau panier, `ShippingOptions` |
-| `Setting::get('shipping.free_threshold_cents')` | Champ supprimé de `StorefrontSettings` | Aucun — recréé en page dédiée (L2) |
+| `config('shipping.franco.threshold_ht_cents')` | **Fallback** — défaut 50 000 ¢ (= 500 € HT) | Utilisé quand aucune valeur DB présente |
+| `Setting::get('shipping.franco.threshold_cents')` | **Source principale** depuis L2 | Lue via `ShippingSettings::thresholdCents()` |
+| `Setting::get('shipping.free_threshold_cents')` | Champ supprimé de `StorefrontSettings` | Obsolète — ne pas utiliser |
 | `config('storefront.shipping.free_threshold_cents')` | Inchangé en config | Plus utilisé pour l'affichage |
 
-- `FrancoModifier` lit `config('shipping.franco.threshold_ht_cents')`.
-- Le bandeau panier (`cart-page.blade.php`) lit désormais la même clé (fallback 50 000 ¢).
-- Le seuil a été porté à **500 € HT** (décision client actée, anciennement 350 € HT) en changeant le défaut dans `packages/pko/shipping-common/config/shipping.php`. Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+- Depuis L2, `FrancoModifier`, le bandeau panier et `ShippingOptions` lisent tous via **`ShippingSettings::thresholdCents()`** (résolution DB → config → 50 000).
+- Le seuil a été porté à **500 € HT** (décision actée) en changeant le défaut dans `config/shipping.php`. Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+- La valeur DB (`shipping.franco.threshold_cents`) gagne sur la config si elle existe.
 
 **Data-model produit** — colonnes sur `lunar_products` après Lot L3 :
 
 | Colonne | Type | Défaut | Rôle |
 |---|---|---|---|
 | `pko_port_mode` | `enum('inherit','standard','flat','free','quote')` | `'inherit'` | Mode de facturation du port (L3, remplace 3 colonnes L1) |
-| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 350 € HT (false = exclu ; override possible) |
+| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco (false = exclu ; override possible) |
 | `pko_transport_price_cents` | `int unsigned nullable` | `null` | Prix transport forfaitaire (mode `flat` uniquement) |
 | `pko_supplier_id` | `bigint unsigned nullable FK` | `null` | Lien vers `pko_suppliers` (nullOnDelete) |
 
@@ -239,25 +240,52 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 **Colissimo** : grille inchangée (null service_code, prix partagé entre DOM et DOS). Aucune donnée migrée côté Colissimo.
 
-### 5.10 Franco de port 350 € HT — Chrono 13 offert (Lot L2)
+### 5.10 Franco de port — paramètres et FrancoModifier (L2)
 
 **Modifier** : `Pko\ShippingCommon\Modifiers\FrancoModifier` (enregistré dans `ShippingCommonServiceProvider`, après `FreeShippingModifier`).
 
-**Règle métier** : si le sous-total HT (hors taxe) des lignes **franco-éligibles** du panier est ≥ 350 € et qu'**aucune ligne** n'est exclue, le modifier remplace l'option `chronopost.chrono13` dans le manifest par une version à 0 €. Chrono Relais et Chrono 10 restent payants.
+**Source unique de configuration** : `Pko\ShippingCommon\Settings\ShippingSettings` — ne jamais lire `config('shipping.franco.*')` ou `Setting::get()` directement dans les consommateurs.
 
-**Éligibilité d'une ligne** (les deux conditions sont cumulatives) :
+#### Paramètres DB (page Admin → Expédition → Paramètres)
+
+| Clé DB (`pko_storefront_settings`) | Type | Défaut | Rôle |
+|---|---|---|---|
+| `shipping.franco.threshold_cents` | `int` | 50 000 (= 500 € HT) | Seuil de déclenchement franco |
+| `shipping.franco.services` | `array<string>` | `['chrono13']` | Codes nus des services couverts |
+| `shipping.franco.basis` | `string` | `'eligible_only'` | Base de calcul du total |
+| `shipping.tax.price_base` | `string` | `'ht'` | Nature des prix de grille |
+| `shipping.tax.display` | `string` | `'both'` | Affichage HT/TTC au checkout |
+
+La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste le fallback (rétro-compat `FRANCO_THRESHOLD_HT_CENTS`).
+
+#### Helpers ShippingSettings (résolution DB → config → défaut)
+
+| Méthode | Retour | Résolution |
+|---|---|---|
+| `ShippingSettings::thresholdCents()` | `int` | DB `threshold_cents` → `config('shipping.franco.threshold_ht_cents')` → 50 000 |
+| `ShippingSettings::francoServices()` | `list<string>` | DB `services` → `['chrono13']` |
+| `ShippingSettings::francoBasis()` | `string` | DB `basis` → `'eligible_only'` |
+| `ShippingSettings::taxPriceBase()` | `string` | DB `tax.price_base` → `config('shipping.tax.price_base')` → `'ht'` |
+| `ShippingSettings::taxDisplay()` | `string` | DB `tax.display` → `config('shipping.tax.display')` → `'both'` |
+
+#### Logique franco (FrancoModifier)
+
+**Base `eligible_only`** (défaut) : le sous-total des lignes franco-éligibles doit atteindre le seuil ET aucune ligne n'est exclue. **Base `cart_total`** : toutes les lignes comptent dans le total, aucune ligne n'est bloquante (utile quand le catalogue est mixte mais le franco s'applique sur le total global).
+
+**Éligibilité d'une ligne** (conditions cumulatives en mode `eligible_only`) :
 1. `product.pko_franco_eligible === true`
-2. `PortModeResolver::resolve($product) !== 'quote'` (mode devis → hors franco ; remplace les anciennes conditions `logistics_class !== 'C'` et `quote_only === false` depuis L3)
+2. `PortModeResolver::resolve($product) !== 'quote'`
 
-**Politique de blocage** : si **au moins une ligne** est non éligible, le franco n'est pas appliqué (grille pleine sur tout). Le raffinement multi-expédition (franco partiel) viendra en Lot L6.
-
-**Seuil paramétrable** : `config('shipping.franco.threshold_ht_cents')` — défaut 35 000 centimes (= 350 € HT). Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+**Services** : le modifier boucle sur `ShippingSettings::francoServices()` et fait correspondre par `meta['service_code']` (code nu sans préfixe carrier). Chaque service trouvé est remplacé par une option à 0 € (`name: 'Livraison standard offerte'`, `meta['franco'] => true`).
 
 **Helpers WeightCalculator** :
-- `WeightCalculator::francoEligibleSubtotalHt(Cart $cart): int` — somme HT (cents, ex-VAT via `subTotal->value`) des lignes éligibles.
+- `WeightCalculator::francoEligibleSubtotalHt(Cart $cart): int` — somme HT (cents) des lignes éligibles.
 - `WeightCalculator::cartHasFrancoExcludedLine(Cart $cart): bool` — true si ≥ 1 ligne non éligible.
+- `WeightCalculator::cartSubtotalHt(Cart $cart): int` — somme HT (cents) de TOUTES les lignes (pour basis `cart_total`).
 
-**Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier` (Chronopost injecte `chrono13` en premier). Le modifier retire l'option existante de `$manifest->options`, puis réinsère un `ShippingOption` identique (même identifier `chronopost.chrono13`, meta préservée + `'franco' => true`) à `price = 0`. La `taxClass` est réutilisée depuis l'option originale (évite un `TaxClass::getDefault()` qui tombait null en test sans DB).
+**Constante BC** : `FrancoModifier::CHRONO13_IDENTIFIER = 'chronopost.chrono13'` conservée pour `ShippingOptions::mount()` (sélection par défaut). Ne plus l'utiliser dans la logique franco — passer par `ShippingSettings::francoServices()`.
+
+**Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier`. Il rejette l'option originale de `$manifest->options` puis réinsère un `ShippingOption` identique à `price = 0`. La `taxClass` est réutilisée depuis l'option originale.
 
 ### 5.11 Front storefront — panier et fiche produit (Lot L4)
 
@@ -353,15 +381,15 @@ Montants et flag `enabled` éditables via le back-office (`ShippingSurchargeReso
 ```
 AbstractCarrierModifier (Chronopost, Colissimo) → FreeShippingModifier → FrancoModifier → SurchargeModifier
 ```
-Résultat pour un panier Corse ≥ 350 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
+Résultat pour un panier Corse ≥ 500 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
 
-**Note importante** : sur une Corse ≥ 350 € HT, le franco passe chrono13 à 0 €, puis le SurchargeModifier majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
+**Note importante** : sur une Corse ≥ seuil franco, le `FrancoModifier` passe chrono13 à 0 €, puis le `SurchargeModifier` majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
 
 ### 5.13 Base de taxe HT/TTC configurable + sélection point relais (Lot F4)
 
 #### A) Base de taxe des frais de port — explicite et configurable
 
-Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base de taxe est désormais **explicite** via `config('shipping.tax.price_base')` (env `SHIPPING_TAX_PRICE_BASE`, défaut `'ht'`) :
+Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base de taxe est désormais **explicite** via `ShippingSettings::taxPriceBase()` (clé DB `shipping.tax.price_base`, fallback `config('shipping.tax.price_base')`, env `SHIPPING_TAX_PRICE_BASE`, défaut `'ht'`) :
 
 | `price_base` | Sens des prix de grille | Traitement dans `AbstractCarrierModifier` | TVA |
 |---|---|---|---|
@@ -373,7 +401,7 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 - Taux réel obtenu en sondant le moteur de taxe Lunar sur une base connue (`AbstractCarrierModifier::effectiveTaxRate()`), zone-aware (FR métropole en v1). Tolérant aux pannes : zone de taxe non résolue → reconversion neutralisée (prix laissé tel quel) plutôt qu'un crash.
 - Couvert par `tests/Unit/Shipping/CarrierTaxBaseTest` (reconversion + cas neutres).
 
-**Affichage panier** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (config `shipping.tax.display`, env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
+**Affichage panier** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (résolu via `ShippingSettings::taxDisplay()`, clé DB `shipping.tax.display`, fallback env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
 
 #### B) Sélection d'un point relais physique (Chrono Relais)
 

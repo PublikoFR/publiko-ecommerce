@@ -16,6 +16,7 @@ use Lunar\Models\Currency;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\FrancoModifier;
+use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
 class ShippingOptions extends Component
@@ -269,9 +270,7 @@ class ShippingOptions extends Component
      */
     public function getPriceDisplayProperty(): string
     {
-        $mode = (string) config('shipping.tax.display', 'both');
-
-        return in_array($mode, ['both', 'ht', 'ttc'], true) ? $mode : 'both';
+        return ShippingSettings::taxDisplay();
     }
 
     /**
@@ -283,7 +282,7 @@ class ShippingOptions extends Component
     }
 
     /**
-     * True si le seuil franco 500 € HT est atteint sans lignes exclues.
+     * True si le seuil franco est atteint (respecte la base configurée).
      */
     public function getIsFrancoReachedProperty(): bool
     {
@@ -292,7 +291,11 @@ class ShippingOptions extends Component
             return false;
         }
 
-        $threshold = (int) config('shipping.franco.threshold_ht_cents', 50000);
+        $threshold = ShippingSettings::thresholdCents();
+
+        if (ShippingSettings::francoBasis() === 'cart_total') {
+            return WeightCalculator::cartSubtotalHt($cart) >= $threshold;
+        }
 
         return WeightCalculator::francoEligibleSubtotalHt($cart) >= $threshold
             && ! WeightCalculator::cartHasFrancoExcludedLine($cart);
