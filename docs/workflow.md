@@ -239,6 +239,56 @@ l'engine (cleanup `zend_objects_store`) n'est couverte que par l'élargissement 
 ---
 
 
+## File d'attente (queue) et scheduler
+
+Un **seul cron** est nécessaire par environnement, le cron Laravel standard :
+
+```cron
+* * * * * /usr/local/bin/php /home/<user>/public_html/weklo/<env>/artisan schedule:run >> /dev/null 2>&1
+```
+
+Tout le reste (import IA, polling transporteurs, polling Pennylane, worker de
+queue) est déclaré dans `routes/console.php` et piloté par ce tick — ne jamais
+ajouter de ligne de crontab par tâche.
+
+### Worker
+
+L'hébergement O2switch est mutualisé : ni Supervisor ni systemd pour maintenir un
+`queue:work` résident. Le worker est donc déclaré dans le scheduler et vide la
+file une fois par minute avant de s'arrêter :
+
+```php
+Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
+    ->everyMinute()->withoutOverlapping()->runInBackground();
+```
+
+`--max-time=55` garde le processus sous la minute pour ne pas chevaucher le tick
+suivant ; `withoutOverlapping()` couvre le cas résiduel.
+
+### `QUEUE_CONNECTION` — implications
+
+`sync` (valeur actuelle sur dev) **n'est pas une file d'attente** : chaque
+`dispatch()` s'exécute dans le processus de la requête HTTP courante. Donc :
+
+- la latence du job s'ajoute à celle de la page ;
+- une exception dans le job **fait échouer la requête** — c'est ainsi qu'un 400 de
+  l'API Pennylane est devenu une 500 de checkout *et* une 500 de webhook Stripe,
+  cf. `docs/packages/pennylane.md` et `docs/payments.md` §4.3 ;
+- `$tries` / `backoff` sont ignorés et `failed_jobs` reste vide.
+
+Les jobs concernés ne sont pas anodins : Pennylane (facture, avoir),
+`CreateCarrierShipmentJob` (SOAP transporteur), et l'import IA
+(`ParseFileToStagingJob`, `ImportStagingToLunarJob`) dont les appels LLM
+dépassent largement le timeout HTTP.
+
+**Ordre de bascule vers `database` — impératif :** déployer d'abord le worker,
+*puis* basculer `QUEUE_CONNECTION` dans le `.env` du serveur (+ `config:clear`).
+L'inverse empile les jobs dans la table `jobs` sans jamais les exécuter, sans
+aucune erreur visible : plus de facture, plus de mail, plus d'étiquette. Les
+tables `jobs` / `failed_jobs` / `job_batches` existent déjà.
+
+---
+
 ## Conventions Git
 
 - Branches : `main` (prod), `develop` (intégration), `feature/*` par module
