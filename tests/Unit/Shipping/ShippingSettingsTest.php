@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shipping;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Pko\ShippingCommon\Settings\ShippingSettings;
@@ -13,11 +14,14 @@ use Tests\TestCase;
 /**
  * Tests de résolution DB → config → défaut pour ShippingSettings.
  *
- * setUp() vide le cache pko.storefront.settings.v1 pour éviter les fuites
- * entre tests (Setting::set() le vide aussi, mais les reads directs ne le font pas).
+ * RefreshDatabase est indispensable : Setting::set() persiste en base
+ * (updateOrCreate), alors que Setting::forget() ne vide que le cache. Sans
+ * rollback entre les tests, une valeur écrite par l'un fuite dans le suivant.
  */
 class ShippingSettingsTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();

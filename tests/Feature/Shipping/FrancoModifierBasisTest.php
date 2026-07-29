@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Shipping;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Lunar\Base\ShippingManifestInterface;
 use Lunar\DataTypes\Price;
@@ -22,10 +23,14 @@ use Tests\TestCase;
 /**
  * Tests de la base de calcul (eligible_only vs cart_total) et des services configurables.
  *
- * setUp() vide le cache settings pour éviter les fuites entre tests.
+ * RefreshDatabase est indispensable : Setting::set() persiste en base
+ * (updateOrCreate), alors que Setting::forget() ne vide que le cache. Sans
+ * rollback entre les tests, une valeur écrite par l'un fuite dans le suivant.
  */
 class FrancoModifierBasisTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
