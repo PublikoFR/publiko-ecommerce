@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Filament\Resources;
 
+use Filament\Forms\Components\Component;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
@@ -36,6 +38,28 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\RelationManagers\Neg
 class PkoCustomerResource extends CustomerResource
 {
     protected static ?string $slug = 'customers';
+
+    /**
+     * Groupes clients : le CheckboxList de Lunar occupe toute la colonne de droite
+     * dès qu'il y a une vingtaine de groupes. On le remplace par un multi-select
+     * avec recherche (même ergonomie que les tags produit).
+     */
+    protected static function getCustomerGroupsFormComponent(): Component
+    {
+        return Select::make('customerGroups')
+            ->label(__('lunarpanel::customer.form.customer_groups.label'))
+            ->multiple()
+            ->searchable()
+            ->preload()
+            ->placeholder('Rechercher un groupe…')
+            ->relationship(
+                name: 'customerGroups',
+                titleAttribute: 'name',
+                modifyQueryUsing: fn (Builder $query) => $query->distinct(
+                    ['id', 'name', 'handle', 'default']
+                )
+            );
+    }
 
     /**
      * Liste clients (compacte, pour tenir sur l'écran) :
