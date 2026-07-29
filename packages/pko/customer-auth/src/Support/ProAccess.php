@@ -77,8 +77,14 @@ class ProAccess
         // (non vérifié quand INSEE est off, voire null), il ne peut donc pas
         // conditionner l'accès. Seule la vérification e-mail fait foi.
 
-        $required = (string) config('customer-auth.default_customer_group_handle', 'installateurs');
-        if (! $customer->customerGroups()->where('handle', $required)->exists()) {
+        // Résolution tolérante (cf. DefaultCustomerGroup) : un handle non
+        // slugifié saisi dans l'admin refusait l'accès pro à tous les comptes.
+        // Le fallback valait par ailleurs 'installateurs' ici, un handle qui
+        // n'existe nulle part — donc un refus systématique si la config manquait.
+        $required = DefaultCustomerGroup::resolve();
+        if ($required === null
+            || ! $customer->customerGroups()->whereKey($required->id)->exists()
+        ) {
             return 'Accès réservé aux comptes professionnels.';
         }
 

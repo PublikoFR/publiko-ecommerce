@@ -12,8 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
-            'storefront.maintenance' => CheckStorefrontMaintenance::class,
+        // Interception de la maintenance sur tout le groupe `web` : ainsi TOUTES
+        // les pages front (storefront, compte, auth, packages…) sont couvertes,
+        // pas seulement les routes déclarées dans routes/web.php. Le panel admin
+        // Filament utilise sa propre pile de middleware (hors groupe web) et
+        // reste donc accessible même pendant la maintenance.
+        $middleware->web(append: [
+            CheckStorefrontMaintenance::class,
         ]);
 
         // La déconnexion est idempotente et non destructive : on l'exempte de la

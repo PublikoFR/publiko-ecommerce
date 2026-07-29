@@ -15,6 +15,7 @@ use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
+use Pko\CustomerAuth\Support\DefaultCustomerGroup;
 
 class RegisterProCustomer
 {
@@ -69,9 +70,10 @@ class RegisterProCustomer
             ]);
 
             // Groupe par défaut attribué à toute nouvelle inscription (« Nouveau client »).
+            // Résolution tolérante : un handle non slugifié saisi dans l'admin ne
+            // doit pas faire silencieusement échouer le rattachement.
             $groupIds = [];
-            $groupHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
-            $defaultGroup = CustomerGroup::where('handle', $groupHandle)->first();
+            $defaultGroup = DefaultCustomerGroup::resolve();
             if ($defaultGroup) {
                 $groupIds[$defaultGroup->id] = $defaultGroup->id;
             }

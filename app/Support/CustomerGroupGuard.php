@@ -6,6 +6,7 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Support\DefaultCustomerGroup;
 
 /**
  * Politique de suppression d'un groupe client. Toutes les FK vers
@@ -57,11 +58,9 @@ class CustomerGroupGuard
             return 'groupe client par défaut, non supprimable.';
         }
 
-        // Même fallback que packages/pko/customer-auth/config/customer-auth.php.
-        // Il valait 'installateurs' ici, ce qui protégeait un groupe différent de
-        // celui réellement utilisé par l'inscription si la config était absente.
-        $proHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
-        if ($group->handle === $proHandle) {
+        // Résolution tolérante partagée avec l'inscription et ProAccess : un
+        // handle non slugifié ne doit pas rendre le groupe pro supprimable.
+        if (DefaultCustomerGroup::matches($group)) {
             return "utilisé par l'inscription professionnelle, non supprimable.";
         }
 
@@ -106,8 +105,7 @@ class CustomerGroupGuard
             return 0;
         }
 
-        $defaultHandle = (string) config('customer-auth.default_customer_group_handle', 'nouveau-client');
-        $default = CustomerGroup::where('handle', $defaultHandle)->first();
+        $default = DefaultCustomerGroup::resolve();
 
         if ($default && $default->id !== $group->id) {
             $now = now();

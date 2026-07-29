@@ -12,21 +12,21 @@ use App\Livewire\Home;
 use App\Livewire\ProductPage;
 use App\Livewire\SearchPage;
 use Illuminate\Support\Facades\Route;
-use Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance;
 
-Route::middleware([CheckStorefrontMaintenance::class])->group(function () {
-    Route::get('/', Home::class)->name('home');
-    Route::get('/recherche', SearchPage::class)->name('search.view');
-    Route::get('/search', SearchPage::class);
-    Route::get('/contact', ContactPage::class)->name('contact.view');
-    Route::get('/collections', CollectionsIndexPage::class)->name('collections.index');
-    Route::get('/collections/{slug}', CollectionPage::class)->name('collection.view');
-    Route::get('/produits/{slug}', ProductPage::class)->name('product.view');
-    Route::get('/products/{slug}', ProductPage::class);
+// Le mode maintenance est intercepté globalement sur le groupe `web`
+// (cf. bootstrap/app.php → CheckStorefrontMaintenance), inutile de le
+// réappliquer route par route ici.
+Route::get('/', Home::class)->name('home');
+Route::get('/recherche', SearchPage::class)->name('search.view');
+Route::get('/search', SearchPage::class);
+Route::get('/contact', ContactPage::class)->name('contact.view');
+Route::get('/collections', CollectionsIndexPage::class)->name('collections.index');
+Route::get('/collections/{slug}', CollectionPage::class)->name('collection.view');
+Route::get('/produits/{slug}', ProductPage::class)->name('product.view');
+Route::get('/products/{slug}', ProductPage::class);
 
-    Route::middleware(['pro.customer'])->group(function () {
-        Route::get('/panier', CartPage::class)->name('cart.view');
-        Route::get('/checkout', CheckoutPage::class)->name('checkout.view');
-        Route::get('/checkout/success', CheckoutSuccessPage::class)->name('checkout-success.view');
-    });
+Route::middleware(['pro.customer'])->group(function () {
+    Route::get('/panier', CartPage::class)->name('cart.view');
+    Route::get('/checkout', CheckoutPage::class)->name('checkout.view');
+    Route::get('/checkout/success', CheckoutSuccessPage::class)->name('checkout-success.view');
 });

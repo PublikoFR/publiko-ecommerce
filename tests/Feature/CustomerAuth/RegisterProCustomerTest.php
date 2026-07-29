@@ -6,6 +6,7 @@ namespace Tests\Feature\CustomerAuth;
 
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
@@ -178,6 +179,58 @@ class RegisterProCustomerTest extends TestCase
         $this->assertNotNull(
             $group,
             'Le groupe "'.config('customer-auth.default_customer_group_handle', 'nouveau-client').'" doit exister en base (PkoCustomerGroupSeeder).'
+        );
+    }
+
+    public function test_groupe_par_defaut_est_attache_meme_si_son_handle_nest_pas_slugifie(): void
+    {
+        // Régression (constatée en dev) : le groupe « Nouveau client » créé à la
+        // main depuis l'admin Filament garde un handle non slugifié
+        // (« Nouveau client »). Le lookup strict `where('handle','nouveau-client')`
+        // ne matchait alors rien : aucun groupe attaché à l'inscription, et accès
+        // pro refusé, sans la moindre erreur visible.
+        $default = CustomerGroup::where('handle', 'nouveau-client')->firstOrFail();
+
+        // Écriture brute : passer par Eloquent déclencherait l'observer, qui
+        // re-slugifierait aussitôt le handle — on veut justement l'état dégradé.
+        DB::table('lunar_customer_groups')
+            ->where('id', $default->id)
+            ->update(['handle' => 'Nouveau client']);
+
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+
+        $ids = $result['customer']->customerGroups()->pluck('lunar_customer_groups.id')->all();
+        $this->assertContains(
+            $default->id,
+            $ids,
+            'Le groupe par défaut doit être attaché même quand son handle est resté non slugifié.'
+        );
+    }
+
+    public function test_handle_dun_groupe_est_slugifie_a_lenregistrement(): void
+    {
+        $group = CustomerGroup::create([
+            'name' => 'Électricien courant faible',
+            'handle' => 'Électricien courant faible',
+        ]);
+
+        $this->assertSame('electricien-courant-faible', $group->fresh()->handle);
+    }
+
+    public function test_handle_du_groupe_par_defaut_ne_peut_pas_deriver(): void
+    {
+        $default = CustomerGroup::where('handle', 'nouveau-client')->firstOrFail();
+
+        $default->handle = 'autre-chose';
+        $default->save();
+
+        $this->assertSame(
+            'nouveau-client',
+            $default->fresh()->handle,
+            'Le handle du groupe par défaut est verrouillé : inscription et accès pro en dépendent.'
         );
     }
 
