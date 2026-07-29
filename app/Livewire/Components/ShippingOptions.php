@@ -16,9 +16,9 @@ use Lunar\Models\Currency;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
+use Pko\ShippingCommon\Pricing\ShippingCalculator;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\PortModeResolver;
-use Pko\ShippingCommon\Support\WeightCalculator;
 
 class ShippingOptions extends Component
 {
@@ -283,59 +283,28 @@ class ShippingOptions extends Component
     }
 
     /**
-     * True si le seuil franco est atteint (respecte la base configurée).
+     * Bandeaux retournés par ShippingCalculator pour le panier courant.
+     * Source unique — ne pas recalculer dans ce composant.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getBannersProperty(): array
+    {
+        $cart = CartSession::current();
+        if ($cart === null) {
+            return [];
+        }
+
+        return app(ShippingCalculator::class)->calculate($cart)->banners;
+    }
+
+    /**
+     * True si au moins un bandeau 'franco_reached' est présent dans le quote.
      */
     public function getIsFrancoReachedProperty(): bool
     {
-        $cart = CartSession::current();
-        if ($cart === null) {
-            return false;
-        }
-
-        $threshold = ShippingSettings::thresholdCents();
-
-        if (ShippingSettings::francoBasis() === 'cart_total') {
-            return WeightCalculator::cartSubtotalHt($cart) >= $threshold;
-        }
-
-        return WeightCalculator::francoEligibleSubtotalHt($cart) >= $threshold
-            && ! WeightCalculator::cartHasFrancoExcludedLine($cart);
-    }
-
-    /**
-     * True si au moins une ligne est exclue du franco de port.
-     */
-    public function getHasExcludedLinesProperty(): bool
-    {
-        $cart = CartSession::current();
-        if ($cart === null) {
-            return false;
-        }
-
-        return WeightCalculator::cartHasFrancoExcludedLine($cart);
-    }
-
-    /**
-     * True si le panier mélange des lignes stock Weklo et des lignes fournisseur externe.
-     */
-    public function getHasMultipleSourcesProperty(): bool
-    {
-        $cart = CartSession::current();
-        if ($cart === null) {
-            return false;
-        }
-
-        $hasWeklo = false;
-        $hasSupplier = false;
-
-        foreach ($cart->lines as $line) {
-            if ($line->purchasable?->product?->pko_supplier_id !== null) {
-                $hasSupplier = true;
-            } else {
-                $hasWeklo = true;
-            }
-
-            if ($hasWeklo && $hasSupplier) {
+        foreach ($this->banners as $banner) {
+            if ($banner['type'] === 'franco_reached') {
                 return true;
             }
         }
@@ -344,24 +313,46 @@ class ShippingOptions extends Component
     }
 
     /**
-     * Cents HT restants d'articles ÉLIGIBLES pour atteindre le seuil franco.
-     * Miroir exact de ShippingCalculator::computeBanners() — même base (eligible vs cart_total).
-     * Retourne 0 si le seuil est atteint ou si le panier est vide.
+     * True si au moins un bandeau 'excluded_lines' est présent dans le quote.
+     */
+    public function getHasExcludedLinesProperty(): bool
+    {
+        foreach ($this->banners as $banner) {
+            if ($banner['type'] === 'excluded_lines') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * True si au moins un bandeau 'multi_colis' est présent dans le quote.
+     */
+    public function getHasMultipleSourcesProperty(): bool
+    {
+        foreach ($this->banners as $banner) {
+            if ($banner['type'] === 'multi_colis') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Cents restants depuis le bandeau 'franco_progress' du quote.
+     * Retourne 0 si le seuil est atteint ou si aucun bandeau de progression n'est présent.
      */
     public function getFrancoRemainingCentsProperty(): int
     {
-        $cart = CartSession::current();
-        if ($cart === null) {
-            return 0;
+        foreach ($this->banners as $banner) {
+            if ($banner['type'] === 'franco_progress') {
+                return (int) ($banner['remaining_cents'] ?? 0);
+            }
         }
 
-        $threshold = ShippingSettings::thresholdCents();
-
-        $current = ShippingSettings::francoBasis() === 'cart_total'
-            ? WeightCalculator::cartSubtotalHt($cart)
-            : WeightCalculator::francoEligibleSubtotalHt($cart);
-
-        return max(0, $threshold - $current);
+        return 0;
     }
 
     /**
