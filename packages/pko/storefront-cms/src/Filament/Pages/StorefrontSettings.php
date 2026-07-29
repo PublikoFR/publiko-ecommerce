@@ -75,7 +75,6 @@ class StorefrontSettings extends Page implements HasForms
             'banner_enabled' => (bool) Setting::get('banner.enabled', $config['banner']['enabled'] ?? true),
             'banner_text' => Setting::get('banner.text', $config['banner']['text'] ?? null),
             'banner_icon' => Setting::get('banner.icon', $config['banner']['icon'] ?? 'truck'),
-            'shipping_free_cents' => (int) Setting::get('shipping.free_threshold_cents', $config['shipping']['free_threshold_cents'] ?? 12500),
             'social_facebook' => Setting::get('social.facebook', $config['social']['facebook'] ?? null),
             'social_instagram' => Setting::get('social.instagram', $config['social']['instagram'] ?? null),
             'social_linkedin' => Setting::get('social.linkedin', $config['social']['linkedin'] ?? null),
@@ -152,7 +151,8 @@ class StorefrontSettings extends Page implements HasForms
                         'credit-card' => 'Carte',
                     ])->default('truck'),
                 ]),
-                TextInput::make('shipping_free_cents')->label('Seuil livraison offerte (cents HT)')->numeric()->helperText('Ex: 12500 = 125 €'),
+                // Seuil franco supprimé (L1) — recréé en page dédiée Expédition → Paramètres (L2).
+                // Source unique : config('shipping.franco.threshold_ht_cents') / FRANCO_THRESHOLD_HT_CENTS.
             ]),
             Section::make('Réseaux sociaux')->schema([
                 Grid::make(2)->schema([
@@ -204,7 +204,6 @@ class StorefrontSettings extends Page implements HasForms
         Setting::set('banner.enabled', (bool) $data['banner_enabled']);
         Setting::set('banner.text', $data['banner_text']);
         Setting::set('banner.icon', $data['banner_icon']);
-        Setting::set('shipping.free_threshold_cents', (int) $data['shipping_free_cents']);
         Setting::set('social.facebook', $data['social_facebook']);
         Setting::set('social.instagram', $data['social_instagram']);
         Setting::set('social.linkedin', $data['social_linkedin']);

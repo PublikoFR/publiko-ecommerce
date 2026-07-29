@@ -63,7 +63,6 @@ use Lunar\Facades\Telemetry;
 use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\Product as LunarProduct;
 use Lunar\Models\ProductVariant;
-use Lunar\Shipping\ShippingPlugin;
 use Pko\AdminNav\Filament\AdminNavPlugin;
 use Pko\AdminNav\Filament\Resources\PkoActivityResource;
 use Pko\AdminNav\Filament\Resources\PkoChannelResource;
@@ -91,7 +90,6 @@ use Pko\Pennylane\Filament\PennylanePlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\Secrets\Facades\Secrets;
 use Pko\ShippingCommon\Filament\Extensions\OrderQuoteActionsExtension;
-use Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin;
 use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
@@ -174,8 +172,11 @@ class AppServiceProvider extends ServiceProvider
                     for: 'Pko\\AdminNav\\Filament\\Clusters',
                 )
                 ->plugin(FilamentShieldPlugin::make())
-                ->plugin(ShippingPlugin::make())
-                ->plugin(SwapLunarShippingResourcesPlugin::make())
+                // ShippingPlugin (lunarphp/table-rate-shipping) + SwapLunarShippingResourcesPlugin
+                // retirés du panel — L1 refonte frais de port 2026. Les tables/migrations restent
+                // en place pour pouvoir les réactiver sans réécriture (rajouter les deux plugins
+                // + peupler lunar_customer_group_shipping_method via scheduleCustomerGroup()).
+                // Aucune option ne sort au checkout (table vide → ShippingRateResolver rejette tout).
                 ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())

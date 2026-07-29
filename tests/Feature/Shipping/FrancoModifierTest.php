@@ -96,10 +96,10 @@ class FrancoModifierTest extends TestCase
 
     public function test_chrono13_devient_gratuit_quand_seuil_atteint_et_panier_eligible(): void
     {
-        // 2 lignes éligibles, sous-total HT total = 40 000 cents (400 €) >= 35 000
+        // 2 lignes éligibles, sous-total HT total = 60 000 cents (600 €) >= 50 000 (seuil L1)
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 20000),
-            $this->makeLine(francoEligible: true, subtotalHtCents: 20000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 30000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 30000),
         ]);
 
         $options = $this->runModifier($cart, [
