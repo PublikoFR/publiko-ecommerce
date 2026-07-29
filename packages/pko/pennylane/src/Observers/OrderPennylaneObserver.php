@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Pko\Pennylane\Observers;
 
+use Illuminate\Support\Facades\Log;
 use Lunar\Models\Order;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Pennylane\Jobs\SyncOrderInvoiceJob;
+use Throwable;
 
 final class OrderPennylaneObserver
 {
@@ -28,6 +30,15 @@ final class OrderPennylaneObserver
             return;
         }
 
-        SyncOrderInvoiceJob::dispatch($order->id);
+        try {
+            SyncOrderInvoiceJob::dispatch($order->id);
+        } catch (Throwable $e) {
+            // Avec QUEUE_CONNECTION=sync le job s'exécute dans la requête : une
+            // erreur Pennylane ne doit jamais faire échouer le passage de commande.
+            Log::error('Pennylane sync: dispatch échoué', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -22,9 +22,17 @@ final class PennylaneClient
         private readonly array $config,
     ) {}
 
+    /**
+     * Kill-switch global (PENNYLANE_ENABLED). À false, aucune requête ne part.
+     */
+    public function isEnabled(): bool
+    {
+        return (bool) ($this->config['enabled'] ?? true);
+    }
+
     public function isConfigured(): bool
     {
-        return ! empty($this->resolveToken());
+        return $this->isEnabled() && ! empty($this->resolveToken());
     }
 
     private function resolveToken(): ?string
@@ -107,6 +115,10 @@ final class PennylaneClient
      */
     private function send(string $method, string $endpoint, array $query = [], array $body = []): Response
     {
+        if (! $this->isEnabled()) {
+            throw PennylaneNotConfiguredException::disabled();
+        }
+
         if (! $this->isConfigured()) {
             throw PennylaneNotConfiguredException::missingToken();
         }
@@ -115,7 +127,7 @@ final class PennylaneClient
         $url = $this->url($endpoint);
 
         $response = match ($method) {
-            'get' => $request->get($url, $query),
+            'get' => $request->get($url, $this->normalizeQuery($query)),
             'post' => $request->post($url, $body),
             'put' => $request->put($url, $body),
             'delete' => $request->delete($url),
@@ -127,6 +139,23 @@ final class PennylaneClient
         }
 
         return $response;
+    }
+
+    /**
+     * L'API Pennylane v2 attend le paramètre `filter` sous forme de chaîne JSON.
+     * Http::get() sérialiserait un tableau PHP en `filter[0][field]=...`, ce que
+     * l'API rejette avec « should be a string, but we received a hash ».
+     *
+     * @param  array<string,mixed>  $query
+     * @return array<string,mixed>
+     */
+    private function normalizeQuery(array $query): array
+    {
+        if (isset($query['filter']) && is_array($query['filter'])) {
+            $query['filter'] = json_encode(array_values($query['filter']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return $query;
     }
 
     private function buildRequest(): PendingRequest

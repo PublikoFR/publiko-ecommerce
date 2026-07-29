@@ -1,5 +1,12 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        @unless ($this->isEnabled())
+            <div class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-400/10 dark:text-amber-200">
+                <strong>{{ __('pko-pennylane::admin.config.disabled.title') }}</strong>
+                <p class="mt-1">{{ __('pko-pennylane::admin.config.disabled.help') }}</p>
+            </div>
+        @endunless
+
         <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
             <h3 class="text-base font-semibold text-gray-950 dark:text-white">
                 {{ __('pko-pennylane::admin.config.status.title') }}

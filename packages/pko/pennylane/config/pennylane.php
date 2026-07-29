@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    /*
+     * Kill-switch global. À false, aucune requête n'est envoyée à Pennylane :
+     * pas de facture, pas d'avoir, pas de polling. À couper sur tout
+     * environnement non-production (dev, staging) pour éviter de polluer la
+     * comptabilité réelle avec des commandes de test.
+     */
+    'enabled' => filter_var(env('PENNYLANE_ENABLED', true), FILTER_VALIDATE_BOOL),
+
     'api_token' => env('PENNYLANE_API_TOKEN'),
     'base_url' => env('PENNYLANE_BASE_URL', 'https://app.pennylane.com/api/external/v2'),
     'sandbox' => env('PENNYLANE_SANDBOX', false),

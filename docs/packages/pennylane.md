@@ -85,6 +85,7 @@ Mapping 1:1 Lunar Customer ↔ Pennylane customer_id, avec `external_reference` 
 Variables d'environnement (cf. `config/pennylane.php`) :
 
 ```dotenv
+PENNYLANE_ENABLED=true                  # kill-switch global : à false, aucune requête n'est envoyée
 PENNYLANE_API_TOKEN=...                 # obligatoire
 PENNYLANE_INVOICE_TEMPLATE_ID=42        # ID template facture Pennylane (admin Pennylane → Paramètres)
 PENNYLANE_TRIGGER_STATUS=payment-received  # statut Lunar qui déclenche la facture
@@ -96,6 +97,34 @@ PENNYLANE_SANDBOX=false                 # simple flag logique (sandbox = compte 
 PENNYLANE_HTTP_TIMEOUT=15
 PENNYLANE_HTTP_RETRY=3
 ```
+
+### Kill-switch `PENNYLANE_ENABLED`
+
+**À mettre à `false` sur tout environnement non-production** (dev, staging, local
+avec un token réel). Le seul garde-fou historique était la présence du token :
+dès qu'un token de production traînait dans le `.env` de dev, chaque commande de
+test partait en facture réelle dans la comptabilité.
+
+`PennylaneClient::isEnabled()` court-circuite `isConfigured()`, donc le flag
+coupe d'un coup les deux observers (commande + transaction), le job de synchro,
+les commandes artisan et le polling changelog schedulé. Un appel direct au client
+lève `PennylaneNotConfiguredException::disabled()`. La page admin **Pennylane**
+affiche un bandeau d'avertissement et désactive le bouton « Tester la connexion ».
+
+### Format des filtres API (v2)
+
+L'API v2 attend le paramètre `filter` comme **chaîne JSON**, pas comme tableau.
+`PennylaneClient::normalizeQuery()` fait le `json_encode` avant tout GET. Sans ça
+l'API renvoie `400 The filter's value (...) should be a string, but we received a
+hash` — le sérialiseur de `Http::get()` produisant `filter[0][field]=...`.
+
+### Queue
+
+Avec `QUEUE_CONNECTION=sync`, `SyncOrderInvoiceJob` s'exécute **dans la requête de
+checkout** : toute erreur Pennylane fait échouer la commande client. Prévoir une
+queue asynchrone (`database` + worker) sur les environnements où l'intégration est
+active. `OrderPennylaneObserver` catch en dernier recours pour ne jamais casser le
+tunnel d'achat.
 
 ## Flux facture
 

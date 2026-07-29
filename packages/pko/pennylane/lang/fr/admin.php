@@ -10,6 +10,10 @@ return [
         'nav' => 'Pennylane',
         'title' => 'Configuration Pennylane',
         'credentials' => 'Credentials Pennylane',
+        'disabled' => [
+            'title' => 'Intégration désactivée',
+            'help' => "Aucune facture ni avoir n'est envoyé à Pennylane sur cet environnement. Pour réactiver, passer PENNYLANE_ENABLED=true dans le fichier .env puis vider le cache de configuration.",
+        ],
         'api_token' => 'API Token',
         'template_id' => 'Template ID (facture)',
         'deadline_days' => 'Délai de paiement (jours)',
