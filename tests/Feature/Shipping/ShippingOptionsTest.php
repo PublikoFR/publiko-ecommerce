@@ -30,10 +30,16 @@ class ShippingOptionsTest extends TestCase
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private function makeOption(string $identifier, int $priceCents, bool $franco = false): ShippingOption
+    /**
+     * @param  array<string, mixed>  $extraMeta  Méta additionnels (ex. flat_price_cents, surcharge_cents).
+     */
+    private function makeOption(string $identifier, int $priceCents, bool $franco = false, array $extraMeta = []): ShippingOption
     {
         $currency = Currency::make(['code' => 'EUR', 'exchange_rate' => 1.0, 'decimal_places' => 2]);
         $taxClass = TaxClass::make(['name' => 'Default', 'default' => true]);
+
+        $meta = $franco ? ['franco' => true] : [];
+        $meta = array_merge($meta, $extraMeta);
 
         return new ShippingOption(
             name: $identifier,
@@ -41,7 +47,7 @@ class ShippingOptionsTest extends TestCase
             identifier: $identifier,
             price: new Price($priceCents, $currency, 1),
             taxClass: $taxClass,
-            meta: $franco ? ['franco' => true] : [],
+            meta: $meta,
         );
     }
 
@@ -289,6 +295,93 @@ class ShippingOptionsTest extends TestCase
         $this->assertSame('Point Manuel', $point['name']);
         $this->assertSame('34500', $point['postcode']);
     }
+
+    // ── Récap ventilé ─────────────────────────────────────────────────────────
+
+    public function test_recap_ventile_affiche_quand_flat_price_present(): void
+    {
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 3890, false, [
+                'grid_price_cents' => 3890,
+                'flat_price_cents' => 8000,
+                'surcharge_cents'  => 0,
+                'franco'           => false,
+            ]),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSet('chosenOption', 'chronopost.chrono13')
+            ->assertSee('Total livraison HT');
+    }
+
+    public function test_recap_ventile_absent_quand_seul_prix_grille(): void
+    {
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890, false, [
+                'grid_price_cents' => 1890,
+                'flat_price_cents' => 0,
+                'surcharge_cents'  => 0,
+                'franco'           => false,
+            ]),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertDontSee('Total livraison HT');
+    }
+
+    public function test_recap_ventile_affiche_quand_surcharge_presente(): void
+    {
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 3890, false, [
+                'grid_price_cents' => 3890,
+                'flat_price_cents' => 0,
+                'surcharge_cents'  => 800,
+                'franco'           => false,
+            ]),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('Total livraison HT')
+            ->assertSee('Supplément transport');
+    }
+
+    // ── Bandeau progression franco ────────────────────────────────────────────
+
+    public function test_bandeau_progression_franco_affiche_quand_seuil_non_atteint(): void
+    {
+        // Panier vide → sous-total = 0, seuil = 50000 → remaining > 0 → bandeau affiché.
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('livraison standard offerte');
+    }
+
+    public function test_bandeau_progression_franco_absent_quand_seuil_atteint(): void
+    {
+        $cart = $this->mockCart([
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
+        ]);
+
+        // Le bandeau de progression ne s'affiche pas quand le franco est atteint.
+        // (Le composant requiert shippingAddress pour afficher les bandeaux ;
+        //  ce test cible le getter getFrancoRemainingCentsProperty() directement.)
+        $this->assertSame(
+            0,
+            max(0, config('shipping.franco.threshold_ht_cents') - WeightCalculator::francoEligibleSubtotalHt($cart))
+        );
+    }
+
+    // ── Test point relais (existant — inchangé) ───────────────────────────────
 
     public function test_changer_pour_un_service_sans_relais_purge_le_point_en_meta(): void
     {

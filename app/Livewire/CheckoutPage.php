@@ -76,7 +76,7 @@ class CheckoutPage extends Component
      */
     protected $listeners = [
         'cartUpdated' => 'refreshCart',
-        'selectedShippingOption' => 'refreshCart',
+        'selectedShippingOption' => 'onShippingOptionSelected',
     ];
 
     public $payment_intent = null;
@@ -99,7 +99,6 @@ class CheckoutPage extends Component
             $this->getAddressValidation('billing'),
             [
                 'shippingIsBilling' => 'boolean',
-                'chosenShipping' => 'required',
             ]
         );
     }
@@ -249,7 +248,6 @@ class CheckoutPage extends Component
                 $this->currentStep = $this->steps['shipping_option'] + 1;
             } else {
                 $this->currentStep = $this->steps['shipping_option'];
-                $this->chosenShipping = $this->shippingOptions->first()?->getIdentifier();
 
                 return;
             }
@@ -266,6 +264,16 @@ class CheckoutPage extends Component
     public function refreshCart(): void
     {
         $this->cart = CartSession::current();
+    }
+
+    /**
+     * Called when ShippingOptions component saves a selection.
+     * Advances the checkout step after the option is persisted.
+     */
+    public function onShippingOptionSelected(): void
+    {
+        $this->refreshCart();
+        $this->determineCheckoutStep();
     }
 
     /**
@@ -313,28 +321,6 @@ class CheckoutPage extends Component
                 $this->billing = $this->addressToArray($this->cart->billingAddress);
             }
         }
-
-        $this->determineCheckoutStep();
-    }
-
-    /**
-     * Save the selected shipping option.
-     */
-    public function saveShippingOption(): void
-    {
-        $this->validate(['chosenShipping' => 'required']);
-
-        $option = $this->shippingOptions->first(fn ($option) => $option->getIdentifier() == $this->chosenShipping);
-
-        if (! $option) {
-            $this->addError('chosenShipping', __('Please select an available shipping option.'));
-
-            return;
-        }
-
-        CartSession::setShippingOption($option);
-
-        $this->refreshCart();
 
         $this->determineCheckoutStep();
     }
@@ -452,16 +438,6 @@ class CheckoutPage extends Component
     public function getCountriesProperty(): Collection
     {
         return Country::orderBy('name')->get();
-    }
-
-    /**
-     * Return available shipping options.
-     */
-    public function getShippingOptionsProperty(): Collection
-    {
-        return ShippingManifest::getOptions(
-            $this->cart
-        );
     }
 
     /**

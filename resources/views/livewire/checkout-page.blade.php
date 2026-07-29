@@ -98,9 +98,38 @@
                     'step' => $steps['shipping_address'],
                 ])
 
-                @include('partials.checkout.shipping_option', [
-                    'step' => $steps['shipping_option'],
-                ])
+                {{-- Étape 2 : Mode de livraison — composant ShippingOptions --}}
+                @if ($currentStep >= $steps['shipping_option'])
+                    @if ($currentStep == $steps['shipping_option'])
+                        <livewire:components.shipping-options
+                            wire:key="shipping-options-{{ $cart->shippingAddress?->updated_at?->timestamp ?? 0 }}" />
+                    @else
+                        <div class="bg-white border border-neutral-100 rounded-xl">
+                            <div class="flex items-center justify-between h-16 px-6 border-b border-neutral-100">
+                                <h3 class="font-medium">Mode de livraison</h3>
+                                <button class="px-5 py-2 text-sm font-medium text-neutral-600 rounded-lg hover:bg-neutral-100 hover:text-neutral-700"
+                                        type="button"
+                                        wire:click.prevent="$set('currentStep', {{ $steps['shipping_option'] }})">
+                                    Modifier
+                                </button>
+                            </div>
+                            @if ($this->shippingOption)
+                                <div class="p-6">
+                                    <dl class="flex flex-wrap text-sm">
+                                        <dt class="w-1/2 font-medium">{{ $this->shippingOption->getDescription() }}</dt>
+                                        <dd class="w-1/2 text-right">
+                                            @if ($this->shippingOption->meta['franco'] ?? false)
+                                                <span class="text-success-700 font-semibold">Offert</span>
+                                            @else
+                                                {{ $this->shippingOption->getPrice()->formatted() }}
+                                            @endif
+                                        </dd>
+                                    </dl>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+                @endif
 
                 @include('partials.checkout.address', [
                     'type' => 'billing',

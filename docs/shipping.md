@@ -287,18 +287,32 @@ La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste l
 
 **Constante** : `UnifiedShippingModifier::CHRONO13_IDENTIFIER = 'chronopost.chrono13'` (rétro-compat `ShippingOptions::mount()`).
 
-### 5.11 Front storefront — panier et fiche produit (Lot L4)
+### 5.11 Composant `ShippingOptions` — déployé en checkout (Lot L5)
 
-#### Sélection par défaut dans le panier
+Composant unique partagé panier **et** checkout. Le partial `partials/checkout/shipping_option.blade.php` a été supprimé en L5.
 
-`App\Livewire\Components\ShippingOptions::mount()` présélectionne `chronopost.chrono13` si aucune option n'est déjà enregistrée sur l'adresse de livraison. Fallback : première option disponible si `chrono13` n'est pas dans le manifest.
+#### Montage en checkout
+
+Dans `livewire/checkout-page.blade.php`, quand `$currentStep == $steps['shipping_option']` :
+
+```html
+<livewire:components.shipping-options
+    wire:key="shipping-options-{{ $cart->shippingAddress?->updated_at?->timestamp ?? 0 }}" />
+```
+
+Le `wire:key` force un remontage propre si l'utilisateur revient modifier l'adresse. Quand l'étape est passée (`$currentStep > $steps['shipping_option']`), une carte résumé (option + prix ou « Offert ») avec bouton « Modifier » remplace le composant.
+
+#### Avancement d'étape checkout
+
+`ShippingOptions::save()` → `CartSession::setShippingOption()` → `dispatch('selectedShippingOption')` → `CheckoutPage::onShippingOptionSelected()` → `refreshCart()` + `determineCheckoutStep()` → `currentStep = shipping_option + 1`.
+
+#### Sélection par défaut
+
+`mount()` présélectionne `chronopost.chrono13` si aucune option n'est déjà enregistrée. Fallback : première option disponible si `chrono13` absent du manifest.
 
 #### Cartes de sélection (3 modes)
 
-La vue `livewire/components/shipping-options.blade.php` affiche chaque option comme une carte radio avec :
-- Libellé long mappé par identifier (`serviceLabels` computed property)
-- Description courte du service
-- Prix HT (ou « Offert » si `meta['franco'] === true`)
+La vue `livewire/components/shipping-options.blade.php` affiche chaque option comme une carte radio avec libellé long, description et prix HT/TTC (ou « Offert »).
 
 Mapping statique dans `ShippingOptions::getServiceLabelsProperty()` :
 | Identifier | Libellé | Description |
@@ -307,31 +321,41 @@ Mapping statique dans `ShippingOptions::getServiceLabelsProperty()` :
 | `chronopost.chrono13` | Livraison standard — Chrono 13 | Livraison le lendemain avant 13h. |
 | `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. |
 
-#### Bandeaux dynamiques (panier)
+#### Récap ventilé
 
-Trois bandeaux affichés conditionnellement dans `shipping-options.blade.php` :
+Quand `hasVentilatedRecap` est vrai (`flat_price_cents > 0` OU `surcharge_cents > 0` OU options sentinel), un tableau de ventilation s'affiche sous les cartes :
+
+| Ligne | Source | Condition |
+|---|---|---|
+| Transport standard | `meta['grid_price_cents']` | toujours |
+| Forfait (par article flat) | `meta['flat_price_cents']`, lignes panier `pko_port_mode='flat'` | si > 0 |
+| Supplément | `meta['surcharge_cents']` | si > 0 |
+| Sur devis | options sentinel (`meta['quote'] === true`) | si présentes |
+| **Total livraison HT** | somme | toujours |
+
+Les meta sont injectés par `UnifiedShippingModifier` sur chaque `ShippingOption` Lunar.
+
+#### Bandeaux dynamiques
 
 | Bandeau | Condition | Message |
 |---|---|---|
-| Franco (vert) | `isFrancoReached` | « Votre commande est éligible à la livraison standard offerte… » |
-| Exclusion (info) | `hasExcludedLines` | « Certains produits volumineux… peuvent faire l'objet de frais complémentaires. » |
+| Franco atteint (vert) | `isFrancoReached` | « Votre commande est éligible à la livraison standard offerte… » |
+| Progression franco (ambre) | `francoRemainingCents > 0 && !isFrancoReached` | « Plus que X € HT d'articles éligibles… » |
+| Exclusion (info) | `hasExcludedLines` | « Certains produits volumineux… frais complémentaires. » |
 | Multi-colis (info) | `hasMultipleSources` | « Votre commande peut être expédiée en plusieurs colis… » |
 
-- `isFrancoReached` : `WeightCalculator::francoEligibleSubtotalHt(cart) >= threshold && !cartHasFrancoExcludedLine(cart)`.
-- `hasExcludedLines` : `WeightCalculator::cartHasFrancoExcludedLine(cart)`.
-- `hasMultipleSources` : au moins une ligne sans `pko_supplier_id` (stock Weklo) ET une ligne avec `pko_supplier_id` (fournisseur externe).
+- `isFrancoReached` : `francoEligibleSubtotalHt(cart) >= threshold && !cartHasFrancoExcludedLine(cart)`.
+- `francoRemainingCents` : `max(0, threshold - current)`, base `eligible_subtotal` ou `cart_total` selon `ShippingSettings::francoBasis()`. Miroir de `ShippingCalculator::computeBanners()`.
 
-#### Badge disponibilité
+#### Badge disponibilité fiche produit
 
-**Fiche produit** (`livewire/product-page.blade.php`) — priorité descendante :
+`livewire/product-page.blade.php` — priorité descendante :
 1. `pko_port_mode = 'free'` → « Livraison offerte » (vert)
-2. `variant->stock > 0` → « En stock Weklo — Expédition 24/48h » (vert)
-3. `pko_supplier_id` renseigné → « Disponible sur commande fournisseur — Livraison estimée sous {lead_min} à {lead_max} jours ouvrés » (ambre)
+2. `variant->stock > 0` → « En stock — Expédition 24/48h » (vert)
+3. `pko_supplier_id` renseigné → « Disponible sur commande fournisseur — {lead_min}–{lead_max} jours ouvrés » (ambre)
 4. Sinon → « Livraison 24/48h » (neutre)
 
-Le supplier est chargé via `ProductPage::getSupplierProperty()` → `Supplier::find($product->pko_supplier_id)`.
-
-**Lignes panier** (`livewire/cart-page.blade.php`) — même logique via `CartPage::resolveAvailability()` qui alimente la clé `availability` du tableau `$lines`. NE PAS afficher « dropshipping » côté client.
+**Lignes panier** (`livewire/cart-page.blade.php`) — même logique via `CartPage::resolveAvailability()`. NE PAS afficher « dropshipping » côté client.
 
 ### 5.12 Suppléments transport (L5 → L4)
 
@@ -394,7 +418,7 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 - `ShippingTaxHelper::grossToNet(int, float): int` — seule méthode de conversion, partagée par tous les carriers.
 - Couvert par `tests/Unit/Shipping/CarrierTaxBaseTest` (reécrit en L4 pour cibler `ShippingTaxHelper`).
 
-**Affichage panier** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (résolu via `ShippingSettings::taxDisplay()`, clé DB `shipping.tax.display`, fallback env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
+**Affichage panier et checkout** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (résolu via `ShippingSettings::taxDisplay()`, clé DB `shipping.tax.display`, fallback env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
 
 #### B) Sélection d'un point relais physique (Chrono Relais)
 
@@ -418,7 +442,7 @@ Le SDK `ladromelaboratoire/chronopostws` n'expose **pas** de service point-relai
 
 **Limite / follow-up (hors scope F4)** : le point relais est stocké sur le **panier** uniquement. La propagation vers l'`Order` (et donc vers l'expédition post-paiement, construite depuis l'Order par `OrderShipmentObserver`/`CreateCarrierShipmentJob`) n'est **pas** câblée — elle nécessiterait un pipeline de création de commande (`config/lunar/orders.php → pipelines.creation`) recopiant `cart.meta['pickup_point']` vers `order.meta`, ce qui touche au flux de placement de commande (Lot F3, explicitement hors scope ici). À traiter dans un lot dédié.
 
-Tests : `tests/Feature/Shipping/ShippingOptionsTest` (affichage HT/TTC, validation relais requise, persistance liste + saisie manuelle, purge au changement de service).
+Tests : `tests/Feature/Shipping/ShippingOptionsTest` (affichage HT/TTC, présélection chrono13, récap ventilé, bandeau progression franco, validation relais requise, persistance liste + saisie manuelle, purge au changement de service).
 
 ### 5.7 Hors scope shipping
 
@@ -481,6 +505,33 @@ Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote`
 - `product-page.blade.php` — badge livraison offerte sur `pko_port_mode = 'free'`.
 - `LunarProductWriter::applyPortMode()` — mapping `logistics_class` A/B/C → `standard`/`inherit`/`quote`.
 - `ShippingCalculator` (L4) — partitionne les lignes par `pko_port_mode` résolu : standard / flat / free / quote. Les lignes flat excluent leur poids du poids taxable (seules les lignes standard alimentent la grille), mais ajoutent `pko_transport_price_cents × quantité` à chaque option carrier.
+
+### 5.15 Checkout branché sur ShippingOptions — récap ventilé et défaut Chrono 13 (Lot L5, 2026-07)
+
+#### Ce qui change
+
+| Avant (L4) | Après (L5) |
+|---|---|
+| Checkout utilisait `partials/checkout/shipping_option.blade.php` (radio brut, défaut = première option = Chrono Relais) | Checkout utilise `<livewire:components.shipping-options />` (cartes, défaut = Chrono 13) |
+| Deux implémentations divergentes (panier + checkout) | Un seul composant partagé |
+| Listener `selectedShippingOption → refreshCart()` (pas d'avancement d'étape) | Listener `selectedShippingOption → onShippingOptionSelected()` : `refreshCart()` + `determineCheckoutStep()` |
+| Pas de récap ventilé | Récap ventilé si `flat_price_cents > 0` ou `surcharge_cents > 0` ou sentinelles |
+| Bandeau franco atteint uniquement | Bandeau progression franco (montant restant ÉLIGIBLE, pas total) |
+
+#### Fichiers modifiés
+
+| Fichier | Modification |
+|---|---|
+| `app/Livewire/Components/ShippingOptions.php` | +`getFrancoRemainingCentsProperty`, `getSelectedOptionMetaProperty`, `getSentinelOptionsProperty`, `getHasVentilatedRecapProperty`, `getFlatLinesProperty`, `formatHtCents()` |
+| `resources/views/livewire/components/shipping-options.blade.php` | Bandeau progression franco + section récap ventilé |
+| `resources/views/livewire/checkout-page.blade.php` | Remplace `@include('partials.checkout.shipping_option')` par `<livewire:components.shipping-options />` + carte résumé quand étape passée |
+| `app/Livewire/CheckoutPage.php` | Listener `selectedShippingOption → onShippingOptionSelected()`, suppression `saveShippingOption()` et `getShippingOptionsProperty()` |
+| `resources/views/partials/checkout/shipping_option.blade.php` | **Supprimé** |
+| `tests/Feature/Shipping/ShippingOptionsTest.php` | +3 tests récap ventilé, +2 tests bandeau franco progression |
+
+#### Invariant franco
+
+`getFrancoRemainingCentsProperty()` et `ShippingCalculator::computeBanners()` utilisent la **même base** (`francoEligibleSubtotalHt` ou `cartSubtotalHt` selon `ShippingSettings::francoBasis()`). Si l'un change, aligner l'autre.
 
 ---
 

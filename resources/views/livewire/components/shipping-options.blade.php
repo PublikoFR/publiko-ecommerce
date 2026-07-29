@@ -11,6 +11,11 @@
                 <x-ui.icon name="check" class="w-4 h-4 mt-0.5 text-success-600 shrink-0" />
                 <span>Votre commande est éligible à la livraison standard offerte. Vous pouvez choisir une livraison express avec supplément.</span>
             </div>
+        @elseif ($this->francoRemainingCents > 0)
+            <div class="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-start gap-2 text-sm text-amber-800">
+                <x-ui.icon name="info" class="w-4 h-4 mt-0.5 text-amber-500 shrink-0" />
+                <span>Plus que <strong>{{ $this->formatHtCents($this->francoRemainingCents) }} HT</strong> d'articles éligibles pour bénéficier de la livraison standard offerte.</span>
+            </div>
         @endif
 
         @if ($this->hasExcludedLines)
@@ -73,6 +78,64 @@
                     </div>
                 </label>
             @endforeach
+
+            {{-- Récap ventilé : affiché si plusieurs composants de frais se cumulent --}}
+            @if ($this->hasVentilatedRecap && $this->selectedOptionMeta !== null)
+                @php
+                    $meta      = $this->selectedOptionMeta;
+                    $labels    = $this->serviceLabels;
+                    $recapLabel = $labels[$chosenOption]['title'] ?? $chosenOption;
+                    $gridCents  = (int) ($meta['grid_price_cents'] ?? 0);
+                    $isFranco   = (bool) ($meta['franco'] ?? false);
+                    $flatCents  = (int) ($meta['flat_price_cents'] ?? 0);
+                    $surgCents  = (int) ($meta['surcharge_cents'] ?? 0);
+                    $totalCents = $gridCents + $flatCents + $surgCents;
+                @endphp
+                <div class="rounded-lg border border-neutral-100 overflow-hidden text-sm">
+                    <table class="w-full">
+                        <tbody class="divide-y divide-neutral-50">
+                            <tr>
+                                <td class="px-4 py-2 text-neutral-700">{{ $recapLabel }}</td>
+                                <td class="px-4 py-2 text-right font-medium {{ $isFranco ? 'text-success-700' : 'text-neutral-900' }}">
+                                    {{ $isFranco ? 'Offert' : $this->formatHtCents($gridCents) }}
+                                </td>
+                            </tr>
+                            @if ($flatCents > 0)
+                                @forelse ($this->flatLines as $line)
+                                    @php $lineCents = (int) ($line->purchasable?->product?->pko_transport_price_cents ?? 0) * (int) $line->quantity; @endphp
+                                    <tr>
+                                        <td class="px-4 py-2 text-neutral-700">{{ $line->purchasable->getDescription() }}</td>
+                                        <td class="px-4 py-2 text-right font-medium">+ {{ $this->formatHtCents($lineCents) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td class="px-4 py-2 text-neutral-700">Frais de transport forfaitaires</td>
+                                        <td class="px-4 py-2 text-right font-medium">+ {{ $this->formatHtCents($flatCents) }}</td>
+                                    </tr>
+                                @endforelse
+                            @endif
+                            @if ($surgCents > 0)
+                                <tr>
+                                    <td class="px-4 py-2 text-neutral-700">Supplément transport</td>
+                                    <td class="px-4 py-2 text-right font-medium">+ {{ $this->formatHtCents($surgCents) }}</td>
+                                </tr>
+                            @endif
+                            @foreach ($this->sentinelOptions as $sentinel)
+                                <tr>
+                                    <td class="px-4 py-2 text-neutral-700">{{ $sentinel->getName() }}</td>
+                                    <td class="px-4 py-2 text-right font-medium text-neutral-500 italic">Sur devis</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-neutral-50 border-t border-neutral-200">
+                                <td class="px-4 py-2 font-semibold text-neutral-800">Total livraison HT</td>
+                                <td class="px-4 py-2 text-right font-bold text-neutral-900">{{ $this->formatHtCents($totalCents) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
 
             {{-- Sélection du point relais (Chrono Relais) --}}
             @if ($this->requiresPickupPoint)
