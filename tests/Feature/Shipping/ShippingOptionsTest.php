@@ -365,7 +365,7 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         Livewire::test(ShippingOptions::class)
-            ->assertSee("d'articles éligibles pour bénéficier")
+            ->assertSee('articles éligibles pour bénéficier')
             ->assertDontSee('Votre commande est éligible');
     }
 
@@ -384,7 +384,7 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         Livewire::test(ShippingOptions::class)
-            ->assertDontSee("d'articles éligibles pour bénéficier")
+            ->assertDontSee('articles éligibles pour bénéficier')
             ->assertSee('Votre commande est éligible');
     }
 
