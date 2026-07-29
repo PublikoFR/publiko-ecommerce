@@ -209,17 +209,21 @@ class PkoCustomerResource extends CustomerResource
                     ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
                         ? $query->where('pko_postcode', 'like', $data['value'].'%')
                         : $query),
-                // Inversion de l'ordre d'inscription. Le reorder() est appliqué
-                // pendant l'étape « filtres », donc avant le defaultSort ci-dessus,
-                // et prend le dessus sur lui.
+                // Inversion de l'ordre d'inscription. Le tri DOIT passer par
+                // baseQuery() : le callback query() d'un filtre est exécuté dans un
+                // where() imbriqué (cf. HasFilters::applyFiltersToTableQuery), donc un
+                // reorder() posé là n'atteint jamais la requête principale.
+                // query() est neutralisé pour empêcher le « where inscription_order = … »
+                // par défaut de SelectFilter.
                 SelectFilter::make('inscription_order')
                     ->label('Ordre d\'inscription')
                     ->options([
                         'desc' => 'Plus récents d\'abord',
                         'asc' => 'Plus anciens d\'abord',
                     ])
-                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
-                        ? $query->reorder('created_at', $data['value'] === 'asc' ? 'asc' : 'desc')
+                    ->query(fn (Builder $query): Builder => $query)
+                    ->baseQuery(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? $query->reorder('lunar_customers.created_at', $data['value'] === 'asc' ? 'asc' : 'desc')
                         : $query),
             ]);
     }
