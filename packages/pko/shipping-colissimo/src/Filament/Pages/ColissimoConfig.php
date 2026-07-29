@@ -20,6 +20,13 @@ class ColissimoConfig extends AbstractCarrierConfigPage
 
     protected static ?int $navigationSort = 21;
 
+    // Colissimo mis en veille (L1 refonte frais de port 2026 — services désactivés en DB).
+    // Changer en true pour réactiver l'entrée de menu sans autre modification.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     protected function carrierCode(): string
     {
         return 'colissimo';

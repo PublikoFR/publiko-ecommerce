@@ -190,6 +190,39 @@ Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_method
 
 **Front** : badge "Livraison offerte" (vert) sur la fiche produit storefront quand `pko_free_shipping = true`, remplace "Livraison 24/48h".
 
+### 5.8bis Nettoyage L1 — table-rate hors admin, Colissimo off, seuil franco unifié
+
+**Décisions actées au lot L1 (2026-07-29) — aucun impact sur les calculs, retrait du mort-bois uniquement.**
+
+#### Table-rate Lunar hors admin
+
+`Lunar\Shipping\ShippingPlugin::make()` a été **retiré** du panel Filament dans `AppServiceProvider`. Les entrées « Méthodes d'expédition », « Zones d'expédition » et « Listes d'exclusion » ont disparu du menu Expédition.
+
+- **Raison** : `lunar_customer_group_shipping_method` est vide → le `ShippingRateResolver` du package rejette toutes les méthodes seedées. Aucune option ne sort au checkout. L'UI n'exposait que de la confusion.
+- **Réactivation** : rajouter `->plugin(ShippingPlugin::make())` dans `AppServiceProvider` + peupler `lunar_customer_group_shipping_method` via `$method->scheduleCustomerGroup($groups)`.
+- **Tables/migrations** : conservées (pas de `composer remove`, pas de rollback de migration). Le package `lunarphp/table-rate-shipping` reste dans `composer.json`.
+
+#### Colissimo mis en veille
+
+- **En DB** : migration `2026_07_29_100000_disable_colissimo_carrier_services` → `enabled=0` sur tous les services `colissimo` dans `pko_carrier_services`. `AbstractCarrierModifier` filtre sur `enabled=true` → aucune option `colissimo.*` ne sort du manifest.
+- **En admin** : `ColissimoConfig::shouldRegisterNavigation()` retourne `false` → page absente du menu Transporteurs. La page reste accessible par URL pour un opérateur qui en connaît l'adresse.
+- **Réactivation** : `enabled=1` en DB + `shouldRegisterNavigation(): bool { return true; }` dans `ColissimoConfig`.
+- **Package** : `packages/pko/shipping-colissimo/` conservé intégralement.
+
+#### Source unique du seuil franco
+
+Trois sources concurrentes existaient pour le seuil de livraison offerte. Résolution :
+
+| Source | État après L1 | Rôle restant |
+|---|---|---|
+| `config('shipping.franco.threshold_ht_cents')` | **Seule source** — défaut 50 000 ¢ (= 500 € HT) | `FrancoModifier`, bandeau panier, `ShippingOptions` |
+| `Setting::get('shipping.free_threshold_cents')` | Champ supprimé de `StorefrontSettings` | Aucun — recréé en page dédiée (L2) |
+| `config('storefront.shipping.free_threshold_cents')` | Inchangé en config | Plus utilisé pour l'affichage |
+
+- `FrancoModifier` lit `config('shipping.franco.threshold_ht_cents')`.
+- Le bandeau panier (`cart-page.blade.php`) lit désormais la même clé (fallback 50 000 ¢).
+- Le seuil a été porté à **500 € HT** (décision client actée, anciennement 350 € HT) en changeant le défaut dans `packages/pko/shipping-common/config/shipping.php`. Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
+
 ### 5.9 Refonte frais de port 2026 — fondation (Lot L1)
 
 **Data-model produit** — nouvelles colonnes sur `lunar_products` (migration `2026_06_26_110000`) :

@@ -11,11 +11,11 @@ return [
     | que la livraison standard Chrono 13 soit offerte automatiquement.
     |
     | Variable d'env : FRANCO_THRESHOLD_HT_CENTS
-    | Défaut         : 35000 (= 350,00 €)
+    | Défaut         : 50000 (= 500,00 € HT) — décision client actée L1 2026
     |
     */
     'franco' => [
-        'threshold_ht_cents' => (int) env('FRANCO_THRESHOLD_HT_CENTS', 35000),
+        'threshold_ht_cents' => (int) env('FRANCO_THRESHOLD_HT_CENTS', 50000),
     ],
 
     /*
