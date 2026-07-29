@@ -37,7 +37,7 @@ class FreeShippingModifierTest extends TestCase
 
     private function makeLine(bool $freeShipping): object
     {
-        $product = (object) ['pko_free_shipping' => $freeShipping];
+        $product = (object) ['pko_port_mode' => $freeShipping ? 'free' : 'standard', 'pko_supplier_id' => null];
 
         $variant = (object) [
             'weight_value' => 1.0,

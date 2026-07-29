@@ -9,6 +9,8 @@ use App\Filament\Resources\PkoProductResource\Pages\PkoListProducts;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +18,7 @@ use Illuminate\Support\Collection;
 use Lunar\Admin\Filament\Resources\ProductResource;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
+use Pko\ShippingCommon\Models\Supplier;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
@@ -226,5 +229,24 @@ class PkoProductResource extends ProductResource
         );
 
         return collect([$viewAll])->merge($results);
+    }
+
+    public static function getDefaultTable(Table $table): Table
+    {
+        $table = parent::getDefaultTable($table);
+
+        $table->pushFilters([
+            Filter::make('port_a_trancher')
+                ->label(__('pko-shipping-common::admin.product.filter_port_a_trancher_label'))
+                ->query(function (Builder $query): Builder {
+                    $supplierIds = Supplier::where('port_inclus', 'cas_par_cas')->pluck('id');
+
+                    return $query
+                        ->where('pko_port_mode', 'inherit')
+                        ->whereIn('pko_supplier_id', $supplierIds);
+                }),
+        ]);
+
+        return $table;
     }
 }

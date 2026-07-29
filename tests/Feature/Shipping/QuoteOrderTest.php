@@ -55,8 +55,8 @@ class QuoteOrderTest extends TestCase
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
-        // Ensure the seeded product does NOT have pko_quote_only set
-        $product->forceFill(['pko_quote_only' => false])->save();
+        // Ensure the seeded product does NOT have pko_port_mode='quote'
+        $product->forceFill(['pko_port_mode' => 'standard'])->save();
 
         // Use a minimal Order stub (no real order lines in DB — the pipeline
         // will load an empty collection and leave the status unchanged)
@@ -72,7 +72,7 @@ class QuoteOrderTest extends TestCase
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
-        $product->forceFill(['pko_quote_only' => false])->save();
+        $product->forceFill(['pko_port_mode' => 'standard'])->save();
 
         $variant = $product->variants()->first();
         $this->assertNotNull($variant);
@@ -136,7 +136,7 @@ class QuoteOrderTest extends TestCase
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
-        $product->forceFill(['pko_quote_only' => true])->save();
+        $product->forceFill(['pko_port_mode' => 'quote'])->save();
 
         // Attach a real order line pointing to a variant of this product
         $variant = $product->variants()->first();
@@ -177,7 +177,7 @@ class QuoteOrderTest extends TestCase
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
-        $product->forceFill(['pko_quote_only' => true])->save();
+        $product->forceFill(['pko_port_mode' => 'quote'])->save();
 
         $variant = $product->variants()->first();
         $this->assertNotNull($variant);

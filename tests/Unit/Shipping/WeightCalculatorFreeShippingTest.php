@@ -17,7 +17,7 @@ class WeightCalculatorFreeShippingTest extends TestCase
 
     private function makeLine(float $weightKg, bool $freeShipping, int $qty = 1): object
     {
-        $product = (object) ['pko_free_shipping' => $freeShipping];
+        $product = (object) ['pko_port_mode' => $freeShipping ? 'free' : 'standard', 'pko_supplier_id' => null];
 
         $variant = new class($weightKg, $product)
         {

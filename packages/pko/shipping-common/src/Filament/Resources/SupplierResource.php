@@ -67,6 +67,17 @@ class SupplierResource extends BaseResource
                 ->label(__('pko-shipping-common::admin.supplier.notes'))
                 ->rows(3)
                 ->nullable(),
+
+            Forms\Components\Select::make('port_inclus')
+                ->label(__('pko-shipping-common::admin.supplier.port_inclus'))
+                ->helperText(__('pko-shipping-common::admin.supplier.port_inclus_help'))
+                ->options([
+                    'oui' => __('pko-shipping-common::admin.supplier.port_inclus_oui'),
+                    'non' => __('pko-shipping-common::admin.supplier.port_inclus_non'),
+                    'cas_par_cas' => __('pko-shipping-common::admin.supplier.port_inclus_cas_par_cas'),
+                ])
+                ->default('cas_par_cas')
+                ->required(),
         ]);
     }
 
@@ -88,6 +99,20 @@ class SupplierResource extends BaseResource
                     ->getStateUsing(fn (Supplier $record): string => $record->lead_time_min_days !== null
                         ? $record->lead_time_min_days.' – '.($record->lead_time_max_days ?? '?').' j.'
                         : '—'),
+
+                Tables\Columns\TextColumn::make('port_inclus')
+                    ->label(__('pko-shipping-common::admin.supplier.port_inclus'))
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'oui' => __('pko-shipping-common::admin.supplier.port_inclus_oui'),
+                        'non' => __('pko-shipping-common::admin.supplier.port_inclus_non'),
+                        default => __('pko-shipping-common::admin.supplier.port_inclus_cas_par_cas'),
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'oui' => 'success',
+                        'non' => 'danger',
+                        default => 'warning',
+                    }),
             ])
             ->defaultSort('name')
             ->actions([

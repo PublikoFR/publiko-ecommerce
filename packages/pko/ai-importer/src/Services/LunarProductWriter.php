@@ -273,7 +273,7 @@ final class LunarProductWriter
 
             $this->applyPrice($variant, $data);
             $this->applyCostPrice($variant, $data);
-            $this->applyLogisticsClass($product, $data, true);
+            $this->applyPortMode($product, $data, true);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
@@ -287,7 +287,7 @@ final class LunarProductWriter
                     'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
                 ], static fn ($v) => $v !== null));
                 $this->applySupplier($product, $data);
-                $this->applyLogisticsClass($product, $data, false);
+                $this->applyPortMode($product, $data, false);
 
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
@@ -497,24 +497,47 @@ final class LunarProductWriter
     }
 
     /**
-     * Pose `pko_logistics_class` (A/B/C) par assignation directe.
-     * À la création : défaut 'B' si la clé `logistics_class` est absente de la source.
+     * Pose `pko_port_mode` selon la source.
+     *
+     * Mapping depuis l'ancienne logistique A/B/C ou un mode direct :
+     *   - port_mode = 'quote' ou ancien code 'C'          → 'quote'
+     *   - port_mode = 'free'                              → 'free'
+     *   - port_mode = 'flat'                              → 'flat'
+     *   - port_mode = 'standard' ou ancien code 'A'       → 'standard'
+     *   - port_mode = 'inherit' ou ancien code 'B' ou absent (création avec supplier) → 'inherit'
+     *   - absent à la création sans supplier               → 'standard'
+     *
      * À la mise à jour : no-op si la clé est absente (pour ne pas écraser une valeur
      * saisie manuellement).
      *
      * @param  array<string, mixed>  $data
      */
-    private function applyLogisticsClass(Product $product, array $data, bool $isCreate): void
+    private function applyPortMode(Product $product, array $data, bool $isCreate): void
     {
-        if (! $isCreate && ! array_key_exists('logistics_class', $data)) {
+        $hasPortMode = array_key_exists('port_mode', $data);
+        $hasLogisticsClass = array_key_exists('logistics_class', $data);
+
+        if (! $isCreate && ! $hasPortMode && ! $hasLogisticsClass) {
             return;
         }
 
-        $raw = isset($data['logistics_class']) ? strtoupper(trim((string) $data['logistics_class'])) : '';
-        $class = in_array($raw, ['A', 'B', 'C'], true) ? $raw : 'B';
+        if ($hasPortMode) {
+            $raw = strtolower(trim((string) $data['port_mode']));
+            $mode = in_array($raw, ['inherit', 'standard', 'flat', 'free', 'quote'], true) ? $raw : 'standard';
+        } elseif ($hasLogisticsClass) {
+            $raw = strtoupper(trim((string) $data['logistics_class']));
+            $mode = match ($raw) {
+                'C' => 'quote',
+                'A' => 'standard',
+                default => 'inherit',
+            };
+        } else {
+            // Création sans clé fournie : 'inherit' si fournisseur connu, sinon 'standard'.
+            $mode = ($product->pko_supplier_id !== null) ? 'inherit' : 'standard';
+        }
 
-        if ($product->pko_logistics_class !== $class) {
-            $product->pko_logistics_class = $class;
+        if ($product->pko_port_mode !== $mode) {
+            $product->pko_port_mode = $mode;
             $product->save();
         }
     }

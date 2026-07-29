@@ -16,11 +16,13 @@ class Supplier extends Model
         'lead_time_min_days',
         'lead_time_max_days',
         'notes',
+        'port_inclus',
     ];
 
     protected $casts = [
         'bl_neutre' => 'boolean',
         'lead_time_min_days' => 'integer',
         'lead_time_max_days' => 'integer',
+        'port_inclus' => 'string',
     ];
 }

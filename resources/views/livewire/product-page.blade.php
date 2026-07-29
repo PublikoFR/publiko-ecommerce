@@ -98,7 +98,7 @@
 
                 {{-- Reassurance grid --}}
                 <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    @if ($this->product->pko_free_shipping)
+                    @if (($this->product->pko_port_mode ?? '') === 'free')
                         <div class="flex items-center gap-2.5 text-success-700 font-semibold"><x-ui.icon name="truck" class="w-5 h-5 text-success-600" /> Livraison offerte</div>
                     @elseif ($this->variant->stock > 0)
                         <div class="flex items-center gap-2.5 text-neutral-700"><x-ui.icon name="truck" class="w-5 h-5 text-primary-600" /> En stock — expédition 24/48 h</div>

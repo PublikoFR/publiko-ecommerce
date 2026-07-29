@@ -22,18 +22,13 @@ class EditProductUnifiedShippingTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        // La Page tourne dans le panel Filament 'lunar' qui utilise le guard
-        // 'staff' (cf. LunarPanelManager::defaultPanel ->authGuard('staff')).
-        // Le rendu énumère les resources Lunar -> BaseResource::canAccess ->
-        // Filament::auth()->user() résolu sur le guard 'staff' : il faut donc
-        // authentifier un Staff sur CE guard, pas un User sur le guard web.
         /** @var Staff $admin */
         $admin = Staff::query()->first();
         $this->assertNotNull($admin, 'Un Staff admin seedé est requis.');
         $this->actingAs($admin, 'staff');
     }
 
-    public function test_saves_logistics_fields_on_product(): void
+    public function test_saves_port_mode_and_supplier_on_product(): void
     {
         /** @var Product $product */
         $product = Product::query()->first();
@@ -45,36 +40,34 @@ class EditProductUnifiedShippingTest extends TestCase
         ]);
 
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
-            ->set('logisticsClass', 'B')
+            ->call('setPortMode', 'quote')
             ->set('francoEligible', false)
             ->set('transportPriceEuros', null)
-            ->set('quoteOnly', true)
             ->set('supplierId', $supplier->id)
             ->call('save');
 
         $product->refresh();
 
-        $this->assertSame('B', $product->pko_logistics_class);
+        $this->assertSame('quote', $product->pko_port_mode);
         $this->assertFalse((bool) $product->pko_franco_eligible);
         $this->assertNull($product->pko_transport_price_cents);
-        $this->assertTrue((bool) $product->pko_quote_only);
         $this->assertSame($supplier->id, (int) $product->pko_supplier_id);
     }
 
-    public function test_saves_transport_price_for_class_c(): void
+    public function test_saves_transport_price_for_mode_flat(): void
     {
         /** @var Product $product */
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
-            ->set('logisticsClass', 'C')
+            ->call('setPortMode', 'flat')
             ->set('transportPriceEuros', '45.00')
             ->call('save');
 
         $product->refresh();
 
-        $this->assertSame('C', $product->pko_logistics_class);
+        $this->assertSame('flat', $product->pko_port_mode);
         $this->assertSame(4500, (int) $product->pko_transport_price_cents);
     }
 
@@ -84,22 +77,36 @@ class EditProductUnifiedShippingTest extends TestCase
         $product = Product::query()->first();
         $this->assertNotNull($product);
 
-        // Produit ayant déjà un prix transport en base (classe C, 45,00 €).
         $product->forceFill([
-            'pko_logistics_class' => 'C',
+            'pko_port_mode' => 'flat',
             'pko_transport_price_cents' => 4500,
         ])->save();
 
-        // L'utilisateur efface le champ prix transport puis enregistre.
         Livewire::test(EditProductUnified::class, ['record' => $product->id])
-            ->set('logisticsClass', 'C')
+            ->call('setPortMode', 'flat')
             ->set('transportPriceEuros', null)
             ->call('save');
 
         $product->refresh();
 
-        // Le prix doit repasser à null (pas de fallback sur l'ancienne valeur).
         $this->assertNull($product->pko_transport_price_cents);
+    }
+
+    public function test_transport_price_not_saved_for_non_flat_modes(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        Livewire::test(EditProductUnified::class, ['record' => $product->id])
+            ->call('setPortMode', 'standard')
+            ->set('transportPriceEuros', '45.00')
+            ->call('save');
+
+        $product->refresh();
+
+        $this->assertSame('standard', $product->pko_port_mode);
+        $this->assertNull($product->pko_transport_price_cents, 'Prix transport non enregistré hors mode flat');
     }
 
     public function test_hydrates_shipping_fields_from_product(): void
@@ -113,24 +120,40 @@ class EditProductUnifiedShippingTest extends TestCase
             'bl_neutre' => true,
         ]);
 
-        // Le modèle Lunar Product est guarded (['*']) : un update() en
-        // mass-assignment dropperait pko_supplier_id (colonne non fillable).
-        // forceFill()->save() persiste l'état du fixture de façon déterministe.
         $product->forceFill([
-            'pko_logistics_class' => 'A',
+            'pko_port_mode' => 'inherit',
             'pko_franco_eligible' => true,
             'pko_transport_price_cents' => null,
-            'pko_quote_only' => false,
             'pko_supplier_id' => $supplier->id,
         ])->save();
 
         $component = Livewire::test(EditProductUnified::class, ['record' => $product->id]);
 
         $component
-            ->assertSet('logisticsClass', 'A')
+            ->assertSet('portMode', 'inherit')
             ->assertSet('francoEligible', true)
             ->assertSet('transportPriceEuros', null)
-            ->assertSet('quoteOnly', false)
             ->assertSet('supplierId', $supplier->id);
+    }
+
+    public function test_set_port_mode_derives_franco_eligible(): void
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product);
+
+        $component = Livewire::test(EditProductUnified::class, ['record' => $product->id]);
+
+        $component->call('setPortMode', 'standard');
+        $component->assertSet('francoEligible', true);
+
+        $component->call('setPortMode', 'free');
+        $component->assertSet('francoEligible', false);
+
+        $component->call('setPortMode', 'quote');
+        $component->assertSet('francoEligible', false);
+
+        $component->call('setPortMode', 'flat');
+        $component->assertSet('francoEligible', false);
     }
 }

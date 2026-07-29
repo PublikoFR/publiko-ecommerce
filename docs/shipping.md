@@ -166,29 +166,13 @@ Voir [packages/transporters.md](packages/transporters.md) pour les détails (col
 
 Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_methods_rates` (assertions type `countries` + méthodes schedulées).
 
-### 5.8 Frais de port offert par produit — dropshipping (2026-06)
+### 5.8 Frais de port offert par produit — dropshipping (2026-06, remplacé par §5.14)
 
-**Cas d'usage** : le fournisseur expédie directement au client final et les frais de port sont inclus dans le prix d'achat. Les produits concernés sont flaggés `pko_free_shipping = true` en base.
+> **Obsolète depuis Lot L3 (2026-07).** Les colonnes `pko_free_shipping`, `pko_quote_only` et `pko_logistics_class` ont été remplacées par `pko_port_mode`. Voir §5.14.
 
-**Stockage** : colonne `pko_free_shipping BOOLEAN NOT NULL DEFAULT 0` sur `lunar_products`, ajoutée via migration custom `2026_06_08_100000_add_pko_free_shipping_to_lunar_products.php` (index présent pour les requêtes efficients).
+Le cas d'usage (fournisseur expédie directement, port inclus dans le prix d'achat) est toujours supporté via `pko_port_mode = 'free'` (anciennement `pko_free_shipping = true`).
 
-**Logique checkout** :
-
-| Panier | Comportement |
-|--------|-------------|
-| 100% flaggés | `FreeShippingModifier` ajoute 1 option "Livraison offerte" (0 €). Les carriers skippent naturellement car `fromCartTaxable()` = 0. |
-| Mixte | Carriers calculent le poids/prix sur les lignes non-flaggées uniquement (`WeightCalculator::fromCartTaxable()`). Aucune option "free" injectée. |
-| Aucun flaggé | Comportement standard inchangé. |
-
-**Composants modifiés** :
-
-- `WeightCalculator::fromCartTaxable(Cart)` — nouveau, filtre les lignes `pko_free_shipping = true`.
-- `WeightCalculator::allLinesFreeShipping(Cart)` — nouveau, retourne `true` si toutes les lignes sont flaggées.
-- `AbstractCarrierModifier::handle()` — utilise désormais `fromCartTaxable()` au lieu de `fromCart()`.
-- `FreeShippingModifier` — enregistré dans `ShippingCommonServiceProvider`, injecte l'option gratuite quand applicable.
-- Toggle "Frais de port offert" — rendu dans la page d'édition produit unifiée (`EditProductUnified`, carte "Inventaire & expédition"), prop Livewire `freeShipping` → `lunar_products.pko_free_shipping`. (Pas une extension `extendForm` : la fiche produit est une page Livewire custom qui ne passe pas par le form Lunar.)
-
-**Front** : badge "Livraison offerte" (vert) sur la fiche produit storefront quand `pko_free_shipping = true`, remplace "Livraison 24/48h".
+### 5.9 Refonte frais de port 2026 — fondation (Lot L1, colonnes produit mises à jour en L3)
 
 ### 5.8bis Nettoyage L1 — table-rate hors admin, Colissimo off, seuil franco unifié
 
@@ -223,17 +207,16 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 - Le bandeau panier (`cart-page.blade.php`) lit désormais la même clé (fallback 50 000 ¢).
 - Le seuil a été porté à **500 € HT** (décision client actée, anciennement 350 € HT) en changeant le défaut dans `packages/pko/shipping-common/config/shipping.php`. Variable d'env : `FRANCO_THRESHOLD_HT_CENTS`.
 
-### 5.9 Refonte frais de port 2026 — fondation (Lot L1)
-
-**Data-model produit** — nouvelles colonnes sur `lunar_products` (migration `2026_06_26_110000`) :
+**Data-model produit** — colonnes sur `lunar_products` après Lot L3 :
 
 | Colonne | Type | Défaut | Rôle |
 |---|---|---|---|
-| `pko_logistics_class` | `enum('A','B','C')` | `'A'` | Classe logistique (A=standard, B=fournisseur surcoût, C=volumineux/spécifique) |
-| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 350 € HT (false = exclu) |
-| `pko_transport_price_cents` | `int unsigned nullable` | `null` | Prix transport par produit (classe C uniquement) |
-| `pko_quote_only` | `boolean` | `false` | Produit « sur devis » — commande en attente de validation sans paiement auto |
+| `pko_port_mode` | `enum('inherit','standard','flat','free','quote')` | `'inherit'` | Mode de facturation du port (L3, remplace 3 colonnes L1) |
+| `pko_franco_eligible` | `boolean` | `true` | Éligibilité au franco 350 € HT (false = exclu ; override possible) |
+| `pko_transport_price_cents` | `int unsigned nullable` | `null` | Prix transport forfaitaire (mode `flat` uniquement) |
 | `pko_supplier_id` | `bigint unsigned nullable FK` | `null` | Lien vers `pko_suppliers` (nullOnDelete) |
+
+> **Colonnes supprimées en L3** : `pko_logistics_class`, `pko_free_shipping`, `pko_quote_only`. Migration de conversion `2026_07_29_100100`.
 
 **Nouvelles tables** :
 
@@ -262,10 +245,9 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 **Règle métier** : si le sous-total HT (hors taxe) des lignes **franco-éligibles** du panier est ≥ 350 € et qu'**aucune ligne** n'est exclue, le modifier remplace l'option `chronopost.chrono13` dans le manifest par une version à 0 €. Chrono Relais et Chrono 10 restent payants.
 
-**Éligibilité d'une ligne** (les trois conditions sont cumulatives) :
+**Éligibilité d'une ligne** (les deux conditions sont cumulatives) :
 1. `product.pko_franco_eligible === true`
-2. `product.pko_logistics_class !== 'C'` (classe C = volumineux/spécifique → toujours hors franco)
-3. `product.pko_quote_only === false` (produit sur devis → hors franco)
+2. `PortModeResolver::resolve($product) !== 'quote'` (mode devis → hors franco ; remplace les anciennes conditions `logistics_class !== 'C'` et `quote_only === false` depuis L3)
 
 **Politique de blocage** : si **au moins une ligne** est non éligible, le franco n'est pas appliqué (grille pleine sur tout). Le raffinement multi-expédition (franco partiel) viendra en Lot L6.
 
@@ -314,7 +296,7 @@ Trois bandeaux affichés conditionnellement dans `shipping-options.blade.php` :
 #### Badge disponibilité
 
 **Fiche produit** (`livewire/product-page.blade.php`) — priorité descendante :
-1. `pko_free_shipping = true` → « Livraison offerte » (vert)
+1. `pko_port_mode = 'free'` → « Livraison offerte » (vert)
 2. `variant->stock > 0` → « En stock Weklo — Expédition 24/48h » (vert)
 3. `pko_supplier_id` renseigné → « Disponible sur commande fournisseur — Livraison estimée sous {lead_min} à {lead_max} jours ouvrés » (ambre)
 4. Sinon → « Livraison 24/48h » (neutre)
@@ -425,6 +407,58 @@ Tests : `tests/Feature/Shipping/ShippingOptionsTest` (affichage HT/TTC, validati
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
 - Sendcloud (alternative SaaS écartée pour coût)
+
+### 5.14 Refonte modèle produit expédition — 6 réglages → 3 + héritage fournisseur (Lot L3, 2026-07)
+
+#### Nouveau modèle `pko_port_mode`
+
+Les trois colonnes d'origine (`pko_free_shipping`, `pko_quote_only`, `pko_logistics_class`) sont remplacées par **une seule colonne** `pko_port_mode enum('inherit','standard','flat','free','quote')` sur `lunar_products`.
+
+| Mode | Signification | Franco |
+|---|---|---|
+| `inherit` | Délégué au fournisseur (cf. `port_inclus` ci-dessous) | selon résolution |
+| `standard` | Tarif transporteur habituel (poids/dimensions) | éligible |
+| `flat` | Prix forfaitaire fixe (`pko_transport_price_cents`) | exclu |
+| `free` | Port inclus dans le prix d'achat (dropshipping) | exclu |
+| `quote` | Commande sur devis, sans paiement immédiat | exclu |
+
+Défaut colonne : `'inherit'` — tout nouveau produit hérite de la politique fournisseur.
+
+#### Héritage fournisseur (`port_inclus`)
+
+Nouvelle colonne `port_inclus enum('oui','non','cas_par_cas')` sur `pko_suppliers`. Résolution via `PortModeResolver::resolve(object $product): string` :
+
+| `port_inclus` fournisseur | Mode résolu |
+|---|---|
+| `oui` | `free` |
+| `non` | `standard` |
+| `cas_par_cas` | `standard` (prudent — en attente de décision) |
+| Pas de fournisseur | `standard` |
+
+#### Franco — dérivation
+
+Franco éligible dérivé = `(resolved_mode === 'standard')`. Le champ `pko_franco_eligible` reste persisté comme override possible ; le badge « Forcé manuellement » s'affiche dans la carte Expédition quand la valeur persiste diverge de la dérivée.
+
+#### Filtre back-office « Port à trancher »
+
+`PkoProductResource::getDefaultTable()` expose un filtre `port_a_trancher` : `pko_port_mode = 'inherit'` ET `supplier.port_inclus = 'cas_par_cas'`. Cette liste se vide au fil des décisions.
+
+#### Migrations
+
+| Fichier | Rôle |
+|---|---|
+| `2026_07_29_100000_add_pko_port_mode_to_lunar_products.php` | Ajoute `pko_port_mode` (défaut `inherit`) + `port_inclus` sur `pko_suppliers` |
+| `2026_07_29_100100_migrate_pko_port_mode_data.php` | Convertit les 50 produits existants, supprime les 3 colonnes source |
+
+Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote` ; `free_shipping=true` → `free` ; `supplier_id NOT NULL` → `inherit` ; sinon → `standard`.
+
+#### Composants mis à jour
+
+- `WeightCalculator` — utilise `PortModeResolver::resolve()` pour `fromCartTaxable`, `allLinesFreeShipping`, `isFrancoEligible`.
+- `MarkQuoteOrderAwaitingQuote` — `WHERE pko_port_mode = 'quote'` (était `pko_quote_only = true`).
+- `CheckoutPage::getIsQuoteOnlyCartProperty()` — idem.
+- `product-page.blade.php` — badge livraison offerte sur `pko_port_mode = 'free'`.
+- `LunarProductWriter::applyPortMode()` — mapping `logistics_class` A/B/C → `standard`/`inherit`/`quote`.
 
 ---
 
