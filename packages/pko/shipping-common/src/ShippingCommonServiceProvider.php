@@ -11,13 +11,12 @@ use Lunar\Models\Order;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
-use Pko\ShippingCommon\Modifiers\FrancoModifier;
-use Pko\ShippingCommon\Modifiers\FreeShippingModifier;
-use Pko\ShippingCommon\Modifiers\SurchargeModifier;
+use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Observers\OrderShipmentObserver;
 use Pko\ShippingCommon\Pickup\ManualPickupPointProvider;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
+use Pko\ShippingCommon\Pricing\ShippingCalculator;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
 use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
@@ -33,6 +32,7 @@ class ShippingCommonServiceProvider extends ServiceProvider
         $this->app->singleton(CarrierServiceRepository::class);
         $this->app->singleton(PricingModeResolver::class);
         $this->app->singleton(LivePricingResolver::class);
+        $this->app->singleton(ShippingCalculator::class);
 
         // Provider de points relais — V1 manuel par défaut. Un adapter API
         // (SOAP Chronopost) peut être lié à la place sans toucher au front.
@@ -66,12 +66,7 @@ class ShippingCommonServiceProvider extends ServiceProvider
 
         /** @var ShippingModifiers $modifiers */
         $modifiers = $this->app->make(ShippingModifiers::class);
-        $modifiers->add(FreeShippingModifier::class);
-        // FrancoModifier doit s'exécuter après les AbstractCarrierModifier
-        // (Chronopost, Colissimo) pour trouver chrono13 déjà dans le manifest.
-        $modifiers->add(FrancoModifier::class);
-        // SurchargeModifier s'exécute en dernier : il majore les prix déjà présents
-        // (y compris franco nuls) et injecte les options sur-devis.
-        $modifiers->add(SurchargeModifier::class);
+        // Un seul modifier Lunar — toute la logique est dans ShippingCalculator.
+        $modifiers->add(UnifiedShippingModifier::class);
     }
 }

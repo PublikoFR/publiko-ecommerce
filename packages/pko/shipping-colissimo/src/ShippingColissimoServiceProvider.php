@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Pko\ShippingColissimo;
 
 use Illuminate\Support\ServiceProvider;
-use Lunar\Base\ShippingModifiers;
 use Pko\ShippingColissimo\Filament\Pages\ColissimoConfig;
-use Pko\ShippingColissimo\Modifiers\ColissimoModifier;
 use Pko\ShippingColissimo\Services\ColissimoClient;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
@@ -54,10 +52,6 @@ class ShippingColissimoServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-colissimo'),
         ], 'pko-shipping-colissimo-lang');
-
-        /** @var ShippingModifiers $modifiers */
-        $modifiers = $this->app->make(ShippingModifiers::class);
-        $modifiers->add(ColissimoModifier::class);
 
         $this->app->make(CarrierRegistry::class);
     }

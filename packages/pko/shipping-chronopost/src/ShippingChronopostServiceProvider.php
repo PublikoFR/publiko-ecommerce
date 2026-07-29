@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Pko\ShippingChronopost;
 
 use Illuminate\Support\ServiceProvider;
-use Lunar\Base\ShippingModifiers;
 use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
-use Pko\ShippingChronopost\Modifiers\ChronopostModifier;
 use Pko\ShippingChronopost\Services\ChronopostClient;
 use Pko\ShippingChronopost\Services\QuickCostSoapClient;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
@@ -74,10 +72,6 @@ class ShippingChronopostServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-chronopost'),
         ], 'pko-shipping-chronopost-lang');
-
-        /** @var ShippingModifiers $modifiers */
-        $modifiers = $this->app->make(ShippingModifiers::class);
-        $modifiers->add(ChronopostModifier::class);
 
         // Ensure the carrier is registered even if afterResolving did not fire
         // (e.g. Registry resolved earlier than expected).
