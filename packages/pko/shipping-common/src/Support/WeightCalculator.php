@@ -23,6 +23,24 @@ final class WeightCalculator
     }
 
     /**
+     * Weight of an arbitrary pre-filtered collection of lines.
+     *
+     * Used by ShippingCalculator which partitions lines before calling this.
+     *
+     * @param  \Illuminate\Support\Collection<int, object>  $lines
+     */
+    public static function fromLines(\Illuminate\Support\Collection $lines): float
+    {
+        $total = 0.0;
+
+        foreach ($lines as $line) {
+            $total += self::variantWeightKg($line->purchasable) * (int) $line->quantity;
+        }
+
+        return round($total, 3);
+    }
+
+    /**
      * Weight of taxable lines only (excludes lines where the effective port mode is 'free').
      */
     public static function fromCartTaxable(Cart $cart): float

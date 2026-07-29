@@ -15,7 +15,7 @@ use Lunar\Facades\Taxes;
 use Lunar\Models\Currency;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
-use Pko\ShippingCommon\Modifiers\FrancoModifier;
+use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
@@ -78,7 +78,7 @@ class ShippingOptions extends Component
 
         if ($this->chosenOption === null) {
             $options = $this->shippingOptions;
-            $default = $options->first(fn ($opt) => $opt->getIdentifier() === FrancoModifier::CHRONO13_IDENTIFIER)
+            $default = $options->first(fn ($opt) => $opt->getIdentifier() === UnifiedShippingModifier::CHRONO13_IDENTIFIER)
                 ?? $options->first();
             $this->chosenOption = $default?->getIdentifier();
         }

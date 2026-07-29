@@ -116,16 +116,17 @@ Au boot, `SecretsServiceProvider` réécrit `config('chronopost.credentials.*')`
 
 Les pages Config transporteurs sont classées sous **« Expédition »** (et non plus « Configuration »), aux côtés de la resource `CarrierShipmentResource`.
 
-### 5.4 Framework transporteurs (2026-04)
+### 5.4 Framework transporteurs (2026-04, mis à jour L4 2026-07)
 
 Depuis avril 2026 :
 
 - **Plugin Filament unique** `TransportersPlugin` (remplace `ShippingCommonPlugin` + `ChronopostPlugin` + `ColissimoPlugin`).
 - **`CarrierRegistry`** singleton — chaque adapter s'enregistre dans son `ServiceProvider::register()` via `afterResolving(CarrierRegistry::class)`.
-- **`AbstractCarrierModifier`** — sous-classe déclare 1 ligne (`carrierCode()`), parent gère adresse/zone/poids/quote/addOption.
 - **`AbstractCarrierConfigPage`** — rend le formulaire complet (credentials toggle env/DB + services Repeater + grille Repeater) à partir de la `CarrierDefinition`.
 - **Tables `pko_carrier_services` et `pko_carrier_grids`** — data migration initiale (`2026_04_21_110100_seed_initial_carrier_data`) sème Chronopost (5 paliers, 3 services) et Colissimo (4 paliers, 2 services) depuis les anciennes valeurs config.
 - **Ajouter un nouveau transporteur** : cf. [packages/transporters.md](packages/transporters.md) — ~80 lignes au total.
+
+> **L4 (2026-07)** : `AbstractCarrierModifier` supprimé — remplacé par `ShippingCalculator` (cf. §5.10 / §5.12). Les sous-classes `ChronopostModifier` et `ColissimoModifier` sont supprimées. Seul `UnifiedShippingModifier` reste dans le pipeline Lunar.
 
 ### 5.5 Tarification live Chronopost (2026-04)
 
@@ -188,10 +189,10 @@ Le cas d'usage (fournisseur expédie directement, port inclus dans le prix d'ach
 
 #### Colissimo mis en veille
 
-- **En DB** : migration `2026_07_29_100000_disable_colissimo_carrier_services` → `enabled=0` sur tous les services `colissimo` dans `pko_carrier_services`. `AbstractCarrierModifier` filtre sur `enabled=true` → aucune option `colissimo.*` ne sort du manifest.
+- **En DB** : migration `2026_07_29_100000_disable_colissimo_carrier_services` → `enabled=0` sur tous les services `colissimo` dans `pko_carrier_services`. `ShippingCalculator` interroge `CarrierServiceRepository::enabledFor('colissimo')` → vide → aucune option `colissimo.*` ne sort du manifest.
 - **En admin** : `ColissimoConfig::shouldRegisterNavigation()` retourne `false` → page absente du menu Transporteurs. La page reste accessible par URL pour un opérateur qui en connaît l'adresse.
 - **Réactivation** : `enabled=1` en DB + `shouldRegisterNavigation(): bool { return true; }` dans `ColissimoConfig`.
-- **Package** : `packages/pko/shipping-colissimo/` conservé intégralement.
+- **Package** : `packages/pko/shipping-colissimo/` conservé intégralement. `ColissimoModifier` supprimé en L4 — le client SOAP reste pour la création d'étiquettes post-paiement.
 
 #### Source unique du seuil franco
 
@@ -240,9 +241,9 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 
 **Colissimo** : grille inchangée (null service_code, prix partagé entre DOM et DOS). Aucune donnée migrée côté Colissimo.
 
-### 5.10 Franco de port — paramètres et FrancoModifier (L2)
+### 5.10 Franco de port — paramètres et ShippingCalculator (L2 → L4)
 
-**Modifier** : `Pko\ShippingCommon\Modifiers\FrancoModifier` (enregistré dans `ShippingCommonServiceProvider`, après `FreeShippingModifier`).
+> **L4 (2026-07)** : `FrancoModifier` et `FreeShippingModifier` supprimés. La logique franco est désormais dans `Pko\ShippingCommon\Pricing\ShippingCalculator` (étape 5 du pipeline interne). Un seul `UnifiedShippingModifier` subsiste dans le pipeline Lunar.
 
 **Source unique de configuration** : `Pko\ShippingCommon\Settings\ShippingSettings` — ne jamais lire `config('shipping.franco.*')` ou `Setting::get()` directement dans les consommateurs.
 
@@ -268,24 +269,23 @@ La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste l
 | `ShippingSettings::taxPriceBase()` | `string` | DB `tax.price_base` → `config('shipping.tax.price_base')` → `'ht'` |
 | `ShippingSettings::taxDisplay()` | `string` | DB `tax.display` → `config('shipping.tax.display')` → `'both'` |
 
-#### Logique franco (FrancoModifier)
+#### Logique franco (ShippingCalculator — étape 5)
 
-**Base `eligible_only`** (défaut) : le sous-total des lignes franco-éligibles doit atteindre le seuil ET aucune ligne n'est exclue. **Base `cart_total`** : toutes les lignes comptent dans le total, aucune ligne n'est bloquante (utile quand le catalogue est mixte mais le franco s'applique sur le total global).
+**Base `eligible_only`** (défaut) : le sous-total des lignes franco-éligibles doit atteindre le seuil ET aucune ligne n'est exclue. **Base `cart_total`** : toutes les lignes comptent dans le total, aucune ligne n'est bloquante.
 
 **Éligibilité d'une ligne** (conditions cumulatives en mode `eligible_only`) :
 1. `product.pko_franco_eligible === true`
 2. `PortModeResolver::resolve($product) !== 'quote'`
 
-**Services** : le modifier boucle sur `ShippingSettings::francoServices()` et fait correspondre par `meta['service_code']` (code nu sans préfixe carrier). Chaque service trouvé est remplacé par une option à 0 € (`name: 'Livraison standard offerte'`, `meta['franco'] => true`).
+**Services** : le calculator boucle sur `ShippingSettings::francoServices()` et annule le `gridPriceCents` de chaque `CalculatedShippingOption` dont `serviceCode` est dans la liste. Le forfait `flatPriceCents` et les suppléments ne sont **pas** annulés par le franco.
 
 **Helpers WeightCalculator** :
-- `WeightCalculator::francoEligibleSubtotalHt(Cart $cart): int` — somme HT (cents) des lignes éligibles.
-- `WeightCalculator::cartHasFrancoExcludedLine(Cart $cart): bool` — true si ≥ 1 ligne non éligible.
-- `WeightCalculator::cartSubtotalHt(Cart $cart): int` — somme HT (cents) de TOUTES les lignes (pour basis `cart_total`).
+- `WeightCalculator::francoEligibleSubtotalHt(Cart): int` — somme HT (cents) des lignes éligibles.
+- `WeightCalculator::cartHasFrancoExcludedLine(Cart): bool` — true si ≥ 1 ligne non éligible.
+- `WeightCalculator::cartSubtotalHt(Cart): int` — somme HT (cents) de TOUTES les lignes (basis `cart_total`).
+- `WeightCalculator::fromLines(Collection): float` — poids d'un sous-ensemble de lignes pré-filtré (ajouté en L4 pour les lignes standard uniquement).
 
-**Constante BC** : `FrancoModifier::CHRONO13_IDENTIFIER = 'chronopost.chrono13'` conservée pour `ShippingOptions::mount()` (sélection par défaut). Ne plus l'utiliser dans la logique franco — passer par `ShippingSettings::francoServices()`.
-
-**Substitution dans le manifest** : `FrancoModifier` doit s'exécuter après les `AbstractCarrierModifier`. Il rejette l'option originale de `$manifest->options` puis réinsère un `ShippingOption` identique à `price = 0`. La `taxClass` est réutilisée depuis l'option originale.
+**Constante** : `UnifiedShippingModifier::CHRONO13_IDENTIFIER = 'chronopost.chrono13'` (rétro-compat `ShippingOptions::mount()`).
 
 ### 5.11 Front storefront — panier et fiche produit (Lot L4)
 
@@ -333,57 +333,49 @@ Le supplier est chargé via `ProductPage::getSupplierProperty()` → `Supplier::
 
 **Lignes panier** (`livewire/cart-page.blade.php`) — même logique via `CartPage::resolveAvailability()` qui alimente la clé `availability` du tableau `$lines`. NE PAS afficher « dropshipping » côté client.
 
-### 5.12 Suppléments transport (Lot L5)
+### 5.12 Suppléments transport (L5 → L4)
+
+> **L4 (2026-07)** : `SurchargeModifier` supprimé. La logique de surcharge est désormais dans `ShippingCalculator` (étape 6 du pipeline). Voir §5.10 pour l'architecture globale.
 
 **Modèle** : `pko_shipping_surcharges` (créé en L1) — colonnes `code`, `label`, `amount_cents`, `mode enum(auto|quote|rebill)`, `rule json`, `enabled`.
 
-**SurchargeModifier** (`Pko\ShippingCommon\Modifiers\SurchargeModifier`) — enregistré en dernier dans `ShippingCommonServiceProvider`, après `FrancoModifier`. Lit tous les suppléments `enabled=true` et itère :
+**Comportement dans ShippingCalculator — étape 6** :
 
 | Mode | Comportement checkout |
 |---|---|
-| `auto` | Si la règle matche l'adresse de livraison → majore chaque option carrier du manifest de `amount_cents`. Ne touche pas aux options sentinel (`meta.quote=true`). |
-| `quote` | Si la règle matche → injecte une `ShippingOption` sentinel (`price=0`, `meta.quote=true`, `identifier=surcharge.<code>`). Le front (L4) et le checkout distinguent cette option par `meta.quote`. |
+| `auto` | Si la règle matche l'adresse → majore `autoSurchargeCents` de chaque `CalculatedShippingOption` non-sentinel. |
+| `quote` | Si la règle matche → injecte une option sentinel (`isSentinel=true`, `identifier=surcharge.<code>`, `totalPrice=0`). |
 | `rebill` | Ignoré au checkout (refacturation a posteriori hors flux panier). |
 
-**Évaluation des règles** (`rule` JSON) :
+La surcharge auto se cumule **après** le franco : sur une commande Corse franco-éligible (≥ 500 € HT), chrono13 a `gridPriceCents=0` (franco) + `autoSurchargeCents=800` (Corse) → total 800 €.
+
+**Évaluation des règles** (`rule` JSON) — dans `ShippingCalculator::matchesAddress()` :
 
 | Clé | Exemple | Comportement |
 |---|---|---|
+| `match: always` | `{"match":"always"}` | Matche toujours |
 | `type` | `{"type":"corse"}` | `ZoneResolver::isCorse()` sur le CP destinataire |
 | `postcode_prefix` | `{"postcode_prefix":"20"}` | `str_starts_with(cp, prefix)` |
 
-Extensible : ajouter un nouveau type de règle dans `SurchargeModifier::matchesAddress()`.
+Extensible : ajouter un cas dans `ShippingCalculator::matchesAddress()`.
 
-**Suppléments seedés** (`PkoShippingSurchargesSeeder`, idempotent via `updateOrCreate` sur `code`) — 9 suppléments de référence (cf. CR §5) :
+**Ouverture conditionnelle Corse** : `ShippingCalculator::shouldQuote()` accepte la Corse si `hasActiveCorseSurcharge()` retourne `true` (query `enabled=true AND mode=auto AND (code=corse OR rule->type=corse OR rule->postcode_prefix=20)`).
 
-| code | label | mode | rule | amount_cents | enabled | Note |
-|---|---|---|---|---|---|---|
-| `corse` | Supplément Corse | `auto` | `{"type":"corse"}` | 800 | ✅ | Majoration géographique exploitable immédiatement (`ZoneResolver::isCorse`). |
-| `zone_difficile` | Zone difficile d'accès | `auto` | `{"type":"zone_difficile"}` | 500 | ❌ | Placeholder — `ZoneResolver::isZoneDifficile()` à implémenter. |
-| `livraison_samedi` | Livraison le samedi | `auto` | `{"match":"always"}` | 1500 | ❌ | Majore toutes les options ; activer selon accord transporteur. |
-| `hors_normes` | Colis hors normes | `quote` | `{"type":"hors_normes"}` | `null` | ❌ | Déclenché par le produit, pas l'adresse (matching produit à brancher). |
-| `manutention` | Manutention spéciale | `quote` | `{"type":"manutention"}` | `null` | ❌ | Idem, produit. |
-| `transport_specifique` | Transport spécifique produit | `quote` | `{"type":"transport_specifique"}` | `null` | ❌ | Option sur-devis sentinel. |
-| `assurance` | Assurance marchandise | `rebill` | `null` | `null` | ✅ | Refacturation a posteriori — ignoré au checkout. |
-| `correction_adresse` | Correction d'adresse | `rebill` | `null` | `null` | ✅ | Idem rebill. |
-| `retour_expediteur` | Retour à l'expéditeur | `rebill` | `null` | `null` | ✅ | Idem rebill. |
+**Suppléments seedés** (`PkoShippingSurchargesSeeder`, idempotent via `updateOrCreate` sur `code`) — 9 suppléments de référence :
 
-Montants et flag `enabled` éditables via le back-office (`ShippingSurchargeResource`). Seuls `corse` (auto) et les 3 `rebill` sont enabled par défaut : les modes `auto`/`quote` sans implémentation complète sont livrés disabled pour ne pas altérer le checkout. Une `rule` à `null` ne matche jamais au checkout (les rebill sont de toute façon exclus par le modifier).
+| code | label | mode | rule | amount_cents | enabled |
+|---|---|---|---|---|---|
+| `corse` | Supplément Corse | `auto` | `{"type":"corse"}` | 800 | ✅ |
+| `zone_difficile` | Zone difficile d'accès | `auto` | `{"type":"zone_difficile"}` | 500 | ❌ |
+| `livraison_samedi` | Livraison le samedi | `auto` | `{"match":"always"}` | 1500 | ❌ |
+| `hors_normes` | Colis hors normes | `quote` | `{"type":"hors_normes"}` | `null` | ❌ |
+| `manutention` | Manutention spéciale | `quote` | `{"type":"manutention"}` | `null` | ❌ |
+| `transport_specifique` | Transport spécifique produit | `quote` | `{"type":"transport_specifique"}` | `null` | ❌ |
+| `assurance` | Assurance marchandise | `rebill` | `null` | `null` | ✅ |
+| `correction_adresse` | Correction d'adresse | `rebill` | `null` | `null` | ✅ |
+| `retour_expediteur` | Retour à l'expéditeur | `rebill` | `null` | `null` | ✅ |
 
-**Ouverture conditionnelle Corse** :
-
-`ZoneResolver::isMetropole()` n'est pas modifiée (utilisée ailleurs). Deux ajouts :
-
-- `ZoneResolver::isCorse(string $postcode, string $country = 'FR'): bool` — pur, sans DB, retourne `true` si CP `20xxx` France.
-- `AbstractCarrierModifier::shouldQuote()` — étendu : accepte la Corse si `hasActiveCorseSurcharge()` retourne `true` (query `enabled=true AND mode=auto AND (code=corse OR rule->type=corse OR rule->postcode_prefix=20)`). Cela ouvre **tous les carriers** (Chronopost + Colissimo) pour la Corse quand le supplément est activé. Limites : si un carrier ne dessert pas physiquement la Corse, son Client ne retournera aucun `QuoteResponse` → option masquée silencieusement.
-
-**Ordre du pipeline** :
-```
-AbstractCarrierModifier (Chronopost, Colissimo) → FreeShippingModifier → FrancoModifier → SurchargeModifier
-```
-Résultat pour un panier Corse ≥ 500 € HT franco-éligible : Chrono 13 à 0 € + supplément Corse (franco puis surcharge se cumulent).
-
-**Note importante** : sur une Corse ≥ seuil franco, le `FrancoModifier` passe chrono13 à 0 €, puis le `SurchargeModifier` majore ce 0 € de `amount_cents` Corse. Le client paie donc uniquement le supplément Corse. Ce comportement est voulu.
+Seuls `corse` (auto) et les 3 `rebill` sont enabled par défaut. Une `rule` à `null` ne matche jamais (les rebill sont de toute façon exclus).
 
 ### 5.13 Base de taxe HT/TTC configurable + sélection point relais (Lot F4)
 
@@ -391,15 +383,16 @@ Résultat pour un panier Corse ≥ 500 € HT franco-éligible : Chrono 13 à 0 
 
 Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base de taxe est désormais **explicite** via `ShippingSettings::taxPriceBase()` (clé DB `shipping.tax.price_base`, fallback `config('shipping.tax.price_base')`, env `SHIPPING_TAX_PRICE_BASE`, défaut `'ht'`) :
 
-| `price_base` | Sens des prix de grille | Traitement dans `AbstractCarrierModifier` | TVA |
+| `price_base` | Sens des prix de grille | Traitement dans `ShippingCalculator` | TVA |
 |---|---|---|---|
 | `'ht'` (défaut) | nets (hors taxe) | prix injecté tel quel + `TaxClass::getDefault()` | ajoutée par-dessus (comportement historique, inchangé) |
 | `'ttc'` | TTC (taxe incluse) | reconverti en net `round(brut / (1 + taux))` puis `TaxClass::getDefault()` | correctement ventilée ; total payé = prix de grille |
 
-**Principe clé** : `price_base` décrit la **nature du nombre stocké**, pas le taux de TVA appliqué. En mode `ttc`, on ne pose **pas** une classe 0 % (qui fausserait la ventilation TVA sur un shop B2B où le client récupère la TVA) : on reconvertit la valeur en net via le **taux réel** de la TaxClass par défaut, puis on applique cette même classe. Résultat : une grille `1200` en `ttc` @ 20 % et une grille `1000` en `ht` produisent **la même ligne** (net 1000, TVA 200, total 1200).
+**Principe clé** : `price_base` décrit la **nature du nombre stocké**, pas le taux de TVA appliqué. En mode `ttc`, on reconvertit la valeur en net via le **taux réel** de la TaxClass par défaut. Résultat : une grille `1200` en `ttc` @ 20 % et une grille `1000` en `ht` produisent **la même ligne** (net 1000, TVA 200, total 1200).
 
-- Taux réel obtenu en sondant le moteur de taxe Lunar sur une base connue (`AbstractCarrierModifier::effectiveTaxRate()`), zone-aware (FR métropole en v1). Tolérant aux pannes : zone de taxe non résolue → reconversion neutralisée (prix laissé tel quel) plutôt qu'un crash.
-- Couvert par `tests/Unit/Shipping/CarrierTaxBaseTest` (reconversion + cas neutres).
+- Taux réel obtenu via `Pko\ShippingCommon\Support\ShippingTaxHelper::effectiveTaxRate()` (extrait en L4 depuis l'ancien `AbstractCarrierModifier`), zone-aware. Tolérant aux pannes : zone non résolue → pas de reconversion.
+- `ShippingTaxHelper::grossToNet(int, float): int` — seule méthode de conversion, partagée par tous les carriers.
+- Couvert par `tests/Unit/Shipping/CarrierTaxBaseTest` (reécrit en L4 pour cibler `ShippingTaxHelper`).
 
 **Affichage panier** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (résolu via `ShippingSettings::taxDisplay()`, clé DB `shipping.tax.display`, fallback env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
 
@@ -482,11 +475,12 @@ Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote`
 
 #### Composants mis à jour
 
-- `WeightCalculator` — utilise `PortModeResolver::resolve()` pour `fromCartTaxable`, `allLinesFreeShipping`, `isFrancoEligible`.
+- `WeightCalculator` — utilise `PortModeResolver::resolve()` pour `fromCartTaxable`, `allLinesFreeShipping`, `isFrancoEligible`. Méthode `fromLines(Collection)` ajoutée en L4.
 - `MarkQuoteOrderAwaitingQuote` — `WHERE pko_port_mode = 'quote'` (était `pko_quote_only = true`).
 - `CheckoutPage::getIsQuoteOnlyCartProperty()` — idem.
 - `product-page.blade.php` — badge livraison offerte sur `pko_port_mode = 'free'`.
 - `LunarProductWriter::applyPortMode()` — mapping `logistics_class` A/B/C → `standard`/`inherit`/`quote`.
+- `ShippingCalculator` (L4) — partitionne les lignes par `pko_port_mode` résolu : standard / flat / free / quote. Les lignes flat excluent leur poids du poids taxable (seules les lignes standard alimentent la grille), mais ajoutent `pko_transport_price_cents × quantité` à chaque option carrier.
 
 ---
 

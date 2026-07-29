@@ -20,7 +20,7 @@ use Mockery;
 use Mockery\MockInterface;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
-use Pko\ShippingCommon\Modifiers\FrancoModifier;
+use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use Tests\TestCase;
 
@@ -148,7 +148,7 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         Livewire::test(ShippingOptions::class)
-            ->assertSet('chosenOption', FrancoModifier::CHRONO13_IDENTIFIER);
+            ->assertSet('chosenOption', UnifiedShippingModifier::CHRONO13_IDENTIFIER);
     }
 
     public function test_premiere_option_si_chrono13_absent(): void

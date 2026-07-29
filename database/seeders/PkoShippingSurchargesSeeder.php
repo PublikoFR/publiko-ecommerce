@@ -17,7 +17,7 @@ class PkoShippingSurchargesSeeder extends Seeder
      *   quote  — injecte une option sentinel price=0 quand la rule matche.
      *   rebill — hors flux checkout, refacturation a posteriori.
      *
-     * Rules JSON supportées par SurchargeModifier::matchesAddress() :
+     * Rules JSON supportées par ShippingCalculator::matchesAddress() :
      *   {"type":"corse"}          → ZoneResolver::isCorse()
      *   {"type":"zone_difficile"} → placeholder, ZoneResolver::isZoneDifficile() à implémenter
      *   {"postcode_prefix":"XX"}  → str_starts_with(postcode, "XX")
