@@ -43,6 +43,39 @@ return [
         'port_inclus_cas_par_cas' => 'Cas par cas',
     ],
 
+    'settings' => [
+        'nav'   => 'Paramètres',
+        'title' => 'Paramètres d\'expédition',
+
+        'section_franco' => 'Franco de port',
+        'section_tax'    => 'Taxe et affichage des prix',
+
+        'threshold_eur'      => 'Seuil franco (€ HT)',
+        'threshold_eur_help' => 'Montant minimum du panier HT pour déclencher la livraison offerte.',
+
+        'services'      => 'Services couverts par le franco',
+        'services_help' => 'Codes nus des services (ex : chrono13). Appuyez sur Entrée après chaque code.',
+
+        'basis'              => 'Base de calcul',
+        'basis_help'         => 'Définit quelles lignes entrent dans le total comparé au seuil.',
+        'basis_eligible_only' => 'Lignes éligibles uniquement',
+        'basis_cart_total'   => 'Panier complet',
+
+        'tax_price_base'      => 'Base de taxe des prix grille',
+        'tax_price_base_help' => 'Indique si les montants saisis dans la grille tarifaire transporteur sont HT ou TTC.',
+        'tax_price_base_ht'   => 'HT — prix nets (défaut)',
+        'tax_price_base_ttc'  => 'TTC — prix toutes taxes comprises',
+
+        'tax_display'      => 'Affichage des prix au checkout',
+        'tax_display_help' => 'Détermine quels montants sont présentés au client sur la page de sélection du transporteur.',
+        'tax_display_both' => 'HT et TTC (défaut)',
+        'tax_display_ht'   => 'HT uniquement',
+        'tax_display_ttc'  => 'TTC uniquement',
+
+        'saved'       => 'Paramètres enregistrés',
+        'save_button' => 'Enregistrer',
+    ],
+
     'surcharge' => [
         'nav' => 'Suppléments transport',
         'label' => 'Supplément',
