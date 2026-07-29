@@ -24,6 +24,7 @@ use App\Generators\PkoProductUrlGenerator;
 use App\Observers\CollectionAvailabilityObserver;
 use App\Observers\CollectionDeleteObserver;
 use App\Observers\ProductAvailabilityObserver;
+use App\Support\Payments\ResilientStripeManager;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
 use Filament\View\PanelsRenderHook;
@@ -246,6 +247,14 @@ class AppServiceProvider extends ServiceProvider
         // qui casse le parse JS → Alpine/Livewire ne démarrent plus → formulaires en
         // POST natif (ex. admin/login → 405). optOut() coupe l'appel à la source.
         Telemetry::optOut();
+
+        // Le manager Stripe de Lunar réutilise l'intent du panier en se fiant au
+        // statut stocké en base, jamais rafraîchi sans webhook. Un intent déjà payé
+        // ressort alors au checkout et Stripe refuse la session Elements (400
+        // « terminal state ») → plus de formulaire de carte. Notre sous-classe
+        // vérifie l'état réel côté Stripe avant réutilisation.
+        // Rebind en boot() : le provider du package s'enregistre après celui-ci.
+        $this->app->singleton('lunar:stripe', fn (): ResilientStripeManager => new ResilientStripeManager);
 
         // Nettoyage des pivots avant suppression d'une collection (catégorie) :
         // le sous-arbre nested set est effacé en SQL brut (pas d'events par
