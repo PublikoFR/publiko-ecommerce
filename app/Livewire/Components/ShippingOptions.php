@@ -17,6 +17,7 @@ use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Settings\ShippingSettings;
+use Pko\ShippingCommon\Support\PortModeResolver;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
 class ShippingOptions extends Component
@@ -340,6 +341,128 @@ class ShippingOptions extends Component
         }
 
         return false;
+    }
+
+    /**
+     * Cents HT restants d'articles ÉLIGIBLES pour atteindre le seuil franco.
+     * Miroir exact de ShippingCalculator::computeBanners() — même base (eligible vs cart_total).
+     * Retourne 0 si le seuil est atteint ou si le panier est vide.
+     */
+    public function getFrancoRemainingCentsProperty(): int
+    {
+        $cart = CartSession::current();
+        if ($cart === null) {
+            return 0;
+        }
+
+        $threshold = ShippingSettings::thresholdCents();
+
+        $current = ShippingSettings::francoBasis() === 'cart_total'
+            ? WeightCalculator::cartSubtotalHt($cart)
+            : WeightCalculator::francoEligibleSubtotalHt($cart);
+
+        return max(0, $threshold - $current);
+    }
+
+    /**
+     * Meta de l'option sélectionnée (grid_price_cents, flat_price_cents, surcharge_cents…).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getSelectedOptionMetaProperty(): ?array
+    {
+        if ($this->chosenOption === null) {
+            return null;
+        }
+
+        $option = $this->shippingOptions->first(fn ($opt) => $opt->getIdentifier() === $this->chosenOption);
+
+        return $option?->meta ?? null;
+    }
+
+    /**
+     * Total HT (cents) de l'option sélectionnée, LU depuis le ShippingQuote.
+     * Aucune addition côté vue : le total vient de ShippingOption::getPrice(),
+     * calculé par UnifiedShippingModifier via CalculatedShippingOption::totalPriceCents().
+     */
+    public function getSelectedOptionTotalCentsProperty(): int
+    {
+        if ($this->chosenOption === null) {
+            return 0;
+        }
+
+        $option = $this->shippingOptions->first(fn ($opt) => $opt->getIdentifier() === $this->chosenOption);
+
+        return $option === null ? 0 : (int) $option->getPrice()->value;
+    }
+
+    /**
+     * Options sentinelles ("sur devis") : meta['quote'] === true.
+     */
+    public function getSentinelOptionsProperty(): Collection
+    {
+        return $this->shippingOptions->filter(fn ($opt) => ($opt->meta['quote'] ?? false) === true);
+    }
+
+    /**
+     * True si l'option choisie cumule plusieurs composants de frais (récap ventilé à afficher).
+     */
+    public function getHasVentilatedRecapProperty(): bool
+    {
+        $meta = $this->selectedOptionMeta;
+        if ($meta === null) {
+            return false;
+        }
+
+        return ($meta['flat_price_cents'] ?? 0) > 0
+            || ($meta['surcharge_cents'] ?? 0) > 0
+            || $this->sentinelOptions->isNotEmpty();
+    }
+
+    /**
+     * Lignes du panier avec port_mode résolu 'flat' (forfaits transport).
+     */
+    public function getFlatLinesProperty(): Collection
+    {
+        $cart = CartSession::current();
+        if ($cart === null) {
+            return collect();
+        }
+
+        return $cart->lines->filter(function ($line) {
+            $product = $line->purchasable?->product;
+
+            return $product !== null && PortModeResolver::resolve($product) === 'flat';
+        });
+    }
+
+    /**
+     * Lignes du récap ventilé pour les forfaits transport : libellé + montant HT (cents).
+     * Le calcul (prix forfait × quantité) reste côté PHP, miroir de
+     * ShippingCalculator étape 4 — la vue ne fait aucune arithmétique.
+     *
+     * @return array<int, array{label: string, cents: int}>
+     */
+    public function getFlatLineRowsProperty(): array
+    {
+        return $this->flatLines
+            ->map(fn ($line) => [
+                'label' => (string) $line->purchasable->getDescription(),
+                'cents' => (int) ($line->purchasable?->product?->pko_transport_price_cents ?? 0) * (int) $line->quantity,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Formate un montant en cents dans la devise du panier courant.
+     */
+    public function formatHtCents(int $cents): string
+    {
+        $cart = CartSession::current();
+        $currency = $cart?->currency ?? Currency::getDefault();
+
+        return (new Price($cents, $currency, 1))->formatted();
     }
 
     /**
