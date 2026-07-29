@@ -73,6 +73,10 @@ spécial. `CarrierGridRepository::forCarrier()` supporte déjà le filtrage par 
 
 ### 2.4 Franco de port 350 € HT (Chrono 13 uniquement)
 
+> ⚠️ **Obsolète depuis l'implémentation** : le seuil retenu est **500 € HT (50 000 cents)**,
+> pas 350 € HT. Toutes les valeurs `350 €` / `35000` de cette section sont celles de la
+> planification initiale. Référence à jour : `docs/shipping.md` §5.8.
+
 Règles : franco sur **montant total HT du panier des lignes éligibles**, applicable **au
 seul Chrono 13**, l'express et le relais restent payants.
 

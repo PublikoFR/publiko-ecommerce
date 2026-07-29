@@ -125,7 +125,7 @@ class FrancoModifierTest extends TestCase
 
     public function test_aucune_modification_quand_seuil_non_atteint(): void
     {
-        // Sous-total HT = 20 000 cents (200 €) < 35 000
+        // Sous-total HT = 20 000 cents (200 €) < 50 000 (seuil L1)
         $cart = $this->makeCart([
             $this->makeLine(francoEligible: true, subtotalHtCents: 20000),
         ]);
@@ -141,9 +141,9 @@ class FrancoModifierTest extends TestCase
 
     public function test_franco_non_applique_si_une_ligne_exclue(): void
     {
-        // Sous-total HT éligible = 40 000 (>= 35 000) mais 1 ligne non éligible
+        // Sous-total HT éligible = 60 000 (>= 50 000) mais 1 ligne non éligible
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 40000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
             $this->makeLine(francoEligible: false, subtotalHtCents: 5000),
         ]);
 
@@ -160,7 +160,7 @@ class FrancoModifierTest extends TestCase
     {
         // Mode 'quote' → exclu du franco même si pko_franco_eligible=true
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, portMode: 'standard', subtotalHtCents: 30000),
+            $this->makeLine(francoEligible: true, portMode: 'standard', subtotalHtCents: 60000),
             $this->makeLine(francoEligible: true, portMode: 'quote', subtotalHtCents: 15000),
         ]);
 
@@ -174,8 +174,9 @@ class FrancoModifierTest extends TestCase
 
     public function test_pas_de_doublon_didentifier_apres_remplacement(): void
     {
+        // 60 000 cents (600 €) >= 50 000 : le franco s'applique, donc chrono13 est remplacé
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 40000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
         ]);
 
         $options = $this->runModifier($cart, [
@@ -191,9 +192,10 @@ class FrancoModifierTest extends TestCase
 
     public function test_aucune_action_si_chrono13_absent_du_manifest(): void
     {
-        // Le modifier ne doit pas planter si chrono13 n'est pas dans le manifest
+        // Le modifier ne doit pas planter si chrono13 n'est pas dans le manifest,
+        // même quand le seuil franco est atteint (60 000 >= 50 000)
         $cart = $this->makeCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 40000),
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
         ]);
 
         $options = $this->runModifier($cart, [
