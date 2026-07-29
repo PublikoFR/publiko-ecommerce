@@ -14,7 +14,7 @@ use Lunar\Models\Currency;
 use Pko\ShippingCommon\Support\WeightCalculator;
 
 /**
- * Rend Chrono 13 gratuit quand le panier atteint 350 € HT de produits franco-éligibles
+ * Rend Chrono 13 gratuit quand le panier atteint 500 € HT de produits franco-éligibles
  * et qu'aucune ligne n'est exclue du franco.
  *
  * Doit être enregistré APRÈS les AbstractCarrierModifier (Chronopost, Colissimo)
@@ -26,7 +26,7 @@ class FrancoModifier extends ShippingModifier
 
     public function handle(Cart $cart, Closure $next)
     {
-        $threshold = (int) config('shipping.franco.threshold_ht_cents', 35000);
+        $threshold = (int) config('shipping.franco.threshold_ht_cents', 50000);
 
         $eligibleHt = WeightCalculator::francoEligibleSubtotalHt($cart);
         $hasExcluded = WeightCalculator::cartHasFrancoExcludedLine($cart);
