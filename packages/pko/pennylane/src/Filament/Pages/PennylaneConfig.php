@@ -121,6 +121,11 @@ class PennylaneConfig extends BasePage implements HasForms
         return Secrets::get('pennylane', 'invoice_template_id') ?: config('pennylane.customer_invoice_template_id');
     }
 
+    public function isEnabled(): bool
+    {
+        return app(PennylaneClient::class)->isEnabled();
+    }
+
     public function hasApiToken(): bool
     {
         return filled($this->getApiToken());
@@ -162,7 +167,7 @@ class PennylaneConfig extends BasePage implements HasForms
                 ->label(__('pko-pennylane::admin.config.test'))
                 ->icon('heroicon-o-bolt')
                 ->color('primary')
-                ->disabled(fn (): bool => ! $this->hasApiToken())
+                ->disabled(fn (): bool => ! $this->hasApiToken() || ! $this->isEnabled())
                 ->action(function (): void {
                     try {
                         $client = app(PennylaneClient::class);

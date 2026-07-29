@@ -37,6 +37,34 @@
 - Migration dédiée : `lunar_stripe_payment_intents`
 - Page admin dédiée : `app/Filament/Pages/StripeConfig.php` (groupe **Configuration**) avec bouton « Tester la connexion » qui appelle `StripeClient::balance->retrieve()`.
 
+#### Réutilisation des PaymentIntent — `ResilientStripeManager`
+
+`Lunar\Stripe\Managers\StripeManager::getCartIntentId()` sélectionne l'intent du
+panier via `paymentIntents()->active()`, un scope qui filtre sur le statut stocké
+**en base locale**. Ce statut n'est mis à jour que par le webhook : si une
+livraison échoue (webhook non configuré, ou requête webhook qui plante), un intent
+passé à `succeeded` chez Stripe reste `requires_payment_method` chez nous et
+continue d'être servi au checkout. Stripe rejette alors la session Elements —
+`400 This PaymentIntent is in a terminal state` — et le Payment Element ne se
+monte jamais : l'acheteur ne voit qu'un bouton « Payer » inerte, sans champ carte.
+
+`App\Support\Payments\ResilientStripeManager` (bindé sur `lunar:stripe` dans
+`AppServiceProvider::boot()`, après le `register()` du package) surcharge
+`getCartIntentId()` : il vérifie l'état réel de l'intent auprès de Stripe, ignore
+tout intent terminal (ce qui fait repartir `createIntent()` sur un intent neuf) et
+resynchronise le statut local au passage. Résultat mémoïsé par panier — la méthode
+est appelée plusieurs fois par requête.
+
+Le rebind doit se faire en `boot()` : `bootstrap/providers.php` est chargé avant le
+manifest des packages, donc un `singleton()` posé dans `register()` serait écrasé
+par celui de `StripePaymentsServiceProvider`.
+
+`StripePaymentType::authorize()` lit l'intent depuis la query string
+(`data['payment_intent']`), pas via `getCartIntentId()` : l'autorisation
+post-paiement n'est donc pas affectée. Les autres appelants (`updateIntent`,
+`syncIntent`, `cancelIntent`) deviennent des no-op sur un intent terminal, ce qui
+est le comportement voulu — on ne modifie pas un intent déjà payé.
+
 ### 4.4 Paiement d'une commande sur devis (lien Stripe)
 
 Les commandes `awaiting-quote` (produits `pko_quote_only`, cf. `docs/shipping.md` §5.3) sont réglées via un **lien de paiement** hors checkout standard, géré par `Pko\ShippingCommon\Http\Controllers\QuotePaymentController` :
