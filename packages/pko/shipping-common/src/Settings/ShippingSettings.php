@@ -30,7 +30,7 @@ final class ShippingSettings
             return (int) $stored;
         }
 
-        return (int) config('shipping.franco.threshold_ht_cents', 50000);
+        return (int) (config('shipping.franco.threshold_ht_cents') ?? 50000);
     }
 
     /**

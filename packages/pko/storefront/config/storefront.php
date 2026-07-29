@@ -22,10 +22,6 @@ return [
         'icon' => 'truck',
     ],
 
-    'shipping' => [
-        'free_threshold_cents' => (int) env('MIN_FREE_SHIPPING_CENTS', 12500),
-    ],
-
     'usps' => [
         ['icon' => 'map-pin', 'title' => 'Plus de 80 magasins', 'subtitle' => 'Partout en France'],
         ['icon' => 'users', 'title' => '1 700 personnes', 'subtitle' => 'À votre service'],
