@@ -103,12 +103,19 @@ class PkoCustomerResource extends CustomerResource
                 return $record->customerGroups->map(fn ($group) => $group->name)->implode(', ');
             });
 
-        // Ordre : client (nom + e-mail), société, département, groupes.
+        $registeredAt = TextColumn::make('created_at')
+            ->label('Date inscription')
+            ->dateTime('d/m/Y')
+            ->placeholder('—')
+            ->sortable();
+
+        // Ordre : client (nom + e-mail), société, département, groupes, inscription.
         $ordered = array_values(array_filter([
             $client,
             $columns->get('company_name'),
             $departement,
             $groups,
+            $registeredAt,
         ]));
 
         $sendEmail = Action::make('sendEmail')
@@ -150,6 +157,8 @@ class PkoCustomerResource extends CustomerResource
 
         return $table
             ->columns($ordered)
+            // Les derniers inscrits en premier.
+            ->defaultSort('created_at', 'desc')
             // Toutes les actions de ligne dans un dropdown (dernière colonne) → gain de place.
             ->actions([
                 ActionGroup::make([
@@ -175,6 +184,18 @@ class PkoCustomerResource extends CustomerResource
                         ->all())
                     ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
                         ? $query->where('pko_postcode', 'like', $data['value'].'%')
+                        : $query),
+                // Inversion de l'ordre d'inscription. Le reorder() est appliqué
+                // pendant l'étape « filtres », donc avant le defaultSort ci-dessus,
+                // et prend le dessus sur lui.
+                SelectFilter::make('inscription_order')
+                    ->label('Ordre d\'inscription')
+                    ->options([
+                        'desc' => 'Plus récents d\'abord',
+                        'asc' => 'Plus anciens d\'abord',
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'])
+                        ? $query->reorder('created_at', $data['value'] === 'asc' ? 'asc' : 'desc')
                         : $query),
             ]);
     }
