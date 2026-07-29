@@ -445,7 +445,7 @@ final class ShippingCalculator
     {
         return ShippingSurcharge::query()
             ->where('enabled', true)
-            ->where('mode', 'auto')
+            ->whereIn('mode', ['auto', 'quote'])
             ->where(function ($q): void {
                 $q->where('code', 'corse')
                     ->orWhereJsonContains('rule->type', 'corse')

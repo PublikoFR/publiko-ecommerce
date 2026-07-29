@@ -514,7 +514,13 @@ class ShippingCalculatorTest extends TestCase
                 ['code' => 'chrono13', 'label' => 'Chrono 13', 'enabled' => true],
                 ['code' => 'chrono_relais', 'label' => 'Chrono Relais', 'enabled' => true],
             ]);
+        // Les autres carriers enregistrés (colissimo…) ne doivent pas ajouter d'options.
+        $serviceRepo->shouldReceive('enabledFor')
+            ->andReturn([]);
         $this->app->instance(CarrierServiceRepository::class, $serviceRepo);
+        // ShippingCalculator est un singleton créé dans setUp() avec le vrai repo.
+        // On le détruit pour que le prochain make() injecte le mock.
+        $this->app->forgetInstance(ShippingCalculator::class);
 
         $calculator = $this->app->make(ShippingCalculator::class);
 
