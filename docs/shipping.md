@@ -359,7 +359,9 @@ La surcharge auto se cumule **après** le franco : sur une commande Corse franco
 
 Extensible : ajouter un cas dans `ShippingCalculator::matchesAddress()`.
 
-**Ouverture conditionnelle Corse** : `ShippingCalculator::shouldQuote()` accepte la Corse si `hasActiveCorseSurcharge()` retourne `true` (query `enabled=true AND mode=auto AND (code=corse OR rule->type=corse OR rule->postcode_prefix=20)`).
+**Ouverture conditionnelle Corse** : `ShippingCalculator::shouldQuote()` accepte la Corse si `hasActiveCorseSurcharge()` retourne `true` (query `enabled=true AND mode IN ('auto','quote') AND (code=corse OR rule->type=corse OR rule->postcode_prefix=20)`).
+
+Le mode `quote` est inclus depuis le lot L4 : une Corse couverte uniquement par un supplément `quote` doit ouvrir la zone pour que l'option sentinelle « sur devis » soit injectée. Avec la restriction précédente à `auto` seul, ce cas renvoyait un devis vide et la Corse était muette au checkout.
 
 **Suppléments seedés** (`PkoShippingSurchargesSeeder`, idempotent via `updateOrCreate` sur `code`) — 9 suppléments de référence :
 
