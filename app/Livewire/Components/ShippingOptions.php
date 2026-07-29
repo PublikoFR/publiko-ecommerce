@@ -381,6 +381,22 @@ class ShippingOptions extends Component
     }
 
     /**
+     * Total HT (cents) de l'option sélectionnée, LU depuis le ShippingQuote.
+     * Aucune addition côté vue : le total vient de ShippingOption::getPrice(),
+     * calculé par UnifiedShippingModifier via CalculatedShippingOption::totalPriceCents().
+     */
+    public function getSelectedOptionTotalCentsProperty(): int
+    {
+        if ($this->chosenOption === null) {
+            return 0;
+        }
+
+        $option = $this->shippingOptions->first(fn ($opt) => $opt->getIdentifier() === $this->chosenOption);
+
+        return $option === null ? 0 : (int) $option->getPrice()->value;
+    }
+
+    /**
      * Options sentinelles ("sur devis") : meta['quote'] === true.
      */
     public function getSentinelOptionsProperty(): Collection
@@ -418,6 +434,24 @@ class ShippingOptions extends Component
 
             return $product !== null && PortModeResolver::resolve($product) === 'flat';
         });
+    }
+
+    /**
+     * Lignes du récap ventilé pour les forfaits transport : libellé + montant HT (cents).
+     * Le calcul (prix forfait × quantité) reste côté PHP, miroir de
+     * ShippingCalculator étape 4 — la vue ne fait aucune arithmétique.
+     *
+     * @return array<int, array{label: string, cents: int}>
+     */
+    public function getFlatLineRowsProperty(): array
+    {
+        return $this->flatLines
+            ->map(fn ($line) => [
+                'label' => (string) $line->purchasable->getDescription(),
+                'cents' => (int) ($line->purchasable?->product?->pko_transport_price_cents ?? 0) * (int) $line->quantity,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

@@ -355,7 +355,9 @@ class ShippingOptionsTest extends TestCase
 
     public function test_bandeau_progression_franco_affiche_quand_seuil_non_atteint(): void
     {
-        // Panier vide → sous-total = 0, seuil = 50000 → remaining > 0 → bandeau affiché.
+        // Panier vide → sous-total = 0, seuil > 0 → remaining > 0 → bandeau affiché.
+        config()->set('shipping.franco.threshold_ht_cents', 50000);
+
         $this->makeCartWithAddress();
 
         $this->bindManifestWith([
@@ -363,22 +365,27 @@ class ShippingOptionsTest extends TestCase
         ]);
 
         Livewire::test(ShippingOptions::class)
-            ->assertSee('livraison standard offerte');
+            ->assertSee("d'articles éligibles pour bénéficier")
+            ->assertDontSee('Votre commande est éligible');
     }
 
     public function test_bandeau_progression_franco_absent_quand_seuil_atteint(): void
     {
-        $cart = $this->mockCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
+        // Seuil ramené à 0 : le panier (vide) satisfait le franco sans avoir à
+        // fabriquer des lignes réelles. Le composant est bien rendu, on vérifie
+        // dans la vue que le bandeau de progression a disparu au profit du
+        // bandeau « franco atteint ».
+        config()->set('shipping.franco.threshold_ht_cents', 0);
+
+        $this->makeCartWithAddress();
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890, franco: true),
         ]);
 
-        // Le bandeau de progression ne s'affiche pas quand le franco est atteint.
-        // (Le composant requiert shippingAddress pour afficher les bandeaux ;
-        //  ce test cible le getter getFrancoRemainingCentsProperty() directement.)
-        $this->assertSame(
-            0,
-            max(0, config('shipping.franco.threshold_ht_cents') - WeightCalculator::francoEligibleSubtotalHt($cart))
-        );
+        Livewire::test(ShippingOptions::class)
+            ->assertDontSee("d'articles éligibles pour bénéficier")
+            ->assertSee('Votre commande est éligible');
     }
 
     // ── Test point relais (existant — inchangé) ───────────────────────────────

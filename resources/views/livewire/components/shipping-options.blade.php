@@ -89,7 +89,6 @@
                     $isFranco   = (bool) ($meta['franco'] ?? false);
                     $flatCents  = (int) ($meta['flat_price_cents'] ?? 0);
                     $surgCents  = (int) ($meta['surcharge_cents'] ?? 0);
-                    $totalCents = $gridCents + $flatCents + $surgCents;
                 @endphp
                 <div class="rounded-lg border border-neutral-100 overflow-hidden text-sm">
                     <table class="w-full">
@@ -101,11 +100,10 @@
                                 </td>
                             </tr>
                             @if ($flatCents > 0)
-                                @forelse ($this->flatLines as $line)
-                                    @php $lineCents = (int) ($line->purchasable?->product?->pko_transport_price_cents ?? 0) * (int) $line->quantity; @endphp
+                                @forelse ($this->flatLineRows as $row)
                                     <tr>
-                                        <td class="px-4 py-2 text-neutral-700">{{ $line->purchasable->getDescription() }}</td>
-                                        <td class="px-4 py-2 text-right font-medium">+ {{ $this->formatHtCents($lineCents) }}</td>
+                                        <td class="px-4 py-2 text-neutral-700">{{ $row['label'] }}</td>
+                                        <td class="px-4 py-2 text-right font-medium">+ {{ $this->formatHtCents($row['cents']) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -130,7 +128,7 @@
                         <tfoot>
                             <tr class="bg-neutral-50 border-t border-neutral-200">
                                 <td class="px-4 py-2 font-semibold text-neutral-800">Total livraison HT</td>
-                                <td class="px-4 py-2 text-right font-bold text-neutral-900">{{ $this->formatHtCents($totalCents) }}</td>
+                                <td class="px-4 py-2 text-right font-bold text-neutral-900">{{ $this->formatHtCents($this->selectedOptionTotalCents) }}</td>
                             </tr>
                         </tfoot>
                     </table>
