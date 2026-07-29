@@ -71,4 +71,32 @@ class CustomerListRenderCheckTest extends TestCase
             // dans le dropdown des actions de ligne.
             ->assertSee('Se connecter en tant que');
     }
+
+    public function test_customer_list_orders_by_registration_date(): void
+    {
+        $this->actAsStaff();
+
+        // Nom commun aux deux fiches : la recherche les isole des clients seedés.
+        $old = Customer::factory()->create([
+            'first_name' => 'Ancien',
+            'last_name' => 'Ordretest',
+            'created_at' => now()->subYear(),
+        ]);
+        $recent = Customer::factory()->create([
+            'first_name' => 'Recent',
+            'last_name' => 'Ordretest',
+            'created_at' => now(),
+        ]);
+
+        // Par défaut : les derniers inscrits en premier.
+        Livewire::test(PkoListCustomers::class)
+            ->searchTable('Ordretest')
+            ->assertCanSeeTableRecords([$recent, $old], inOrder: true);
+
+        // Filtre « Plus anciens d'abord » → ordre inversé.
+        Livewire::test(PkoListCustomers::class)
+            ->searchTable('Ordretest')
+            ->filterTable('inscription_order', 'asc')
+            ->assertCanSeeTableRecords([$old, $recent], inOrder: true);
+    }
 }
