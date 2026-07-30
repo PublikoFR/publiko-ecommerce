@@ -20,6 +20,9 @@ use Pko\ShippingCommon\Models\Supplier;
  */
 final class PortModeResolver
 {
+    /** @var array<int, string> */
+    private static array $supplierCache = [];
+
     /**
      * @param  object  $product  Doit exposer pko_port_mode (string) et pko_supplier_id (?int).
      */
@@ -37,12 +40,22 @@ final class PortModeResolver
             return 'standard';
         }
 
-        $portInclus = Supplier::find($supplierId)?->port_inclus ?? 'cas_par_cas';
+        if (! array_key_exists($supplierId, self::$supplierCache)) {
+            self::$supplierCache[$supplierId] = Supplier::find($supplierId)?->port_inclus ?? 'cas_par_cas';
+        }
 
-        return match ($portInclus) {
+        return match (self::$supplierCache[$supplierId]) {
             'oui' => 'free',
             default => 'standard',
         };
+    }
+
+    /**
+     * Vide le cache statique — à appeler en setUp() des tests pour éviter la pollution inter-tests.
+     */
+    public static function flushCache(): void
+    {
+        self::$supplierCache = [];
     }
 
     /**

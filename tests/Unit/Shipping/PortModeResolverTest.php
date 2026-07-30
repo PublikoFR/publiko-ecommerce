@@ -21,6 +21,7 @@ class PortModeResolverTest extends TestCase
     {
         parent::setUp();
         TaxClass::query()->firstOrCreate(['name' => 'TVA 20%'], ['default' => true]);
+        PortModeResolver::flushCache();
     }
 
     // ── Modes explicites (pas d'héritage) ────────────────────────────────────
