@@ -416,19 +416,21 @@ class CheckoutPage extends Component
             'total'            => $l->total?->value ?? 0,
         ])->values()->toArray();
 
-        // Persist split data in cart meta before removing lines
+        // Persist meta AND remove lines atomically: a CartSession::remove() failure
+        // mid-loop would otherwise leave split_pending saved but lines still in cart.
         $splitGroup = (string) Str::uuid();
-        $this->cart->forceFill([
-            'meta' => array_merge($currentMeta, [
-                'split_pending' => $splitPending,
-                'split_group'   => $splitGroup,
-            ]),
-        ])->save();
+        DB::transaction(function () use ($quoteLines, $splitPending, $splitGroup, $currentMeta): void {
+            $this->cart->forceFill([
+                'meta' => array_merge($currentMeta, [
+                    'split_pending' => $splitPending,
+                    'split_group'   => $splitGroup,
+                ]),
+            ])->save();
 
-        // Remove quote lines from the active cart so Stripe sees only payable lines
-        foreach ($quoteLines as $line) {
-            CartSession::remove($line->id);
-        }
+            foreach ($quoteLines as $line) {
+                CartSession::remove($line->id);
+            }
+        });
 
         $this->cart = CartSession::current();
 
