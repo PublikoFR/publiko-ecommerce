@@ -5,15 +5,23 @@ declare(strict_types=1);
 namespace Tests\Feature\Shipping;
 
 use App\Actions\CreateSplitQuoteOrder;
+use App\Livewire\CheckoutPage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Lunar\Models\Channel;
+use Livewire\Livewire;
+use Lunar\Base\ShippingManifestInterface;
+use Lunar\Facades\CartSession;
+use Lunar\Models\Cart;
+use Lunar\Models\Country;
 use Lunar\Models\Currency;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
+use Mockery;
+use Tests\Stubs\FakeStripePaymentForm;
 use Tests\TestCase;
 
 /**
@@ -31,16 +39,28 @@ class OrderSplitTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+
+        Livewire::component('stripe.payment', FakeStripePaymentForm::class);
     }
 
     // ── 1. 100 % payable cart — no split ─────────────────────────────────────
 
-    public function test_payable_only_order_does_not_trigger_split(): void
+    /**
+     * A cart with only payable lines must not produce split_pending meta.
+     * Exercises getIsMixedCartProperty() + confirmSplitChoice() through Livewire.
+     */
+    public function test_payable_only_cart_does_not_set_split_pending(): void
     {
-        $payableOrder = $this->makeMinimalOrder('payment-received');
+        $this->bindEmptyManifest();
+        $cart = $this->makeCartWithMode('standard');
 
-        // No split_pending in cart meta → maybeCreateSplitQuoteOrder is a no-op
-        $this->assertNull(Order::where('meta->split_from', $payableOrder->id)->first());
+        Livewire::test(CheckoutPage::class)
+            ->assertSet('isMixedCart', false)
+            ->call('confirmSplitChoice')
+            ->assertSet('splitConfirmed', true);
+
+        // applySplit() must NOT have been called
+        $this->assertNull($cart->fresh()->meta['split_pending'] ?? null);
     }
 
     // ── 2. 100 % quote cart — existing awaiting-quote flow unchanged ──────────
@@ -118,20 +138,26 @@ class OrderSplitTest extends TestCase
         $this->assertStringNotContainsString('TEMP-', $quoteOrder->reference);
     }
 
-    // ── 4. Mixed cart + quote_all → single awaiting-quote order ──────────────
+    // ── 4. Mixed cart + quote_all → no split_pending, applySplit never called ─
 
-    public function test_quote_all_mode_creates_single_awaiting_quote_order(): void
+    /**
+     * When the user picks "tout en devis" (quote_all), confirmSplitChoice() must
+     * set splitConfirmed=true without calling applySplit(), so cart meta remains
+     * free of split_pending. Exercises the quote_all branch of confirmSplitChoice().
+     */
+    public function test_mixed_cart_with_quote_all_mode_does_not_set_split_pending(): void
     {
-        // quote_all is handled by checkoutQuoteOnly() — the standard awaiting-quote
-        // pipeline path. We verify that CreateSplitQuoteOrder is NOT called.
-        $payableOrder = $this->makeMinimalOrder('awaiting-quote');
+        $this->bindEmptyManifest();
+        $cart = $this->makeMixedCart();
 
-        // No split_children should exist
-        $meta = (array) ($payableOrder->meta ?? []);
-        $this->assertArrayNotHasKey('split_children', $meta);
+        Livewire::test(CheckoutPage::class)
+            ->assertSet('isMixedCart', true)
+            ->set('splitMode', 'quote_all')
+            ->call('confirmSplitChoice')
+            ->assertSet('splitConfirmed', true);
 
-        // Only one order exists for this split_group
-        $this->assertSame(0, Order::where('meta->split_from', $payableOrder->id)->count());
+        // quote_all must NOT trigger applySplit() — split_pending must stay absent
+        $this->assertNull($cart->fresh()->meta['split_pending'] ?? null);
     }
 
     // ── 5. Double-submit idempotence ─────────────────────────────────────────
@@ -181,9 +207,96 @@ class OrderSplitTest extends TestCase
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Build a cart with a single non-shippable line in the given port mode.
+     */
+    private function makeCartWithMode(string $mode): Cart
+    {
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $product->forceFill(['pko_port_mode' => $mode])->save();
+
+        /** @var ProductVariant $variant */
+        $variant = $product->variants()->first();
+        $variant->forceFill(['shippable' => false])->save();
+
+        $currency = Currency::query()->where('default', true)->first()
+            ?? Currency::query()->first();
+
+        $cart = Cart::factory()->create(['currency_id' => $currency->id]);
+        CartSession::use($cart);
+
+        $cart->add($variant, 1);
+        $cart->setBillingAddress([
+            'first_name'    => 'Jean',
+            'last_name'     => 'Dupont',
+            'line_one'      => '1 Rue de la Paix',
+            'city'          => 'Paris',
+            'postcode'      => '75001',
+            'country_id'    => Country::query()->value('id'),
+            'contact_email' => 'jean@example.com',
+        ]);
+
+        return $cart->refresh();
+    }
+
+    /**
+     * Build a cart with TWO lines: one quote, one payable (mixed cart).
+     */
+    private function makeMixedCart(): Cart
+    {
+        $products = Product::query()->take(2)->get();
+        $this->assertGreaterThanOrEqual(2, $products->count(), 'Seeder must provide at least 2 products');
+
+        $quoteProduct   = $products->first();
+        $payableProduct = $products->last();
+
+        $quoteProduct->forceFill(['pko_port_mode' => 'quote'])->save();
+        $payableProduct->forceFill(['pko_port_mode' => 'standard'])->save();
+
+        $quoteVariant   = $quoteProduct->variants()->first();
+        $payableVariant = $payableProduct->variants()->first();
+
+        $quoteVariant->forceFill(['shippable' => false])->save();
+        $payableVariant->forceFill(['shippable' => false])->save();
+
+        $currency = Currency::query()->where('default', true)->first()
+            ?? Currency::query()->first();
+
+        $cart = Cart::factory()->create(['currency_id' => $currency->id]);
+        CartSession::use($cart);
+
+        $cart->add($quoteVariant, 1);
+        $cart->add($payableVariant, 1);
+
+        $cart->setBillingAddress([
+            'first_name'    => 'Jean',
+            'last_name'     => 'Dupont',
+            'line_one'      => '1 Rue de la Paix',
+            'city'          => 'Paris',
+            'postcode'      => '75001',
+            'country_id'    => Country::query()->value('id'),
+            'contact_email' => 'jean@example.com',
+        ]);
+
+        return $cart->refresh();
+    }
+
+    /**
+     * Bind a shipping manifest that always returns no options.
+     */
+    private function bindEmptyManifest(): void
+    {
+        $manifest = Mockery::mock(ShippingManifestInterface::class);
+        $manifest->shouldReceive('getOptions')->andReturn(new Collection);
+        $manifest->shouldReceive('getShippingOption')->andReturnNull();
+
+        $this->app->instance(ShippingManifestInterface::class, $manifest);
+    }
+
     private function makeMinimalOrder(string $status): Order
     {
-        $channel  = Channel::query()->first();
+        $channel  = \Lunar\Models\Channel::query()->first();
         $currency = Currency::query()->first();
 
         $id = \DB::table('lunar_orders')->insertGetId([
@@ -213,14 +326,14 @@ class OrderSplitTest extends TestCase
     private function addShippingAddress(Order $order): void
     {
         OrderAddress::create([
-            'order_id'     => $order->id,
-            'type'         => 'shipping',
-            'first_name'   => 'Jean',
-            'last_name'    => 'Dupont',
-            'line_one'     => '1 Rue de la Paix',
-            'city'         => 'Paris',
-            'postcode'     => '75001',
-            'country_id'   => \Lunar\Models\Country::value('id'),
+            'order_id'      => $order->id,
+            'type'          => 'shipping',
+            'first_name'    => 'Jean',
+            'last_name'     => 'Dupont',
+            'line_one'      => '1 Rue de la Paix',
+            'city'          => 'Paris',
+            'postcode'      => '75001',
+            'country_id'    => \Lunar\Models\Country::value('id'),
             'contact_email' => 'jean@example.com',
         ]);
     }
