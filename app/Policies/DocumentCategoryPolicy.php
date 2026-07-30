@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Pko\ProductDocuments\Models\DocumentCategory;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class DocumentCategoryPolicy
 {

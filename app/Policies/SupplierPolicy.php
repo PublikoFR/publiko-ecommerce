@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use Illuminate\Auth\Access\HandlesAuthorization;
 use Lunar\Admin\Models\Staff;
 use Pko\ShippingCommon\Models\Supplier;
-use Illuminate\Auth\Access\HandlesAuthorization;
 
 class SupplierPolicy
 {

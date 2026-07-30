@@ -2,9 +2,8 @@
 
 namespace App\Policies;
 
-use Lunar\Admin\Models\Staff;
-
 use Illuminate\Auth\Access\HandlesAuthorization;
+use Lunar\Admin\Models\Staff;
 
 class StaffPolicy
 {
@@ -12,9 +11,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can view any models.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function viewAny(Staff $staff): bool
     {
@@ -23,9 +19,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can view the model.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function view(Staff $staff): bool
     {
@@ -34,9 +27,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can create models.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function create(Staff $staff): bool
     {
@@ -45,9 +35,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can update the model.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function update(Staff $staff): bool
     {
@@ -56,9 +43,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can delete the model.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function delete(Staff $staff): bool
     {
@@ -67,9 +51,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can bulk delete.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function deleteAny(Staff $staff): bool
     {
@@ -78,9 +59,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can permanently delete.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function forceDelete(Staff $staff): bool
     {
@@ -89,9 +67,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can permanently bulk delete.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function forceDeleteAny(Staff $staff): bool
     {
@@ -100,9 +75,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can restore.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function restore(Staff $staff): bool
     {
@@ -111,9 +83,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can bulk restore.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function restoreAny(Staff $staff): bool
     {
@@ -122,9 +91,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can bulk restore.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function replicate(Staff $staff): bool
     {
@@ -133,9 +99,6 @@ class StaffPolicy
 
     /**
      * Determine whether the staff can reorder.
-     *
-     * @param  \Lunar\Admin\Models\Staff  $staff
-     * @return bool
      */
     public function reorder(Staff $staff): bool
     {
