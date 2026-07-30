@@ -335,17 +335,32 @@ Quand `hasVentilatedRecap` est vrai (`flat_price_cents > 0` OU `surcharge_cents 
 
 Les meta sont injectés par `UnifiedShippingModifier` sur chaque `ShippingOption` Lunar.
 
-#### Bandeaux dynamiques
+#### Bandeaux dynamiques — source unique : `ShippingQuote::$banners`
 
-| Bandeau | Condition | Message |
+> **Lot L5b (2026-07)** : les bandeaux ne sont plus recalculés dans le composant.
+> `ShippingOptions::getBannersProperty()` appelle `app(ShippingCalculator::class)->calculate($cart)->banners`
+> et délègue les 4 propriétés calculées (`isFrancoReached`, `francoRemainingCents`,
+> `hasExcludedLines`, `hasMultipleSources`) aux résultats du quote.
+>
+> **Canal retenu** : résolution directe du `ShippingCalculator` depuis le composant
+> (Option B) plutôt que stockage en meta du panier. Raison : zéro dirty-tracking,
+> toujours frais, coût acceptable (grilles en DB, zéro appel SOAP pour les paniers
+> sans lignes pondérées). Seul inconvénient : double calcul par page (modifier +
+> composant), acceptable car non mesurable sur les grilles.
+>
+> **Divergence résolue** : `getHasMultipleSourcesProperty()` traitait `pko_supplier_id = 0`
+> comme fournisseur (` !== null`) ; le calculator le traite comme Weklo (`null || 0`).
+> La version du calculator (correcte) est désormais la seule.
+
+| Bandeau | Type dans `$banners` | Message |
 |---|---|---|
-| Franco atteint (vert) | `isFrancoReached` | « Votre commande est éligible à la livraison standard offerte… » |
-| Progression franco (ambre) | `francoRemainingCents > 0 && !isFrancoReached` | « Plus que X € HT d'articles éligibles… » |
-| Exclusion (info) | `hasExcludedLines` | « Certains produits volumineux… frais complémentaires. » |
-| Multi-colis (info) | `hasMultipleSources` | « Votre commande peut être expédiée en plusieurs colis… » |
+| Franco atteint (vert) | `franco_reached` | « Votre commande est éligible à la livraison standard offerte… » |
+| Progression franco (ambre) | `franco_progress` + `remaining_cents` | « Plus que X € HT d'articles éligibles… » |
+| Exclusion (info) | `excluded_lines` | « Certains produits volumineux… frais complémentaires. » |
+| Multi-colis (info) | `multi_colis` | « Votre commande peut être expédiée en plusieurs colis… » |
 
-- `isFrancoReached` : `francoEligibleSubtotalHt(cart) >= threshold && !cartHasFrancoExcludedLine(cart)`.
-- `francoRemainingCents` : `max(0, threshold - current)`, base `eligible_subtotal` ou `cart_total` selon `ShippingSettings::francoBasis()`. Miroir de `ShippingCalculator::computeBanners()`.
+Règle : **une seule fonction décide quels bandeaux s'affichent** — `ShippingCalculator::computeBanners()`.
+Ne jamais recalculer ces conditions dans `ShippingOptions` ni dans la vue.
 
 #### Badge disponibilité fiche produit
 

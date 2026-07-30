@@ -21,6 +21,8 @@ use Mockery\MockInterface;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
 use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
+use Pko\ShippingCommon\Pricing\ShippingCalculator;
+use Pko\ShippingCommon\Pricing\ShippingQuote;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use Tests\TestCase;
 
@@ -28,7 +30,7 @@ class ShippingOptionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
      * @param  array<string, mixed>  $extraMeta  Méta additionnels (ex. flat_price_cents, surcharge_cents).
@@ -110,6 +112,32 @@ class ShippingOptionsTest extends TestCase
         });
     }
 
+    /**
+     * Lie un ShippingCalculator factice retournant des bandeaux prédéfinis.
+     * Évite tout appel DB au calculator (grilles, services, surcharges) dans les tests
+     * qui ne veulent tester que la consommation des banners côté composant.
+     *
+     * @param  list<array<string, mixed>>  $banners
+     */
+    private function bindFakeCalculator(array $banners): void
+    {
+        $fakeQuote = new ShippingQuote(
+            options: [],
+            defaultOptionIdentifier: ShippingCalculator::DEFAULT_OPTION_IDENTIFIER,
+            banners: $banners,
+            blockers: [],
+        );
+
+        $this->app->bind(ShippingCalculator::class, fn () => new class ($fakeQuote) {
+            public function __construct(private ShippingQuote $quote) {}
+
+            public function calculate(mixed $cart): ShippingQuote
+            {
+                return $this->quote;
+            }
+        });
+    }
+
     private function makeLine(bool $francoEligible, int $subtotalHtCents = 20000, ?int $supplierId = null): object
     {
         $product = (object) [
@@ -170,9 +198,79 @@ class ShippingOptionsTest extends TestCase
             ->assertSet('chosenOption', 'chronopost.chrono_relais');
     }
 
-    // ── Tests bandeaux via WeightCalculator ──────────────────────────────────
+    // ── Tests bandeaux — source unique : ShippingQuote::$banners ─────────────
 
-    public function test_is_franco_reached_vrai_quand_seuil_atteint_sans_exclusion(): void
+    /**
+     * Test clé : les bandeaux affichés viennent du quote (calculator mocké),
+     * pas d'un recalcul WeightCalculator dans le composant.
+     */
+    public function test_banners_proviennent_du_quote_pas_recalcules(): void
+    {
+        $this->makeCartWithAddress();
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+
+        // Calculator mocké : retourne franco_reached SANS aucune ligne éligible
+        // Si le composant recalculait (WeightCalculator), il retournerait franco_progress.
+        $this->bindFakeCalculator([['type' => 'franco_reached']]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('Votre commande est éligible')
+            ->assertDontSee('articles éligibles pour bénéficier');
+    }
+
+    public function test_bandeau_franco_progress_affiche_montant_restant_depuis_quote(): void
+    {
+        $this->makeCartWithAddress();
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+
+        $this->bindFakeCalculator([
+            ['type' => 'franco_progress', 'remaining_cents' => 12500],
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('articles éligibles pour bénéficier')
+            ->assertDontSee('Votre commande est éligible');
+    }
+
+    public function test_bandeau_excluded_lines_affiche_quand_quote_contient_excluded_lines(): void
+    {
+        $this->makeCartWithAddress();
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+
+        $this->bindFakeCalculator([['type' => 'excluded_lines']]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('frais de transport complémentaires');
+    }
+
+    public function test_bandeau_multi_colis_affiche_quand_quote_contient_multi_colis(): void
+    {
+        $this->makeCartWithAddress();
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+
+        $this->bindFakeCalculator([['type' => 'multi_colis']]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSee('expédiée en plusieurs colis');
+    }
+
+    public function test_aucun_bandeau_quand_quote_retourne_banners_vides(): void
+    {
+        $this->makeCartWithAddress();
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+
+        $this->bindFakeCalculator([]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertDontSee('Votre commande est éligible')
+            ->assertDontSee('articles éligibles pour bénéficier')
+            ->assertDontSee('frais de transport complémentaires')
+            ->assertDontSee('expédiée en plusieurs colis');
+    }
+
+    // ── Tests WeightCalculator (utilitaires — indépendants du composant) ──────
+
+    public function test_weight_calculator_franco_eligible_subtotal(): void
     {
         $cart = $this->mockCart([
             $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
@@ -181,23 +279,10 @@ class ShippingOptionsTest extends TestCase
         $this->assertTrue(
             WeightCalculator::francoEligibleSubtotalHt($cart) >= config('shipping.franco.threshold_ht_cents')
             && ! WeightCalculator::cartHasFrancoExcludedLine($cart),
-            'Franco doit être atteint : 600 € HT de lignes éligibles sans exclusion'
         );
     }
 
-    public function test_is_franco_reached_faux_quand_seuil_non_atteint(): void
-    {
-        $cart = $this->mockCart([
-            $this->makeLine(francoEligible: true, subtotalHtCents: 20000),
-        ]);
-
-        $this->assertFalse(
-            WeightCalculator::francoEligibleSubtotalHt($cart) >= config('shipping.franco.threshold_ht_cents'),
-            'Franco ne doit pas être atteint avec seulement 200 € HT'
-        );
-    }
-
-    public function test_has_excluded_lines_vrai_quand_une_ligne_est_exclue(): void
+    public function test_weight_calculator_has_excluded_line(): void
     {
         $cart = $this->mockCart([
             $this->makeLine(francoEligible: true, subtotalHtCents: 40000),
@@ -351,17 +436,14 @@ class ShippingOptionsTest extends TestCase
             ->assertSee('Supplément transport');
     }
 
-    // ── Bandeau progression franco ────────────────────────────────────────────
+    // ── Bandeau franco — non-régression (conservé pour compatibilité) ─────────
 
     public function test_bandeau_progression_franco_affiche_quand_seuil_non_atteint(): void
     {
-        // Panier vide → sous-total = 0, seuil > 0 → remaining > 0 → bandeau affiché.
-        config()->set('shipping.franco.threshold_ht_cents', 50000);
-
         $this->makeCartWithAddress();
-
-        $this->bindManifestWith([
-            $this->makeOption('chronopost.chrono13', 1890),
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890)]);
+        $this->bindFakeCalculator([
+            ['type' => 'franco_progress', 'remaining_cents' => 50000],
         ]);
 
         Livewire::test(ShippingOptions::class)
@@ -371,17 +453,9 @@ class ShippingOptionsTest extends TestCase
 
     public function test_bandeau_progression_franco_absent_quand_seuil_atteint(): void
     {
-        // Seuil ramené à 0 : le panier (vide) satisfait le franco sans avoir à
-        // fabriquer des lignes réelles. Le composant est bien rendu, on vérifie
-        // dans la vue que le bandeau de progression a disparu au profit du
-        // bandeau « franco atteint ».
-        config()->set('shipping.franco.threshold_ht_cents', 0);
-
         $this->makeCartWithAddress();
-
-        $this->bindManifestWith([
-            $this->makeOption('chronopost.chrono13', 1890, franco: true),
-        ]);
+        $this->bindManifestWith([$this->makeOption('chronopost.chrono13', 1890, franco: true)]);
+        $this->bindFakeCalculator([['type' => 'franco_reached']]);
 
         Livewire::test(ShippingOptions::class)
             ->assertDontSee('articles éligibles pour bénéficier')
