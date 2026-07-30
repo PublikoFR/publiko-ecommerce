@@ -432,7 +432,7 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
 **Client SOAP point relais** (`packages/pko/shipping-chronopost`) :
-- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS` (WSDL officiel Chronopost). `serviceCode = null` (productCode vide = tous types de points). Timeout 8 s, `WSDL_CACHE_BOTH`.
+- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS` (WSDL officiel Chronopost). `serviceCode = null` (productCode vide = tous types de points). Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
 - `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal, retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
 - Credentials : `secret('chronopost.account')` / `secret('chronopost.password')` (pko/lunar-secrets) avec fallback `config('chronopost.credentials.*')`.
 - Binding : `ShippingChronopostServiceProvider::boot()` lie `PickupPointProvider → ChronopostPickupPointProvider` (boot garantit que ce binding écrase celui de `ShippingCommonServiceProvider::register()`).
