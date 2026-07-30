@@ -437,38 +437,48 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 
 **Affichage panier et checkout** (`ShippingOptions` + vue) : chaque option montre HT **et** TTC (résolu via `ShippingSettings::taxDisplay()`, clé DB `shipping.tax.display`, fallback env `SHIPPING_TAX_DISPLAY`, valeurs `both` | `ht` | `ttc`, défaut `both`). Le TTC par option est calculé via le moteur de taxe Lunar (`Taxes::setShippingAddress()->setCurrency()->setPurchasable()->getBreakdown()`), donc zone-aware, avec fallback HT=TTC si la zone de taxe n'est pas résolue. Une option franco/offerte affiche « Offert ».
 
-#### B) Sélection d'un point relais physique (Chrono Relais)
+#### B) Sélection d'un point relais physique (Chrono Relais) — Lot L6
 
 Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point relais** devient obligatoire avant de continuer.
 
 **Abstraction** (`packages/pko/shipping-common`) :
 - Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`).
-- DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, carrier, distanceKm, openingHours) + `toArray()` / `fromArray()`.
-- Implémentation V1 par défaut : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Le front bascule alors sur une **saisie manuelle simplifiée** (nom, adresse, CP, ville).
+- DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, distanceKm, latitude, longitude, openingHours) + `toArray()` / `fromArray()`. Coordonnées GPS optionnelles pour la carte.
+- Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
-**Brancher une vraie API** (ex. SOAP Chronopost « recherche point relais ») : il suffit de lier un autre provider au contrat dans un ServiceProvider, **sans toucher au front** :
-```php
-$this->app->bind(PickupPointProvider::class, ChronopostPickupPointProvider::class);
-```
-Le SDK `ladromelaboratoire/chronopostws` n'expose **pas** de service point-relais → aucun client SOAP n'est livré en F4 (pas de code spéculatif non testable). C'est la sortie « V1 simplifiée » prévue.
+**Client SOAP point relais** (`packages/pko/shipping-chronopost`) :
+- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS` (WSDL officiel Chronopost). `serviceCode = null` (productCode vide = tous types de points). Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
+- `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal, retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
+- Credentials : `secret('chronopost.account')` / `secret('chronopost.password')` (pko/lunar-secrets) avec fallback `config('chronopost.credentials.*')`.
+- Binding : `ShippingChronopostServiceProvider::boot()` lie `PickupPointProvider → ChronopostPickupPointProvider` (boot garantit que ce binding écrase celui de `ShippingCommonServiceProvider::register()`).
+
+**Carte OpenStreetMap / Leaflet** :
+- Leaflet 1.9.4 chargé depuis CDN (`@push('scripts')` / `@push('styles')`) — aucune dépendance npm, aucune clé API.
+- Layout côte-à-côte (liste scrollable gauche, carte droite sur `md+`). Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
+- `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders.
+- Points sans lat/lon (GPS null) : liste uniquement, pas de marqueur.
+- Icônes `divIcon` stylées avec classes Tailwind DS (`primary-400`/`primary-600`), aucun hex en dur.
 
 **Front** (`App\Livewire\Components\ShippingOptions` + vue) :
 - Bloc relais affiché uniquement si `requiresPickupPoint` (service = `chronopost.chrono_relais`).
-- Champ code postal (prérempli depuis l'adresse) + bouton « Rechercher » → `searchPickupPoints()` interroge le provider et liste les points (radios). À défaut de résultat → champs de saisie manuelle.
-- `save()` : si Chrono Relais choisi, un point relais (liste **ou** saisie manuelle complète) est requis, sinon erreur de validation `pickupPointId`. Le point retenu est persisté dans le **meta du panier** (`cart.meta['pickup_point']`, réassignation complète du tableau pour le dirty-tracking). Changer pour un service hors relais **purge** ce meta.
+- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → liste radios + carte. Si aucun résultat → saisie manuelle simplifiée.
+- `save()` : si Chrono Relais choisi sans point retenu → erreur `pickupPointId`. Le point est persisté dans `cart.meta['pickup_point']`.
+- `FillOrderFromCart` (pipeline Lunar) copie l'intégralité de `cart.meta` → `order.meta` : la propagation du point relais est donc automatique, sans pipeline custom.
 
-**Limite / follow-up (hors scope F4)** : le point relais est stocké sur le **panier** uniquement. La propagation vers l'`Order` (et donc vers l'expédition post-paiement, construite depuis l'Order par `OrderShipmentObserver`/`CreateCarrierShipmentJob`) n'est **pas** câblée — elle nécessiterait un pipeline de création de commande (`config/lunar/orders.php → pipelines.creation`) recopiant `cart.meta['pickup_point']` vers `order.meta`, ce qui touche au flux de placement de commande (Lot F3, explicitement hors scope ici). À traiter dans un lot dédié.
+**Propagation vers l'expédition** (`CreateCarrierShipmentJob`) :
+- `ShipmentRequest.pickupPointId` (optionnel, null = pas de relais) est alimenté depuis `order.meta['pickup_point']['id']`.
+- `ChronopostClient::createShipment()` passe `recipientRelaisPointChronoId` dans `recipientValue` du payload SOAP.
+- **Limitation connue** : le SDK `ladromelaboratoire/chronopostws` (`wsrecipientvalue`) ne définit pas de setter pour `recipientRelaisPointChronoId` → la valeur est passée dans le tableau mais **ignorée silencieusement** par `loadArray()`. Le code relais n'est pas transmis au WS Chronopost. Contournement pour lot 7 : remplacer `ChronopostClient::createShipment()` par un `SoapClient` brut pour Chrono Relais (même pattern que `PickupPointSoapClient`) ou fork du SDK.
 
-Tests : `tests/Feature/Shipping/ShippingOptionsTest` (affichage HT/TTC, présélection chrono13, récap ventilé, bandeau progression franco, validation relais requise, persistance liste + saisie manuelle, purge au changement de service).
+Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, purge) + `ChronopostPickupPointProviderTest` (succès, erreur → [], cache, points sans id) + `PickupPointSoapClientTest` (parse réponse unique/multiple, erreur API, SoapFault, credentials manquants).
 
 ### 5.7 Hors scope shipping
 
-- Sélection automatique de point relais via API transporteur (front V1 = saisie manuelle, cf. §5.13.B ; le SDK Chronopost n'expose pas de service point-relais)
-- Propagation du point relais panier → Order → expédition (cf. follow-up §5.13.B)
 - Tracking webhook (polling ou push transporteur)
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
 - Sendcloud (alternative SaaS écartée pour coût)
+- Transmission effective du code point relais au SOAP Chronopost (limitation SDK — cf. §5.13.B, lot 7)
 
 ### 5.14 Refonte modèle produit expédition — 6 réglages → 3 + héritage fournisseur (Lot L3, 2026-07)
 

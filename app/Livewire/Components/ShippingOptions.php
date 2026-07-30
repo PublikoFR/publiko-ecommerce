@@ -116,8 +116,11 @@ class ShippingOptions extends Component
 
         $country = (string) ($this->shippingAddress?->country?->iso2 ?? 'FR');
 
+        // Pass null as serviceCode: the internal identifier 'chronopost.chrono_relais'
+        // is not a valid Chronopost productCode — the WS returns all nearby relay
+        // points when productCode is empty, which is the correct V1 behaviour.
         $points = app(PickupPointProvider::class)
-            ->search($postcode, $country, self::PICKUP_OPTION_IDENTIFIER);
+            ->search($postcode, $country, null);
 
         $this->pickupPoints = array_map(
             fn (PickupPoint $point) => $point->toArray(),

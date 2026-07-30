@@ -176,6 +176,13 @@ class ChronopostClient implements CarrierClient
                 'recipientPhone' => (string) ($recipient['phone'] ?? ''),
                 'recipientZipCode' => (string) ($recipient['zip'] ?? ''),
                 'recipientType' => '1',
+                // SDK ladromelaboratoire/chronopostws does not define a setter for this
+                // field — wsrecipientvalue::loadArray() will silently ignore it (PHP 8.3
+                // deprecated-dynamic-property, not fatal). The correct WSDL field name is
+                // confirmed from the Chronopost ShippingServiceWS spec. Until the SDK is
+                // forked or replaced by a raw SoapClient, the relay point code is NOT
+                // transmitted to the carrier API. See docs/shipping.md §5.13.B.
+                ...($request->pickupPointId !== null ? ['recipientRelaisPointChronoId' => $request->pickupPointId] : []),
             ],
             'refValue' => [
                 'customerSkybillNumber' => $request->orderReference,

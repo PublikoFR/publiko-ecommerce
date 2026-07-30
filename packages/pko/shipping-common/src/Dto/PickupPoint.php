@@ -10,12 +10,12 @@ namespace Pko\ShippingCommon\Dto;
  * Représentation neutre, indépendante du transporteur : un provider Chronopost,
  * Mondial Relay, etc. mappe sa réponse propre vers ce DTO. Stocké tel quel
  * (via toArray()) dans le meta du panier/commande pour l'expédition.
+ *
+ * Les coordonnées géographiques (latitude/longitude) sont optionnelles : la carte
+ * Leaflet n'affiche que les points qui les portent ; la liste est toujours autoritaire.
  */
 final class PickupPoint
 {
-    /**
-     * @param  array<int, string>  $openingHours  Lignes d'horaires lisibles (optionnel)
-     */
     public function __construct(
         public readonly string $id,
         public readonly string $name,
@@ -25,23 +25,27 @@ final class PickupPoint
         public readonly string $countryCode = 'FR',
         public readonly ?string $carrier = null,
         public readonly ?float $distanceKm = null,
-        public readonly array $openingHours = [],
+        public readonly ?float $latitude = null,
+        public readonly ?float $longitude = null,
+        public readonly ?string $openingHours = null,
     ) {}
 
     /**
-     * @return array{id:string,name:string,address1:string,postcode:string,city:string,country_code:string,carrier:?string,distance_km:?float,opening_hours:array<int,string>}
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {
         return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'address1' => $this->address1,
-            'postcode' => $this->postcode,
-            'city' => $this->city,
-            'country_code' => $this->countryCode,
-            'carrier' => $this->carrier,
-            'distance_km' => $this->distanceKm,
+            'id'            => $this->id,
+            'name'          => $this->name,
+            'address1'      => $this->address1,
+            'postcode'      => $this->postcode,
+            'city'          => $this->city,
+            'country_code'  => $this->countryCode,
+            'carrier'       => $this->carrier,
+            'distance_km'   => $this->distanceKm,
+            'latitude'      => $this->latitude,
+            'longitude'     => $this->longitude,
             'opening_hours' => $this->openingHours,
         ];
     }
@@ -60,7 +64,9 @@ final class PickupPoint
             countryCode: (string) ($data['country_code'] ?? 'FR'),
             carrier: isset($data['carrier']) ? (string) $data['carrier'] : null,
             distanceKm: isset($data['distance_km']) ? (float) $data['distance_km'] : null,
-            openingHours: array_values(array_map('strval', (array) ($data['opening_hours'] ?? []))),
+            latitude: isset($data['latitude']) ? (float) $data['latitude'] : null,
+            longitude: isset($data['longitude']) ? (float) $data['longitude'] : null,
+            openingHours: isset($data['opening_hours']) ? (string) $data['opening_hours'] : null,
         );
     }
 }
