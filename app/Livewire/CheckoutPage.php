@@ -6,6 +6,7 @@ namespace App\Livewire;
 
 use App\Actions\CreateSplitQuoteOrder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -545,7 +546,8 @@ class CheckoutPage extends Component
 
     /**
      * If the cart had split_pending lines, create the companion awaiting-quote order now.
-     * Idempotent: a second call for the same payable order is a no-op.
+     * Idempotent: check and creation are inside a single transaction with a pessimistic lock
+     * on the payable order so that concurrent submissions cannot produce two quote orders.
      */
     private function maybeCreateSplitQuoteOrder(int $orderId): void
     {
@@ -557,19 +559,22 @@ class CheckoutPage extends Component
             return;
         }
 
-        $payableOrder = Order::find($orderId);
-        if (! $payableOrder) {
-            return;
-        }
-
-        // Idempotence guard: only one quote order per payable order
-        if (Order::where('meta->split_from', $orderId)->exists()) {
-            return;
-        }
-
         $splitGroup = $cart->meta['split_group'] ?? (string) Str::uuid();
 
-        app(CreateSplitQuoteOrder::class)->execute($payableOrder, $splitPending, $splitGroup);
+        DB::transaction(function () use ($orderId, $splitPending, $splitGroup): void {
+            $payableOrder = Order::lockForUpdate()->find($orderId);
+            if (! $payableOrder) {
+                return;
+            }
+
+            // Idempotence guard inside the lock: concurrent requests both pass the
+            // exists() check above but only one can hold the row lock at a time.
+            if (Order::where('meta->split_from', $orderId)->exists()) {
+                return;
+            }
+
+            app(CreateSplitQuoteOrder::class)->execute($payableOrder, $splitPending, $splitGroup);
+        });
     }
 
     /**
