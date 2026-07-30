@@ -158,24 +158,108 @@
                     @enderror
 
                     @if (! empty($pickupPoints))
-                        <div class="space-y-2">
-                            @foreach ($pickupPoints as $point)
-                                <label wire:key="pickup_{{ $point['id'] }}"
-                                       class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer bg-white transition
-                                              {{ $pickupPointId === $point['id'] ? 'border-primary-500 ring-1 ring-primary-500' : 'border-neutral-200 hover:border-neutral-300' }}">
-                                    <input type="radio"
-                                           wire:model.live="pickupPointId"
-                                           value="{{ $point['id'] }}"
-                                           class="mt-1 text-primary-600 shrink-0" />
-                                    <div class="flex-1 min-w-0 text-sm">
-                                        <span class="font-semibold text-neutral-900">{{ $point['name'] }}</span>
-                                        <p class="text-xs text-neutral-500">{{ $point['address1'] }}, {{ $point['postcode'] }} {{ $point['city'] }}</p>
-                                        @if (! empty($point['distance_km']))
-                                            <p class="text-xs text-neutral-400">À {{ number_format((float) $point['distance_km'], 1, ',', ' ') }} km</p>
-                                        @endif
-                                    </div>
-                                </label>
-                            @endforeach
+                        @push('styles')
+                            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+                                  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+                        @endpush
+                        @once
+                            @push('scripts')
+                                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+                                        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WPeE=" crossorigin="anonymous"></script>
+                            @endpush
+                        @endonce
+
+                        {{-- Conteneur principal : liste + carte côte à côte --}}
+                        <div
+                            class="flex flex-col md:flex-row gap-3"
+                            x-data="{
+                                map: null,
+                                markers: {},
+                                selectedId: @js($pickupPointId),
+                                points: @js($pickupPoints),
+                                init() {
+                                    this.$nextTick(() => {
+                                        const hasCoords = this.points.some(p => p.latitude && p.longitude);
+                                        if (!hasCoords) return;
+
+                                        const firstWithCoords = this.points.find(p => p.latitude && p.longitude);
+                                        this.map = L.map(this.$refs.mapContainer).setView(
+                                            [firstWithCoords.latitude, firstWithCoords.longitude], 13
+                                        );
+                                        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                            maxZoom: 18,
+                                            attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>'
+                                        }).addTo(this.map);
+
+                                        this.points.forEach(p => {
+                                            if (!p.latitude || !p.longitude) return;
+                                            const isSelected = p.id === this.selectedId;
+                                            const icon = L.divIcon({
+                                                className: '',
+                                                html: `<div class=\"${isSelected ? 'bg-primary-600 ring-2 ring-primary-300' : 'bg-primary-400 hover:bg-primary-600'} text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md cursor-pointer text-xs font-bold transition\">P</div>`,
+                                                iconSize: [20, 20],
+                                                iconAnchor: [10, 10],
+                                            });
+                                            const marker = L.marker([p.latitude, p.longitude], {icon})
+                                                .addTo(this.map)
+                                                .bindPopup(`<strong class=\"text-sm\">${p.name}</strong><br><span class=\"text-xs text-neutral-500\">${p.address1}, ${p.postcode} ${p.city}</span>`);
+                                            marker.on('click', () => {
+                                                this.selectPoint(p.id);
+                                            });
+                                            this.markers[p.id] = marker;
+                                        });
+                                    });
+                                },
+                                selectPoint(id) {
+                                    this.selectedId = id;
+                                    $wire.set('pickupPointId', id);
+                                    Object.keys(this.markers).forEach(k => {
+                                        const isSelected = k === id;
+                                        const p = this.points.find(pt => pt.id === k);
+                                        if (!p) return;
+                                        const icon = L.divIcon({
+                                            className: '',
+                                            html: `<div class=\"${isSelected ? 'bg-primary-600 ring-2 ring-primary-300' : 'bg-primary-400 hover:bg-primary-600'} text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md cursor-pointer text-xs font-bold transition\">P</div>`,
+                                            iconSize: [20, 20],
+                                            iconAnchor: [10, 10],
+                                        });
+                                        this.markers[k].setIcon(icon);
+                                    });
+                                },
+                            }"
+                        >
+                            {{-- Liste des points (scrollable) --}}
+                            <div class="md:w-1/2 space-y-2 max-h-72 overflow-y-auto pr-1">
+                                @foreach ($pickupPoints as $point)
+                                    <label wire:key="pickup_{{ $point['id'] }}"
+                                           @click="selectPoint('{{ $point['id'] }}')"
+                                           class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer bg-white transition
+                                                  {{ $pickupPointId === $point['id'] ? 'border-primary-500 ring-1 ring-primary-500' : 'border-neutral-200 hover:border-neutral-300' }}">
+                                        <input type="radio"
+                                               wire:model.live="pickupPointId"
+                                               value="{{ $point['id'] }}"
+                                               class="mt-1 text-primary-600 shrink-0" />
+                                        <div class="flex-1 min-w-0 text-sm">
+                                            <span class="font-semibold text-neutral-900">{{ $point['name'] }}</span>
+                                            <p class="text-xs text-neutral-500">{{ $point['address1'] }}, {{ $point['postcode'] }} {{ $point['city'] }}</p>
+                                            @if (! empty($point['distance_km']))
+                                                <p class="text-xs text-neutral-400">À {{ number_format((float) $point['distance_km'], 1, ',', ' ') }} km</p>
+                                            @endif
+                                            @if (! empty($point['opening_hours']))
+                                                <p class="text-xs text-neutral-400 mt-0.5">{{ $point['opening_hours'] }}</p>
+                                            @endif
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+
+                            {{-- Carte Leaflet (wire:ignore : Livewire ne doit pas re-render le conteneur) --}}
+                            @if (collect($pickupPoints)->some(fn ($p) => ! empty($p['latitude']) && ! empty($p['longitude'])))
+                                <div class="md:w-1/2" wire:ignore>
+                                    <div x-ref="mapContainer"
+                                         class="w-full h-64 md:h-72 rounded-lg border border-neutral-200 overflow-hidden z-0"></div>
+                                </div>
+                            @endif
                         </div>
                     @else
                         {{-- Saisie manuelle simplifiée (V1) — aucun point retourné automatiquement --}}
