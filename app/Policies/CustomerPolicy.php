@@ -15,7 +15,7 @@ class CustomerPolicy
      */
     public function viewAny(Staff $staff): bool
     {
-        return $staff->can('view_any_customer');
+        return $staff->can('view_any_pko::customer');
     }
 
     /**
@@ -23,7 +23,7 @@ class CustomerPolicy
      */
     public function view(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('view_customer');
+        return $staff->can('view_pko::customer');
     }
 
     /**
@@ -31,7 +31,7 @@ class CustomerPolicy
      */
     public function create(Staff $staff): bool
     {
-        return $staff->can('create_customer');
+        return $staff->can('create_pko::customer');
     }
 
     /**
@@ -39,7 +39,7 @@ class CustomerPolicy
      */
     public function update(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('update_customer');
+        return $staff->can('update_pko::customer');
     }
 
     /**
@@ -47,7 +47,7 @@ class CustomerPolicy
      */
     public function delete(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('delete_customer');
+        return $staff->can('delete_pko::customer');
     }
 
     /**
@@ -55,7 +55,7 @@ class CustomerPolicy
      */
     public function deleteAny(Staff $staff): bool
     {
-        return $staff->can('delete_any_customer');
+        return $staff->can('delete_any_pko::customer');
     }
 
     /**
@@ -63,7 +63,7 @@ class CustomerPolicy
      */
     public function forceDelete(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('force_delete_customer');
+        return $staff->can('force_delete_pko::customer');
     }
 
     /**
@@ -71,7 +71,7 @@ class CustomerPolicy
      */
     public function forceDeleteAny(Staff $staff): bool
     {
-        return $staff->can('force_delete_any_customer');
+        return $staff->can('force_delete_any_pko::customer');
     }
 
     /**
@@ -79,7 +79,7 @@ class CustomerPolicy
      */
     public function restore(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('restore_customer');
+        return $staff->can('restore_pko::customer');
     }
 
     /**
@@ -87,7 +87,7 @@ class CustomerPolicy
      */
     public function restoreAny(Staff $staff): bool
     {
-        return $staff->can('restore_any_customer');
+        return $staff->can('restore_any_pko::customer');
     }
 
     /**
@@ -95,7 +95,7 @@ class CustomerPolicy
      */
     public function replicate(Staff $staff, Customer $customer): bool
     {
-        return $staff->can('replicate_customer');
+        return $staff->can('replicate_pko::customer');
     }
 
     /**
@@ -103,6 +103,6 @@ class CustomerPolicy
      */
     public function reorder(Staff $staff): bool
     {
-        return $staff->can('reorder_customer');
+        return $staff->can('reorder_pko::customer');
     }
 }
