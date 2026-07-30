@@ -89,6 +89,9 @@ class PickupPointSoapClient
             'exceptions'         => true,
             'connection_timeout' => $this->timeoutSeconds,
             'cache_wsdl'         => WSDL_CACHE_BOTH,
+            // connection_timeout borne uniquement le TCP handshake ; stream_context
+            // borne la phase de lecture (WS lent → repli sur [] après $timeoutSeconds).
+            'stream_context'     => stream_context_create(['http' => ['timeout' => $this->timeoutSeconds]]),
         ]);
     }
 
