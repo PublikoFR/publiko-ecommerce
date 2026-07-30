@@ -55,16 +55,16 @@ class PickupPointSoapClient
             $client = $this->client ?? $this->buildSoapClient();
 
             $response = $client->recherchePointChronopostInter([
-                'accountNumber'  => $account,
-                'password'       => $password,
-                'zipCode'        => $postcode,
-                'city'           => '',
-                'countryCode'    => $countryCode,
-                'type'           => '',
-                'productCode'    => $serviceCode ?? '',
-                'service'        => '',
-                'weight'         => '',
-                'shippingDate'   => '',
+                'accountNumber' => $account,
+                'password' => $password,
+                'zipCode' => $postcode,
+                'city' => '',
+                'countryCode' => $countryCode,
+                'type' => '',
+                'productCode' => $serviceCode ?? '',
+                'service' => '',
+                'weight' => '',
+                'shippingDate' => '',
                 'maxPointChronopost' => 20,
             ]);
         } catch (SoapFault $e) {
@@ -85,13 +85,13 @@ class PickupPointSoapClient
     protected function buildSoapClient(): SoapClient
     {
         return new SoapClient($this->wsdl ?? self::DEFAULT_WSDL, [
-            'trace'              => false,
-            'exceptions'         => true,
+            'trace' => false,
+            'exceptions' => true,
             'connection_timeout' => $this->timeoutSeconds,
-            'cache_wsdl'         => WSDL_CACHE_BOTH,
+            'cache_wsdl' => WSDL_CACHE_BOTH,
             // connection_timeout borne uniquement le TCP handshake ; stream_context
             // borne la phase de lecture (WS lent → repli sur [] après $timeoutSeconds).
-            'stream_context'     => stream_context_create(['http' => ['timeout' => $this->timeoutSeconds]]),
+            'stream_context' => stream_context_create(['http' => ['timeout' => $this->timeoutSeconds]]),
         ]);
     }
 
@@ -121,19 +121,19 @@ class PickupPointSoapClient
         $points = [];
         foreach ($rawPoints as $point) {
             $points[] = [
-                'id'            => (string) ($point->identifiant ?? ''),
-                'name'          => (string) ($point->nom ?? ''),
-                'address1'      => (string) ($point->adresse1 ?? ''),
-                'postcode'      => (string) ($point->codePostal ?? ''),
-                'city'          => (string) ($point->localite ?? ''),
-                'country_code'  => (string) ($point->codePays ?? 'FR'),
-                'distance_km'   => isset($point->distanceEnMetre)
+                'id' => (string) ($point->identifiant ?? ''),
+                'name' => (string) ($point->nom ?? ''),
+                'address1' => (string) ($point->adresse1 ?? ''),
+                'postcode' => (string) ($point->codePostal ?? ''),
+                'city' => (string) ($point->localite ?? ''),
+                'country_code' => (string) ($point->codePays ?? 'FR'),
+                'distance_km' => isset($point->distanceEnMetre)
                     ? round((float) $point->distanceEnMetre / 1000, 2)
                     : null,
-                'latitude'      => isset($point->coordGeolocalisationLatitude)
+                'latitude' => isset($point->coordGeolocalisationLatitude)
                     ? (float) str_replace(',', '.', (string) $point->coordGeolocalisationLatitude)
                     : null,
-                'longitude'     => isset($point->coordGeolocalisationLongitude)
+                'longitude' => isset($point->coordGeolocalisationLongitude)
                     ? (float) str_replace(',', '.', (string) $point->coordGeolocalisationLongitude)
                     : null,
                 'opening_hours' => $this->parseOpeningHours($point),
@@ -160,9 +160,9 @@ class PickupPointSoapClient
 
         $lines = [];
         foreach ($horaires as $h) {
-            $day    = (string) ($h->jour ?? '');
-            $open   = (string) ($h->listeHoraire->ouvertureMatin ?? '');
-            $close  = (string) ($h->listeHoraire->fermetureApresMidi ?? '');
+            $day = (string) ($h->jour ?? '');
+            $open = (string) ($h->listeHoraire->ouvertureMatin ?? '');
+            $close = (string) ($h->listeHoraire->fermetureApresMidi ?? '');
 
             if ($day !== '' && $open !== '' && $close !== '') {
                 $lines[] = "{$day}: {$open}-{$close}";

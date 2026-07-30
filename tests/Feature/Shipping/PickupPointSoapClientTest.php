@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Shipping;
 
 use Mockery;
+use Mockery\MockInterface;
 use Pko\ShippingChronopost\Exceptions\PickupPointException;
 use Pko\ShippingChronopost\Services\PickupPointSoapClient;
 use SoapClient;
@@ -22,7 +23,7 @@ class PickupPointSoapClientTest extends TestCase
     private function makeFakeResponse(array $points = [], string $errorCode = '0', string $errorMessage = ''): object
     {
         $rawPoints = array_map(function (array $p): object {
-            $obj = new \stdClass();
+            $obj = new \stdClass;
             $obj->identifiant = $p['id'] ?? 'PR999';
             $obj->nom = $p['name'] ?? 'Point Test';
             $obj->adresse1 = $p['address1'] ?? '1 rue Test';
@@ -37,18 +38,18 @@ class PickupPointSoapClientTest extends TestCase
             return $obj;
         }, $points);
 
-        $payload = new \stdClass();
+        $payload = new \stdClass;
         $payload->errorCode = $errorCode;
         $payload->errorMessage = $errorMessage;
         $payload->listePointRelais = count($rawPoints) === 1 ? $rawPoints[0] : $rawPoints;
 
-        $response = new \stdClass();
+        $response = new \stdClass;
         $response->return = $payload;
 
         return $response;
     }
 
-    private function makeSoapClientMock(mixed $returnValue): SoapClient&\Mockery\MockInterface
+    private function makeSoapClientMock(mixed $returnValue): SoapClient&MockInterface
     {
         $mock = Mockery::mock(SoapClient::class);
         $mock->expects('recherchePointChronopostInter')
@@ -104,8 +105,8 @@ class PickupPointSoapClientTest extends TestCase
 
     public function test_leve_exception_sur_code_erreur_api(): void
     {
-        $response = new \stdClass();
-        $payload = new \stdClass();
+        $response = new \stdClass;
+        $payload = new \stdClass;
         $payload->errorCode = '99';
         $payload->errorMessage = 'Service unavailable';
         $payload->listePointRelais = [];

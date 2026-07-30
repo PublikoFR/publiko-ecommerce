@@ -36,16 +36,16 @@ final class PickupPoint
     public function toArray(): array
     {
         return [
-            'id'            => $this->id,
-            'name'          => $this->name,
-            'address1'      => $this->address1,
-            'postcode'      => $this->postcode,
-            'city'          => $this->city,
-            'country_code'  => $this->countryCode,
-            'carrier'       => $this->carrier,
-            'distance_km'   => $this->distanceKm,
-            'latitude'      => $this->latitude,
-            'longitude'     => $this->longitude,
+            'id' => $this->id,
+            'name' => $this->name,
+            'address1' => $this->address1,
+            'postcode' => $this->postcode,
+            'city' => $this->city,
+            'country_code' => $this->countryCode,
+            'carrier' => $this->carrier,
+            'distance_km' => $this->distanceKm,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'opening_hours' => $this->openingHours,
         ];
     }

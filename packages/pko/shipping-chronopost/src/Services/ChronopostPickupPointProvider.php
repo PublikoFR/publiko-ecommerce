@@ -42,9 +42,9 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
             $rawPoints = $this->soapClient->search($postcode, $countryCode, $serviceCode);
         } catch (PickupPointException $e) {
             Log::channel('shipping-pickup')->error('Chronopost pickup point search failed', [
-                'postcode'     => $postcode,
+                'postcode' => $postcode,
                 'country_code' => $countryCode,
-                'error'        => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             return [];

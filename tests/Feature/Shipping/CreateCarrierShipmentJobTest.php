@@ -36,13 +36,13 @@ class CreateCarrierShipmentJobTest extends TestCase
         Mail::fake();
 
         config(['chronopost.shipper' => [
-            'name'    => 'Expéditeur Test',
-            'street'  => '1 rue du Test',
-            'zip'     => '75001',
-            'city'    => 'Paris',
+            'name' => 'Expéditeur Test',
+            'street' => '1 rue du Test',
+            'zip' => '75001',
+            'city' => 'Paris',
             'country' => 'FR',
-            'phone'   => '0600000000',
-            'email'   => 'expediteur@test.local',
+            'phone' => '0600000000',
+            'email' => 'expediteur@test.local',
         ]]);
     }
 
@@ -111,37 +111,37 @@ class CreateCarrierShipmentJobTest extends TestCase
         $currency = Currency::query()->first();
 
         $id = \DB::table('lunar_orders')->insertGetId([
-            'channel_id'             => $channel->id,
-            'status'                 => 'awaiting-quote',
-            'reference'              => 'TEST-'.uniqid(),
-            'currency_code'          => $currency->code,
-            'compare_currency_code'  => $currency->code,
-            'exchange_rate'          => 1,
-            'sub_total'              => 10000,
-            'discount_total'         => 0,
-            'shipping_total'         => 0,
-            'tax_total'              => 0,
-            'total'                  => 10000,
-            'tax_breakdown'          => '[]',
-            'discount_breakdown'     => '[]',
-            'shipping_breakdown'     => '[]',
-            'meta'                   => json_encode($meta),
-            'created_at'             => now(),
-            'updated_at'             => now(),
+            'channel_id' => $channel->id,
+            'status' => 'awaiting-quote',
+            'reference' => 'TEST-'.uniqid(),
+            'currency_code' => $currency->code,
+            'compare_currency_code' => $currency->code,
+            'exchange_rate' => 1,
+            'sub_total' => 10000,
+            'discount_total' => 0,
+            'shipping_total' => 0,
+            'tax_total' => 0,
+            'total' => 10000,
+            'tax_breakdown' => '[]',
+            'discount_breakdown' => '[]',
+            'shipping_breakdown' => '[]',
+            'meta' => json_encode($meta),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         \DB::table('lunar_order_addresses')->insert([
-            'order_id'      => $id,
-            'type'          => 'shipping',
-            'first_name'    => 'Jean',
-            'last_name'     => 'Test',
-            'line_one'      => '1 rue du Test',
-            'postcode'      => '75001',
-            'city'          => 'Paris',
+            'order_id' => $id,
+            'type' => 'shipping',
+            'first_name' => 'Jean',
+            'last_name' => 'Test',
+            'line_one' => '1 rue du Test',
+            'postcode' => '75001',
+            'city' => 'Paris',
             'contact_email' => 'client@test.local',
             'contact_phone' => '0600000000',
-            'created_at'    => now(),
-            'updated_at'    => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return Order::findOrFail($id);

@@ -6,6 +6,7 @@ namespace Tests\Feature\Shipping;
 
 use Illuminate\Support\Facades\Cache;
 use Mockery;
+use Mockery\MockInterface;
 use Pko\ShippingChronopost\Exceptions\PickupPointException;
 use Pko\ShippingChronopost\Services\ChronopostPickupPointProvider;
 use Pko\ShippingChronopost\Services\PickupPointSoapClient;
@@ -22,7 +23,7 @@ use Tests\TestCase;
  */
 class ChronopostPickupPointProviderTest extends TestCase
 {
-    private function makeSoapClientMock(): PickupPointSoapClient&\Mockery\MockInterface
+    private function makeSoapClientMock(): PickupPointSoapClient&MockInterface
     {
         return Mockery::mock(PickupPointSoapClient::class);
     }
