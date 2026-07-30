@@ -464,10 +464,6 @@ Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, p
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
 - Sendcloud (alternative SaaS écartée pour coût)
 - Transmission effective du code point relais au SOAP Chronopost (limitation SDK — cf. §5.13.B, lot 7)
-- Tracking webhook (polling ou push transporteur)
-- Retour / annulation d'envoi (`cancelSkybill`)
-- Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
-- Sendcloud (alternative SaaS écartée pour coût)
 
 ### 5.14 Refonte modèle produit expédition — 6 réglages → 3 + héritage fournisseur (Lot L3, 2026-07)
 
