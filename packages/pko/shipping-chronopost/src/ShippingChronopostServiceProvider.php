@@ -9,6 +9,7 @@ use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
 use Pko\ShippingChronopost\Services\ChronopostClient;
 use Pko\ShippingChronopost\Services\QuickCostSoapClient;
 use Pko\ShippingChronopost\Services\ChronopostPickupPointProvider;
+use Pko\ShippingChronopost\Services\PickupPointSoapClient;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
@@ -29,6 +30,13 @@ class ShippingChronopostServiceProvider extends ServiceProvider
                 'account' => secret('chronopost.account') ?? config('chronopost.credentials.account'),
                 'password' => secret('chronopost.password') ?? config('chronopost.credentials.password'),
                 'sub_account' => secret('chronopost.sub_account') ?? config('chronopost.credentials.sub_account'),
+            ]);
+        });
+
+        $this->app->singleton(PickupPointSoapClient::class, function () {
+            return new PickupPointSoapClient([
+                'account' => secret('chronopost.account') ?? config('chronopost.credentials.account'),
+                'password' => secret('chronopost.password') ?? config('chronopost.credentials.password'),
             ]);
         });
 

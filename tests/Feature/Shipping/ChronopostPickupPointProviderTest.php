@@ -9,6 +9,7 @@ use Mockery;
 use Pko\ShippingChronopost\Exceptions\PickupPointException;
 use Pko\ShippingChronopost\Services\ChronopostPickupPointProvider;
 use Pko\ShippingChronopost\Services\PickupPointSoapClient;
+use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Dto\PickupPoint;
 use Tests\TestCase;
 
@@ -125,6 +126,24 @@ class ChronopostPickupPointProviderTest extends TestCase
 
         $this->assertSame([], $r1);
         $this->assertSame([], $r2);
+    }
+
+    /**
+     * Régression F1 : PickupPointSoapClient n'était pas importé ni enregistré dans
+     * ShippingChronopostServiceProvider. Le conteneur levait une erreur dès la première
+     * résolution réelle de PickupPointProvider. Les tests unitaires masquaient le bug
+     * parce qu'ils injectaient le mock directement dans le constructeur.
+     * Ce test résout PickupPointProvider VIA LE CONTENEUR pour détecter ce type d'erreur.
+     */
+    public function test_pickup_point_provider_resolvable_via_conteneur(): void
+    {
+        // Remplace PickupPointSoapClient dans le conteneur par un mock pour éviter
+        // tout appel SOAP réel lors de la résolution.
+        $this->app->singleton(PickupPointSoapClient::class, fn () => $this->makeSoapClientMock());
+
+        $provider = $this->app->make(PickupPointProvider::class);
+
+        $this->assertInstanceOf(ChronopostPickupPointProvider::class, $provider);
     }
 
     public function test_points_sans_id_sont_exclus(): void
