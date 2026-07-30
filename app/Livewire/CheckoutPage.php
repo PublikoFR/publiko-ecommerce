@@ -19,6 +19,7 @@ use Lunar\Models\Cart;
 use Lunar\Models\CartAddress;
 use Lunar\Models\Country;
 use Lunar\Models\Order;
+use Lunar\Models\ProductVariant;
 
 class CheckoutPage extends Component
 {
@@ -341,8 +342,9 @@ class CheckoutPage extends Component
             return false;
         }
 
-        // True only when every product line is quote-mode (shipping lines are neutral)
-        $productLines = $lines->filter(fn ($l) => $l->type === 'physical');
+        // CartLine has no `type` column — distinguish product lines by purchasable type.
+        // Shipping lines (ShippingOption) are not ProductVariants and are excluded here.
+        $productLines = $lines->filter(fn ($l) => $l->purchasable instanceof ProductVariant);
 
         return $productLines->isNotEmpty()
             && $productLines->every(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
@@ -360,7 +362,7 @@ class CheckoutPage extends Component
         }
 
         $lines = $this->cart->lines->loadMissing('purchasable.product')
-            ->filter(fn ($l) => $l->type === 'physical');
+            ->filter(fn ($l) => $l->purchasable instanceof ProductVariant);
         $hasQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
         $hasNonQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') !== 'quote');
 
@@ -405,15 +407,15 @@ class CheckoutPage extends Component
 
         $splitPending = $quoteLines->map(fn ($l) => [
             'purchasable_type' => $l->purchasable_type,
-            'purchasable_id'   => $l->purchasable_id,
-            'quantity'         => $l->quantity,
-            'description'      => $l->purchasable->getDescription(),
-            'identifier'       => $l->purchasable->getIdentifier(),
-            'unit_price'       => $l->unitPrice?->value ?? 0,
-            'unit_quantity'    => $l->purchasable->unit_quantity ?? 1,
-            'sub_total'        => $l->subTotal?->value ?? 0,
-            'tax_total'        => $l->taxAmount?->value ?? 0,
-            'total'            => $l->total?->value ?? 0,
+            'purchasable_id' => $l->purchasable_id,
+            'quantity' => $l->quantity,
+            'description' => $l->purchasable->getDescription(),
+            'identifier' => $l->purchasable->getIdentifier(),
+            'unit_price' => $l->unitPrice?->value ?? 0,
+            'unit_quantity' => $l->purchasable->unit_quantity ?? 1,
+            'sub_total' => $l->subTotal?->value ?? 0,
+            'tax_total' => $l->taxAmount?->value ?? 0,
+            'total' => $l->total?->value ?? 0,
         ])->values()->toArray();
 
         // Persist meta AND remove lines atomically: a CartSession::remove() failure
@@ -423,7 +425,7 @@ class CheckoutPage extends Component
             $this->cart->forceFill([
                 'meta' => array_merge($currentMeta, [
                     'split_pending' => $splitPending,
-                    'split_group'   => $splitGroup,
+                    'split_group' => $splitGroup,
                 ]),
             ])->save();
 
@@ -522,7 +524,7 @@ class CheckoutPage extends Component
     {
         $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
             'payment_intent_client_secret' => $intentSecret,
-            'payment_intent'               => $intentId,
+            'payment_intent' => $intentId,
         ])->authorize();
 
         if ($payment->success) {
@@ -535,7 +537,7 @@ class CheckoutPage extends Component
         if ($this->paymentType === 'sepa' && $payment->orderId) {
             Order::find($payment->orderId)?->update([
                 'placed_at' => now(),
-                'status'    => 'payment-pending',
+                'status' => 'payment-pending',
             ]);
             $this->maybeCreateSplitQuoteOrder($payment->orderId);
 

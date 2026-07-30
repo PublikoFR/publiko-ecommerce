@@ -14,6 +14,7 @@ use Livewire\Livewire;
 use Lunar\Base\ShippingManifestInterface;
 use Lunar\Facades\CartSession;
 use Lunar\Models\Cart;
+use Lunar\Models\Channel;
 use Lunar\Models\Country;
 use Lunar\Models\Currency;
 use Lunar\Models\Order;
@@ -91,23 +92,23 @@ class OrderSplitTest extends TestCase
         $payableOrder = $this->makeMinimalOrder('payment-received');
         $this->addShippingAddress($payableOrder);
 
-        $splitGroup   = (string) Str::uuid();
+        $splitGroup = (string) Str::uuid();
         $splitPending = [
             [
                 'purchasable_type' => (new ProductVariant)->getMorphClass(),
-                'purchasable_id'   => $variant->id,
-                'quantity'         => 2,
-                'description'      => 'Produit devis',
-                'identifier'       => 'DEVIS-SKU',
-                'unit_price'       => 5000,
-                'unit_quantity'    => 1,
-                'sub_total'        => 10000,
-                'tax_total'        => 2000,
-                'total'            => 12000,
+                'purchasable_id' => $variant->id,
+                'quantity' => 2,
+                'description' => 'Produit devis',
+                'identifier' => 'DEVIS-SKU',
+                'unit_price' => 5000,
+                'unit_quantity' => 1,
+                'sub_total' => 10000,
+                'tax_total' => 2000,
+                'total' => 12000,
             ],
         ];
 
-        $action     = app(CreateSplitQuoteOrder::class);
+        $action = app(CreateSplitQuoteOrder::class);
         $quoteOrder = $action->execute($payableOrder, $splitPending, $splitGroup);
 
         // Quote order exists and has the correct status
@@ -174,19 +175,19 @@ class OrderSplitTest extends TestCase
         $payableOrder = $this->makeMinimalOrder('payment-received');
         $this->addShippingAddress($payableOrder);
 
-        $splitGroup   = (string) Str::uuid();
+        $splitGroup = (string) Str::uuid();
         $splitPending = [
             [
                 'purchasable_type' => (new ProductVariant)->getMorphClass(),
-                'purchasable_id'   => $variant->id,
-                'quantity'         => 1,
-                'description'      => 'Produit devis',
-                'identifier'       => 'DEVIS-SKU',
-                'unit_price'       => 3000,
-                'unit_quantity'    => 1,
-                'sub_total'        => 3000,
-                'tax_total'        => 600,
-                'total'            => 3600,
+                'purchasable_id' => $variant->id,
+                'quantity' => 1,
+                'description' => 'Produit devis',
+                'identifier' => 'DEVIS-SKU',
+                'unit_price' => 3000,
+                'unit_quantity' => 1,
+                'sub_total' => 3000,
+                'tax_total' => 600,
+                'total' => 3600,
             ],
         ];
 
@@ -228,12 +229,12 @@ class OrderSplitTest extends TestCase
 
         $cart->add($variant, 1);
         $cart->setBillingAddress([
-            'first_name'    => 'Jean',
-            'last_name'     => 'Dupont',
-            'line_one'      => '1 Rue de la Paix',
-            'city'          => 'Paris',
-            'postcode'      => '75001',
-            'country_id'    => Country::query()->value('id'),
+            'first_name' => 'Jean',
+            'last_name' => 'Dupont',
+            'line_one' => '1 Rue de la Paix',
+            'city' => 'Paris',
+            'postcode' => '75001',
+            'country_id' => Country::query()->value('id'),
             'contact_email' => 'jean@example.com',
         ]);
 
@@ -248,13 +249,13 @@ class OrderSplitTest extends TestCase
         $products = Product::query()->take(2)->get();
         $this->assertGreaterThanOrEqual(2, $products->count(), 'Seeder must provide at least 2 products');
 
-        $quoteProduct   = $products->first();
+        $quoteProduct = $products->first();
         $payableProduct = $products->last();
 
         $quoteProduct->forceFill(['pko_port_mode' => 'quote'])->save();
         $payableProduct->forceFill(['pko_port_mode' => 'standard'])->save();
 
-        $quoteVariant   = $quoteProduct->variants()->first();
+        $quoteVariant = $quoteProduct->variants()->first();
         $payableVariant = $payableProduct->variants()->first();
 
         $quoteVariant->forceFill(['shippable' => false])->save();
@@ -270,12 +271,12 @@ class OrderSplitTest extends TestCase
         $cart->add($payableVariant, 1);
 
         $cart->setBillingAddress([
-            'first_name'    => 'Jean',
-            'last_name'     => 'Dupont',
-            'line_one'      => '1 Rue de la Paix',
-            'city'          => 'Paris',
-            'postcode'      => '75001',
-            'country_id'    => Country::query()->value('id'),
+            'first_name' => 'Jean',
+            'last_name' => 'Dupont',
+            'line_one' => '1 Rue de la Paix',
+            'city' => 'Paris',
+            'postcode' => '75001',
+            'country_id' => Country::query()->value('id'),
             'contact_email' => 'jean@example.com',
         ]);
 
@@ -296,28 +297,28 @@ class OrderSplitTest extends TestCase
 
     private function makeMinimalOrder(string $status): Order
     {
-        $channel  = \Lunar\Models\Channel::query()->first();
+        $channel = Channel::query()->first();
         $currency = Currency::query()->first();
 
         $id = \DB::table('lunar_orders')->insertGetId([
-            'channel_id'            => $channel->id,
-            'status'                => $status,
-            'reference'             => 'TEST-' . uniqid(),
-            'currency_code'         => $currency->code,
+            'channel_id' => $channel->id,
+            'status' => $status,
+            'reference' => 'TEST-'.uniqid(),
+            'currency_code' => $currency->code,
             'compare_currency_code' => $currency->code,
-            'exchange_rate'         => 1,
-            'sub_total'             => 10000,
-            'discount_total'        => 0,
-            'shipping_total'        => 590,
-            'tax_total'             => 2000,
-            'total'                 => 12590,
-            'tax_breakdown'         => '[]',
-            'discount_breakdown'    => '[]',
-            'shipping_breakdown'    => '[]',
-            'meta'                  => '{}',
-            'placed_at'             => now(),
-            'created_at'            => now(),
-            'updated_at'            => now(),
+            'exchange_rate' => 1,
+            'sub_total' => 10000,
+            'discount_total' => 0,
+            'shipping_total' => 590,
+            'tax_total' => 2000,
+            'total' => 12590,
+            'tax_breakdown' => '[]',
+            'discount_breakdown' => '[]',
+            'shipping_breakdown' => '[]',
+            'meta' => '{}',
+            'placed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return Order::findOrFail($id);
@@ -326,14 +327,14 @@ class OrderSplitTest extends TestCase
     private function addShippingAddress(Order $order): void
     {
         OrderAddress::create([
-            'order_id'      => $order->id,
-            'type'          => 'shipping',
-            'first_name'    => 'Jean',
-            'last_name'     => 'Dupont',
-            'line_one'      => '1 Rue de la Paix',
-            'city'          => 'Paris',
-            'postcode'      => '75001',
-            'country_id'    => \Lunar\Models\Country::value('id'),
+            'order_id' => $order->id,
+            'type' => 'shipping',
+            'first_name' => 'Jean',
+            'last_name' => 'Dupont',
+            'line_one' => '1 Rue de la Paix',
+            'city' => 'Paris',
+            'postcode' => '75001',
+            'country_id' => Country::value('id'),
             'contact_email' => 'jean@example.com',
         ]);
     }

@@ -27,36 +27,36 @@ final class CreateSplitQuoteOrder
     public function execute(Order $payableOrder, array $splitPending, string $splitGroup): Order
     {
         // ── 1. Compute order-level totals from the split lines ─────────────────
-        $subTotal  = (int) array_sum(array_column($splitPending, 'sub_total'));
-        $taxTotal  = (int) array_sum(array_column($splitPending, 'tax_total'));
+        $subTotal = (int) array_sum(array_column($splitPending, 'sub_total'));
+        $taxTotal = (int) array_sum(array_column($splitPending, 'tax_total'));
         $lineTotal = (int) array_sum(array_column($splitPending, 'total'));
 
         // ── 2. Insert order row (bypass Lunar casts — same pattern as tests) ───
         $quoteOrderId = DB::table('lunar_orders')->insertGetId([
-            'channel_id'           => $payableOrder->channel_id,
-            'status'               => 'awaiting-quote',
-            'reference'            => 'TEMP-' . $payableOrder->id,
-            'customer_reference'   => $payableOrder->customer_reference,
-            'customer_id'          => $payableOrder->customer_id,
-            'user_id'              => $payableOrder->user_id,
-            'currency_code'        => $payableOrder->currency_code,
+            'channel_id' => $payableOrder->channel_id,
+            'status' => 'awaiting-quote',
+            'reference' => 'TEMP-'.$payableOrder->id,
+            'customer_reference' => $payableOrder->customer_reference,
+            'customer_id' => $payableOrder->customer_id,
+            'user_id' => $payableOrder->user_id,
+            'currency_code' => $payableOrder->currency_code,
             'compare_currency_code' => $payableOrder->compare_currency_code,
-            'exchange_rate'        => $payableOrder->exchange_rate,
-            'sub_total'            => $subTotal,
-            'discount_total'       => 0,
-            'shipping_total'       => 0, // operator will calculate quote shipping
-            'tax_total'            => $taxTotal,
-            'total'                => $lineTotal,
-            'tax_breakdown'        => '[]',
-            'discount_breakdown'   => '[]',
-            'shipping_breakdown'   => '[]',
-            'meta'                 => json_encode([
-                'split_from'  => $payableOrder->id,
+            'exchange_rate' => $payableOrder->exchange_rate,
+            'sub_total' => $subTotal,
+            'discount_total' => 0,
+            'shipping_total' => 0, // operator will calculate quote shipping
+            'tax_total' => $taxTotal,
+            'total' => $lineTotal,
+            'tax_breakdown' => '[]',
+            'discount_breakdown' => '[]',
+            'shipping_breakdown' => '[]',
+            'meta' => json_encode([
+                'split_from' => $payableOrder->id,
                 'split_group' => $splitGroup,
             ]),
-            'placed_at'            => now(),
-            'created_at'           => now(),
-            'updated_at'           => now(),
+            'placed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         /** @var Order $quoteOrder */
@@ -74,30 +74,30 @@ final class CreateSplitQuoteOrder
         $now = now();
         foreach ($splitPending as $line) {
             DB::table('lunar_order_lines')->insert([
-                'order_id'        => $quoteOrderId,
+                'order_id' => $quoteOrderId,
                 'purchasable_type' => $line['purchasable_type'],
-                'purchasable_id'  => $line['purchasable_id'],
-                'type'            => 'physical',
-                'description'     => $line['description'],
-                'identifier'      => $line['identifier'],
-                'unit_price'      => (int) $line['unit_price'],
-                'unit_quantity'   => (int) ($line['unit_quantity'] ?? 1),
-                'quantity'        => (int) $line['quantity'],
-                'sub_total'       => (int) $line['sub_total'],
-                'discount_total'  => 0,
-                'tax_breakdown'   => '[]',
-                'tax_total'       => (int) ($line['tax_total'] ?? 0),
-                'total'           => (int) ($line['total'] ?? 0),
-                'notes'           => null,
-                'meta'            => null,
-                'created_at'      => $now,
-                'updated_at'      => $now,
+                'purchasable_id' => $line['purchasable_id'],
+                'type' => 'physical',
+                'description' => $line['description'],
+                'identifier' => $line['identifier'],
+                'unit_price' => (int) $line['unit_price'],
+                'unit_quantity' => (int) ($line['unit_quantity'] ?? 1),
+                'quantity' => (int) $line['quantity'],
+                'sub_total' => (int) $line['sub_total'],
+                'discount_total' => 0,
+                'tax_breakdown' => '[]',
+                'tax_total' => (int) ($line['tax_total'] ?? 0),
+                'total' => (int) ($line['total'] ?? 0),
+                'notes' => null,
+                'meta' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
             ]);
         }
 
         // ── 6. Link payable order to its sibling (meta['split_children']) ──────
         $payableMeta = (array) ($payableOrder->meta ?? []);
-        $existing    = (array) ($payableMeta['split_children'] ?? []);
+        $existing = (array) ($payableMeta['split_children'] ?? []);
         $payableOrder->forceFill([
             'meta' => array_merge($payableMeta, [
                 'split_children' => array_merge($existing, [$quoteOrderId]),
@@ -127,7 +127,7 @@ final class CreateSplitQuoteOrder
             ]),
             [
                 'order_id' => $destination->id,
-                'type'     => $type,
+                'type' => $type,
             ]
         ));
     }
