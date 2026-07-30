@@ -90,6 +90,7 @@ use Pko\Pennylane\Filament\PennylanePlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
 use Pko\Secrets\Facades\Secrets;
 use Pko\ShippingCommon\Filament\Extensions\OrderQuoteActionsExtension;
+use Pko\ShippingCommon\Filament\Extensions\OrderSplitBadgeExtension;
 use Pko\ShippingCommon\Filament\TransportersPlugin;
 use Pko\StorefrontCms\Filament\Extensions\BrandContentExtension;
 use Pko\StorefrontCms\Filament\MediaManagerShimPlugin;
@@ -226,6 +227,7 @@ class AppServiceProvider extends ServiceProvider
             ManageOrder::class => [
                 OrderInvoiceActionsExtension::class,
                 OrderQuoteActionsExtension::class,
+                OrderSplitBadgeExtension::class,
             ],
             Dashboard::class => [
                 DisableBrokenChartsExtension::class,
