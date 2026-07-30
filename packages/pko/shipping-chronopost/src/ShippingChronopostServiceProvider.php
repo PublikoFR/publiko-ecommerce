@@ -8,8 +8,10 @@ use Illuminate\Support\ServiceProvider;
 use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
 use Pko\ShippingChronopost\Services\ChronopostClient;
 use Pko\ShippingChronopost\Services\QuickCostSoapClient;
+use Pko\ShippingChronopost\Services\ChronopostPickupPointProvider;
 use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
+use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
@@ -68,6 +70,15 @@ class ShippingChronopostServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Override the default ManualPickupPointProvider (bound in register() of
+        // ShippingCommonServiceProvider). boot() runs after all register() calls,
+        // so this binding wins deterministically regardless of provider load order.
+        $this->app->bind(PickupPointProvider::class, function ($app) {
+            return new ChronopostPickupPointProvider(
+                soapClient: $app->make(PickupPointSoapClient::class),
+            );
+        });
+
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-chronopost');
         $this->publishes([
             __DIR__.'/../lang' => $this->app->langPath('vendor/pko-shipping-chronopost'),
