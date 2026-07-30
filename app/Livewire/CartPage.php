@@ -104,7 +104,8 @@ class CartPage extends Component
             return false;
         }
 
-        $lines = $cart->lines->loadMissing('purchasable.product');
+        $lines = $cart->lines->loadMissing('purchasable.product')
+            ->filter(fn ($l) => $l->type === 'physical');
         $hasQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
         $hasNonQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') !== 'quote');
 

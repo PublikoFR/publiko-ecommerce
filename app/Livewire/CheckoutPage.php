@@ -350,6 +350,8 @@ class CheckoutPage extends Component
 
     /**
      * Whether the cart contains both quote and non-quote lines.
+     * Only physical lines are considered; shipping lines (type != physical) are excluded
+     * so a 100%-quote cart with a shipping line is not falsely detected as mixed.
      */
     public function getIsMixedCartProperty(): bool
     {
@@ -357,7 +359,8 @@ class CheckoutPage extends Component
             return false;
         }
 
-        $lines = $this->cart->lines->loadMissing('purchasable.product');
+        $lines = $this->cart->lines->loadMissing('purchasable.product')
+            ->filter(fn ($l) => $l->type === 'physical');
         $hasQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
         $hasNonQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') !== 'quote');
 
