@@ -67,6 +67,12 @@ class CreateCarrierShipmentJob implements ShouldQueue
             throw new RuntimeException("Missing shipper config for carrier {$this->carrier}.");
         }
 
+        $pickupPoint = is_array($order->meta) ? ($order->meta['pickup_point'] ?? null) : null;
+        $pickupPointId = is_array($pickupPoint) ? (string) ($pickupPoint['id'] ?? '') : null;
+        if ($pickupPointId === '') {
+            $pickupPointId = null;
+        }
+
         $request = new ShipmentRequest(
             orderId: $order->id,
             orderReference: (string) $order->reference,
@@ -83,6 +89,7 @@ class CreateCarrierShipmentJob implements ShouldQueue
                 'email' => $shippingAddress->contact_email ?? $order->customer?->email,
             ],
             shipper: $shipperConfig,
+            pickupPointId: $pickupPointId,
         );
 
         $shipment->payload_sent = (array) $request;

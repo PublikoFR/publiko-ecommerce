@@ -17,5 +17,6 @@ final class ShipmentRequest
         public readonly string $serviceCode,
         public readonly array $recipient,
         public readonly array $shipper,
+        public readonly ?string $pickupPointId = null,
     ) {}
 }
