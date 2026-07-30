@@ -137,8 +137,17 @@ final class WeightCalculator
             return false;
         }
 
+        $resolvedMode = PortModeResolver::resolve($product);
+
+        // Pour le mode 'inherit', l'éligibilité franco est dérivée du mode résolu :
+        // le fournisseur peut changer son port_inclus à tout moment, donc on ne lit pas
+        // pko_franco_eligible (il était de toute façon écrasé à false par l'UI — bug L3).
+        if ((string) ($product->pko_port_mode ?? '') === 'inherit') {
+            return $resolvedMode === 'standard';
+        }
+
         return $product->pko_franco_eligible === true
-            && PortModeResolver::resolve($product) !== 'quote';
+            && $resolvedMode !== 'quote';
     }
 
     public static function fromOrder(Order $order): float
