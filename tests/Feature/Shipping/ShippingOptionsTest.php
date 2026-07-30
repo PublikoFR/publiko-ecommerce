@@ -128,7 +128,8 @@ class ShippingOptionsTest extends TestCase
             blockers: [],
         );
 
-        $this->app->bind(ShippingCalculator::class, fn () => new class ($fakeQuote) {
+        $this->app->bind(ShippingCalculator::class, fn () => new class($fakeQuote)
+        {
             public function __construct(private ShippingQuote $quote) {}
 
             public function calculate(mixed $cart): ShippingQuote
