@@ -537,3 +537,74 @@ Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote`
 
 ---
 
+### 5.13 Scission de commande — panier mixte (L7, 2026-07)
+
+**Problème** : un panier peut contenir à la fois des produits `pko_port_mode='quote'` (transport inconnu) et des produits directement payables. Sans scission, l'opérateur est bloqué : il ne peut pas facturer les deux lignes ensemble.
+
+**Solution** : à l'étape « Paiement » du checkout, le client choisit explicitement comment traiter son panier mixte.
+
+#### Flux client
+
+1. **Page panier** : bandeau d'information `CartPage::hasMixedCart` → "Votre panier contient N articles nécessitant un devis transport. Vous pouvez commander et payer les autres articles dès maintenant."
+2. **Étape Paiement** : la vue `payment.blade.php` présente 2 options en radio :
+   - **Commander et payer maintenant** (splitMode `split`, défaut) — les articles payables sont réglés immédiatement, les articles devis partent en commande `awaiting-quote` séparée.
+   - **Tout regrouper en devis** (splitMode `quote_all`) — comportement existant §5.3, toute la commande part en `awaiting-quote`.
+3. Bouton **Confirmer mon choix** → `CheckoutPage::confirmSplitChoice()` (action Livewire).
+4. **Si mode `split`** :
+   - `applySplit()` extrait les lignes devis du panier actif, les sérialise dans `cart.meta['split_pending']`, génère un `split_group` UUID, puis supprime ces lignes du cart (`CartSession::remove()`).
+   - L'option de livraison est revalidée : si le franco a franchi un seuil ou si l'option n'existe plus pour le panier réduit, le client est renvoyé à l'étape livraison.
+   - Le composant Stripe monte **uniquement sur le panier réduit** (total post-scission, jamais le total d'origine).
+5. **Après paiement réussi** : `CheckoutPage::maybeCreateSplitQuoteOrder()` appelle `app(CreateSplitQuoteOrder::class)->execute($payableOrder, $splitPending, $splitGroup)`.
+6. **Page de confirmation** : affiche les deux références si scission (payante + devis).
+
+#### `CreateSplitQuoteOrder` — `app/Actions/CreateSplitQuoteOrder.php`
+
+- Insère la commande devis via `DB::table('lunar_orders')` (contourne les casts Lunar — même pattern que les tests).
+- Génère la référence via `app(OrderReferenceGeneratorInterface::class)->generate($order)` après insertion (ID connu).
+- Copie les adresses de livraison et facturation depuis la commande payable.
+- `shipping_total = 0` — l'opérateur renseigne le montant via **Envoyer lien de paiement** (flux existant §5.3).
+- Lie les deux commandes via `meta` :
+  - Commande devis  → `meta['split_from']` = ID commande payante (int), `meta['split_group']` = UUID
+  - Commande payable → `meta['split_children']` = [ID commande devis] (int[])
+
+#### Idempotence
+
+- `applySplit()` : guard sur `cart.meta['split_pending']` non vide → no-op si déjà splité.
+- `maybeCreateSplitQuoteOrder()` : guard `Order::where('meta->split_from', $orderId)->exists()` → interdit la création d'un second devis pour la même commande payable (double-submit proof).
+- L'idempotence porte sur le tuple (commande payable, commande devis) — un seul devis par commande payante.
+
+#### Décision — remises et codes promo
+
+**Choix : refuser la scission si une remise ou un code promo est actif sur le panier.**
+
+- `confirmSplitChoice()` vérifie `$cart->coupon_code !== null || ($cart->discount_total?->value ?? 0) > 0`. Si vrai et `splitMode='split'`, l'action renvoie une erreur de validation invitant le client à supprimer son code promo ou à choisir le mode `quote_all`.
+- **Raison** : l'allocation proportionnelle d'une remise entre une commande payante et une commande devis est une opération non triviale (base de calcul ? répartition par ligne ? montant total ?) et risque de créer des écarts comptables. Le choix `quote_all` reste disponible : la remise s'applique normalement.
+- **Impact opérateur** : pour les commandes en mode `split`, `discount_total = 0` sur la commande devis (aucune remise transférée). Si le client avait une remise et accepte le `quote_all`, la commande `awaiting-quote` la porte intégralement via le pipeline Lunar standard.
+
+#### Back-office Filament
+
+`OrderSplitBadgeExtension` (enregistrée sur `ManageOrder::class`) ajoute des badges lecture seule dans le header :
+- Commande payante avec sibling devis → badge amber "Devis lié : REF-xxxx"
+- Commande devis → badge info "Commande payante : REF-xxxx"
+
+#### `isQuoteOnlyCart` vs `isMixedCart`
+
+| Propriété | Condition | Comportement |
+|---|---|---|
+| `isQuoteOnlyCart` | **Toutes** les lignes physiques sont `pko_port_mode='quote'` | Flux devis seul (§5.3) |
+| `isMixedCart` | Au moins une ligne quote ET au moins une non-quote | Flux scission (§5.13) |
+| Ni l'un ni l'autre | Aucune ligne quote | Flux paiement standard |
+
+**Piège** : avant L7, `isQuoteOnlyCart` retournait `true` dès qu'**une** ligne était quote, rendant le code de scission mort. Corrigé : filtre sur `type='physical'`, puis `->every()`.
+
+#### Couverture tests
+
+`tests/Feature/Shipping/OrderSplitTest.php` — 5 scénarios :
+1. Panier 100 % payable → pas de split, pas de commande devis créée
+2. Panier 100 % devis → flux quote seul inchangé (`awaiting-quote`)
+3. Panier mixte + mode `split` → deux commandes créées, métadonnées liées correctes
+4. Panier mixte + mode `quote_all` → une seule commande `awaiting-quote`
+5. Double-submit idempotence → deux appels à `maybeCreateSplitQuoteOrder()` → toujours une seule commande devis
+
+---
+
