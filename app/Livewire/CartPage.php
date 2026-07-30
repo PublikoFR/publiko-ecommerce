@@ -97,6 +97,34 @@ class CartPage extends Component
         return CartSession::current();
     }
 
+    public function getHasMixedCartProperty(): bool
+    {
+        $cart = CartSession::current();
+        if (! $cart) {
+            return false;
+        }
+
+        $lines = $cart->lines->loadMissing('purchasable.product')
+            ->filter(fn ($l) => $l->type === 'physical');
+        $hasQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+        $hasNonQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') !== 'quote');
+
+        return $hasQuote && $hasNonQuote;
+    }
+
+    public function getQuoteLineCountProperty(): int
+    {
+        $cart = CartSession::current();
+        if (! $cart) {
+            return 0;
+        }
+
+        return $cart->lines
+            ->loadMissing('purchasable.product')
+            ->filter(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote')
+            ->count();
+    }
+
     #[Layout('layouts.storefront')]
     public function render(): View
     {

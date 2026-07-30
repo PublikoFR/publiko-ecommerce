@@ -24,6 +24,41 @@
             </x-ui.card>
         @endif
 
+        @php($splitChildrenIds = (array) ($order->meta['split_children'] ?? []))
+        @if (count($splitChildrenIds) > 0)
+            @php($quoteOrder = \Lunar\Models\Order::find($splitChildrenIds[0]))
+            @if ($quoteOrder)
+                <x-ui.card padding="md" class="mb-6 !bg-amber-50 !border-amber-200">
+                    <div class="flex gap-3 text-sm text-amber-800">
+                        <x-ui.icon name="file-text" class="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+                        <div>
+                            <p class="font-medium">Une demande de devis a été créée automatiquement.</p>
+                            <p class="mt-1">
+                                Les articles nécessitant un transport spécifique ont été séparés dans la commande
+                                <strong class="font-mono text-primary-700">{{ $quoteOrder->reference }}</strong>.
+                                Vous recevrez un lien de paiement dès que les frais de port auront été calculés.
+                            </p>
+                        </div>
+                    </div>
+                </x-ui.card>
+            @endif
+        @endif
+
+        @if (! empty($order->meta['split_from']))
+            @php($parentOrder = \Lunar\Models\Order::find($order->meta['split_from']))
+            @if ($parentOrder)
+                <x-ui.card padding="md" class="mb-6 !bg-info-50 !border-info-100">
+                    <div class="flex gap-3 text-sm text-info-700">
+                        <x-ui.icon name="link" class="w-5 h-5 shrink-0 text-info-500 mt-0.5" />
+                        <p>
+                            Cette commande devis est liée à la commande payante
+                            <strong class="font-mono text-primary-700">{{ $parentOrder->reference }}</strong>.
+                        </p>
+                    </div>
+                </x-ui.card>
+            @endif
+        @endif
+
         @if ($order->status === 'payment-pending')
             <x-ui.card padding="md" class="mb-6 !bg-info-50 !border-info-100">
                 <div class="flex gap-3 text-sm text-info-700">

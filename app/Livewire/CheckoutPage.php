@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Actions\CreateSplitQuoteOrder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Exceptions\CartException;
@@ -72,6 +75,19 @@ class CheckoutPage extends Component
     public string $paymentType = 'card';
 
     /**
+     * How to handle a mixed cart (quote + payable lines).
+     * 'split'     → pay payable now, quote order sent separately (default)
+     * 'quote_all' → group everything into a single quote order
+     */
+    public string $splitMode = 'split';
+
+    /**
+     * True once the user has confirmed their split-mode choice.
+     * Prevents the Stripe component from mounting before the cart is reduced.
+     */
+    public bool $splitConfirmed = false;
+
+    /**
      * {@inheritDoc}
      */
     protected $listeners = [
@@ -112,28 +128,12 @@ class CheckoutPage extends Component
         }
 
         if ($this->payment_intent) {
-            $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
-                'payment_intent_client_secret' => $this->payment_intent_client_secret,
-                'payment_intent' => $this->payment_intent,
-            ])->authorize();
+            $result = $this->processPaymentAuthorize(
+                $this->payment_intent_client_secret,
+                $this->payment_intent,
+            );
 
-            if ($payment->success) {
-                $this->redirectToOrderConfirmation($payment->orderId, confirmed: true);
-
-                return;
-            }
-
-            // SEPA Direct Debit: Stripe returns 'processing' (async), not 'succeeded'.
-            // The order was created by authorize() but placed_at is null until webhook confirms.
-            // We place it manually here so the customer sees the recap page.
-            if ($this->paymentType === 'sepa' && $payment->orderId) {
-                Order::find($payment->orderId)?->update([
-                    'placed_at' => now(),
-                    'status' => 'payment-pending',
-                ]);
-                // Paiement SEPA encore en cours (processing) → pas de bannière verte.
-                $this->redirectToOrderConfirmation($payment->orderId, confirmed: false);
-
+            if ($result !== null) {
                 return;
             }
         }
@@ -326,10 +326,8 @@ class CheckoutPage extends Component
     }
 
     /**
-     * Whether the current cart contains at least one product line with port mode 'quote'.
-     *
-     * A "quote" product cannot be paid immediately:
-     * the operator must set the shipping cost and send a payment link.
+     * Whether ALL lines in the cart require a transport quote.
+     * If only SOME lines are quote → isMixedCart.
      */
     public function getIsQuoteOnlyCartProperty(): bool
     {
@@ -337,40 +335,251 @@ class CheckoutPage extends Component
             return false;
         }
 
-        return $this->cart
-            ->lines
+        $lines = $this->cart->lines->loadMissing('purchasable.product');
+
+        if ($lines->isEmpty()) {
+            return false;
+        }
+
+        // True only when every product line is quote-mode (shipping lines are neutral)
+        $productLines = $lines->filter(fn ($l) => $l->type === 'physical');
+
+        return $productLines->isNotEmpty()
+            && $productLines->every(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+    }
+
+    /**
+     * Whether the cart contains both quote and non-quote lines.
+     * Only physical lines are considered; shipping lines (type != physical) are excluded
+     * so a 100%-quote cart with a shipping line is not falsely detected as mixed.
+     */
+    public function getIsMixedCartProperty(): bool
+    {
+        if (! $this->cart) {
+            return false;
+        }
+
+        $lines = $this->cart->lines->loadMissing('purchasable.product')
+            ->filter(fn ($l) => $l->type === 'physical');
+        $hasQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+        $hasNonQuote = $lines->contains(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') !== 'quote');
+
+        return $hasQuote && $hasNonQuote;
+    }
+
+    /**
+     * Number of quote lines in the current cart.
+     */
+    public function getQuoteLineCountProperty(): int
+    {
+        if (! $this->cart) {
+            return 0;
+        }
+
+        return $this->cart->lines
             ->loadMissing('purchasable.product')
-            ->contains(fn ($line) => ($line->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+            ->filter(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote')
+            ->count();
+    }
+
+    /**
+     * Remove quote lines from the active cart and park them in cart.meta['split_pending'].
+     * Must be called before the Stripe PaymentIntent is created (i.e. before the payment
+     * partial renders the Stripe component).
+     */
+    public function applySplit(): void
+    {
+        if (! $this->cart || ! $this->isMixedCart) {
+            return;
+        }
+
+        // Idempotence : split already applied
+        $currentMeta = (array) ($this->cart->meta ?? []);
+        if (! empty($currentMeta['split_pending'])) {
+            return;
+        }
+
+        $quoteLines = $this->cart->lines
+            ->loadMissing('purchasable.product')
+            ->filter(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+
+        $splitPending = $quoteLines->map(fn ($l) => [
+            'purchasable_type' => $l->purchasable_type,
+            'purchasable_id'   => $l->purchasable_id,
+            'quantity'         => $l->quantity,
+            'description'      => $l->purchasable->getDescription(),
+            'identifier'       => $l->purchasable->getIdentifier(),
+            'unit_price'       => $l->unitPrice?->value ?? 0,
+            'unit_quantity'    => $l->purchasable->unit_quantity ?? 1,
+            'sub_total'        => $l->subTotal?->value ?? 0,
+            'tax_total'        => $l->taxAmount?->value ?? 0,
+            'total'            => $l->total?->value ?? 0,
+        ])->values()->toArray();
+
+        // Persist meta AND remove lines atomically: a CartSession::remove() failure
+        // mid-loop would otherwise leave split_pending saved but lines still in cart.
+        $splitGroup = (string) Str::uuid();
+        DB::transaction(function () use ($quoteLines, $splitPending, $splitGroup, $currentMeta): void {
+            $this->cart->forceFill([
+                'meta' => array_merge($currentMeta, [
+                    'split_pending' => $splitPending,
+                    'split_group'   => $splitGroup,
+                ]),
+            ])->save();
+
+            foreach ($quoteLines as $line) {
+                CartSession::remove($line->id);
+            }
+        });
+
+        $this->cart = CartSession::current();
+
+        // Re-validate the shipping option: franco threshold may have shifted after removing
+        // quote lines, and an option valid for the full cart might no longer exist for the
+        // reduced cart (e.g. weight bracket dropped, carrier changed).
+        $currentOption = $this->cart?->shippingAddress?->shipping_option;
+        $optionStillValid = $currentOption !== null && ShippingManifest::getOptions($this->cart)
+            ->contains(fn ($opt) => $opt->getIdentifier() === $currentOption);
+
+        if ($this->cart?->shippingAddress && (! $currentOption || ! $optionStillValid)) {
+            $this->currentStep = $this->steps['shipping_option'];
+        }
+
+        $this->dispatch('cartUpdated');
+    }
+
+    /**
+     * Confirm the split-mode choice and prepare the cart before Stripe mounts.
+     * Called by the "Confirmer mon choix" button in the payment partial.
+     */
+    public function confirmSplitChoice(): void
+    {
+        if (! $this->isMixedCart) {
+            $this->splitConfirmed = true;
+
+            return;
+        }
+
+        // Guard: refuse split when a discount/coupon is active — allocation is undefined.
+        $hasDiscount = ($this->cart->coupon_code !== null)
+            || (($this->cart->discount_total?->value ?? 0) > 0);
+
+        if ($hasDiscount && $this->splitMode === 'split') {
+            $this->addError('splitMode', 'Un code promo est appliqué sur votre panier. Vous devez commander l\'intégralité en devis ou retirer le code promo avant de scinder la commande.');
+
+            return;
+        }
+
+        if ($this->splitMode === 'split') {
+            $this->applySplit();
+        }
+
+        $this->splitConfirmed = true;
     }
 
     public function checkout(): mixed
     {
+        // 1. Panier 100% devis → flux devis direct (comportement actuel)
         if ($this->isQuoteOnlyCart) {
-            try {
-                $order = $this->cart->createOrder();
-            } catch (CartException $e) {
-                $this->addError('checkout', $e->getMessage());
-
-                return null;
-            }
-
-            $order->update(['placed_at' => now()]);
-
-            // Commande sur devis : soumise (awaiting-quote), pas encore payée → pas de bannière verte.
-            return $this->redirectToOrderConfirmation($order->id, confirmed: false);
+            return $this->checkoutQuoteOnly();
         }
 
+        // 2. Panier mixte → choix "Tout en devis"
+        if ($this->isMixedCart && $this->splitMode === 'quote_all') {
+            return $this->checkoutQuoteOnly();
+        }
+
+        // 3. Flux paiement normal (panier payable uniquement, ou post-split)
+        return $this->processPaymentAuthorize(
+            $this->payment_intent_client_secret,
+            $this->payment_intent,
+        );
+    }
+
+    /**
+     * Create a single awaiting-quote order from the current cart (no payment).
+     */
+    private function checkoutQuoteOnly(): mixed
+    {
+        try {
+            $order = $this->cart->createOrder();
+        } catch (CartException $e) {
+            $this->addError('checkout', $e->getMessage());
+
+            return null;
+        }
+
+        $order->update(['placed_at' => now()]);
+
+        return $this->redirectToOrderConfirmation($order->id, confirmed: false);
+    }
+
+    /**
+     * Run the Stripe/SEPA authorize flow and handle success/failure.
+     * Called by both checkout() and mount() (3DS redirect return).
+     */
+    private function processPaymentAuthorize(?string $intentSecret, ?string $intentId): mixed
+    {
         $payment = Payments::driver($this->paymentType)->cart($this->cart)->withData([
-            'payment_intent_client_secret' => $this->payment_intent_client_secret,
-            'payment_intent' => $this->payment_intent,
+            'payment_intent_client_secret' => $intentSecret,
+            'payment_intent'               => $intentId,
         ])->authorize();
 
         if ($payment->success) {
+            $this->maybeCreateSplitQuoteOrder($payment->orderId);
+
             return $this->redirectToOrderConfirmation($payment->orderId, confirmed: true);
         }
 
-        // Paiement non abouti : on ne redirige pas vers le récap de commande.
-        return redirect()->route('checkout-success.view');
+        // SEPA Direct Debit : Stripe returns 'processing' (async), not 'succeeded'.
+        if ($this->paymentType === 'sepa' && $payment->orderId) {
+            Order::find($payment->orderId)?->update([
+                'placed_at' => now(),
+                'status'    => 'payment-pending',
+            ]);
+            $this->maybeCreateSplitQuoteOrder($payment->orderId);
+
+            return $this->redirectToOrderConfirmation($payment->orderId, confirmed: false);
+        }
+
+        // Payment failed or was declined — return null so mount() re-renders the page
+        // normally and the user sees the checkout form again (not a blank success page).
+        $this->addError('checkout', __('Le paiement a été refusé ou annulé. Veuillez réessayer.'));
+
+        return null;
+    }
+
+    /**
+     * If the cart had split_pending lines, create the companion awaiting-quote order now.
+     * Idempotent: check and creation are inside a single transaction with a pessimistic lock
+     * on the payable order so that concurrent submissions cannot produce two quote orders.
+     */
+    private function maybeCreateSplitQuoteOrder(int $orderId): void
+    {
+        $cart = $this->cart->fresh();
+        /** @var array<int, array<string, mixed>>|null $splitPending */
+        $splitPending = $cart->meta['split_pending'] ?? null;
+
+        if (empty($splitPending)) {
+            return;
+        }
+
+        $splitGroup = $cart->meta['split_group'] ?? (string) Str::uuid();
+
+        DB::transaction(function () use ($orderId, $splitPending, $splitGroup): void {
+            $payableOrder = Order::lockForUpdate()->find($orderId);
+            if (! $payableOrder) {
+                return;
+            }
+
+            // Idempotence guard inside the lock: concurrent requests both pass the
+            // exists() check above but only one can hold the row lock at a time.
+            if (Order::where('meta->split_from', $orderId)->exists()) {
+                return;
+            }
+
+            app(CreateSplitQuoteOrder::class)->execute($payableOrder, $splitPending, $splitGroup);
+        });
     }
 
     /**
