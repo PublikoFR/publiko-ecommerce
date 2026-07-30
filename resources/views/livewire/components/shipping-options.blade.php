@@ -158,10 +158,12 @@
                     @enderror
 
                     @if (! empty($pickupPoints))
+                        @once
                         @push('styles')
                             <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
                                   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
                         @endpush
+                        @endonce
                         @once
                             @push('scripts')
                                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -236,7 +238,7 @@
                                            class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer bg-white transition
                                                   {{ $pickupPointId === $point['id'] ? 'border-primary-500 ring-1 ring-primary-500' : 'border-neutral-200 hover:border-neutral-300' }}">
                                         <input type="radio"
-                                               wire:model.live="pickupPointId"
+                                               wire:model="pickupPointId"
                                                value="{{ $point['id'] }}"
                                                class="mt-1 text-primary-600 shrink-0" />
                                         <div class="flex-1 min-w-0 text-sm">
