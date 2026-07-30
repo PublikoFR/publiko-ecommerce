@@ -509,7 +509,12 @@ Nouvelle colonne `port_inclus enum('oui','non','cas_par_cas')` sur `pko_supplier
 
 #### Franco — dérivation
 
-Franco éligible dérivé = `(resolved_mode === 'standard')`. Le champ `pko_franco_eligible` reste persisté comme override possible ; le badge « Forcé manuellement » s'affiche dans la carte Expédition quand la valeur persiste diverge de la dérivée.
+Franco éligible dérivé = `(resolved_mode === 'standard')`.
+
+- **Mode `inherit`** : `WeightCalculator::isFrancoEligible()` dérive toujours l'éligibilité du mode résolu (`PortModeResolver::resolve()`) — `pko_franco_eligible` en base est ignoré pour ce mode. Cela garantit que si le fournisseur change son `port_inclus`, l'éligibilité est immédiatement à jour sans toucher au produit.
+- **Autres modes** : `pko_franco_eligible` reste persisté comme override possible ; le badge « Forcé manuellement » s'affiche dans la carte Expédition quand la valeur persistée diverge de la dérivée.
+
+**Performance** : `PortModeResolver` maintient un cache statique `$supplierCache` (tableau en mémoire, indexé par `supplier_id`). Chaque fournisseur unique n'est requêté qu'une seule fois par process/request. Méthode `PortModeResolver::flushCache()` à appeler en `setUp()` des tests pour éviter la pollution inter-tests.
 
 #### Filtre back-office « Port à trancher »
 

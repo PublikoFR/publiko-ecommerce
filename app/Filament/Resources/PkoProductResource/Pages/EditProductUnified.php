@@ -931,11 +931,15 @@ class EditProductUnified extends Page implements HasForms
     /**
      * Segmented control « Facturation du port » : 5 modes mutuellement exclusifs.
      * Dérive l'éligibilité franco au passage (standard → éligible, autres → exclu).
+     * En mode 'inherit', ne pas écraser francoEligible — la valeur effective est dérivée
+     * à la lecture depuis PortModeResolver::resolve() dans WeightCalculator.
      */
     public function setPortMode(string $mode): void
     {
         $this->portMode = $mode;
-        $this->francoEligible = ($mode === 'standard');
+        if ($mode !== 'inherit') {
+            $this->francoEligible = ($mode === 'standard');
+        }
         $this->isDirty = true;
     }
 
