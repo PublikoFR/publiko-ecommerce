@@ -81,6 +81,12 @@ class CheckoutPage extends Component
     public string $splitMode = 'split';
 
     /**
+     * True once the user has confirmed their split-mode choice.
+     * Prevents the Stripe component from mounting before the cart is reduced.
+     */
+    public bool $splitConfirmed = false;
+
+    /**
      * {@inheritDoc}
      */
     protected $listeners = [
@@ -319,7 +325,8 @@ class CheckoutPage extends Component
     }
 
     /**
-     * Whether the current cart contains at least one product line with port mode 'quote'.
+     * Whether ALL lines in the cart require a transport quote.
+     * If only SOME lines are quote → isMixedCart.
      */
     public function getIsQuoteOnlyCartProperty(): bool
     {
@@ -327,10 +334,17 @@ class CheckoutPage extends Component
             return false;
         }
 
-        return $this->cart
-            ->lines
-            ->loadMissing('purchasable.product')
-            ->contains(fn ($line) => ($line->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+        $lines = $this->cart->lines->loadMissing('purchasable.product');
+
+        if ($lines->isEmpty()) {
+            return false;
+        }
+
+        // True only when every product line is quote-mode (shipping lines are neutral)
+        $productLines = $lines->filter(fn ($l) => $l->type === 'physical');
+
+        return $productLines->isNotEmpty()
+            && $productLines->every(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
     }
 
     /**
@@ -394,6 +408,8 @@ class CheckoutPage extends Component
             'unit_price'       => $l->unitPrice?->value ?? 0,
             'unit_quantity'    => $l->purchasable->unit_quantity ?? 1,
             'sub_total'        => $l->subTotal?->value ?? 0,
+            'tax_total'        => $l->taxAmount?->value ?? 0,
+            'total'            => $l->total?->value ?? 0,
         ])->values()->toArray();
 
         // Persist split data in cart meta before removing lines
@@ -412,12 +428,47 @@ class CheckoutPage extends Component
 
         $this->cart = CartSession::current();
 
-        // Re-validate the shipping option: franco threshold may have shifted after split
-        if ($this->cart?->shippingAddress && ! $this->shippingOption) {
+        // Re-validate the shipping option: franco threshold may have shifted after removing
+        // quote lines, and an option valid for the full cart might no longer exist for the
+        // reduced cart (e.g. weight bracket dropped, carrier changed).
+        $currentOption = $this->cart?->shippingAddress?->shipping_option;
+        $optionStillValid = $currentOption !== null && ShippingManifest::getOptions($this->cart)
+            ->contains(fn ($opt) => $opt->getIdentifier() === $currentOption);
+
+        if ($this->cart?->shippingAddress && (! $currentOption || ! $optionStillValid)) {
             $this->currentStep = $this->steps['shipping_option'];
         }
 
         $this->dispatch('cartUpdated');
+    }
+
+    /**
+     * Confirm the split-mode choice and prepare the cart before Stripe mounts.
+     * Called by the "Confirmer mon choix" button in the payment partial.
+     */
+    public function confirmSplitChoice(): void
+    {
+        if (! $this->isMixedCart) {
+            $this->splitConfirmed = true;
+
+            return;
+        }
+
+        // Guard: refuse split when a discount/coupon is active — allocation is undefined.
+        $hasDiscount = ($this->cart->coupon_code !== null)
+            || (($this->cart->discount_total?->value ?? 0) > 0);
+
+        if ($hasDiscount && $this->splitMode === 'split') {
+            $this->addError('splitMode', 'Un code promo est appliqué sur votre panier. Vous devez commander l\'intégralité en devis ou retirer le code promo avant de scinder la commande.');
+
+            return;
+        }
+
+        if ($this->splitMode === 'split') {
+            $this->applySplit();
+        }
+
+        $this->splitConfirmed = true;
     }
 
     public function checkout(): mixed
@@ -485,7 +536,11 @@ class CheckoutPage extends Component
             return $this->redirectToOrderConfirmation($payment->orderId, confirmed: false);
         }
 
-        return redirect()->route('checkout-success.view');
+        // Payment failed or was declined — return null so mount() re-renders the page
+        // normally and the user sees the checkout form again (not a blank success page).
+        $this->addError('checkout', __('Le paiement a été refusé ou annulé. Veuillez réessayer.'));
+
+        return null;
     }
 
     /**
