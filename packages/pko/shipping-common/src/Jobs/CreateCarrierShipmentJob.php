@@ -67,7 +67,9 @@ class CreateCarrierShipmentJob implements ShouldQueue
             throw new RuntimeException("Missing shipper config for carrier {$this->carrier}.");
         }
 
-        $pickupPoint = is_array($order->meta) ? ($order->meta['pickup_point'] ?? null) : null;
+        // Lunar casts `meta` as AsArrayObject — is_array() returns false on hydrated models.
+        $meta = $order->meta instanceof \ArrayObject ? $order->meta->getArrayCopy() : (array) ($order->meta ?? []);
+        $pickupPoint = $meta['pickup_point'] ?? null;
         $pickupPointId = is_array($pickupPoint) ? (string) ($pickupPoint['id'] ?? '') : null;
         if ($pickupPointId === '') {
             $pickupPointId = null;
