@@ -916,7 +916,14 @@ Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, comm
 
 **Correctifs**
 
-1. **Service `queue`** ajouté à `compose.yaml` (même image que `app`, `php artisan queue:work --timeout=120 --max-time=3600`). Le dev reflète enfin la prod. `make queue-logs` suit son activité, `make queue-status` donne la profondeur de file.
+1. **Service `scheduler`** ajouté à `compose.yaml` (`php artisan schedule:work`, même image que `app`). C'est l'équivalent Docker du cron `* * * * * php artisan schedule:run` de la production.
+
+   Le choix de faire tourner la file *via le scheduler* plutôt qu'avec un worker résident n'est pas nouveau : il est déjà acté dans `routes/console.php`, parce que l'hébergement mutualisé cible n'a ni Supervisor ni systemd pour maintenir un `queue:work`. Le local se contentait de ne rien lancer du tout. Un service `scheduler` couvre donc d'un coup **les trois** tâches planifiées — worker de file, `shipping:poll-tracking` (horaire) et `ai-importer:run-scheduled` — et reste fidèle à la prod.
+
+   Contrepartie assumée : jusqu'à une minute de latence avant qu'un job démarre. `make scheduler-logs` suit l'activité, `make schedule-list` liste les tâches et leur prochain passage, `make queue-status` donne la profondeur de file.
+
+   > Ne pas ajouter en plus un service `queue:work` résident : deux consommateurs sur la même file font doublon, et un worker résident garde le code en mémoire — il continuerait d'exécuter l'ancienne version d'un job jusqu'au redémarrage du conteneur, ce qui fait croire à un correctif sans effet.
+
 2. **Commande de rattrapage** `php artisan shipping:backfill-shipments [--dry-run] [--limit=N]` : crée les envois manquants sur les commandes déjà payées. Elle couvre les commandes passées worker éteint, mais aussi le trou structurel décrit ci-dessous. Idempotente (les commandes portant déjà un envoi sont ignorées, et le job fait un `firstOrCreate`).
 
 **Trou structurel assumé** : `OrderShipmentObserver` n'écoute que `updated` avec changement de statut. Un hook `created` serait inopérant — au moment où la commande est créée, ses adresses ne le sont pas encore (`CreateOrderAddresses` s'exécute après `FillOrderFromCart`), donc aucune `shipping_option` n'est lisible. Une commande **importée ou saisie directement dans un état payé** n'a donc pas d'étiquette : c'est `shipping:backfill-shipments` qui la rattrape.

@@ -31,17 +31,20 @@ services:
             - traefik.http.routers.weklo.entrypoints=web
             - traefik.http.services.weklo.loadbalancer.server.port=80
 
-    # Consommateur de la file (QUEUE_CONNECTION=redis). Sans lui, tout job dispatché
-    # s'empile indéfiniment : la création d'étiquette transporteur, les conversions
-    # média et les e-mails ne s'exécutent jamais, sans la moindre erreur visible.
-    queue:
+    # Équivalent Docker du cron `* * * * * php artisan schedule:run` de la prod.
+    # `routes/console.php` y planifie TOUT le travail de fond : le worker de file
+    # (l'hébergement mutualisé n'a pas de Supervisor, cf. le commentaire sur place),
+    # le polling de suivi transporteur et l'AI importer. Sans ce service, rien de
+    # tout cela ne tourne en local — les jobs s'empilent sans la moindre erreur
+    # visible, et le suivi des colis ne se met jamais à jour.
+    scheduler:
         build:
             context: ./docker/app
             dockerfile: Dockerfile
             args:
                 UID: ${UID:-1000}
                 GID: ${GID:-1000}
-        container_name: weklo-queue
+        container_name: weklo-scheduler
         restart: unless-stopped
         working_dir: /var/www/html
         user: sail
@@ -51,9 +54,13 @@ services:
         environment:
             APP_ENV: ${APP_ENV:-local}
             APP_DEBUG: ${APP_DEBUG:-true}
-        # --tries/--backoff laissés aux jobs, qui définissent déjà leur politique
-        # (CreateCarrierShipmentJob : 5 tentatives, backoff jusqu'à 4 h).
-        command: php artisan queue:work --timeout=120 --sleep=3 --max-time=3600
+        # `schedule:work` = boucle qui appelle `schedule:run` chaque minute, sans cron
+        # à installer dans l'image. Chaque tick relance un process neuf : le code est
+        # toujours à jour, contrairement à un `queue:work` résident qui garderait en
+        # mémoire l'ancienne version d'un job jusqu'au redémarrage du conteneur.
+        # Contrepartie assumée : jusqu'à une minute de latence avant qu'un job parte,
+        # exactement comme en production.
+        command: php artisan schedule:work
         depends_on:
             mysql:
                 condition: service_healthy
