@@ -7,6 +7,7 @@ use Lunar\Pipelines\Order\Creation\CreateOrderLines;
 use Lunar\Pipelines\Order\Creation\CreateShippingLine;
 use Lunar\Pipelines\Order\Creation\FillOrderFromCart;
 use Lunar\Pipelines\Order\Creation\MapDiscountBreakdown;
+use Pko\ShippingCommon\Pipelines\ApplyPickupPointAddress;
 use Pko\ShippingCommon\Pipelines\MarkQuoteOrderAwaitingQuote;
 
 return [
@@ -135,6 +136,9 @@ return [
             FillOrderFromCart::class,
             CreateOrderLines::class,
             CreateOrderAddresses::class,
+            // Juste après la copie des adresses : substitue l'adresse du point relais
+            // quand la commande en désigne un (meta.pickup_point).
+            ApplyPickupPointAddress::class,
             CreateShippingLine::class,
             CleanUpOrderLines::class,
             MapDiscountBreakdown::class,

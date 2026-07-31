@@ -148,7 +148,48 @@ class CheckoutPage extends Component
             ? $this->addressToArray($this->cart->billingAddress)
             : $this->prefilledAddress();
 
+        $this->autoConfirmPrefilledAddress();
+
         $this->determineCheckoutStep();
+    }
+
+    /**
+     * Pose l'adresse de livraison sur le panier quand le profil client la fournit
+     * déjà complète, pour ouvrir le checkout sur le récapitulatif plutôt que sur un
+     * formulaire pré-rempli à revalider à l'identique.
+     *
+     * Silencieux par construction : au moindre champ requis manquant, on laisse le
+     * formulaire s'afficher. Le client garde la main via le bouton « Modifier ».
+     */
+    protected function autoConfirmPrefilledAddress(): void
+    {
+        if ($this->cart->shippingAddress?->id) {
+            return;
+        }
+
+        $required = ['first_name', 'last_name', 'line_one', 'city', 'postcode', 'country_id', 'contact_email'];
+
+        foreach ($required as $field) {
+            if (blank($this->shipping[$field] ?? null)) {
+                return;
+            }
+        }
+
+        if (! filter_var($this->shipping['contact_email'], FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $this->cart->setShippingAddress((new CartAddress)->fill($this->shipping));
+        $this->shipping = $this->addressToArray($this->cart->shippingAddress);
+
+        // `shippingIsBilling` est vrai par défaut : sans cette copie, le client
+        // enchaînerait sur l'étape facturation avec les mêmes données à resaisir.
+        if ($this->shippingIsBilling && ! $this->cart->billingAddress?->id) {
+            $this->cart->setBillingAddress((new CartAddress)->fill($this->shipping));
+            $this->billing = $this->addressToArray($this->cart->billingAddress);
+        }
+
+        $this->cart = CartSession::current();
     }
 
     /**
@@ -168,8 +209,10 @@ class CheckoutPage extends Component
             'city' => null,
             'state' => null,
             'postcode' => null,
-            // Default to the shop country (single-country B2B shop).
-            'country_id' => Country::orderBy('name')->value('id'),
+            // Pays de la boutique (config `storefront.country`, ISO2). Le tri
+            // alphabétique utilisé auparavant retournait le premier pays de la
+            // table — l'Afghanistan — sur tous les formulaires du checkout.
+            'country_id' => $this->shopCountryId(),
             'contact_email' => null,
             'contact_phone' => null,
             'delivery_instructions' => null,
@@ -693,7 +736,21 @@ class CheckoutPage extends Component
      */
     public function getCountriesProperty(): Collection
     {
-        return Country::orderBy('name')->get();
+        // Trié sur `native`, qui est ce que le <select> affiche : un tri sur `name`
+        // (anglais) donnait une liste d'apparence aléatoire au client.
+        return Country::orderBy('native')->get();
+    }
+
+    /**
+     * Identifiant du pays de la boutique, ou null si l'ISO configuré est introuvable.
+     */
+    protected function shopCountryId(): ?int
+    {
+        $iso = (string) config('storefront.country', 'FR');
+
+        $id = Country::query()->where('iso2', $iso)->value('id');
+
+        return $id !== null ? (int) $id : null;
     }
 
     /**

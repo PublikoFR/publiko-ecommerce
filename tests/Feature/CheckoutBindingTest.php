@@ -20,12 +20,22 @@ class CheckoutBindingTest extends TestCase
     protected function makeCart(): Cart
     {
         $currency = Currency::factory()->create(['default' => true]);
-        Country::factory()->create(['name' => 'France', 'iso3' => 'FRA']);
+
+        // L'Afghanistan précède la France dans tous les tris (name comme native) :
+        // sa présence garantit que le défaut vient bien du pays de la boutique et
+        // non du premier enregistrement de la table.
+        Country::factory()->create(['name' => 'Afghanistan', 'iso2' => 'AF', 'iso3' => 'AFG', 'native' => 'افغانستان']);
+        Country::factory()->create(['name' => 'France', 'iso2' => 'FR', 'iso3' => 'FRA', 'native' => 'France']);
 
         $cart = Cart::factory()->create(['currency_id' => $currency->id]);
         CartSession::use($cart);
 
         return $cart;
+    }
+
+    protected function france(): Country
+    {
+        return Country::query()->where('iso2', 'FR')->firstOrFail();
     }
 
     public function test_typed_values_pass_validation_and_persist(): void
@@ -40,7 +50,7 @@ class CheckoutBindingTest extends TestCase
             ->set('shipping.line_one', '54 Rue des Châtaigniers')
             ->set('shipping.city', 'Béziers')
             ->set('shipping.postcode', '34500')
-            ->set('shipping.country_id', Country::first()->id)
+            ->set('shipping.country_id', $this->france()->id)
             ->call('saveAddress', 'shipping')
             ->assertHasNoErrors();
 
@@ -58,7 +68,7 @@ class CheckoutBindingTest extends TestCase
         $this->makeCart();
 
         Livewire::test(CheckoutPage::class)
-            ->assertSet('shipping.country_id', Country::first()->id);
+            ->assertSet('shipping.country_id', $this->france()->id);
     }
 
     /**
@@ -78,7 +88,7 @@ class CheckoutBindingTest extends TestCase
             ->set('shipping.line_one', '54 Rue des Châtaigniers')
             ->set('shipping.city', 'Béziers')
             ->set('shipping.postcode', '34500')
-            ->set('shipping.country_id', Country::first()->id)
+            ->set('shipping.country_id', $this->france()->id)
             ->call('saveAddress', 'shipping')
             ->assertHasNoErrors();
 
@@ -105,7 +115,7 @@ class CheckoutBindingTest extends TestCase
             ->set('shipping.line_one', '54 Rue des Châtaigniers')
             ->set('shipping.city', 'Béziers')
             ->set('shipping.postcode', '34500')
-            ->set('shipping.country_id', Country::first()->id)
+            ->set('shipping.country_id', $this->france()->id)
             ->call('saveAddress', 'shipping')
             ->assertHasNoErrors();
 

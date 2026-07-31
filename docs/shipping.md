@@ -882,3 +882,24 @@ Le bordereau reste **journalier par nature** — il atteste d'une remise groupé
 | Historique LT | `chrono_lt_history` | `pko_carrier_shipments` |
 
 Tests : `CarrierProductCodeResolverTest` (DB, config, repli, mémoïsation), `CreateCarrierShipmentJobTest` (code produit envoyé, substitution de l'adresse relais, meta relais hérité sans adresse, dimensions), `DailyManifestTest` (PDF généré, archive ZIP, sélection sans étiquette, rendu de la page, filtre de date par URL), `OrderShipmentActionsTest` (raccourcis présents sur une commande expédiée, absents sans envoi).
+
+---
+
+### 5.22 Point relais — l'adresse de la commande est celle du relais (2026-07-31)
+
+**Symptôme** : commande passée en Chrono Relais, mais la fiche commande du back-office affichait l'adresse **du client** comme adresse de livraison. Le point choisi n'existait que dans `meta.pickup_point`.
+
+**Cause** : `CreateOrderAddresses` (Lunar) recopie les adresses du panier vers la commande, et l'adresse du panier est celle du client. Rien ne portait la destination réelle du colis.
+
+**Correctif** — pipeline `Pko\ShippingCommon\Pipelines\ApplyPickupPointAddress`, inséré dans `config/lunar/orders.php` **juste après** `CreateOrderAddresses` :
+
+- si `meta.pickup_point` porte une `address1`, l'adresse de livraison de la commande devient celle du point (`company_name` = nom du point, rue/CP/ville du point, lignes 2 et 3 vidées) ;
+- **nom, téléphone et e-mail du client sont conservés** — c'est ce qui permet au point relais de remettre le colis à la bonne personne ;
+- l'adresse d'origine est sauvegardée dans `meta.delivery_address_original` (même convention que le module PrestaShop officiel), nécessaire au suivi et aux retours ;
+- **idempotent** : un second passage (mise à jour d'un brouillon) ne prend pas l'adresse du relais pour l'originale.
+
+Conséquence sur l'étiquette : `CreateCarrierShipmentJob::applyPickupPoint()` (§5.21.B) fait la même substitution au moment de créer la LT. Les deux se recouvrent volontairement — le job reste correct pour les commandes créées avant ce pipeline, et la substitution est idempotente.
+
+> **Piège de test** : sauvegarder une `OrderAddress` déclenche l'observer de `lunarphp/table-rate-shipping`, qui résout une zone depuis le pays. Une adresse de fixture sans `country_id` fait lever un `TypeError` dans `PostcodeLookup::__construct()`, sans rapport apparent avec le code testé.
+
+Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, commande sans relais intouchée, idempotence).

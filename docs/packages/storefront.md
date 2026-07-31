@@ -248,3 +248,16 @@ Dépendance : `pko/lunar-storefront` requiert désormais `pko/lunar-shipping-com
 **Placement du message d'erreur** — sur la carte produit, le bouton d'ajout vit dans une colonne `shrink-0` alignée en bas avec le prix : un bloc d'erreur en flux y élargit la colonne et recouvre le prix. En mode `compact`, le bloc est donc sorti du flux et ancré **au-dessus** du bouton (`absolute bottom-full right-0`). Ancrer vers le bas ne marche pas : l'`<article>` de la carte est en `overflow-hidden` et rognerait le message. En page produit (mode normal), le bloc reste en flux sous le bouton.
 
 Tests : `tests/Feature/Storefront/AddToCartAvailabilityTest` (ajout d'un produit sur commande, refus au-delà du stock en `in_stock`, acceptation à la limite, cohérence des quatre libellés de badge).
+
+### Checkout — pays par défaut et adresse déjà connue (2026-07-31)
+
+**Pays pré-sélectionné.** `CheckoutPage::emptyAddress()` posait `Country::orderBy('name')->value('id')` sous le commentaire « pays de la boutique » : en pratique le **premier pays de la table par ordre alphabétique**, soit l'Afghanistan — affiché en écriture native (`$country->native`) dans le `<select>`, ce qui rendait le symptôme d'autant plus déroutant.
+
+- Nouveau réglage `config('storefront.country')` (ISO 3166-1 alpha-2), env `STOREFRONT_COUNTRY`, repli sur `SHIPPER_COUNTRY` puis `FR`. Pas de « France » en dur dans le code : la boutique reste réutilisable (cf. CLAUDE.md §3.0).
+- `getCountriesProperty()` trie désormais sur `native`, c'est-à-dire sur ce que le `<select>` affiche réellement. Le tri sur `name` (anglais) produisait une liste d'apparence aléatoire.
+
+**Adresse déjà connue → récapitulatif direct.** Le pré-remplissage depuis le profil client (`prefilledAddress()`) alimentait le formulaire mais n'enregistrait rien sur le panier : `determineCheckoutStep()` maintenait donc l'étape « adresse de livraison » et le client devait revalider un formulaire déjà rempli.
+
+`autoConfirmPrefilledAddress()` (appelée en `mount()`) pose l'adresse sur le panier **uniquement si tous les champs requis sont présents** — prénom, nom, ligne 1, ville, code postal, pays et un e-mail valide. Au moindre manque, le formulaire s'affiche comme avant. `shippingIsBilling` étant vrai par défaut, l'adresse de facturation est copiée dans la foulée, sinon le client enchaînait sur l'étape suivante avec les mêmes données à ressaisir. Le bouton « Modifier » du récapitulatif reste le chemin de correction.
+
+Tests : `CheckoutBindingTest` (le jeu de pays inclut l'Afghanistan pour prouver que le défaut ne vient pas du premier enregistrement), `CheckoutPrefilledAddressTest` (profil complet → récapitulatif, profil incomplet → formulaire, retour en modification).

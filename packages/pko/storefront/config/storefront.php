@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    /*
+     * Pays de la boutique (ISO 3166-1 alpha-2), pré-sélectionné au checkout.
+     * Repli sur SHIPPER_COUNTRY, déjà renseigné pour l'expéditeur transporteur.
+     * Sans ce réglage, le formulaire retombait sur le premier pays de la table
+     * par ordre alphabétique — l'Afghanistan.
+     */
+    'country' => env('STOREFRONT_COUNTRY', env('SHIPPER_COUNTRY', 'FR')),
+
     'contact' => [
         'phone' => env('CONTACT_PHONE', '02 XX XX XX XX'),
         'email' => env('CONTACT_EMAIL', ''),
