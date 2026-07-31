@@ -171,15 +171,20 @@ class ShippingCasesTest extends TestCase
 
     // ── 5 à 7. Franco ────────────────────────────────────────────────────────
 
-    public function test_scenario_05_franco_offre_uniquement_chrono13(): void
+    /**
+     * Règle métier : au-delà du seuil, le port est offert **quel que soit** le
+     * service choisi (`shipping.franco.services` = `['*']` par défaut).
+     */
+    public function test_scenario_05_franco_offre_tous_les_services(): void
     {
         $quote = $this->quoteFor(['TX-08' => 1]); // 600 € HT
 
-        $chrono13 = $this->service($quote, 'chrono13');
-        $this->assertTrue($chrono13?->franco);
-        $this->assertSame(0, $chrono13->totalPriceCents());
-        $this->assertSame(1490, $this->service($quote, 'chrono_relais')?->totalPriceCents());
-        $this->assertSame(2490, $this->service($quote, 'chrono10')?->totalPriceCents());
+        foreach (['chrono13', 'chrono_relais', 'chrono10'] as $serviceCode) {
+            $option = $this->service($quote, $serviceCode);
+            $this->assertTrue($option?->franco, "{$serviceCode} doit être offert");
+            $this->assertSame(0, $option->totalPriceCents());
+        }
+
         $this->assertContains('franco_reached', $this->bannerTypes($quote));
     }
 

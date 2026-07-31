@@ -54,9 +54,16 @@ class ShippingSettingsTest extends TestCase
 
     // ── francoServices ────────────────────────────────────────────────────────
 
-    public function test_services_default_chrono13(): void
+    /**
+     * Défaut métier : le franco couvre tous les services (joker `*`), pas
+     * seulement Chrono 13 — cf. docs/shipping.md §5.20.
+     */
+    public function test_services_default_joker_tous_les_services(): void
     {
-        $this->assertSame(['chrono13'], ShippingSettings::francoServices());
+        $this->assertSame(['*'], ShippingSettings::francoServices());
+        $this->assertTrue(ShippingSettings::francoCovers(['*'], 'chrono10'));
+        $this->assertTrue(ShippingSettings::francoCovers(['chrono13'], 'chrono13'));
+        $this->assertFalse(ShippingSettings::francoCovers(['chrono13'], 'chrono10'));
     }
 
     public function test_services_db_gagne_sur_defaut(): void

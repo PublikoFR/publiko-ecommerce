@@ -81,21 +81,19 @@ test.describe('Expéditions — sélection du mode de livraison', () => {
     await expect(shippingForm(page).getByText(SERVICE_RELAIS)).toHaveCount(0);
   });
 
-  test('franco atteint : Chrono 13 offert et bandeau affiché', async ({ page }) => {
+  test('franco atteint : tous les services offerts et bandeau affiché', async ({ page }) => {
     await addSkuToCart(page, 'TX-08'); // 600 € HT
     await reachShippingStep(page);
 
     const form = shippingForm(page);
     await expect(form.getByText(/livraison standard offerte/i)).toBeVisible({ timeout: 15_000 });
 
-    // La carte Chrono 13 affiche « Offert » à la place du prix.
-    const chrono13Card = form.locator('label').filter({ hasText: SERVICE_STANDARD });
-    await expect(chrono13Card.getByText('Offert')).toBeVisible();
-
-    // Express et relais restent payants (aucun « Offert » sur ces cartes).
-    await expect(
-      form.locator('label').filter({ hasText: SERVICE_EXPRESS }).getByText('Offert'),
-    ).toHaveCount(0);
+    // Règle métier : au-delà du seuil, le port est offert quel que soit le service.
+    for (const service of [SERVICE_RELAIS, SERVICE_STANDARD, SERVICE_EXPRESS]) {
+      await expect(
+        form.locator('label').filter({ hasText: service }).getByText('Offert'),
+      ).toBeVisible();
+    }
   });
 
   test('sous le seuil : bandeau de progression du franco', async ({ page }) => {

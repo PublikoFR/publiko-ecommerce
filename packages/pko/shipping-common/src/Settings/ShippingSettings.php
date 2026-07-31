@@ -34,10 +34,20 @@ final class ShippingSettings
     }
 
     /**
-     * Codes de service éligibles au franco (codes nus, ex : ['chrono13']).
+     * Joker « tous les services » pour `shipping.franco.services`.
+     *
+     * Règle métier retenue : au-delà du seuil, le port est offert quel que soit
+     * le service choisi. Un joker plutôt qu'une liste en dur évite d'oublier un
+     * service à chaque ajout de transporteur ou de grille.
+     */
+    public const FRANCO_ALL_SERVICES = '*';
+
+    /**
+     * Codes de service éligibles au franco (codes nus, ex : ['chrono13']), ou
+     * `['*']` pour « tous les services ».
      *
      * Clé DB    : shipping.franco.services
-     * Fallback  : ['chrono13']
+     * Fallback  : ['*'] — franco sur tous les services
      *
      * @return list<string>
      */
@@ -49,7 +59,18 @@ final class ShippingSettings
             return array_values(array_filter(array_map('strval', $stored)));
         }
 
-        return ['chrono13'];
+        return [self::FRANCO_ALL_SERVICES];
+    }
+
+    /**
+     * Le franco couvre-t-il ce service ?
+     *
+     * @param  list<string>  $francoServices  Résultat de `francoServices()`.
+     */
+    public static function francoCovers(array $francoServices, string $serviceCode): bool
+    {
+        return in_array(self::FRANCO_ALL_SERVICES, $francoServices, true)
+            || in_array($serviceCode, $francoServices, true);
     }
 
     /**

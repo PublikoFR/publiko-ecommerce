@@ -305,7 +305,7 @@ Trois sources concurrentes existaient pour le seuil de livraison offerte. Résol
 | Clé DB (`pko_storefront_settings`) | Type | Défaut | Rôle |
 |---|---|---|---|
 | `shipping.franco.threshold_cents` | `int` | 50 000 (= 500 € HT) | Seuil de déclenchement franco |
-| `shipping.franco.services` | `array<string>` | `['chrono13']` | Codes nus des services couverts |
+| `shipping.franco.services` | `array<string>` | `['*']` | Codes nus des services couverts — `['*']` = tous (cf. §5.20) |
 | `shipping.franco.basis` | `string` | `'eligible_only'` | Base de calcul du total |
 | `shipping.tax.price_base` | `string` | `'ht'` | Nature des prix de grille |
 | `shipping.tax.display` | `string` | `'both'` | Affichage HT/TTC au checkout |
@@ -317,7 +317,7 @@ La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste l
 | Méthode | Retour | Résolution |
 |---|---|---|
 | `ShippingSettings::thresholdCents()` | `int` | DB `threshold_cents` → `config('shipping.franco.threshold_ht_cents')` → 50 000 |
-| `ShippingSettings::francoServices()` | `list<string>` | DB `services` → `['chrono13']` |
+| `ShippingSettings::francoServices()` | `list<string>` | DB `services` → `['*']` (tous les services) |
 | `ShippingSettings::francoBasis()` | `string` | DB `basis` → `'eligible_only'` |
 | `ShippingSettings::taxPriceBase()` | `string` | DB `tax.price_base` → `config('shipping.tax.price_base')` → `'ht'` |
 | `ShippingSettings::taxDisplay()` | `string` | DB `tax.display` → `config('shipping.tax.display')` → `'both'` |
@@ -330,7 +330,7 @@ La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste l
 1. `product.pko_franco_eligible === true`
 2. `PortModeResolver::resolve($product) !== 'quote'`
 
-**Services** : le calculator boucle sur `ShippingSettings::francoServices()` et annule le `gridPriceCents` de chaque `CalculatedShippingOption` dont `serviceCode` est dans la liste. Le forfait `flatPriceCents` et les suppléments ne sont **pas** annulés par le franco.
+**Services** : le calculator annule le `gridPriceCents` de chaque `CalculatedShippingOption` couverte par `ShippingSettings::francoCovers()` (joker `*` ou code présent dans la liste). Le forfait `flatPriceCents` et les suppléments ne sont **pas** annulés par le franco.
 
 **Helpers WeightCalculator** :
 - `WeightCalculator::francoEligibleSubtotalHt(Cart): int` — somme HT (cents) des lignes éligibles.
@@ -789,3 +789,18 @@ Tests : `CheckoutQuoteInterceptionTest::test_quote_only_cart_skips_the_shipping_
 | `WeightCalculator::isFrancoEligible()` | `pko_franco_eligible` est un tinyint **sans cast** sur `Lunar\Models\Product` : Eloquent renvoie `1`/`0`. La comparaison stricte `=== true` excluait du franco tout produit non-`inherit`, ce qui annulait le franco du panier entier (`cartHasFrancoExcludedLine`). Cast explicite en booléen. |
 | `PkoCustomerSeeder` | Les comptes pro seedés n'étaient rattachés qu'à leur groupe métier (`installateurs`). `ProAccess::denialReason()` exige **aussi** le groupe par défaut (`nouveau-client`) → connexion storefront refusée pour tous les comptes de démo, et suites E2E authentifiées bloquées. Le seeder attache désormais le groupe par défaut et pose `email_verified_at`. |
 | `DestructiveCommandGuard::isTestDatabase()` | La base de la stack Playwright (`pko_e2e`) n'était pas reconnue comme base de test → `migrate:fresh --seed` du `global-setup` bloqué par la garde anti-wipe, tous les runs E2E en échec. Exception explicite sur le nom `pko_e2e` (le verrou production reste absolu). |
+
+### 5.20 Franco sur tous les services par défaut (2026-07-31)
+
+**Règle métier confirmée** : au-delà du seuil, le port est offert **quel que soit le service choisi** — le client ne paie pas de supplément pour partir en express ou en point relais.
+
+| Avant | Après |
+|---|---|
+| Défaut `shipping.franco.services = ['chrono13']` (relais et express restaient payants) | Défaut `['*']` — joker « tous les services » (`ShippingSettings::FRANCO_ALL_SERVICES`) |
+| `in_array($opt->serviceCode, $francoServices)` dans `ShippingCalculator` | `ShippingSettings::francoCovers($francoServices, $opt->serviceCode)` |
+
+La restriction à une liste reste possible : cocher des services dans **Admin → Expédition → Paramètres** limite le franco à ceux-ci. **Laisser le champ vide = tous les services** (la page convertit `[]` ⇄ `['*']`, le joker n'apparaît jamais comme option du select).
+
+> Le joker ne touche ni les sentinelles « sur devis », ni les forfaits `flatPriceCents`, ni les suppléments `autoSurchargeCents` — un panier franco livré en Corse paie toujours son supplément (§5.12).
+
+Tests : `ShippingCalculatorTest::test_franco_applique_sur_tous_les_services_par_defaut` + `test_franco_restreint_a_chrono13_quand_la_config_le_precise`, `ShippingCasesTest::test_scenario_05_franco_offre_tous_les_services`, `e2e/tests/expeditions/modes-livraison.spec.ts`.

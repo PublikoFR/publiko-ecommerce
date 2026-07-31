@@ -122,7 +122,7 @@ final class ShippingCalculator
 
         if ($francoApplies) {
             foreach ($options as $opt) {
-                if (! $opt->isSentinel && in_array($opt->serviceCode, $francoServices, true)) {
+                if (! $opt->isSentinel && ShippingSettings::francoCovers($francoServices, $opt->serviceCode)) {
                     $opt->gridPriceCents = 0;
                     $opt->franco = true;
                 }

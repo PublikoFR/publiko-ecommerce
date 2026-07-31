@@ -178,9 +178,37 @@ class ShippingCalculatorTest extends TestCase
 
     // ── Tests : franco eligible_only (défaut) ─────────────────────────────────
 
-    public function test_franco_applique_sur_chrono13_quand_seuil_atteint(): void
+    /**
+     * Défaut : le franco couvre TOUS les services (joker `*`). La restriction à
+     * une liste de services reste possible en configuration
+     * (cf. test_franco_multi_services_selon_config).
+     */
+    public function test_franco_applique_sur_tous_les_services_par_defaut(): void
     {
         TaxClass::create(['name' => 'Default', 'default' => true]);
+        $this->chronoClient
+            ->shouldReceive('quote')
+            ->andReturn([
+                new QuoteResponse('chrono13', 'Chrono 13', 990),
+                new QuoteResponse('chrono_relais', 'Chrono Relais', 690),
+            ]);
+
+        $cart = $this->makeCart([
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
+        ]);
+
+        $quote = $this->calculator->calculate($cart);
+
+        foreach ($quote->options as $option) {
+            $this->assertTrue($option->franco, "{$option->serviceCode} doit être franco");
+            $this->assertSame(0, $option->totalPriceCents());
+        }
+    }
+
+    public function test_franco_restreint_a_chrono13_quand_la_config_le_precise(): void
+    {
+        TaxClass::create(['name' => 'Default', 'default' => true]);
+        Setting::set('shipping.franco.services', ['chrono13']);
         $this->chronoClient
             ->shouldReceive('quote')
             ->andReturn([

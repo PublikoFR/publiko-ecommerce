@@ -54,7 +54,12 @@ class ShippingSettingsPage extends BasePage implements HasForms
     {
         $this->form->fill([
             'threshold_eur' => ShippingSettings::thresholdCents() / 100,
-            'services' => ShippingSettings::francoServices(),
+            // Le joker « tous les services » n'est pas une option du select : on le
+            // représente par un champ vide (cf. helperText), et `save()` le rétablit.
+            'services' => array_values(array_diff(
+                ShippingSettings::francoServices(),
+                [ShippingSettings::FRANCO_ALL_SERVICES],
+            )),
             'basis' => ShippingSettings::francoBasis(),
             'tax_price_base' => ShippingSettings::taxPriceBase(),
             'tax_display' => ShippingSettings::taxDisplay(),
@@ -158,7 +163,11 @@ class ShippingSettingsPage extends BasePage implements HasForms
         }
 
         $known = array_merge(...array_values(array_map('array_keys', $options)) ?: [[]]);
-        $orphans = array_diff((array) ShippingSettings::francoServices(), $known);
+        $orphans = array_diff(
+            (array) ShippingSettings::francoServices(),
+            $known,
+            [ShippingSettings::FRANCO_ALL_SERVICES], // joker : jamais une option du select
+        );
 
         if ($orphans !== []) {
             $group = __('pko-shipping-common::admin.settings.services_orphan_group');
@@ -176,7 +185,14 @@ class ShippingSettingsPage extends BasePage implements HasForms
 
         $thresholdEur = (float) ($state['threshold_eur'] ?? 500.0);
         Setting::set('shipping.franco.threshold_cents', (int) round($thresholdEur * 100));
-        Setting::set('shipping.franco.services', $state['services'] ?? ['chrono13']);
+        // Aucun service coché = franco sur TOUS les services (joker). C'est le
+        // comportement par défaut attendu : au-delà du seuil, le port est offert
+        // quel que soit le mode choisi.
+        $services = array_values(array_filter((array) ($state['services'] ?? [])));
+        Setting::set(
+            'shipping.franco.services',
+            $services !== [] ? $services : [ShippingSettings::FRANCO_ALL_SERVICES],
+        );
         Setting::set('shipping.franco.basis', $state['basis'] ?? 'eligible_only');
         Setting::set('shipping.tax.price_base', $state['tax_price_base'] ?? 'ht');
         Setting::set('shipping.tax.display', $state['tax_display'] ?? 'both');
