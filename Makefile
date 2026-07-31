@@ -58,7 +58,8 @@ help:
 	@echo "  make seed        Exécuter les seeders"
 	@echo "  make db-dump     Sauvegarder la base de dev (auto avant toute action destructive)"
 	@echo "  make db-restore  Restaurer le dump le plus récent (ou DUMP=<chemin>)"
-	@echo "  make test        Lancer la suite PHPUnit"
+	@echo "  make test        Lancer la suite PHPUnit complète (~7 min 30) — obligatoire avant merge"
+	@echo "  make test-only   Suite ciblée (~15-40 s) : make test-only T=tests/Feature/Checkout"
 	@echo "  make lint        Laravel Pint (PSR-12)"
 	@echo "  make logs        Suivre les logs des conteneurs"
 	@echo "  make ps          Statut des conteneurs"
@@ -230,13 +231,17 @@ lint:
 logs:
 	$(DC) logs -f
 
-# Suivre le worker de file (creation d'etiquettes, conversions media, e-mails).
-queue-logs:
-	$(DC) logs -f queue
+# Suivre le scheduler (worker de file, suivi transporteur, AI importer).
+scheduler-logs:
+	$(DC) logs -f scheduler
 
-# Etat de la file : nombre de jobs en attente, par type.
+# Etat de la file : nombre de jobs en attente.
 queue-status:
 	$(EXEC) php artisan queue:monitor default
+
+# Taches planifiees et leur prochaine execution.
+schedule-list:
+	$(EXEC) php artisan schedule:list
 
 ps:
 	$(DC) ps
