@@ -146,7 +146,11 @@ final class WeightCalculator
             return $resolvedMode === 'standard';
         }
 
-        return $product->pko_franco_eligible === true
+        // Cast explicite : la colonne `pko_franco_eligible` est un tinyint sans cast
+        // sur le modèle Lunar\Models\Product, donc Eloquent renvoie 1/0 (int) et non
+        // un booléen. Une comparaison stricte à `true` excluait du franco TOUT produit
+        // non-`inherit`, ce qui suffisait à annuler le franco du panier entier.
+        return (bool) ($product->pko_franco_eligible ?? false)
             && $resolvedMode !== 'quote';
     }
 
