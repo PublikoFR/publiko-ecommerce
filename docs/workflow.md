@@ -241,11 +241,28 @@ docker compose exec -u sail app php artisan migrate:fresh --env=testing   # ⛔ 
    **Ne jamais recâbler ce garde sur `APP_ENV`** : c'est exactement la faille du 29/07. Le seul critère fiable est le nom de la base résolue par la connexion par défaut.
 2. **Bypass sanctionné** : seule la cible `make fresh` passe `ALLOW_DB_WIPE=1` (`$(EXEC) sh -c 'ALLOW_DB_WIPE=1 php artisan migrate:fresh --force'`). C'est le **seul** chemin autorisé pour reset la base de dev, et il est déclenché explicitement par l'humain.
 3. **Makefile (worktree)** : `WORKTREE_GUARD` fait toujours un fast-fail sur `fresh`/`install`/`lunar` depuis un worktree (garde redondant, message clair).
+4. **Dump automatique — dernier filet** : `make db-dump` sauvegarde `weklo` en gzip horodaté dans `storage/backups/` (rétention glissante : 20 dumps, dossier git-ignoré). Toute cible qui touche au schéma ou aux données de la base de dev en **dépend** — `fresh`, `install`, `migrate`, `seed`, `lunar` — donc le dump part avant, automatiquement, sans rien avoir à penser. Restauration : `make db-restore` (dump le plus récent) ou `make db-restore DUMP=storage/backups/<fichier>.sql.gz`.
+   - Le dump **échoue bruyamment** plutôt que d'écrire une archive vide : `set -o pipefail` + contrôle de taille, et la cible destructive est annulée dans la foulée. D'où le `SHELL := /bin/bash` en tête de Makefile — `pipefail` n'existe pas sous `dash`, le `/bin/sh` par défaut, et un `mysqldump` en échec y renverrait 0 à travers le pipe `gzip`.
+   - Base absente ou sans aucune table → le dump est ignoré avec un message (rien à perdre), ce qui garde `make install` fonctionnel sur une machine vierge.
 
 **Règles** :
 - **Un agent PKOS ne lance JAMAIS `migrate:fresh` / `db:wipe` sur la base dev.** Pour valider une migration → **`make test`** (base `testing`, jamais la dev).
 - Reset réel de la dev → `make fresh` (humain), qui porte le bypass. Ne jamais ajouter `ALLOW_DB_WIPE=1` à la main dans une commande d'agent.
 - **`--env=testing` ne cible PAS la base de test** (pas de `.env.testing` dans ce projet) et ne doit jamais être employé pour « sécuriser » une commande destructive. Pour viser explicitement la base de test : `-e DB_DATABASE=testing`, ou plus simplement `make test`.
+- **`--database=testing` n'existe pas non plus** : `config/database.php` ne déclare aucune connexion de ce nom (uniquement `mysql`, `sqlite`…).
+
+### Gotcha `lunar:install` — `make fresh` s'arrêtait juste après le wipe
+
+`lunar:install` appelle `lunar:create-admin` dès qu'aucun `Staff` admin n'existe (`vendor/lunarphp/core/src/Console/InstallLunar.php:68`), et ce sous-appel **prompte malgré `--no-interaction`** → `Interactivity.php line 32: Required.`. Dans l'ancienne cible `fresh`, cette étape venait juste après `migrate:fresh` : la base était vidée, puis la cible mourait avant `db:seed`. **Une base vide et un back-office inaccessible, même quand le reset était volontaire.**
+
+Parade : semer l'admin avant, ce qui rend la condition fausse.
+
+```make
+$(EXEC) php artisan db:seed --class='Database\Seeders\PkoAdminUserSeeder' --force
+$(EXEC) php artisan lunar:install --no-interaction
+```
+
+Appliqué aux cibles `fresh` **et** `install`.
 
 ---
 
