@@ -11,9 +11,11 @@ use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\CustomerGroup;
 use Lunar\Models\Order;
 use Lunar\Models\Product;
+use Lunar\Models\ProductVariant;
 use Lunar\Shipping\Models\ShippingMethod;
 use Lunar\Shipping\Models\ShippingRate;
 use Lunar\Shipping\Models\ShippingZone;
+use Pko\ShippingCommon\Models\Supplier;
 use Tests\TestCase;
 
 class SeedersTest extends TestCase
@@ -24,7 +26,11 @@ class SeedersTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(50, Product::query()->count());
+        // 50 produits de démo + 20 produits de test expédition (SKU TX-*, cf. shipping.md §5.17)
+        $this->assertSame(70, Product::query()->count());
+        $this->assertSame(20, ProductVariant::query()->where('sku', 'like', 'TX-%')->count());
+        // 3 fournisseurs : un par valeur de port_inclus (non / oui / cas_par_cas)
+        $this->assertSame(3, Supplier::query()->count());
         $this->assertGreaterThanOrEqual(3, LunarCollection::query()->count());
         // nouveau-client (défaut) + particuliers + 4 groupes « métier »
         // (installateurs, plombiers, electriciens, revendeurs) — cf. PkoCustomerGroupSeeder.

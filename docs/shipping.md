@@ -726,3 +726,48 @@ Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote`
 
 ---
 
+
+### 5.16 Poids hors grille → transport sur devis (2026-07-31)
+
+**Problème** : au-delà du dernier bracket de la grille (30 kg pour Chronopost), aucun service ne renvoie de tarif → `resolveWeightedOptions()` retournait un tableau vide. Le checkout n'affichait alors **aucune** option de livraison, et le paiement pouvait aboutir avec 0 € de port.
+
+**Décision** : bascule explicite en *transport sur devis*.
+
+| Couche | Comportement |
+|---|---|
+| `ShippingCalculator::resolveCarrierOptions()` | Si `weightKg > 0` et que les clients carrier ne renvoient aucun tarif → injecte une **option sentinelle** unique `quote.overweight` (`isSentinel=true`, prix 0). |
+| `ShippingCalculator` (blockers) | Ajoute un blocker « Le poids de votre commande dépasse nos grilles tarifaires… » dès que **toutes** les options du manifest sont des sentinelles. |
+| `ShippingQuote::isQuoteOnly()` | Nouveau helper : `true` si options non vides **et** toutes sentinelles. |
+| `CheckoutPage::getIsQuoteOnlyCartProperty()` | Retourne `true` aussi quand `hasOnlyQuoteShippingOptions()` (manifest 100 % `meta['quote']`) → le panier part en commande `awaiting-quote`, sans paiement en ligne, comme un panier `pko_port_mode='quote'`. |
+
+Constante : `ShippingCalculator::OVERWEIGHT_QUOTE_IDENTIFIER = 'quote.overweight'`.
+
+> Le cas « flat-only » (poids taxable nul + forfaits) reste inchangé : il énumère les services à 0 € de grille et n'est donc jamais concerné par la sentinelle.
+
+Tests : `tests/Unit/Shipping/ShippingCalculatorTest.php` — `test_poids_hors_grille_produit_une_sentinelle_sur_devis`, `test_poids_dans_la_grille_ne_produit_pas_de_sentinelle`.
+
+### 5.17 Catalogue de test expédition — seeders (2026-07-31)
+
+Deux seeders **additifs et idempotents** alimentent le catalogue de démo avec un produit par cas d'expédition. Ils sont enregistrés dans `DatabaseSeeder` après `PkoProductSeeder` et ne suppriment ni ne modifient aucune donnée existante — ils peuvent être rejoués sur une base vivante (`db:seed --class=…`), **sans `migrate:fresh`**.
+
+| Seeder | Contenu |
+|---|---|
+| `PkoSupplierSeeder` | 3 fournisseurs couvrant les 3 valeurs de `port_inclus` : **SOMFY** (`non`, 5–10 j), *Fournisseur Port Inclus* (`oui`, BL neutre, 3–7 j), *Fournisseur Port À Trancher* (`cas_par_cas`, 7–15 j). `updateOrCreate` sur `name`. |
+| `PkoShippingCasesProductSeeder` | 20 produits SKU `TX-01` → `TX-20`, valeurs **déterministes** (poids/prix/stock fixes, aucun `random_int`). Un produit dont le SKU existe déjà est ignoré. |
+
+**Matrice couverte** (SKU → cas) :
+
+| SKU | Cas testé |
+|---|---|
+| `TX-01`…`TX-06` | tranches de grille 2 / 10 / 20 kg, borne exacte 20 kg, > 20 kg (relais masqué), borne 30 kg |
+| `TX-07` | 35 kg → hors grille → sentinelle « sur devis » (§5.16) |
+| `TX-08` | 600 € HT → franco atteint à lui seul |
+| `TX-09` | `pko_franco_eligible=false` → annule le franco du panier + bandeau exclusion |
+| `TX-10`, `TX-11` | mode `flat` (forfaits 25 € / 120 €), poids exclu du poids taxable |
+| `TX-12` | mode `flat` + franco forcé à `true` → badge « Forcé manuellement » |
+| `TX-13` | mode `free` (port inclus), 30 kg exclus du taxable |
+| `TX-14`, `TX-15` | mode `quote` (panier 100 % devis, et panier mixte avec `TX-15` + fournisseur) |
+| `TX-16`…`TX-19` | mode `inherit` : `port_inclus` oui / non / cas_par_cas / sans fournisseur |
+| `TX-20` | `purchasable='in_stock'` + stock 0 → rupture, non ajoutable au panier |
+
+Pour retrouver ou purger ces produits : filtrer sur le préfixe SKU `TX-` (`PkoShippingCasesProductSeeder::skuPrefix()`).

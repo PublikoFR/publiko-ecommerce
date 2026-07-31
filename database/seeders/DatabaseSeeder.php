@@ -33,6 +33,8 @@ class DatabaseSeeder extends Seeder
             PkoCollectionSeeder::class,
             PkoProductTypeSeeder::class,
             PkoProductSeeder::class,
+            PkoSupplierSeeder::class,
+            PkoShippingCasesProductSeeder::class,
             PkoCustomerSeeder::class,
             PkoOrderSeeder::class,
             DefaultTiersSeeder::class,

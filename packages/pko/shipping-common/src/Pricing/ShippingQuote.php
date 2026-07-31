@@ -35,6 +35,25 @@ final class ShippingQuote
         return $this->options === [];
     }
 
+    /**
+     * True si toutes les options proposées sont des sentinelles "sur devis"
+     * (aucun tarif calculable) — le panier doit alors partir en commande devis.
+     */
+    public function isQuoteOnly(): bool
+    {
+        if ($this->options === []) {
+            return false;
+        }
+
+        foreach ($this->options as $opt) {
+            if (! $opt->isSentinel) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /** True si au moins une option a le franco appliqué. */
     public function hasFrancoOption(): bool
     {

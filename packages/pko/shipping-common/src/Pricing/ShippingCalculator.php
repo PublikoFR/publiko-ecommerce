@@ -44,6 +44,9 @@ final class ShippingCalculator
     /** Identifier de l'option "Livraison offerte" (toutes lignes free). */
     public const FREE_SHIPPING_IDENTIFIER = 'free_shipping';
 
+    /** Identifier de la sentinelle "sur devis" quand le poids dépasse la grille. */
+    public const OVERWEIGHT_QUOTE_IDENTIFIER = 'quote.overweight';
+
     /** Service Chronopost nécessitant un point relais. */
     private const RELAIS_SERVICE_CODE = 'chrono_relais';
 
@@ -129,6 +132,12 @@ final class ShippingCalculator
         // ── 8. Suppléments ────────────────────────────────────────────────────
         $options = $this->applySurcharges($options, $postcode, $country, $currency);
 
+        // Poids hors grille : seule la sentinelle "sur devis" subsiste → paiement bloqué.
+        if ($options !== [] && ! array_filter($options, fn (CalculatedShippingOption $o) => ! $o->isSentinel)) {
+            $blockers[] = 'Le poids de votre commande dépasse nos grilles tarifaires. '
+                .'Le transport sera devisé, le paiement en ligne est indisponible.';
+        }
+
         // ── 9. Banners ────────────────────────────────────────────────────────
         $banners = $this->computeBanners($cart, $options, $francoApplies, $threshold, $basis);
 
@@ -174,11 +183,42 @@ final class ShippingCalculator
 
         // Cas normal : poids > 0 — appel aux clients carrier
         if ($weightKg > 0.0) {
-            return $this->resolveWeightedOptions($weightKg, $flatCents, $country, $postcode, $priceBase, $taxRate);
+            $options = $this->resolveWeightedOptions($weightKg, $flatCents, $country, $postcode, $priceBase, $taxRate);
+
+            // Aucun service ne couvre ce poids (au-delà du dernier bracket de grille) :
+            // sans option, le checkout serait muet et laisserait passer un paiement à
+            // 0 € de port. On bascule explicitement en transport sur devis.
+            if ($options === []) {
+                return [$this->makeOverweightQuoteOption()];
+            }
+
+            return $options;
         }
 
         // Aucun cas applicable (ex. panier vide)
         return [];
+    }
+
+    /**
+     * Sentinelle "transport sur devis" — poids hors grille (aucun bracket ne couvre
+     * le poids taxable). Prix 0 : le montant réel est communiqué après validation.
+     */
+    private function makeOverweightQuoteOption(): CalculatedShippingOption
+    {
+        return new CalculatedShippingOption(
+            identifier: self::OVERWEIGHT_QUOTE_IDENTIFIER,
+            carrierCode: '',
+            serviceCode: '',
+            name: 'Transport sur devis',
+            description: 'Le poids total de votre commande dépasse nos grilles tarifaires. '
+                .'Un transport spécifique vous sera proposé après validation de la commande.',
+            gridPriceCents: 0,
+            flatPriceCents: 0,
+            autoSurchargeCents: 0,
+            franco: false,
+            isSentinel: true,
+            requiresPickupPoint: false,
+        );
     }
 
     private function makeFreeShippingOption(): CalculatedShippingOption

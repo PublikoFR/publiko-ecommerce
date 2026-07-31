@@ -355,8 +355,29 @@ class CheckoutPage extends Component
         // Shipping lines (ShippingOption) are not ProductVariants and are excluded here.
         $productLines = $lines->filter(fn ($l) => $l->purchasable instanceof ProductVariant);
 
-        return $productLines->isNotEmpty()
-            && $productLines->every(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote');
+        if ($productLines->isEmpty()) {
+            return false;
+        }
+
+        if ($productLines->every(fn ($l) => ($l->purchasable?->product?->pko_port_mode ?? '') === 'quote')) {
+            return true;
+        }
+
+        // Aucun tarif calculable (poids hors grille) : toutes les options du manifest
+        // sont des sentinelles "sur devis" → même flux que le panier 100 % devis.
+        return $this->hasOnlyQuoteShippingOptions();
+    }
+
+    /**
+     * True when the shipping manifest only holds sentinel ("sur devis") options.
+     * Empty manifest (no address yet, or zone not served) → false.
+     */
+    private function hasOnlyQuoteShippingOptions(): bool
+    {
+        $options = ShippingManifest::getOptions($this->cart);
+
+        return $options->isNotEmpty()
+            && $options->every(fn ($opt) => ($opt->meta['quote'] ?? false) === true);
     }
 
     /**

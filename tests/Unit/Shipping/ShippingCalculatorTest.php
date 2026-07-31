@@ -726,6 +726,46 @@ class ShippingCalculatorTest extends TestCase
         $this->assertSame(800, $opt->totalPriceCents(), 'Total = 0 (franco) + 800 (corse)');
     }
 
+    // ── Tests : poids hors grille → sentinelle "sur devis" ───────────────────
+
+    public function test_poids_hors_grille_produit_une_sentinelle_sur_devis(): void
+    {
+        TaxClass::create(['name' => 'Default', 'default' => true]);
+
+        // Aucun bracket ne couvre le poids → le client carrier ne renvoie aucun tarif.
+        $this->chronoClient->shouldReceive('quote')->andReturn([]);
+
+        $cart = $this->makeCart([
+            $this->makeLine(subtotalHtCents: 40000, weightKg: 35.0),
+        ]);
+
+        $quote = $this->calculator->calculate($cart);
+
+        $this->assertCount(1, $quote->options);
+
+        $option = $quote->options[0];
+        $this->assertSame(ShippingCalculator::OVERWEIGHT_QUOTE_IDENTIFIER, $option->identifier);
+        $this->assertTrue($option->isSentinel);
+        $this->assertSame(0, $option->totalPriceCents());
+        $this->assertTrue($quote->isQuoteOnly());
+        $this->assertNotEmpty($quote->blockers, 'Le paiement doit être bloqué hors grille');
+    }
+
+    public function test_poids_dans_la_grille_ne_produit_pas_de_sentinelle(): void
+    {
+        TaxClass::create(['name' => 'Default', 'default' => true]);
+        $this->mockQuotes(1890, 1490);
+
+        $cart = $this->makeCart([
+            $this->makeLine(subtotalHtCents: 10000, weightKg: 5.0),
+        ]);
+
+        $quote = $this->calculator->calculate($cart);
+
+        $this->assertFalse($quote->isQuoteOnly());
+        $this->assertSame([], $quote->blockers);
+    }
+
     // ── Test : identifier default option ─────────────────────────────────────
 
     public function test_default_option_identifier_est_chrono13(): void
