@@ -1,3 +1,8 @@
+# bash explicite : `set -o pipefail` (cible db-dump) est indisponible sous dash,
+# le /bin/sh par defaut de make sur Debian/Ubuntu. Sans pipefail, un mysqldump en
+# echec produit une archive gzip vide dont le code retour est 0 → faux backup.
+SHELL := /bin/bash
+
 # Garde anti-wipe : detecte si make tourne depuis un worktree PKOS.
 # container_name est fige dans compose.yaml → un worktree retombe sur le
 # conteneur principal = base de dev weklo. On bloque les commandes destructives
@@ -22,11 +27,19 @@ DB_ROOT_PWD  := $(or $(shell grep -s '^DB_ROOT_PASSWORD=' .env 2>/dev/null | cut
 # du worktree quand vendor est monte depuis le repo principal.
 MAIN_REPO := $(if $(WORKTREE_GUARD),$(shell git worktree list --porcelain 2>/dev/null | grep '^worktree' | head -1 | awk '{print $$2}'),)
 
+# Dump de securite avant toute action destructive sur la base de dev.
+# Les trois wipes de weklo (2026-06-02, 2026-07-16, 2026-07-29) ont ete des pertes
+# seches faute de sauvegarde. Toute cible qui touche au schema ou aux donnees de la
+# base de dev depend desormais de `db-dump`.
+BACKUP_DIR  := storage/backups
+BACKUP_KEEP := 20
+DB_NAME     := $(or $(shell grep -s '^DB_DATABASE=' .env 2>/dev/null | cut -d= -f2),weklo)
+
 DC=docker compose -p ecom-laravel
 EXEC=$(DC) exec -u sail $(WT_ENV) app
 EXEC_ROOT=$(DC) exec $(WT_ENV) app
 
-.PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions
+.PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions db-dump db-restore
 
 help:
 	@echo "Back-office Laravel + Lunar + Filament"
@@ -43,6 +56,8 @@ help:
 	@echo "  make migrate     Exécuter les migrations"
 	@echo "  make fresh       migrate:fresh --seed (reset DB complet)"
 	@echo "  make seed        Exécuter les seeders"
+	@echo "  make db-dump     Sauvegarder la base de dev (auto avant toute action destructive)"
+	@echo "  make db-restore  Restaurer le dump le plus récent (ou DUMP=<chemin>)"
 	@echo "  make test        Lancer la suite PHPUnit"
 	@echo "  make lint        Laravel Pint (PSR-12)"
 	@echo "  make logs        Suivre les logs des conteneurs"
@@ -57,7 +72,7 @@ help:
 	@echo "  phpMyAdmin     http://pma.weklo.localhost"
 	@echo "  Mailpit        http://mailpit.localhost (shared)"
 
-install:
+install: db-dump
 	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(DC) up -d --build
 	$(EXEC) composer install
@@ -65,6 +80,8 @@ install:
 	$(EXEC) php artisan key:generate --force
 	$(EXEC) php artisan storage:link
 	$(EXEC) php artisan migrate --graceful --force
+# Cf. la cible `fresh` : lunar:install prompte si aucun Staff admin n'existe.
+	$(EXEC) php artisan db:seed --class='Database\Seeders\PkoAdminUserSeeder' --force
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
 	$(EXEC) php artisan db:seed --force
@@ -91,19 +108,46 @@ artisan:
 composer:
 	$(EXEC) composer $(CMD)
 
-migrate:
+migrate: db-dump
 	$(EXEC) php artisan migrate
 
-fresh:
+# Dump gzip horodate de la base de dev vers storage/backups/, avec retention
+# glissante. Echoue bruyamment (pipefail) plutot que d'ecrire une archive vide :
+# un backup silencieusement casse est pire que pas de backup.
+db-dump:
+	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Dump interdit depuis un worktree PKOS."; exit 1; fi
+	@mkdir -p $(BACKUP_DIR)
+	@TABLES=$$($(DC) exec -T mysql sh -c 'exec mysql -N -B -uroot -p"$$MYSQL_ROOT_PASSWORD" -e "select count(*) from information_schema.tables where table_schema=\"$(DB_NAME)\""' 2>/dev/null | tr -d '\r'); \
+	if [ -z "$$TABLES" ] || [ "$$TABLES" = "0" ]; then echo "ℹ️  Base '$(DB_NAME)' absente ou vide — rien à sauvegarder."; exit 0; fi; \
+	set -o pipefail; \
+	OUT="$(BACKUP_DIR)/$(DB_NAME)-$$(date +%Y%m%d-%H%M%S).sql.gz"; \
+	$(DC) exec -T mysql sh -c 'exec mysqldump --single-transaction --routines --events --no-tablespaces -uroot -p"$$MYSQL_ROOT_PASSWORD" $(DB_NAME)' 2>/dev/null | gzip > "$$OUT" || { echo "⛔ Dump de '$(DB_NAME)' échoué — action destructive annulée."; rm -f "$$OUT"; exit 1; }; \
+	if [ ! -s "$$OUT" ]; then echo "⛔ Dump vide — action destructive annulée."; rm -f "$$OUT"; exit 1; fi; \
+	echo "💾 Sauvegarde : $$OUT ($$(du -h "$$OUT" | cut -f1))"
+	@ls -1t $(BACKUP_DIR)/$(DB_NAME)-*.sql.gz 2>/dev/null | tail -n +$$(($(BACKUP_KEEP) + 1)) | xargs -r rm -f
+
+# Restaure le dump le plus recent (ou DUMP=<chemin>).
+db-restore:
+	@DUMP="$(or $(DUMP),$(shell ls -1t $(BACKUP_DIR)/*.sql.gz 2>/dev/null | head -1))"; \
+	if [ -z "$$DUMP" ] || [ ! -s "$$DUMP" ]; then echo "⛔ Aucun dump exploitable dans $(BACKUP_DIR)/. Précise DUMP=<chemin>."; exit 1; fi; \
+	echo "♻️  Restauration de $$DUMP dans '$(DB_NAME)'..."; \
+	gunzip -c "$$DUMP" | $(DC) exec -T mysql sh -c 'exec mysql -uroot -p"$$MYSQL_ROOT_PASSWORD" $(DB_NAME)' 2>/dev/null && echo "✅ Base '$(DB_NAME)' restaurée."
+
+fresh: db-dump
 	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan storage:link
 	$(EXEC) sh -c 'ALLOW_DB_WIPE=1 php artisan migrate:fresh --force'
+# lunar:install appelle lunar:create-admin des qu'aucun Staff admin n'existe, et ce
+# sous-appel prompte MEME avec --no-interaction → 'Interactivity.php line 32: Required.'
+# et la cible s'arrete juste apres le wipe, base vide. Semer l'admin d'abord rend la
+# condition fausse et l'installation non interactive.
+	$(EXEC) php artisan db:seed --class='Database\Seeders\PkoAdminUserSeeder' --force
 	$(EXEC) php artisan lunar:install --no-interaction
 	$(EXEC) php artisan shield:generate --all --panel=admin --no-interaction
 	$(EXEC) php artisan db:seed --force
 	$(EXEC) php artisan shield:super-admin --user=1 --panel=admin
 
-seed:
+seed: db-dump
 	$(EXEC) php artisan db:seed
 
 test:
@@ -138,7 +182,7 @@ logs:
 ps:
 	$(DC) ps
 
-lunar:
+lunar: db-dump
 	@if [ -n "$(WORKTREE_GUARD)" ]; then echo "⛔ Commande destructive interdite depuis un worktree PKOS (protège la base de dev weklo). Utilise 'make test' (DB testing) pour valider une migration."; exit 1; fi
 	$(EXEC) php artisan lunar:install
 

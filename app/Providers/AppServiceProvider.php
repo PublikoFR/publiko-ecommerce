@@ -24,6 +24,7 @@ use App\Generators\PkoProductUrlGenerator;
 use App\Observers\CollectionAvailabilityObserver;
 use App\Observers\CollectionDeleteObserver;
 use App\Observers\ProductAvailabilityObserver;
+use App\Support\DestructiveCommandGuard;
 use App\Support\Payments\ResilientStripeManager;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Panel;
@@ -275,15 +276,20 @@ class AppServiceProvider extends ServiceProvider
         // framework migrate:fresh / migrate:refresh / migrate:reset / db:wipe QUEL
         // QUE SOIT le mode d'invocation (make, `php artisan` brut, agent PKOS) — le
         // garde du Makefile ne couvrait que les cibles `make`, pas l'artisan direct.
-        // - production : toujours interdit ;
-        // - testing (bases testing_*) : autorisé, les tests doivent se rafraîchir ;
-        // - local / dev : interdit SAUF bypass explicite `ALLOW_DB_WIPE=1` (réservé
-        //   aux commandes `make fresh` sanctionnées par l'humain).
-        DB::prohibitDestructiveCommands(
-            $this->app->environment('production')
-                || (! $this->app->environment('testing')
-                    && ! filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN))
-        );
+        // Le critère est le NOM DE LA BASE RÉELLEMENT CIBLÉE, jamais APP_ENV :
+        // `php artisan migrate:fresh --env=testing` bascule APP_ENV à `testing` alors
+        // que, faute de `.env.testing`, la connexion reste sur `.env` → la base de dev.
+        // C'est précisément ce qui a vidé `weklo` le 29/07/2026 (3e incident) avec
+        // l'ancienne garde basée sur `environment('testing')`.
+        // - bases `testing*` : autorisé, les tests doivent se rafraîchir ;
+        // - production : toujours interdit, aucun bypass ;
+        // - toute autre base (dev / local) : interdit SAUF bypass explicite
+        //   `ALLOW_DB_WIPE=1` (réservé à `make fresh`, sanctionné par l'humain).
+        DB::prohibitDestructiveCommands(DestructiveCommandGuard::shouldProhibit(
+            database: (string) config('database.connections.'.config('database.default').'.database'),
+            environment: (string) $this->app->environment(),
+            allowWipe: filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN),
+        ));
 
         // Vérification SIRET : le SireneClient est liaisonné par le package
         // customer-auth à partir de la config .env uniquement. On surcharge ici
