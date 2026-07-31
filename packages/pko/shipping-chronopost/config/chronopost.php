@@ -37,9 +37,29 @@ return [
         'email' => env('SHIPPER_EMAIL', ''),
     ],
 
+    /*
+     * Correspondance code de service interne → code produit Chronopost, utilisée en
+     * secours quand `pko_carrier_services.carrier_product_code` est vide (tests, install
+     * neuve). Valeurs issues du module PrestaShop officiel v7.5.6 (compte standard).
+     */
+    'product_codes' => [
+        'chrono_relais' => '86',
+        'chrono13' => '1',
+        'chrono10' => '2',
+        'chrono18' => '16',
+        'chrono_classic' => '44',
+    ],
+
     'packaging' => [
         'default_weight_unit' => 'KGM',
         'default_dim_unit' => 'CMT',
+        // Carton par défaut quand les variantes de la commande ne portent pas
+        // les trois dimensions.
+        'default_dimensions_cm' => [
+            'length' => 30,
+            'width' => 20,
+            'height' => 15,
+        ],
     ],
 
     'label_format' => 'PDF',

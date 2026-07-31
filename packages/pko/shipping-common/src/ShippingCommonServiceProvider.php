@@ -24,6 +24,7 @@ use Pko\ShippingCommon\Pricing\PricingModeResolver;
 use Pko\ShippingCommon\Pricing\ShippingCalculator;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
 use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
+use Pko\ShippingCommon\Support\CarrierProductCodeResolver;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
 
 class ShippingCommonServiceProvider extends ServiceProvider
@@ -38,6 +39,7 @@ class ShippingCommonServiceProvider extends ServiceProvider
         $this->app->singleton(PricingModeResolver::class);
         $this->app->singleton(LivePricingResolver::class);
         $this->app->singleton(ShippingCalculator::class);
+        $this->app->singleton(CarrierProductCodeResolver::class);
 
         // Provider de points relais — V1 manuel par défaut. Un adapter API
         // (SOAP Chronopost) peut être lié à la place sans toucher au front.

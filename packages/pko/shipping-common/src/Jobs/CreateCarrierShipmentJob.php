@@ -17,6 +17,8 @@ use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Dto\ShipmentRequest;
 use Pko\ShippingCommon\Mail\ShipmentCreatedMail;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierProductCodeResolver;
+use Pko\ShippingCommon\Support\ParcelDimensionsCalculator;
 use Pko\ShippingCommon\Support\WeightCalculator;
 use RuntimeException;
 use Throwable;
@@ -69,29 +71,31 @@ class CreateCarrierShipmentJob implements ShouldQueue
 
         // Lunar casts `meta` as AsArrayObject — is_array() returns false on hydrated models.
         $meta = $order->meta instanceof \ArrayObject ? $order->meta->getArrayCopy() : (array) ($order->meta ?? []);
-        $pickupPoint = $meta['pickup_point'] ?? null;
-        $pickupPointId = is_array($pickupPoint) ? (string) ($pickupPoint['id'] ?? '') : null;
-        if ($pickupPointId === '') {
-            $pickupPointId = null;
-        }
+        $pickupPoint = is_array($meta['pickup_point'] ?? null) ? $meta['pickup_point'] : null;
+        $pickupPointId = $pickupPoint !== null ? (string) ($pickupPoint['id'] ?? '') : '';
+        $pickupPointId = $pickupPointId !== '' ? $pickupPointId : null;
+
+        $recipient = [
+            'name' => trim(($shippingAddress->first_name ?? '').' '.($shippingAddress->last_name ?? '')),
+            'company' => $shippingAddress->company_name,
+            'street' => $shippingAddress->line_one,
+            'zip' => $shippingAddress->postcode,
+            'city' => $shippingAddress->city,
+            'country' => $shippingAddress->country?->iso2 ?? 'FR',
+            'phone' => $shippingAddress->contact_phone,
+            'email' => $shippingAddress->contact_email ?? $order->customer?->email,
+        ];
 
         $request = new ShipmentRequest(
             orderId: $order->id,
             orderReference: (string) $order->reference,
             weightKg: WeightCalculator::fromOrder($order),
             serviceCode: $this->serviceCode,
-            recipient: [
-                'name' => trim(($shippingAddress->first_name ?? '').' '.($shippingAddress->last_name ?? '')),
-                'company' => $shippingAddress->company_name,
-                'street' => $shippingAddress->line_one,
-                'zip' => $shippingAddress->postcode,
-                'city' => $shippingAddress->city,
-                'country' => $shippingAddress->country?->iso2 ?? 'FR',
-                'phone' => $shippingAddress->contact_phone,
-                'email' => $shippingAddress->contact_email ?? $order->customer?->email,
-            ],
+            recipient: $this->applyPickupPoint($recipient, $pickupPoint),
             shipper: $shipperConfig,
             pickupPointId: $pickupPointId,
+            carrierProductCode: app(CarrierProductCodeResolver::class)->resolve($this->carrier, $this->serviceCode),
+            dimensionsCm: ParcelDimensionsCalculator::fromOrder($order, $this->carrier),
         );
 
         $shipment->payload_sent = (array) $request;
@@ -112,6 +116,34 @@ class CreateCarrierShipmentJob implements ShouldQueue
 
         $this->markOrderDispatched($order);
         $this->notifyCustomer($order, $shipment);
+    }
+
+    /**
+     * Livraison en point relais : le destinataire de la LT est le point relais, pas le client.
+     *
+     * Les WS transporteurs n'exposent aucun champ « identifiant du point relais » dans le
+     * bloc destinataire (vérifié sur `recipientValue` du ShippingServiceWS Chronopost) —
+     * c'est l'adresse elle-même qui route le colis. On conserve le nom, le téléphone et
+     * l'e-mail du client pour que le point relais et les notifications identifient bien
+     * le destinataire final.
+     *
+     * @param  array<string, mixed>  $recipient
+     * @param  array<string, mixed>|null  $pickupPoint
+     * @return array<string, mixed>
+     */
+    protected function applyPickupPoint(array $recipient, ?array $pickupPoint): array
+    {
+        if ($pickupPoint === null || ($pickupPoint['address1'] ?? '') === '') {
+            return $recipient;
+        }
+
+        return array_merge($recipient, [
+            'company' => (string) ($pickupPoint['name'] ?? $recipient['company'] ?? ''),
+            'street' => (string) $pickupPoint['address1'],
+            'zip' => (string) ($pickupPoint['postcode'] ?? $recipient['zip'] ?? ''),
+            'city' => (string) ($pickupPoint['city'] ?? $recipient['city'] ?? ''),
+            'country' => (string) ($pickupPoint['country_code'] ?? $recipient['country'] ?? 'FR'),
+        ]);
     }
 
     protected function markOrderDispatched(Order $order): void

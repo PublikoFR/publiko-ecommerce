@@ -103,6 +103,98 @@ class CreateCarrierShipmentJobTest extends TestCase
         $this->assertNull($capturedRequest->pickupPointId, 'Un id vide doit être normalisé en null');
     }
 
+    public function test_le_code_produit_transporteur_remplace_le_slug_interne(): void
+    {
+        $order = $this->makeOrder(meta: []);
+
+        $capturedRequest = null;
+        $this->bindMockCarrierClient('chronopost', function (ShipmentRequest $req) use (&$capturedRequest): ShipmentResponse {
+            $capturedRequest = $req;
+
+            return new ShipmentResponse('TRACK004', base64_encode('PDF_CONTENT'));
+        });
+
+        (new CreateCarrierShipmentJob($order->id, 'chronopost', 'chrono13'))->handle();
+
+        // Le slug interne reste sur la ligne (grilles, suivi) mais le WS reçoit le code produit.
+        $this->assertSame('chrono13', $capturedRequest->serviceCode);
+        $this->assertSame('1', $capturedRequest->carrierProductCode);
+        $this->assertSame('1', $capturedRequest->productCode());
+    }
+
+    public function test_chrono_relais_substitue_ladresse_du_point_relais(): void
+    {
+        $order = $this->makeOrder(meta: [
+            'pickup_point' => [
+                'id' => 'PR_MONRELAIS',
+                'name' => 'Tabac du Centre',
+                'address1' => '12 avenue des Relais',
+                'postcode' => '34500',
+                'city' => 'Béziers',
+                'country_code' => 'FR',
+            ],
+        ]);
+
+        $capturedRequest = null;
+        $this->bindMockCarrierClient('chronopost', function (ShipmentRequest $req) use (&$capturedRequest): ShipmentResponse {
+            $capturedRequest = $req;
+
+            return new ShipmentResponse('TRACK005', base64_encode('PDF_CONTENT'));
+        });
+
+        (new CreateCarrierShipmentJob($order->id, 'chronopost', 'chrono_relais'))->handle();
+
+        // L'adresse du point relais route le colis : c'est elle qui part au WS.
+        $this->assertSame('Tabac du Centre', $capturedRequest->recipient['company']);
+        $this->assertSame('12 avenue des Relais', $capturedRequest->recipient['street']);
+        $this->assertSame('34500', $capturedRequest->recipient['zip']);
+        $this->assertSame('Béziers', $capturedRequest->recipient['city']);
+        // Le destinataire final reste identifiable par le point relais.
+        $this->assertSame('Jean Test', $capturedRequest->recipient['name']);
+        $this->assertSame('client@test.local', $capturedRequest->recipient['email']);
+        $this->assertSame('86', $capturedRequest->carrierProductCode);
+    }
+
+    public function test_un_point_relais_sans_adresse_ne_corrompt_pas_le_destinataire(): void
+    {
+        // Cas d'un meta hérité (ancienne version du checkout) : id seul, pas d'adresse.
+        $order = $this->makeOrder(meta: [
+            'pickup_point' => ['id' => 'PR_LEGACY', 'name' => 'Point sans adresse'],
+        ]);
+
+        $capturedRequest = null;
+        $this->bindMockCarrierClient('chronopost', function (ShipmentRequest $req) use (&$capturedRequest): ShipmentResponse {
+            $capturedRequest = $req;
+
+            return new ShipmentResponse('TRACK006', base64_encode('PDF_CONTENT'));
+        });
+
+        (new CreateCarrierShipmentJob($order->id, 'chronopost', 'chrono_relais'))->handle();
+
+        $this->assertSame('1 rue du Test', $capturedRequest->recipient['street']);
+        $this->assertSame('Paris', $capturedRequest->recipient['city']);
+    }
+
+    public function test_les_dimensions_du_colis_sont_transmises(): void
+    {
+        $order = $this->makeOrder(meta: []);
+
+        $capturedRequest = null;
+        $this->bindMockCarrierClient('chronopost', function (ShipmentRequest $req) use (&$capturedRequest): ShipmentResponse {
+            $capturedRequest = $req;
+
+            return new ShipmentResponse('TRACK007', base64_encode('PDF_CONTENT'));
+        });
+
+        (new CreateCarrierShipmentJob($order->id, 'chronopost', 'chrono13'))->handle();
+
+        // Commande sans ligne dimensionnée → carton par défaut du transporteur.
+        $this->assertSame(
+            ['length' => 30.0, 'width' => 20.0, 'height' => 15.0],
+            $capturedRequest->dimensionsCm,
+        );
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private function makeOrder(array $meta = []): Order

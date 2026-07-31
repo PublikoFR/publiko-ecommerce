@@ -176,13 +176,10 @@ class ChronopostClient implements CarrierClient
                 'recipientPhone' => (string) ($recipient['phone'] ?? ''),
                 'recipientZipCode' => (string) ($recipient['zip'] ?? ''),
                 'recipientType' => '1',
-                // SDK ladromelaboratoire/chronopostws does not define a setter for this
-                // field — wsrecipientvalue::loadArray() will silently ignore it (PHP 8.3
-                // deprecated-dynamic-property, not fatal). The correct WSDL field name is
-                // confirmed from the Chronopost ShippingServiceWS spec. Until the SDK is
-                // forked or replaced by a raw SoapClient, the relay point code is NOT
-                // transmitted to the carrier API. See docs/shipping.md §5.13.B.
-                ...($request->pickupPointId !== null ? ['recipientRelaisPointChronoId' => $request->pickupPointId] : []),
+                // Chrono Relais : aucun champ « identifiant du point relais » n'existe dans
+                // recipientValue (ni côté WSDL, ni côté SDK). C'est l'ADRESSE destinataire
+                // qui route le colis vers le point — la substitution est faite en amont par
+                // CreateCarrierShipmentJob::applyPickupPoint(). Cf. docs/shipping.md §5.13.B.
             ],
             'refValue' => [
                 'customerSkybillNumber' => $request->orderReference,
@@ -191,12 +188,20 @@ class ChronopostClient implements CarrierClient
             'skybillValue' => [
                 'bulkNumber' => 1,
                 'evtCode' => 'DC',
-                'productCode' => $request->serviceCode,
+                // Code produit transporteur (1 = Chrono 13, 2 = Chrono 10, 86 = Chrono Relais…),
+                // PAS notre slug interne : `chrono13` envoyé tel quel faisait échouer toute
+                // création d'étiquette. Résolu depuis pko_carrier_services.carrier_product_code.
+                'productCode' => $request->productCode(),
                 'service' => '0',
                 'shipDate' => date('Y-m-d\TH:i:s'),
                 'shipHour' => date('H'),
                 'weight' => max(0.1, $request->weightKg),
                 'weightUnit' => 'KGM',
+                ...($request->dimensionsCm !== null ? [
+                    'length' => $request->dimensionsCm['length'],
+                    'width' => $request->dimensionsCm['width'],
+                    'height' => $request->dimensionsCm['height'],
+                ] : []),
                 'objectType' => 'MAR',
                 'portCurrency' => 'EUR',
                 'codValue' => '0',
@@ -214,7 +219,7 @@ class ChronopostClient implements CarrierClient
             ],
             'password' => $password,
             'modeRetour' => 2,
-            'numberOfParcel' => 1,
+            'numberOfParcel' => max(1, $request->parcelCount),
             'version' => '2.0',
             'multiParcel' => 'N',
         ];

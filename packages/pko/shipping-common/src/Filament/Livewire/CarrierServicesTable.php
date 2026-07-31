@@ -101,6 +101,10 @@ class CarrierServicesTable extends AbstractCarrierTable
                     ignoreRecord: true,
                     modifyRuleUsing: fn (Unique $rule): Unique => $rule->where('carrier_code', $this->carrierCode),
                 ),
+            TextInput::make('carrier_product_code')
+                ->label('Code produit transporteur')
+                ->helperText('Code attendu par le web service (Chronopost : 1 = Chrono 13, 2 = Chrono 10, 86 = Chrono Relais). Vide = le code ci-dessus est envoyé tel quel.')
+                ->maxLength(8),
             TextInput::make('label')
                 ->label('Libellé')
                 ->helperText('Nom affiché au client.')

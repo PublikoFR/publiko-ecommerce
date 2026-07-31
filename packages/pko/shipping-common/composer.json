@@ -7,7 +7,9 @@
         "php": "^8.2",
         "illuminate/support": "^11.0",
         "lunarphp/core": "^1.0",
-        "filament/filament": "^3.0"
+        "filament/filament": "^3.0",
+        "barryvdh/laravel-dompdf": "^3.0",
+        "ext-zip": "*"
     },
     "autoload": {
         "psr-4": {

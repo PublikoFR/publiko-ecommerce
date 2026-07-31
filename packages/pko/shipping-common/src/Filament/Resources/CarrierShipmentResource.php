@@ -8,12 +8,15 @@ use Filament\Notifications\Notification;
 use Filament\Pages\SubNavigationPosition;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Lunar\Admin\Support\Resources\BaseResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource\Pages;
 use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\LabelArchive;
+use RuntimeException;
 
 class CarrierShipmentResource extends BaseResource
 {
@@ -186,6 +189,70 @@ class CarrierShipmentResource extends BaseResource
                             ->send();
                     }),
                 Tables\Actions\ViewAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('download_labels')
+                    ->label('Télécharger les étiquettes (ZIP)')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records) {
+                        try {
+                            $archive = LabelArchive::build($records, 'etiquettes.zip');
+                        } catch (RuntimeException $e) {
+                            Notification::make()
+                                ->title($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return null;
+                        }
+
+                        return response()
+                            ->download($archive, 'etiquettes-'.now()->format('Y-m-d').'.zip')
+                            ->deleteFileAfterSend();
+                    }),
+                Tables\Actions\BulkAction::make('retry_bulk')
+                    ->label('Relancer la génération')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records) {
+                        $dispatched = 0;
+
+                        foreach ($records as $record) {
+                            // Les envois pris en charge par un fournisseur n'ont pas
+                            // d'étiquette à notre nom : rien à relancer côté transporteur.
+                            if ($record->origin !== CarrierShipment::ORIGIN_WEKLO) {
+                                continue;
+                            }
+
+                            if ($record->status === CarrierShipment::STATUS_CREATED) {
+                                continue;
+                            }
+
+                            CreateCarrierShipmentJob::dispatch(
+                                $record->order_id,
+                                $record->carrier,
+                                (string) $record->service_code,
+                                (string) $record->origin,
+                            );
+
+                            $record->update([
+                                'status' => CarrierShipment::STATUS_PENDING,
+                                'error_message' => null,
+                            ]);
+
+                            $dispatched++;
+                        }
+
+                        Notification::make()
+                            ->title($dispatched > 0
+                                ? "{$dispatched} génération(s) relancée(s)"
+                                : 'Aucun envoi relançable dans la sélection')
+                            ->status($dispatched > 0 ? 'success' : 'warning')
+                            ->send();
+                    }),
             ])
             ->defaultSort('created_at', 'desc');
     }

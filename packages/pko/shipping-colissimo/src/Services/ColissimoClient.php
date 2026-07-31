@@ -109,7 +109,7 @@ class ColissimoClient implements CarrierClient
             $generate = new Generate($options);
 
             $service = (new ColissimoService)
-                ->setProductCode($request->serviceCode)
+                ->setProductCode($request->productCode())
                 ->setDepositDate(date('Y-m-d'))
                 ->setOrderNumber($request->orderReference)
                 ->setCommercialName((string) ($shipper['name'] ?? config('app.name', '')));

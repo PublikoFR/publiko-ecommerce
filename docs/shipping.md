@@ -553,10 +553,10 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - `save()` : si Chrono Relais choisi sans point retenu → erreur `pickupPointId`. Le point est persisté dans `cart.meta['pickup_point']`.
 - `FillOrderFromCart` (pipeline Lunar) copie l'intégralité de `cart.meta` → `order.meta` : la propagation du point relais est donc automatique, sans pipeline custom.
 
-**Propagation vers l'expédition** (`CreateCarrierShipmentJob`) :
-- `ShipmentRequest.pickupPointId` (optionnel, null = pas de relais) est alimenté depuis `order.meta['pickup_point']['id']`.
-- `ChronopostClient::createShipment()` passe `recipientRelaisPointChronoId` dans `recipientValue` du payload SOAP.
-- **Limitation connue** : le SDK `ladromelaboratoire/chronopostws` (`wsrecipientvalue`) ne définit pas de setter pour `recipientRelaisPointChronoId` → la valeur est passée dans le tableau mais **ignorée silencieusement** par `loadArray()`. Le code relais n'est pas transmis au WS Chronopost. Contournement pour lot 7 : remplacer `ChronopostClient::createShipment()` par un `SoapClient` brut pour Chrono Relais (même pattern que `PickupPointSoapClient`) ou fork du SDK.
+**Propagation vers l'expédition** (`CreateCarrierShipmentJob`) — **corrigé le 2026-07-31, cf. §5.21** :
+- `ShipmentRequest.pickupPointId` (optionnel, null = pas de relais) est alimenté depuis `order.meta['pickup_point']['id']`. Il ne sert que de trace : **aucun WS transporteur n'expose de champ « identifiant du point relais »**.
+- C'est l'**adresse destinataire** qui route le colis vers le point relais. `CreateCarrierShipmentJob::applyPickupPoint()` substitue l'adresse du point (nom du point en `company`, rue/CP/ville du point) tout en conservant nom, téléphone et e-mail du client — même approche que le module PrestaShop officiel, qui crée une `Address` dédiée au relais à la validation de commande.
+- ❌ **Ancienne analyse erronée** : le champ `recipientRelaisPointChronoId` n'existe ni dans `recipientValue` du WSDL Chronopost, ni dans le SDK. Le fork du SDK envisagé ici était donc inutile — la ligne a été supprimée du payload.
 
 Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, purge) + `ChronopostPickupPointProviderTest` (succès, erreur → [], cache, points sans id) + `PickupPointSoapClientTest` (parse réponse unique/multiple, erreur API, SoapFault, credentials manquants).
 
@@ -804,3 +804,81 @@ La restriction à une liste reste possible : cocher des services dans **Admin �
 > Le joker ne touche ni les sentinelles « sur devis », ni les forfaits `flatPriceCents`, ni les suppléments `autoSurchargeCents` — un panier franco livré en Corse paie toujours son supplément (§5.12).
 
 Tests : `ShippingCalculatorTest::test_franco_applique_sur_tous_les_services_par_defaut` + `test_franco_restreint_a_chrono13_quand_la_config_le_precise`, `ShippingCasesTest::test_scenario_05_franco_offre_tous_les_services`, `e2e/tests/expeditions/modes-livraison.spec.ts`.
+
+---
+
+### 5.21 Étiquettes réellement émises : code produit, relais, dimensions, impression en masse et bordereau (2026-07-31)
+
+Audit de bout en bout de « qu'est-ce qui part réellement chez Chronopost à chaque commande », par comparaison avec le module PrestaShop officiel `chronopost` v7.5.6 (lecture seule, `~/webdev/projects/MDE Prestashop/modules/chronopost`).
+
+#### A) La chaîne existante (rappel)
+
+`OrderShipmentObserver` (statut `paid` / `payment-received`) → `ShipmentSplitter` → `CreateCarrierShipmentJob` (queue redis, 5 tentatives) → `CarrierClient::createShipment()` → PDF dans `storage/app/labels/{order_id}/`, n° de suivi, commande en `dispatched`, e-mail client. Les lignes fournisseur (`supplier_direct`, `supplier_via_weklo`) sont enregistrées en `pending` **sans** appel transporteur.
+
+#### B) Bloquant corrigé — `productCode` (aucune étiquette n'était créable)
+
+Notre code de service interne (`chrono13`, `chrono_relais`, `chrono10`) était envoyé tel quel dans `skybillValue.productCode`, alors que Chronopost attend un code produit à part.
+
+- Nouvelle colonne **`pko_carrier_services.carrier_product_code`** (migration `2026_07_31_100000`), éditable dans **Back-office → Expédition → Chronopost → Services** (champ « Code produit transporteur »).
+- `Pko\ShippingCommon\Support\CarrierProductCodeResolver` (singleton, mémoïsé) : DB → `config('<carrier>.product_codes.<service>')` → repli sur le code de service lui-même.
+- `ShipmentRequest::productCode()` est ce que les clients transporteurs envoient désormais. Le `serviceCode` interne reste porté par la ligne (grilles tarifaires, suivi, franco).
+- **Colissimo n'est pas concerné** : `DOM` / `DOS` *sont* les codes produits. Colonne laissée à `NULL` → repli automatique.
+
+| Service interne | Code produit Chronopost |
+|---|---|
+| `chrono13` | `1` |
+| `chrono10` | `2` |
+| `chrono_relais` | `86` |
+| `chrono18` | `16` |
+| `chrono_classic` | `44` |
+
+> Valeurs issues de `Chronopost::$carriersDefinitions` (module officiel, compte standard). Un compte « Petits pros » utilise une autre matrice (`9A`, `9B`, `9C`, `9F`) — d'où la colonne en base plutôt qu'une constante.
+
+#### C) Dimensions et nombre de colis
+
+`Pko\ShippingCommon\Support\ParcelDimensionsCalculator::fromOrder()` prend l'encombrement **maximal** des variantes de la commande (conversion mm/m/in → cm). Tant que les trois dimensions ne sont pas toutes connues, on retombe sur le carton par défaut `config('chronopost.packaging.default_dimensions_cm')` (30 × 20 × 15) — une seule dimension renseignée ne décrit pas un colis. `length` / `width` / `height` et `numberOfParcel` (`ShipmentRequest::$parcelCount`) partent maintenant dans le payload. La gestion de cartons multiples reste hors périmètre.
+
+#### D) Impression en masse
+
+Deux actions groupées sur **Expédition → Envois transporteurs** :
+
+- **Télécharger les étiquettes (ZIP)** — `Pko\ShippingCommon\Support\LabelArchive` empaquette les PDF présents sur le disque (`ext-zip`). Choix d'une archive plutôt qu'un PDF concaténé : la fusion imposerait `setasign/fpdi` pour un besoin d'impression que tout lecteur PDF couvre déjà, et chaque étiquette reste au format exact renvoyé par le transporteur. Les envois sans étiquette sur disque sont ignorés silencieusement ; une sélection entièrement vide lève une `RuntimeException` rendue en notification.
+- **Relancer la génération** — redispatch `CreateCarrierShipmentJob` pour les envois `weklo` non encore `created`. Les envois fournisseur sont ignorés (pas d'étiquette à notre nom).
+
+#### E) Bordereau de remise (« bordereau du jour »)
+
+Nouvelle page **Expédition → Bordereau de remise** (`DailyManifestPage`, slug `bordereau`) : liste des LT `created`, filtrable par date (défaut : aujourd'hui) et par transporteur, avec un bouton « Bordereau du jour » et une action groupée « Éditer le bordereau ».
+
+Le PDF (`Support\ManifestPdf` + vue `pko-shipping-common::pdf.manifest`, dompdf) reprend la structure du bordereau officiel : bloc **émetteur** (`config('<carrier>.shipper')`, variables `SHIPPER_*`, repli `brand_name()`), **détail des envois** (n° de LT, commande, n° de compte, transporteur, produit, CP, ville, pays), **résumé** national / international / total, mention « Bien pris en charge N colis », puis les deux cases de signature (expéditeur / chauffeur). À imprimer en deux exemplaires.
+
+> Le bordereau est construit **uniquement** depuis `pko_carrier_shipments` : c'est une preuve de prise en charge signée entre l'expéditeur et le chauffeur, elle ne transite par aucun web service. Le module PrestaShop procède de même (FPDF sur `chrono_lt_history`).
+
+**Ciblage d'une journée par URL** : la page accepte `?date=YYYY-MM-DD` (`DailyManifestPage::requestedDate()`, repli sur aujourd'hui, format illisible ignoré). Le format natif `?tableFilters[created_on][date]=…` de Filament **ne fonctionne pas ici** : le défaut du filtre est appliqué au premier rendu et écrase la valeur d'URL. Corollaire d'implémentation : ce défaut doit être **évalué immédiatement** (`->default($this->requestedDate())`) et non passé en closure — en closure, Filament l'évalue dans un contexte où la page n'est pas résolue et le filtre part sur une date qui ne matche rien (table vide, sans erreur). Régression verrouillée par `DailyManifestTest::test_le_filtre_de_date_passe_en_url_isole_la_remise_visee`.
+
+#### E bis) Raccourcis d'expédition sur la fiche commande
+
+`OrderShipmentActionsExtension` (enregistrée sur `ManageOrder` dans `AppServiceProvider`) ajoute un groupe d'actions **Expédition** dès qu'un `CarrierShipment` existe pour la commande :
+
+- **Télécharger l'étiquette** (une entrée par envoi, seulement si le PDF est présent sur le disque) ;
+- **Envoi n° \<LT\>** → fiche `CarrierShipmentResource` ;
+- **Bordereau du \<date\>** → page bordereau pré-filtrée sur la date de remise (`?date=`).
+
+Le bordereau reste **journalier par nature** — il atteste d'une remise groupée au chauffeur — donc le raccourci pointe sur la journée de l'envoi, pas sur un bordereau propre à la commande. Jusqu'ici seul le chemin inverse existait (liste des envois → commande).
+
+#### F) Ce qui reste à faire avant une mise en production
+
+1. **Credentials réels** — `.env` porte le compte de démo `19869502`, valable pour la recherche de points relais uniquement. Aucune LT réelle ne peut être émise tant que le compte de production n'est pas saisi (Back-office → Expédition → Chronopost, ou `CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD`).
+2. **Vérifier le format des codes produits sur le compte réel** — le module officiel envoie `1` / `2` / `86`, la documentation Chronopost cite parfois la forme à deux chiffres (`01`, `02`). En cas de rejet, corriger dans le champ « Code produit transporteur » sans toucher au code.
+3. **Dimensions par variante** — tant que les variantes ne portent pas leurs dimensions, tous les colis partent au carton par défaut.
+
+#### G) Écarts assumés avec le module PrestaShop
+
+| | PrestaShop | Weklo |
+|---|---|---|
+| Déclenchement | manuel : l'opérateur coche des commandes, saisit poids/dimensions/compte/samedi, puis « Print all waybills » | automatique à l'encaissement |
+| Choix du compte, livraison le samedi, DLC Chronofresh, retours (`3T`/`4T`) | oui | non — hors périmètre |
+| Étiquettes en masse | PDF concaténé | archive ZIP |
+| Bordereau du jour | oui | oui (§E) |
+| Historique LT | `chrono_lt_history` | `pko_carrier_shipments` |
+
+Tests : `CarrierProductCodeResolverTest` (DB, config, repli, mémoïsation), `CreateCarrierShipmentJobTest` (code produit envoyé, substitution de l'adresse relais, meta relais hérité sans adresse, dimensions), `DailyManifestTest` (PDF généré, archive ZIP, sélection sans étiquette, rendu de la page, filtre de date par URL), `OrderShipmentActionsTest` (raccourcis présents sur une commande expédiée, absents sans envoi).
