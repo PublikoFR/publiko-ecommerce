@@ -125,6 +125,33 @@ class CheckoutQuoteInterceptionTest extends TestCase
         $this->assertCount(0, $order->transactions, 'Aucune transaction de paiement ne doit exister.');
     }
 
+    /**
+     * Un panier 100 % devis ne produit aucune option de livraison tarifable. Le
+     * composant ShippingOptions exigeant une sélection (`chosenOption` required),
+     * rester à l'étape « mode de livraison » rendait le bouton « Demander un
+     * devis » inatteignable depuis le storefront. L'étape doit être court-circuitée.
+     */
+    public function test_quote_only_cart_skips_the_shipping_option_step(): void
+    {
+        $this->bindEmptyManifest();
+        $cart = $this->makeCartWith(quoteOnly: true);
+
+        // Adresse de livraison requise pour dépasser les deux premières étapes.
+        $cart->setShippingAddress([
+            'first_name' => 'Romain',
+            'last_name' => 'Galvez',
+            'line_one' => '54 Rue des Châtaigniers',
+            'city' => 'Béziers',
+            'postcode' => '34500',
+            'country_id' => Country::query()->value('id'),
+            'contact_email' => 'riderfx3@gmail.com',
+        ]);
+
+        Livewire::test(CheckoutPage::class)
+            ->assertSet('isQuoteOnlyCart', true)
+            ->assertSet('currentStep', 4); // steps['payment']
+    }
+
     public function test_normal_cart_follows_standard_payment_flow(): void
     {
         $this->bindEmptyManifest();

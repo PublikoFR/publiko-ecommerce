@@ -9,6 +9,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
+use Pko\CustomerAuth\Support\DefaultCustomerGroup;
 
 class PkoCustomerSeeder extends Seeder
 {
@@ -46,9 +47,18 @@ class PkoCustomerSeeder extends Seeder
                 ],
             );
 
-            $customer->customerGroups()->syncWithoutDetaching([
-                $groups[$data['group']],
-            ]);
+            $attachGroups = [$groups[$data['group']]];
+
+            // Groupe par défaut (« nouveau client ») : exigé par
+            // `ProAccess::denialReason()` pour tout compte pro. Sans lui, le compte
+            // seedé est authentifiable mais la connexion storefront est REFUSÉE
+            // (« Accès réservé aux comptes professionnels ») — ce qui cassait tous
+            // les parcours E2E authentifiés.
+            if ($isPro && ($default = DefaultCustomerGroup::resolve()) !== null) {
+                $attachGroups[] = $default->id;
+            }
+
+            $customer->customerGroups()->syncWithoutDetaching($attachGroups);
 
             if ($isPro) {
                 $email = strtolower($data['first_name'].'.'.$data['last_name']).'@weklo.test';
@@ -57,6 +67,9 @@ class PkoCustomerSeeder extends Seeder
                     [
                         'name' => $data['first_name'].' '.$data['last_name'],
                         'password' => Hash::make('testing123'),
+                        // Compte de démo directement utilisable : pas de lien de
+                        // vérification à cliquer avant de pouvoir se connecter.
+                        'email_verified_at' => now(),
                     ],
                 );
                 $customer->users()->syncWithoutDetaching([$user->id]);

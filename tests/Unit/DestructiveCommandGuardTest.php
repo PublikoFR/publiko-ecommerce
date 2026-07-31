@@ -41,6 +41,17 @@ class DestructiveCommandGuardTest extends TestCase
         $this->assertFalse(DestructiveCommandGuard::shouldProhibit('/tmp/testing.sqlite', 'local', false));
     }
 
+    /**
+     * La stack Playwright (`docker-compose.e2e.yml`, base `pko_e2e`) est jetée à
+     * chaque run : son global-setup doit pouvoir jouer `migrate:fresh --seed`.
+     */
+    public function test_base_e2e_autorisee(): void
+    {
+        $this->assertFalse(DestructiveCommandGuard::shouldProhibit('pko_e2e', 'local', false));
+        $this->assertTrue(DestructiveCommandGuard::shouldProhibit('pko_e2e', 'production', true));
+        $this->assertTrue(DestructiveCommandGuard::shouldProhibit('weklo_e2e', 'local', false));
+    }
+
     public function test_production_verrouillee_meme_avec_le_bypass(): void
     {
         $this->assertTrue(DestructiveCommandGuard::shouldProhibit('weklo', 'production', true));

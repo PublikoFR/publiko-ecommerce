@@ -771,3 +771,21 @@ Deux seeders **additifs et idempotents** alimentent le catalogue de démo avec u
 | `TX-20` | `purchasable='in_stock'` + stock 0 → rupture, non ajoutable au panier |
 
 Pour retrouver ou purger ces produits : filtrer sur le préfixe SKU `TX-` (`PkoShippingCasesProductSeeder::skuPrefix()`).
+
+### 5.18 Étape « mode de livraison » court-circuitée pour un panier 100 % devis (2026-07-31)
+
+`ShippingOptions` valide `chosenOption` en `required`. Or un panier dont **toutes** les lignes sont `pko_port_mode='quote'` ne produit aucune option (le `ShippingCalculator` s'arrête avant la résolution carrier). Le client restait donc bloqué à l'étape livraison sur « Le champ chosen option est obligatoire », et le bouton **Demander un devis** (étape paiement) était inatteignable depuis le storefront.
+
+`CheckoutPage::determineCheckoutStep()` saute désormais l'étape `shipping_option` quand `isQuoteOnlyCart` **et** que le manifest est vide.
+
+> Le cas hors-grille (§5.16) n'est pas concerné : son manifest contient une sentinelle sélectionnable, qu'on laisse s'afficher pour expliquer l'absence de tarif. L'étape reste donc visible, puis le paiement bascule en devis.
+
+Tests : `CheckoutQuoteInterceptionTest::test_quote_only_cart_skips_the_shipping_option_step` + `e2e/tests/expeditions/commande-sur-devis.spec.ts`.
+
+### 5.19 Fixtures & garde-fous découverts en écrivant les tests (2026-07-31)
+
+| Correctif | Détail |
+|---|---|
+| `WeightCalculator::isFrancoEligible()` | `pko_franco_eligible` est un tinyint **sans cast** sur `Lunar\Models\Product` : Eloquent renvoie `1`/`0`. La comparaison stricte `=== true` excluait du franco tout produit non-`inherit`, ce qui annulait le franco du panier entier (`cartHasFrancoExcludedLine`). Cast explicite en booléen. |
+| `PkoCustomerSeeder` | Les comptes pro seedés n'étaient rattachés qu'à leur groupe métier (`installateurs`). `ProAccess::denialReason()` exige **aussi** le groupe par défaut (`nouveau-client`) → connexion storefront refusée pour tous les comptes de démo, et suites E2E authentifiées bloquées. Le seeder attache désormais le groupe par défaut et pose `email_verified_at`. |
+| `DestructiveCommandGuard::isTestDatabase()` | La base de la stack Playwright (`pko_e2e`) n'était pas reconnue comme base de test → `migrate:fresh --seed` du `global-setup` bloqué par la garde anti-wipe, tous les runs E2E en échec. Exception explicite sur le nom `pko_e2e` (le verrou production reste absolu). |

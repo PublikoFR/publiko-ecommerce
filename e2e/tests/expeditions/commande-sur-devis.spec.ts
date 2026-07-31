@@ -3,53 +3,79 @@
  *
  * Flux front implémenté dans `app/Livewire/CheckoutPage.php` +
  * `partials/checkout/payment.blade.php` :
- *  - `isQuoteOnlyCart` = true dès qu'une ligne porte un produit `pko_quote_only`.
+ *  - `isQuoteOnlyCart` = true quand toutes les lignes sont `pko_port_mode='quote'`,
+ *    ou quand le manifest ne contient que des options sentinelles « sur devis »
+ *    (poids hors grille — cf. shipping.md §5.16).
  *  - L'étape paiement masque carte/espèces, affiche le bandeau « devis transport »
- *    et un bouton « Demander un devis » (au lieu de « Valider la commande »).
+ *    et un bouton « Demander un devis ».
  *  - `checkout()` bifurque : createOrder() → statut `awaiting-quote`, sans paiement.
  *
- * ── SKIP : aucun produit `pko_quote_only = true` n'est seedé en e2e ──
- * Le parcours client ne peut donc pas être atteint via le storefront sans
- * fixture dédiée. Deux options d'activation (à demander à l'infra, cf.
- * done_comment / SKILL.md) :
- *   1. seeder un produit `pko_quote_only = true` (garanti mono-variant, stock ≥ 1) ;
- *   2. exposer un helper e2e togglant `pko_quote_only` sur un produit connu.
- * Une fois la fixture disponible, retirer les `test.skip` et ajouter l'ajout
- * de ce produit précis au panier (addE2EProductToCart cible le 1er produit
- * générique, non quote-only).
+ * Fixtures : catalogue de test expédition (shipping.md §5.17)
+ *  - TX-14 : `pko_port_mode = 'quote'` (portail 8 m sur mesure)
+ *  - TX-07 : 35 kg → hors grille Chronopost → sentinelle « Transport sur devis »
  */
 import { test, expect } from '@playwright/test';
-import { loginAsPro, reachShippingStep, waitForLivewire } from './helpers';
+import {
+  loginAsPro,
+  clearCart,
+  addSkuToCart,
+  reachShippingStep,
+  reachPaymentStep,
+  shippingForm,
+  optionRadios,
+  waitForLivewire,
+} from './helpers';
 
 test.describe('Expéditions — commande sur devis', () => {
-  test.skip('affiche le bandeau « devis transport » à l\'étape paiement (skip: pas de produit quote_only seedé)', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     test.setTimeout(240_000);
     await loginAsPro(page);
-    // TODO(fixture): ajouter au panier un produit pko_quote_only=true.
-    await reachShippingStep(page);
+    await clearCart(page);
+  });
 
-    const lwShipping = waitForLivewire(page);
-    await page.locator('button:has-text("Choose Shipping")').click();
-    await lwShipping;
+  test('un produit sur devis affiche le bandeau et le bouton « Demander un devis »', async ({ page }) => {
+    await addSkuToCart(page, 'TX-14');
+    // Panier 100 % devis : aucune option tarifable → l'étape « mode de
+    // livraison » est court-circuitée, le tunnel s'ouvre directement au paiement.
+    await reachPaymentStep(page);
 
-    await expect(page.getByText(/nécessite un devis transport/i)).toBeVisible();
+    await expect(page.getByText(/nécessite un devis transport/i)).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(
       page.getByRole('button', { name: /Demander un devis/i }),
     ).toBeVisible();
   });
 
-  test.skip('« Demander un devis » crée une commande awaiting-quote sans paiement (skip: pas de produit quote_only seedé)', async ({ page }) => {
-    test.setTimeout(240_000);
-    await loginAsPro(page);
-    // TODO(fixture): panier avec produit pko_quote_only=true.
-    await reachShippingStep(page);
-
-    const lwShipping = waitForLivewire(page);
-    await page.locator('button:has-text("Choose Shipping")').click();
-    await lwShipping;
+  test('« Demander un devis » crée une commande sans paiement', async ({ page }) => {
+    await addSkuToCart(page, 'TX-14');
+    await reachPaymentStep(page);
 
     await page.getByRole('button', { name: /Demander un devis/i }).click();
-    // La page de succès répète le message quand order.status === 'awaiting-quote'.
-    await expect(page.getByText(/devis transport/i)).toBeVisible({ timeout: 20_000 });
+
+    // Page de confirmation : le message devis est répété quand
+    // order.status === 'awaiting-quote'.
+    await expect(page.getByText(/devis/i).first()).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('un colis hors grille bascule en « Transport sur devis »', async ({ page }) => {
+    await addSkuToCart(page, 'TX-07'); // 35 kg — au-delà du dernier bracket (30 kg)
+    await reachShippingStep(page);
+
+    // Option unique, sentinelle : aucun tarif calculable.
+    await expect(optionRadios(page)).toHaveCount(1, { timeout: 15_000 });
+    await expect(
+      shippingForm(page).getByText(/Transport sur devis/i).first(),
+    ).toBeVisible();
+
+    const lwShipping = waitForLivewire(page);
+    await shippingForm(page).getByRole('button', { name: 'Continuer' }).click();
+    await lwShipping;
+
+    // Le paiement en ligne doit être indisponible (même traitement qu'un panier
+    // 100 % devis) : bouton devis présent, pas de formulaire carte.
+    await expect(page.getByRole('button', { name: /Demander un devis/i })).toBeVisible({
+      timeout: 20_000,
+    });
   });
 });

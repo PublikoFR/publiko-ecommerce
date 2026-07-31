@@ -1,46 +1,37 @@
 /**
  * E2E — Expéditions & livraison : sélection du mode de livraison
  *
- * Couverture (front réel du storefront) :
- *  - l'étape « Shipping Options » liste les modes seedés pour une adresse FR
- *  - au moins deux modes disponibles (standard + retrait entrepôt)
- *  - une option est présélectionnée (radio checked)
- *  - le retrait entrepôt est affiché gratuit (0 €)
- *  - le franco « Livraison offerte » (≥ 500 € HT) est masqué pour un petit panier
+ * Couvre le composant `ShippingOptions` (checkout, lot L5) sur le catalogue de
+ * test expédition (SKU TX-*, cf. `docs/shipping.md` §5.17) :
+ *  - les 3 services Chronopost sont proposés, Chrono 13 présélectionné
+ *  - le point relais disparaît au-delà de 20 kg
+ *  - bandeau franco atteint / bandeau de progression / bandeau d'exclusion
+ *  - récap ventilé quand un forfait transport s'ajoute à la grille
+ *  - panier 100 % « port inclus » → option unique « Livraison offerte »
  *  - la sélection d'un mode fait avancer le tunnel vers le paiement
  *
- * Hypothèses seed (PkoShippingSeeder, zone « France métropolitaine ») :
- *  - `mde-standard` (ship-by au poids)   → « Livraison standard »
- *  - `mde-pickup`   (collection, 0 c)    → « Retrait entrepôt »
- *  - `mde-free`     (free-shipping 500€) → « Livraison offerte » (masqué si < 500 €)
- *
- * Note UI : le storefront rend les options via le partial générique Lunar
- * (`partials/checkout/shipping_option.blade.php`) — radios `.hidden peer` dans
- * des <label>, heading « Shipping Options », bouton « Choose Shipping ».
+ * Le seed ne contient plus aucune méthode table-rate (`mde-*`) : toutes les
+ * options viennent de la grille Chronopost + du ShippingCalculator.
  */
 import { test, expect } from '@playwright/test';
 import {
   loginAsPro,
-  addE2EProductToCart,
+  clearCart,
+  addSkuToCart,
   reachShippingStep,
   shippingForm,
+  optionRadios,
   waitForLivewire,
-  METHOD_STANDARD,
-  METHOD_PICKUP,
-  METHOD_FREE,
+  SERVICE_RELAIS,
+  SERVICE_STANDARD,
+  SERVICE_EXPRESS,
 } from './helpers';
 
 test.describe('Expéditions — sélection du mode de livraison', () => {
   // Absorbe UNE fois le cold-start Docker (global-setup se termine sur
   // `optimize:clear` → la 1re requête navigateur recompile config/routes/views
-  // + 1er rendu Livewire de toute la stack Lunar/Filament, ce qui chauffe
-  // l'opcache PHP partagé par toutes les routes). Sans ce warmup hors-budget,
-  // c'est le tout premier test qui paie ce coût dans son propre timeout de 240 s.
+  // + 1er rendu Livewire de toute la stack Lunar/Filament).
   test.beforeAll(async ({ browser }) => {
-    // Sécurité redondante : le cold-start serveur est déjà absorbé par le warm-up
-    // de `global-setup` (requête /connexion après optimize:clear). Ce hook ne fait
-    // qu'une vérification légère d'hydratation. Timeout court et non-fatal → jamais
-    // de blocage prolongé si la chauffe infra a suffi (cas nominal).
     test.setTimeout(90_000);
     const port = process.env.E2E_PORT ?? '18080';
     const page = await browser.newPage({ baseURL: `http://localhost:${port}` });
@@ -62,82 +53,133 @@ test.describe('Expéditions — sélection du mode de livraison', () => {
     // Login (~90 s Livewire à froid) + ajout + adresse → marge 240 s.
     test.setTimeout(240_000);
     await loginAsPro(page);
-    await addE2EProductToCart(page);
+    await clearCart(page);
+  });
+
+  test('un colis léger propose les 3 services, Chrono 13 présélectionné', async ({ page }) => {
+    await addSkuToCart(page, 'TX-01'); // 1,5 kg
     await reachShippingStep(page);
-  });
 
-  test('liste au moins deux modes de livraison sélectionnables', async ({ page }) => {
-    const radios = shippingForm(page).locator('input[name="shippingOption"]');
-    expect(await radios.count()).toBeGreaterThanOrEqual(2);
+    await expect(optionRadios(page)).toHaveCount(3, { timeout: 15_000 });
 
-    // Les deux méthodes toujours disponibles pour une adresse FR métropole.
-    // `.first()` : selon le total panier, le FrancoModifier peut injecter une
-    // variante « Livraison standard offerte » (≥ 350 € HT) → « Livraison standard »
-    // matcherait alors 2 nœuds (violation strict-mode). On vérifie la présence,
-    // pas l'unicité.
-    await expect(shippingForm(page).getByText(METHOD_STANDARD).first()).toBeVisible();
-    await expect(shippingForm(page).getByText(METHOD_PICKUP).first()).toBeVisible();
-  });
-
-  test('une option est présélectionnée (radio checked)', async ({ page }) => {
-    // CheckoutPage::determineCheckoutStep() pré-sélectionne la 1re option.
-    const checked = shippingForm(page).locator('input[name="shippingOption"]:checked');
-    await expect(checked).toHaveCount(1, { timeout: 8_000 });
-  });
-
-  test('le retrait entrepôt est affiché gratuit (0 €)', async ({ page }) => {
-    // La carte « Retrait entrepôt » (seed 0 cent) porte un prix formaté à 0.
-    const card = shippingForm(page)
-      .locator('label')
-      .filter({ hasText: METHOD_PICKUP });
-    await expect(card).toBeVisible();
-    await expect(card).toContainText(/0[.,]00|gratuit/i);
-  });
-
-  // SKIP : non déterministe avec le seed e2e. `PkoProductSeeder` tire un prix
-  // aléatoire par produit (`random_int(5000, 250000)` → 50 €–2500 € HT) et
-  // `addE2EProductToCart` ajoute le 1er produit du catalogue, sans garantie qu'il
-  // soit < 500 € HT. Quand il dépasse le franco (seed `mde-free`, seuil 500 €),
-  // l'option « Livraison offerte » apparaît légitimement → l'assertion casse.
-  // Réactivation possible avec une fixture produit garantie < 500 € HT (mono-
-  // variant, stock ≥ 1), cf. done_comment / SKILL.md.
-  test.skip('la livraison offerte (franco 500 €) est masquée pour un petit panier (skip: prix produit seed non déterministe)', async ({ page }) => {
-    await expect(shippingForm(page).getByText(METHOD_FREE)).toHaveCount(0);
-  });
-
-  test('sélectionner un autre mode et valider fait avancer vers le paiement', async ({ page }) => {
     const form = shippingForm(page);
-    const radios = form.locator('input[name="shippingOption"]');
+    await expect(form.getByText(SERVICE_RELAIS).first()).toBeVisible();
+    await expect(form.getByText(SERVICE_STANDARD).first()).toBeVisible();
+    await expect(form.getByText(SERVICE_EXPRESS).first()).toBeVisible();
 
-    // Sélectionner une option DIFFÉRENTE de la présélection garantit un event
-    // `change` → un update wire:model.live (cliquer l'option déjà cochée n'émet
-    // aucune requête et ferait timeout le waitForLivewire).
-    const checkedValue = await form
-      .locator('input[name="shippingOption"]:checked')
-      .getAttribute('value');
+    // Défaut métier : Chrono 13 (cf. ShippingCalculator::DEFAULT_OPTION_IDENTIFIER).
+    await expect(
+      form.locator('input[type="radio"][value="chronopost.chrono13"]'),
+    ).toBeChecked({ timeout: 10_000 });
+  });
 
-    const count = await radios.count();
-    let targetId: string | null = null;
-    for (let i = 0; i < count; i++) {
-      const value = await radios.nth(i).getAttribute('value');
-      if (value && value !== checkedValue) {
-        targetId = value;
-        break;
-      }
-    }
-    expect(targetId, 'au moins deux options distinctes attendues').toBeTruthy();
+  test('au-delà de 20 kg le point relais disparaît', async ({ page }) => {
+    await addSkuToCart(page, 'TX-05'); // 25 kg
+    await reachShippingStep(page);
 
-    // Le radio est caché (.hidden peer) : cliquer son <label for="{id}">.
+    await expect(optionRadios(page)).toHaveCount(2, { timeout: 15_000 });
+    await expect(shippingForm(page).getByText(SERVICE_RELAIS)).toHaveCount(0);
+  });
+
+  test('franco atteint : Chrono 13 offert et bandeau affiché', async ({ page }) => {
+    await addSkuToCart(page, 'TX-08'); // 600 € HT
+    await reachShippingStep(page);
+
+    const form = shippingForm(page);
+    await expect(form.getByText(/livraison standard offerte/i)).toBeVisible({ timeout: 15_000 });
+
+    // La carte Chrono 13 affiche « Offert » à la place du prix.
+    const chrono13Card = form.locator('label').filter({ hasText: SERVICE_STANDARD });
+    await expect(chrono13Card.getByText('Offert')).toBeVisible();
+
+    // Express et relais restent payants (aucun « Offert » sur ces cartes).
+    await expect(
+      form.locator('label').filter({ hasText: SERVICE_EXPRESS }).getByText('Offert'),
+    ).toHaveCount(0);
+  });
+
+  test('sous le seuil : bandeau de progression du franco', async ({ page }) => {
+    await addSkuToCart(page, 'TX-02', 3); // 3 × 150 € = 450 € HT → reste 50 €
+
+    await reachShippingStep(page);
+
+    await expect(
+      shippingForm(page).getByText(/Plus que.*pour bénéficier de la livraison standard offerte/i),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('une ligne exclue du franco affiche le bandeau d\'exclusion', async ({ page }) => {
+    await addSkuToCart(page, 'TX-08'); // franco-éligible, 600 € HT
+    await addSkuToCart(page, 'TX-09'); // exclu du franco
+    await reachShippingStep(page);
+
+    const form = shippingForm(page);
+    await expect(
+      form.getByText(/frais de transport complémentaires/i),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Franco annulé : plus aucune carte « Offert ».
+    await expect(form.getByText('Offert')).toHaveCount(0);
+  });
+
+  test('un forfait transport produit un récap ventilé', async ({ page }) => {
+    await addSkuToCart(page, 'TX-10'); // mode flat, forfait 25 € HT
+    await reachShippingStep(page);
+
+    const form = shippingForm(page);
+    // Le récap ventilé est un tableau : ligne « + 25,00 € » (forfait) et pied
+    // « Total livraison HT ». Cibler les cellules évite de matcher aussi les
+    // prix affichés sur les 3 cartes de service.
+    await expect(form.getByText(/Total livraison HT/i)).toBeVisible({ timeout: 15_000 });
+    await expect(form.getByRole('cell', { name: '+ 25,00 €' })).toBeVisible();
+    await expect(form.getByRole('cell', { name: '25,00 €', exact: true })).toBeVisible();
+  });
+
+  test('panier 100 % port inclus : option unique « Livraison offerte »', async ({ page }) => {
+    await addSkuToCart(page, 'TX-13'); // pko_port_mode = free
+    await reachShippingStep(page);
+
+    await expect(optionRadios(page)).toHaveCount(1, { timeout: 15_000 });
+    await expect(shippingForm(page).getByText('Livraison offerte').first()).toBeVisible();
+  });
+
+  test('sélectionner un autre mode et continuer fait avancer vers le paiement', async ({ page }) => {
+    await addSkuToCart(page, 'TX-01');
+    await reachShippingStep(page);
+
+    const form = shippingForm(page);
+    // Chrono 10 (express) : toujours présent et jamais présélectionné.
     const lwSelect = waitForLivewire(page);
-    await form.locator(`label[for="${targetId}"]`).click();
+    await form.locator('input[type="radio"][value="chronopost.chrono10"]').check();
     await lwSelect;
 
     const lwSubmit = waitForLivewire(page);
-    await form.locator('button:has-text("Choose Shipping")').click();
+    await form.getByRole('button', { name: 'Continuer' }).click();
     await lwSubmit;
 
+    await expect(page.getByRole('heading', { name: 'Paiement' })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+});
+
+test.describe('Expéditions — disponibilité produit', () => {
+  test('un produit en rupture ne peut pas être ajouté au panier', async ({ page }) => {
+    test.setTimeout(240_000);
+    await loginAsPro(page);
+    await clearCart(page);
+
+    // TX-20 : stock 0, purchasable = in_stock. Le clic part quand même (le
+    // bouton n'est pas désactivé) mais AddToCart::addToCart() refuse la ligne.
+    await addSkuToCart(page, 'TX-20');
+
+    await expect(page.getByText(/dépasse le stock disponible/i)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.goto('/panier');
     await expect(
-      page.getByRole('heading', { name: 'Paiement' }),
-    ).toBeVisible({ timeout: 12_000 });
+      page.getByRole('main').getByText('Votre panier est vide'),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

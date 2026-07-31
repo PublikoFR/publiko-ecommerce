@@ -2,88 +2,84 @@
 
 ## Périmètre
 
-Suite Playwright couvrant le domaine **expéditions & livraison** du storefront
-Weklo : sélection du mode de livraison au checkout, franco (livraison offerte),
-et documentation des volets non exposés au front en environnement e2e (commande
-sur devis, multi-expédition V2).
+Suite Playwright couvrant le domaine **expéditions & livraison** du storefront :
+sélection du mode de livraison au checkout (composant `ShippingOptions`, lot L5),
+franco de port, forfaits transport, et flux « commande sur devis ».
 
 | Fichier | Contenu |
 |---|---|
-| `modes-livraison.spec.ts` | Sélection du mode de livraison : liste des modes, présélection, retrait gratuit, franco masqué, avancée vers paiement |
-| `commande-sur-devis.spec.ts` | Flux `awaiting-quote` — **skippé** (aucun produit `pko_quote_only` seedé en e2e) |
-| `helpers.ts` | Réexporte les helpers panier/checkout + `reachShippingStep`, `shippingForm`, noms de méthodes |
+| `modes-livraison.spec.ts` | 3 services Chronopost, défaut Chrono 13, masquage du relais > 20 kg, bandeaux franco/exclusion, récap ventilé, panier port inclus, avancée vers paiement, rupture de stock |
+| `commande-sur-devis.spec.ts` | Flux `awaiting-quote` : produit sur devis, création de commande sans paiement, colis hors grille |
+| `helpers.ts` | Login pro, `addSkuToCart`, `reachShippingStep`, `reachPaymentStep`, `shippingForm`, `optionRadios`, table `TX_SLUGS` |
 
 ## Compte utilisateur
 
 | Rôle | Email | Mot de passe |
 |---|---|---|
-| Pro (installateur) | `thierry.leroy@mde-distribution.test` | `testing123` |
+| Pro (installateur) | `thierry.leroy@weklo.test` | `testing123` |
 
-Créé par `PkoCustomerSeeder`. Le checkout exige une authentification (redirige
-vers `/connexion` sinon — couvert dans `panier-checkout/checkout.spec.ts`).
+Créé par `PkoCustomerSeeder`, qui attache **aussi** le groupe par défaut
+(`nouveau-client`) et pose `email_verified_at` — sans ça `ProAccess::denialReason()`
+refuse la connexion storefront (« Accès réservé aux comptes professionnels ») et
+toute la suite authentifiée tombe.
 
-## Fixtures & seed (PkoShippingSeeder)
+## Fixtures — catalogue de test expédition
 
-Adresse de test : **75001 Paris** → zone `France métropolitaine`. Trois méthodes
-table-rate seedées, toutes planifiées pour tous les groupes clients :
+`PkoShippingCasesProductSeeder` (cf. `docs/shipping.md` §5.17) seede 20 produits
+`TX-01` → `TX-20` aux poids/prix/stocks **déterministes**. Les SKU utilisés ici :
 
-| Code | Nom UI | Driver | Prix | Visibilité |
-|---|---|---|---|---|
-| `mde-standard` | « Livraison standard » | `ship-by` (poids) | 690→1990 c selon paliers | toujours (FR métropole) |
-| `mde-pickup` | « Retrait entrepôt » | `collection` | 0 € | toujours (FR métropole) |
-| `mde-free` | « Livraison offerte » | `free-shipping` | 0 € | **uniquement si total ≥ 500 € HT** |
+| SKU | Ce qu'il déclenche |
+|---|---|
+| `TX-01` | 1,5 kg → 3 services, Chrono 13 présélectionné |
+| `TX-02` | 7 kg / 150 € — ×3 = 450 € HT → bandeau de progression franco |
+| `TX-05` | 25 kg → point relais masqué |
+| `TX-07` | 35 kg → hors grille → sentinelle « Transport sur devis » |
+| `TX-08` | 600 € HT → franco atteint (Chrono 13 offert) |
+| `TX-09` | exclu du franco → bandeau d'exclusion |
+| `TX-10` | mode `flat` (25 € HT) → récap ventilé |
+| `TX-13` | mode `free` → option unique « Livraison offerte » |
+| `TX-14` | mode `quote` → flux devis complet |
+| `TX-20` | stock 0 + `purchasable=in_stock` → refus d'ajout au panier |
 
-Les modifiers Chronopost / Colissimo (`packages/pko/shipping-*`) peuvent injecter
-des options supplémentaires (Chrono 13, Colissimo…) selon la config/grille active.
-Les tests n'assertent **pas** leur présence (dépend de credentials/grille) et se
-limitent aux méthodes seedées garanties + au comptage `≥ 2`.
+Les anciennes méthodes table-rate (`mde-standard` / `mde-pickup` / `mde-free`) ne
+sont **plus seedées du tout** : toutes les options viennent de la grille Chronopost.
+
+`TX_SLUGS` (dans `helpers.ts`) mappe SKU → slug produit. Les slugs sont dérivés de
+« marque + nom + MPN » : un renommage dans le seeder impose de régénérer la table.
 
 ## Parcours front réel
 
-Le storefront rend les options via le partial **générique Lunar**
-`resources/views/partials/checkout/shipping_option.blade.php` : radios cachés
-(`input.hidden.peer[name="shippingOption"]`) dans des `<label>`, heading
-**« Shipping Options »**, bouton **« Choose Shipping »**. La 1re option est
-présélectionnée par `CheckoutPage::determineCheckoutStep()`.
+Composant `ShippingOptions` (`resources/views/livewire/components/shipping-options.blade.php`) :
+- en-tête **« Mode de livraison »**, cartes `<label>` avec radio `wire:model.live="chosenOption"`
+  (pas d'attribut `name` → cibler par `value`, cf. `optionRadios()`) ;
+- bouton de validation **« Continuer »** ;
+- bandeaux franco / progression / exclusion / multi-colis en tête de formulaire ;
+- récap ventilé (tableau) dès qu'un forfait ou un supplément s'ajoute à la grille.
 
-> ⚠️ La cible produit riche (« 3 cartes, défaut Chrono13, bandeaux
-> franco/exclusion/multi-colis, badge dispo Weklo/fournisseur ») décrite dans le
-> cahier des charges **n'est pas implémentée** dans ce partial générique. Les
-> tests couvrent le front tel qu'il existe : nombre de modes, présélection,
-> gratuité du retrait, masquage du franco. Quand le partial custom sera livré,
-> enrichir `modes-livraison.spec.ts` (badges dispo, bandeaux).
+Séquence : `/checkout` → « Adresse de livraison » (bouton « Enregistrer l'adresse »)
+→ « Mode de livraison » → « Paiement ».
 
-Séquence menant à l'étape livraison (`reachShippingStep`) :
-`/checkout` → adresse (heading « Shipping Details », bouton « Enregistrer
-l'adresse ») → **« Shipping Options »**.
+**Panier 100 % devis** : aucune option n'étant calculable, `determineCheckoutStep()`
+saute l'étape livraison et ouvre directement le paiement → utiliser
+`reachPaymentStep()` et non `reachShippingStep()`. Le cas hors-grille (`TX-07`)
+garde en revanche son étape livraison, avec la sentinelle « Transport sur devis ».
 
-## Cas couverts
+## Volets non couverts en E2E (documentés)
 
-| Cas | Test |
-|---|---|
-| ≥ 2 modes listés (standard + retrait) | `modes-livraison.spec.ts` — « liste au moins deux modes » |
-| Une option présélectionnée | `modes-livraison.spec.ts` — « une option est présélectionnée » |
-| Retrait entrepôt gratuit (0 €) | `modes-livraison.spec.ts` — « le retrait entrepôt est affiché gratuit » |
-| Franco masqué si panier < 500 € | `modes-livraison.spec.ts` — « la livraison offerte est masquée » |
-| Sélection → avance vers paiement | `modes-livraison.spec.ts` — « sélectionner un mode et valider » |
-| Commande sur devis | `commande-sur-devis.spec.ts` — **skippé** (voir ci-dessous) |
+### Multi-expédition (découpage `CarrierShipment` par origine)
+Logique **post-paiement, 100 % back-office** (`OrderShipmentObserver` →
+`ShipmentSplitter::split()`). Aucune surface storefront → couverture par tests
+Feature PHP (`tests/Feature/Shipping/*`).
 
-## Volets non testables en e2e (documentés)
+### Scission de commande (panier mixte devis + payable)
+Couverte côté PHP par `tests/Feature/Shipping/OrderSplitTest.php` (5 scénarios).
+Le parcours navigateur demande un paiement Stripe réel côté branche payable → non
+rejouable en E2E sans stub de paiement dans la stack jetable.
 
-### Commande sur devis (`awaiting-quote`)
-Flux front implémenté (`CheckoutPage::isQuoteOnlyCart` + bandeau « devis
-transport » + bouton « Demander un devis »), mais **aucun produit
-`pko_quote_only = true` n'est seedé**. Les tests sont skippés avec le TODO
-d'activation. Pour lever le skip : seeder un produit quote-only ou exposer un
-helper e2e togglant `pko_quote_only` sur un produit connu, puis l'ajouter au
-panier avant `reachShippingStep`.
-
-### Multi-expédition V2 (découpage CarrierShipment par origine)
-Logique **post-paiement, 100 % back-office** : `OrderShipmentObserver` →
-`ShipmentSplitter::split()` crée un `CarrierShipment` par origine (weklo /
-supplier_direct / supplier_via_weklo). **Aucune surface storefront** → non
-couvrable en E2E navigateur. Couverture appropriée : tests Feature PHP
-(`tests/Feature/Shipping/*`).
+### Calcul des frais de port
+`tests/Feature/Shipping/ShippingCasesTest.php` joue les 20 scénarios de tarification
+(grille, franco, flat, free, quote, Corse) sur un vrai panier Lunar — beaucoup plus
+rapide et déterministe qu'un parcours navigateur. L'E2E ne vérifie que le **rendu**.
 
 ## Relancer la suite
 
@@ -93,7 +89,9 @@ npm run test:e2e -- modes-livraison      # un seul fichier
 ```
 
 Le harness (`scripts/e2e-run.sh` + `e2e/global-setup.ts`) monte une stack Docker
-isolée (`docker-compose.e2e.yml`, DB `pko_e2e`), `npm ci` + `migrate:fresh
---seed` automatiques. Cold-start ≈ 90–120 s ; chaque test livraison porte
-`test.setTimeout(240_000)` pour l'absorber. Ne pas lancer en parallèle d'une
-autre suite e2e (stack partagée).
+isolée (`docker-compose.e2e.yml`, base `pko_e2e`) et joue `migrate:fresh --seed`.
+La base `pko_e2e` est explicitement autorisée par `DestructiveCommandGuard` — sans
+cette exception, la garde anti-wipe bloque le setup et tous les tests échouent.
+
+Cold-start ≈ 90–120 s ; chaque test porte `test.setTimeout(240_000)`.
+Ne pas lancer en parallèle d'une autre suite e2e (stack partagée).

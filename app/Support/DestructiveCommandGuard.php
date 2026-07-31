@@ -40,6 +40,12 @@ final class DestructiveCommandGuard
     public static function isTestDatabase(string $database): bool
     {
         // basename() couvre les connexions SQLite qui portent un chemin de fichier.
-        return str_starts_with(basename($database), 'testing');
+        $name = basename($database);
+
+        // `pko_e2e` : base de la stack Playwright jetable (docker-compose.e2e.yml),
+        // créée et détruite à chaque run — son global-setup DOIT pouvoir jouer
+        // `migrate:fresh --seed`. Préfixe `pko_` exigé pour ne pas dégrader la garde
+        // sur une éventuelle base métier dont le nom contiendrait « e2e ».
+        return str_starts_with($name, 'testing') || $name === 'pko_e2e';
     }
 }

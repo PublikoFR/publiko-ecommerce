@@ -259,6 +259,21 @@ class CheckoutPage extends Component
         }
 
         if (! $this->shippingOption) {
+            // Panier 100 % devis SANS aucune option au manifest : le composant
+            // ShippingOptions exige une sélection (`chosenOption` required), le
+            // client resterait donc bloqué à l'étape livraison avec « Le champ
+            // chosen option est obligatoire », et le bouton « Demander un devis »
+            // (étape paiement) deviendrait inatteignable depuis le storefront.
+            //
+            // Le cas hors-grille (§5.16) n'est PAS concerné : il expose une
+            // sentinelle « Transport sur devis » sélectionnable, qu'on veut laisser
+            // s'afficher pour expliquer au client pourquoi aucun tarif n'est donné.
+            if ($this->isQuoteOnlyCart && ShippingManifest::getOptions($this->cart)->isEmpty()) {
+                $this->currentStep = $this->steps['payment'];
+
+                return;
+            }
+
             $this->currentStep = $this->steps['shipping_option'];
 
             return;

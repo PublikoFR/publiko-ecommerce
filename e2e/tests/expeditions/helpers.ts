@@ -124,19 +124,84 @@ export async function loginAsPro(page: Page): Promise<void> {
   await page.waitForURL(/\/compte/, { timeout: 20_000 });
 }
 
-// Noms des méthodes de livraison seedées (PkoShippingSeeder) pour une adresse
-// France métropolitaine. Le driver `free-shipping` (« Livraison offerte »)
-// n'apparaît que si le total panier ≥ 500 € HT (franco).
-export const METHOD_STANDARD = 'Livraison standard';
-export const METHOD_PICKUP = 'Retrait entrepôt';
-export const METHOD_FREE = 'Livraison offerte';
+// Libellés des 3 services Chronopost (seed `2026_06_26_120000`), tels qu'affichés
+// par le composant ShippingOptions. Les anciennes méthodes table-rate
+// (`mde-standard` / `mde-pickup` / `mde-free`) ne sont plus seedées du tout.
+export const SERVICE_RELAIS = 'Livraison économique';
+export const SERVICE_STANDARD = 'Livraison standard';
+export const SERVICE_EXPRESS = 'Livraison express';
 
 /**
- * Le formulaire des options de livraison. Sert de racine pour cibler les
- * cartes/radios sans capter d'autres <form> (adresse, paiement) de la page.
+ * Catalogue de test expédition (`PkoShippingCasesProductSeeder`, cf. shipping.md §5.17).
+ * Les slugs sont dérivés de « marque + nom + MPN » : déterministes tant que le
+ * seeder n'est pas modifié. Un changement de nom produit dans le seeder impose
+ * de régénérer cette table.
+ */
+export const TX_SLUGS: Record<string, string> = {
+  'TX-01': 'somfy-telecommande-4-canaux-bi-directionnelle-tx-01-mpn',
+  'TX-02': 'faac-motorisation-a-bras-droits-24v-tx-02-mpn',
+  'TX-04': 'somfy-volet-roulant-monobloc-1400x1200-tx-04-mpn',
+  'TX-05': 'came-portail-battant-acier-2-vantaux-3-m-tx-05-mpn',
+  'TX-07': 'nice-portail-coulissant-aluminium-renforce-5-m-tx-07-mpn',
+  'TX-08': 'bft-kit-motorisation-coulissant-1000-kg-premium-tx-08-mpn',
+  'TX-09': 'somfy-coulisse-longue-4-m-hors-normes-tx-09-mpn',
+  'TX-10': 'somfy-tablier-de-volet-roulant-sur-mesure-tx-10-mpn',
+  'TX-13': 'somfy-coffre-tunnel-volet-roulant-expedition-fabricant-tx-13-mpn',
+  'TX-14': 'nice-portail-coulissant-8-m-sur-mesure-tx-14-mpn',
+  'TX-16': 'bft-motorisation-enterree-kit-complet-tx-16-mpn',
+  'TX-20': 'faac-photocellule-infrarouge-sans-fil-tx-20-mpn',
+};
+
+/**
+ * Ajoute au panier un produit du catalogue de test, par SKU.
+ *
+ * Ne vide PAS le panier : les scénarios multi-lignes (mixte, franco + exclusion)
+ * enchaînent plusieurs appels. Appeler `clearCart()` en amont.
+ */
+export async function addSkuToCart(page: Page, sku: string, quantity = 1): Promise<void> {
+  const slug = TX_SLUGS[sku];
+  if (!slug) {
+    throw new Error(`SKU ${sku} absent de TX_SLUGS — compléter la table dans helpers.ts`);
+  }
+
+  await page.goto(`/produits/${slug}`, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(`Réf. ${sku}`)).toBeVisible({ timeout: 10_000 });
+
+  if (quantity > 1) {
+    // Stepper Alpine `x-model.number` relié à @entangle('quantity').live :
+    // remplir puis blur pour que Livewire reçoive la valeur avant le clic.
+    const qtyInput = page.locator('#quantity');
+    await qtyInput.fill(String(quantity));
+    await qtyInput.blur();
+  }
+
+  const lw = waitForLivewire(page);
+  await page.getByRole('button', { name: 'Ajouter au panier' }).click();
+  await lw;
+}
+
+/**
+ * Le formulaire des options de livraison (composant ShippingOptions, L5).
+ * Sert de racine pour cibler les cartes/radios sans capter d'autres <form>
+ * (adresse, paiement) de la page.
  */
 export function shippingForm(page: Page) {
-  return page.locator('form').filter({ hasText: 'Shipping Options' });
+  return page.locator('form').filter({ hasText: 'Mode de livraison' });
+}
+
+/**
+ * Les radios de mode de livraison. Ciblés par leur `value` (= identifier de
+ * l'option) car le composant ne pose pas d'attribut `name` : sans ce filtre,
+ * les radios de sélection de point relais seraient capturés aussi.
+ */
+export function optionRadios(page: Page) {
+  return shippingForm(page).locator(
+    'input[type="radio"][value^="chronopost."], ' +
+      'input[type="radio"][value="free_shipping"], ' +
+      'input[type="radio"][value^="quote."], ' +
+      'input[type="radio"][value^="surcharge."]',
+  );
 }
 
 /**
@@ -155,10 +220,37 @@ export function shippingForm(page: Page) {
  * Ce helper normalise tous ces cas vers « radios interactifs », et échoue
  * VITE (assertions bornées) plutôt que de bloquer sur un clic impossible.
  */
+/**
+ * Amène le tunnel jusqu'à l'étape « Paiement » pour un panier 100 % devis.
+ *
+ * Ces paniers ne produisent AUCUNE option de livraison : `determineCheckoutStep()`
+ * saute l'étape « mode de livraison » et ouvre directement le paiement. Il n'y a
+ * donc ni carte à sélectionner ni bouton « Continuer » à cliquer.
+ */
+export async function reachPaymentStep(page: Page): Promise<void> {
+  await page.goto('/checkout');
+  await expect(page.locator('body')).toContainText(
+    /Adresse de livraison|Mode de livraison|Paiement/,
+    { timeout: 60_000 },
+  );
+
+  const firstName = page.getByRole('textbox', { name: /^Prénom/ }).first();
+  if (await firstName.isEditable({ timeout: 5_000 }).catch(() => false)) {
+    await fillShippingAddress(page);
+    const lwAddress = waitForLivewire(page);
+    await page.locator('button:has-text("Enregistrer l\'adresse")').click();
+    await lwAddress;
+  }
+
+  await expect(page.getByRole('heading', { name: 'Paiement' })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
 export async function reachShippingStep(page: Page): Promise<void> {
   await page.goto('/checkout');
   await expect(page.locator('body')).toContainText(
-    /Shipping Details|Shipping Options|Paiement/,
+    /Adresse de livraison|Mode de livraison|Paiement/,
     { timeout: 60_000 },
   );
 
@@ -175,23 +267,22 @@ export async function reachShippingStep(page: Page): Promise<void> {
     await lwAddress;
   }
 
-  const form = shippingForm(page);
-  const radios = form.locator('input[name="shippingOption"]');
-
   // 2. Si l'étape livraison est collapsée (une option avait été enregistrée par
-  //    un test précédent → currentStep 3), rouvrir via son bouton « Edit »
-  //    (wire:click $set currentStep=2). On garde `isVisible()` : sans bouton
-  //    Edit visible, on NE clique PAS (évite le hang jusqu'au timeout global).
-  const editBtn = form.getByRole('button', { name: /Edit|Modifier/ });
-  if (await editBtn.isVisible().catch(() => false)) {
+  //    un test précédent → currentStep 4), rouvrir via son bouton « Modifier »
+  //    (wire:click $set currentStep). On garde `isVisible()` : sans bouton
+  //    visible, on NE clique PAS (évite le hang jusqu'au timeout global).
+  const collapsed = page
+    .locator('div')
+    .filter({ has: page.getByRole('heading', { name: 'Mode de livraison' }) })
+    .getByRole('button', { name: 'Modifier' })
+    .first();
+  if (await collapsed.isVisible().catch(() => false)) {
     const lwEdit = waitForLivewire(page);
-    await editBtn.click();
+    await collapsed.click();
     await lwEdit;
   }
 
-  // 3. Les radios doivent maintenant être rendus et interactifs. Ces assertions
-  //    sont bornées → en cas d'anomalie (0 option résolue), échec net et rapide
-  //    plutôt qu'un blocage silencieux du beforeEach.
-  await expect(page.getByText('Shipping Options')).toBeVisible({ timeout: 15_000 });
-  await expect(radios.first()).toBeAttached({ timeout: 10_000 });
+  // 3. Le composant doit maintenant être rendu. Assertion bornée → en cas
+  //    d'anomalie, échec net et rapide plutôt qu'un blocage silencieux.
+  await expect(shippingForm(page)).toBeVisible({ timeout: 15_000 });
 }

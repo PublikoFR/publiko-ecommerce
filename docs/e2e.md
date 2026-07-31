@@ -57,6 +57,15 @@ Les parcours volumineux vivent dans un sous-dossier avec leur `SKILL.md` et un
   (société/SIRET), historique commandes. Comptes seedés par `PkoCustomerSeeder`
   (groupe `installateurs`). Cf. `e2e/tests/compte-pro/SKILL.md`.
   Lancer : `npm run test:e2e -- compte-pro`.
+- `e2e/tests/expeditions/` — modes de livraison (3 services Chronopost, franco,
+  forfait, port inclus), commande sur devis, rupture de stock. S'appuie sur le
+  catalogue de test `TX-*` (`PkoShippingCasesProductSeeder`, cf. `docs/shipping.md`
+  §5.17). Cf. `e2e/tests/expeditions/SKILL.md`.
+  Lancer : `npm run test:e2e -- expeditions`.
+
+> La base de la stack E2E (`pko_e2e`) est explicitement autorisée par
+> `App\Support\DestructiveCommandGuard` : sans cette exception, la garde anti-wipe
+> bloque le `migrate:fresh --seed` du `global-setup` et **tous** les tests échouent.
 
 ## Seeders disponibles
 
