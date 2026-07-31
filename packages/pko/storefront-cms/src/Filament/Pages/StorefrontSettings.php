@@ -20,6 +20,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
 use Pko\StorefrontCms\Models\Setting;
 
@@ -141,7 +142,13 @@ class StorefrontSettings extends Page implements HasForms
             Section::make('Bannière info (sous header)')->schema([
                 Toggle::make('banner_enabled')->label('Afficher la bannière'),
                 Grid::make(2)->schema([
-                    TextInput::make('banner_text')->label('Texte')->placeholder('Livraison offerte dès 125 € HT'),
+                    TextInput::make('banner_text')
+                        ->label('Texte')
+                        ->placeholder('Livraison offerte dès {{port_franco}}')
+                        ->helperText(new HtmlString(
+                            'Variables dynamiques disponibles : <code>{{port_franco}}</code> (seuil de livraison offerte, ex. « 500 € HT ») '
+                            .'et <code>{{port_franco_montant}}</code> (montant seul). Le seuil se règle dans Expédition → Paramètres.'
+                        )),
                     Select::make('banner_icon')->label('Icône')->options([
                         'truck' => 'Camion',
                         'check' => 'Check',
@@ -177,6 +184,9 @@ class StorefrontSettings extends Page implements HasForms
                         TextInput::make('title')->label('Titre')->required()->maxLength(80),
                         TextInput::make('subtitle')->label('Sous-titre')->maxLength(120),
                     ])
+                    ->helperText(new HtmlString(
+                        'Titre et sous-titre acceptent les variables dynamiques <code>{{port_franco}}</code> et <code>{{port_franco_montant}}</code>.'
+                    ))
                     ->columns(3)
                     ->defaultItems(0)
                     ->reorderableWithButtons()

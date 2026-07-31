@@ -68,6 +68,19 @@ class ShippingOptions extends Component
         'city' => '',
     ];
 
+    /**
+     * Une recherche a-t-elle déjà été lancée ? Distingue « pas encore cherché »
+     * de « cherché, zéro résultat » — sans quoi la saisie manuelle s'affiche
+     * d'emblée alors que la liste automatique n'a jamais été tentée.
+     */
+    public bool $pickupSearched = false;
+
+    /**
+     * Le service de recherche a-t-il échoué (credentials absents, SOAP KO) ?
+     * Distinct d'une recherche aboutie sans résultat : le message client diffère.
+     */
+    public bool $pickupServiceUnavailable = false;
+
     public function mount(): void
     {
         if ($shippingOption = $this->shippingAddress?->shipping_option) {
@@ -92,6 +105,37 @@ class ShippingOptions extends Component
             $this->selectedPickupPoint = $existing;
             $this->pickupPointId = isset($existing['id']) ? (string) $existing['id'] : null;
         }
+
+        // Carte préchargée sur le code postal de livraison : le client n'a rien à
+        // cliquer pour voir les points relais autour de chez lui. Il peut ensuite
+        // changer le code postal et relancer la recherche.
+        $this->autoSearchPickupPoints();
+    }
+
+    /**
+     * Bascule vers Chrono Relais : charger la liste tout de suite, sans attendre
+     * un clic sur « Rechercher ».
+     */
+    public function updatedChosenOption(): void
+    {
+        $this->autoSearchPickupPoints();
+    }
+
+    /**
+     * Recherche silencieuse : ne pose pas d'erreur de validation si le code
+     * postal est absent (contrairement à l'action explicite du bouton).
+     */
+    private function autoSearchPickupPoints(): void
+    {
+        if (! $this->requiresPickupPoint || $this->pickupSearched) {
+            return;
+        }
+
+        if (trim($this->pickupSearchPostcode) === '') {
+            return;
+        }
+
+        $this->runPickupSearch();
     }
 
     /**
@@ -107,25 +151,97 @@ class ShippingOptions extends Component
      */
     public function searchPickupPoints(): void
     {
-        $postcode = trim($this->pickupSearchPostcode);
-        if ($postcode === '') {
+        $this->resetErrorBag('pickupSearchPostcode');
+
+        if (trim($this->pickupSearchPostcode) === '') {
             $this->addError('pickupSearchPostcode', 'Veuillez renseigner un code postal.');
 
             return;
         }
 
+        // Relance explicite : on repart d'une recherche neuve même si une
+        // précédente a déjà eu lieu (changement de code postal).
+        $this->runPickupSearch();
+    }
+
+    /**
+     * Interroge le provider et met à jour l'état d'affichage.
+     */
+    private function runPickupSearch(): void
+    {
+        $postcode = trim($this->pickupSearchPostcode);
         $country = (string) ($this->shippingAddress?->country?->iso2 ?? 'FR');
+
+        // La ville n'est transmise que si elle correspond encore au code postal
+        // recherché : chez Chronopost elle prime sur le code postal, donc garder
+        // la ville de l'adresse après que le client a saisi un autre code postal
+        // renverrait les points relais de l'ancienne ville.
+        $addressPostcode = trim((string) ($this->shippingAddress?->postcode ?? ''));
+        $city = $addressPostcode !== '' && $addressPostcode === $postcode
+            ? (string) ($this->shippingAddress?->city ?? '')
+            : null;
+
+        $provider = app(PickupPointProvider::class);
 
         // Pass null as serviceCode: the internal identifier 'chronopost.chrono_relais'
         // is not a valid Chronopost productCode — the WS returns all nearby relay
         // points when productCode is empty, which is the correct V1 behaviour.
-        $points = app(PickupPointProvider::class)
-            ->search($postcode, $country, null);
+        $points = $provider->search($postcode, $country, null, $city !== '' ? $city : null);
 
         $this->pickupPoints = array_map(
             fn (PickupPoint $point) => $point->toArray(),
             $points,
         );
+
+        $this->pickupSearched = true;
+        // Un provider en panne (credentials Chronopost absents, SOAP injoignable)
+        // renvoie [] comme une recherche légitimement vide : sans ce drapeau le
+        // client voyait un écran identique dans les deux cas, et le bouton
+        // « Rechercher » paraissait inerte.
+        $this->pickupServiceUnavailable = $this->pickupPoints === []
+            && $provider->lastSearchError() !== null;
+    }
+
+    /**
+     * Message affiché quand la liste automatique ne donne rien.
+     */
+    public function getPickupEmptyMessageProperty(): ?string
+    {
+        if (! $this->pickupSearched || $this->pickupPoints !== []) {
+            return null;
+        }
+
+        if ($this->pickupServiceUnavailable) {
+            return 'La recherche automatique de points relais est momentanément indisponible. '
+                .'Saisissez les coordonnées de votre point relais ci-dessous.';
+        }
+
+        return 'Aucun point relais trouvé autour de ce code postal. '
+            .'Essayez un code postal voisin, ou saisissez votre point relais ci-dessous.';
+    }
+
+    /**
+     * Empreinte du jeu de points courant, utilisée en wire:key sur le conteneur
+     * de la carte. Le conteneur Leaflet est en wire:ignore (Livewire ne doit pas
+     * toucher au DOM que Leaflet gère) : sans clé qui change, une nouvelle
+     * recherche laisserait l'ancienne carte et ses anciens pins en place.
+     */
+    public function getPickupPointsFingerprintProperty(): string
+    {
+        return md5(implode('|', array_column($this->pickupPoints, 'id')));
+    }
+
+    /**
+     * Points géolocalisables : seuls ceux-là peuvent être affichés sur la carte.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getMappablePickupPointsProperty(): array
+    {
+        return array_values(array_filter(
+            $this->pickupPoints,
+            fn (array $p) => ! empty($p['latitude']) && ! empty($p['longitude']),
+        ));
     }
 
     /**

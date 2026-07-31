@@ -98,7 +98,12 @@
                     'step' => $steps['shipping_address'],
                 ])
 
-                {{-- Étape 2 : Mode de livraison — composant ShippingOptions --}}
+                @include('partials.checkout.address', [
+                    'type' => 'billing',
+                    'step' => $steps['billing_address'],
+                ])
+
+                {{-- Étape 3 : Mode de livraison — composant ShippingOptions --}}
                 @if ($currentStep >= $steps['shipping_option'])
                     @if ($currentStep == $steps['shipping_option'])
                         <livewire:components.shipping-options
@@ -130,11 +135,6 @@
                         </div>
                     @endif
                 @endif
-
-                @include('partials.checkout.address', [
-                    'type' => 'billing',
-                    'step' => $steps['billing_address'],
-                ])
 
                 @include('partials.checkout.payment', [
                     'step' => $steps['payment'],

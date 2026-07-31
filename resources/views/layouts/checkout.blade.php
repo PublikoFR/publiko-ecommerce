@@ -19,6 +19,10 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     @stripeScripts
+    {{-- Ce layout n'exposait aucune pile : tout @push('styles')/@push('scripts')
+         d'un composant rendu sur la page de commande partait à la poubelle
+         silencieusement (constaté sur la CDN Leaflet de la carte des points relais). --}}
+    @stack('styles')
 </head>
 
 <body class="antialiased text-gray-900">
@@ -44,6 +48,7 @@
     <x-footer />
 
     @livewireScripts
+    @stack('scripts')
 </body>
 
 </html>

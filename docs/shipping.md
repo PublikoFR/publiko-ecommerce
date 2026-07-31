@@ -18,11 +18,10 @@
 - Brackets tarifaires stockés via le trait `HasPrices` → table `lunar_prices` morphée, avec `min_quantity` comme seuil déclencheur.
 - Le driver `free-shipping` lit `data.minimum_spend` qui peut être un int ou un array keyed par code devise (`['EUR' => 50000]`).
 
-**Seed de base** (`PkoShippingSeeder`) :
-
-- 1 zone `France métropolitaine` (type `country`, rattachée à FR)
-- 3 méthodes : `pko-standard` (ship-by par poids), `pko-pickup` (collection, retrait entrepôt), `pko-free` (free-shipping dès 500 €)
-- 3 rates attachés avec brackets : 4 paliers pour le standard (690/990/1490/1990 cents), 1 bracket à 0 pour pickup + free
+**Seed de base — SUPPRIMÉ (2026-07-31).** `PkoShippingSeeder` créait 1 zone `France métropolitaine`
+et 3 méthodes (`pko-standard` ship-by par poids, `pko-pickup` collection, `pko-free` free-shipping
+dès 500 €). Voir § 5.8ter pour le motif du retrait. **Ne pas le recréer** : le calcul des frais de
+port passe intégralement par `UnifiedShippingModifier`.
 
 ### 5.2 Phase 2 — Chronopost + Colissimo dynamiques
 
@@ -183,9 +182,43 @@ Voir [packages/transporters.md](packages/transporters.md) pour les détails (col
 `ShippingManifest::getOptions($cart)` renvoie **0 option** silencieusement si l'une de ces conditions de données n'est pas remplie (constaté au premier test checkout, port Lunar) :
 
 1. **Type de zone = `countries` (pluriel)** — le resolver `ShippingZoneResolver` matche `whereType('countries')`. Une zone créée avec `type='country'` (singulier) n'est **jamais** trouvée. Valeurs valides : `unrestricted`, `countries`, `states`, `postcodes`.
-2. **Méthodes schedulées contre les groupes clients** — `ShippingRateResolver` rejette toute rate dont `shippingMethod()->customerGroup($groups)->first()` est null. Sans entrée dans `lunar_customer_group_shipping_method` (via `$method->scheduleCustomerGroup($groups)`), **aucune** option ne sort, quel que soit le groupe du client. `PkoShippingSeeder` schedule les 3 méthodes sur tous les groupes → doit donc tourner **après** `PkoCustomerGroupSeeder` dans `DatabaseSeeder`.
+2. **Méthodes schedulées contre les groupes clients** — `ShippingRateResolver` rejette toute rate dont `shippingMethod()->customerGroup($groups)->first()` est null. Sans entrée dans `lunar_customer_group_shipping_method` (via `$method->scheduleCustomerGroup($groups)`), **aucune** option ne sort, quel que soit le groupe du client.
 
-Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_methods_rates` (assertions type `countries` + méthodes schedulées).
+Depuis 2026-07-31 c'est ce point 2 qui **maintient volontairement** les options table-rate hors du checkout (cf. § 5.8ter) — ce n'est plus un gotcha à corriger mais un invariant à préserver.
+
+### 5.8ter Retrait des méthodes table-rate du checkout (2026-07-31)
+
+**Symptôme** : trois options parasites s'affichaient au tunnel de commande à côté des services
+Chronopost — « Livraison standard » (6,90 € TTC), « Retrait entrepôt » (0,00 €) et « Livraison
+offerte » (0,00 €) — sans que personne ne sache d'où elles venaient.
+
+**Cause** : ce sont les méthodes seedées par `PkoShippingSeeder` (`pko-standard`, `pko-pickup`,
+`pko-free`). Le commentaire posé en L1 dans `AppServiceProvider` affirmait qu'« aucune option ne
+sort au checkout (table vide → ShippingRateResolver rejette tout) » : **le postulat était faux**,
+le seeder appelait `scheduleCustomerGroup($groups)` sur les trois méthodes. Sur toute base passée
+par `make fresh`, le pivot était donc peuplé et les options remontaient. Retirer `ShippingPlugin`
+du panel Filament n'avait supprimé que l'**UI**, pas le modifier : `Lunar\Shipping\ShippingModifier`
+reste enregistré dans le manifest par le `ShippingServiceProvider` du package.
+
+**Décision** : ces trois méthodes n'ont plus de rôle. Le port est calculé intégralement par
+`UnifiedShippingModifier` / `ShippingCalculator`, le franco par `ShippingSettings::thresholdCents()`
+(« Livraison offerte » en était un doublon codé en dur à 500 €), et aucune UI ne permet plus de les
+éditer. Retrait :
+
+- `PkoShippingSeeder` **supprimé** et retiré de `DatabaseSeeder`.
+- Migration `2026_07_31_120000_retire_legacy_table_rate_shipping_methods` : `enabled=0` sur les
+  trois codes **et** purge de leurs lignes dans `lunar_customer_group_shipping_method` (c'est le
+  détachement qui les sort du manifest). Lignes conservées, pas de `delete()`.
+- Le package `lunarphp/table-rate-shipping`, ses tables et ses resources Filament swappées
+  (`PkoShippingMethodResource`…) restent en place — rien n'est désinstallé.
+
+**Invariant à ne pas casser** : ne jamais re-seeder une méthode table-rate avec
+`scheduleCustomerGroup()`, elle réapparaîtrait au checkout. Verrouillé par
+`tests/Feature/SeedersTest::test_no_table_rate_shipping_method_is_seeded`.
+
+**Réactivation** (si un jour on veut un vrai click & collect) : le faire comme un service à part
+entière côté `pko_carrier_services` / `ShippingCalculator`, pas en ressuscitant le seeder — sinon
+on retrouve une option non éditable et hors du calcul unifié.
 
 ### 5.8 Frais de port offert par produit — dropshipping (2026-06, remplacé par §5.14)
 
@@ -462,26 +495,61 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point relais** devient obligatoire avant de continuer.
 
 **Abstraction** (`packages/pko/shipping-common`) :
-- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`).
+- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`) + `lastSearchError(): ?string` (cf. plus bas).
 - DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, distanceKm, latitude, longitude, openingHours) + `toArray()` / `fromArray()`. Coordonnées GPS optionnelles pour la carte.
 - Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
 **Client SOAP point relais** (`packages/pko/shipping-chronopost`) :
-- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS` (WSDL officiel Chronopost). `serviceCode = null` (productCode vide = tous types de points). Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
+- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS`. `serviceCode = null` (productCode vide = tous types de points).
+
+  **Endpoint (corrigé le 2026-07-31)** : `https://ws.chronopost.fr/recherchebt-ws-cxf/PointRelaisServiceWS?wsdl`. L'ancienne valeur `recherchebt-wsdl/…` répondait **404** — le `SoapClient` échouait à la construction, donc avant même d'utiliser les identifiants. Aucune recherche de point relais n'avait jamais pu aboutir.
+
+  **Paramètres obligatoires**, découverts empiriquement (le WS répond par des erreurs métier, pas par une validation de schéma) :
+
+  | Paramètre | Valeur | Sans quoi |
+  |---|---|---|
+  | `type` | `P` (point relais Pickup) | erreur 300 « Il faut que le type ou le pudoType soient renseignés ». `A` (agence / bureau de poste) répond « pour l'instant non supporté » |
+  | `service` | `L` | erreur 300 « service [] incorrect ». `L` et `T` renvoient le même jeu de points |
+  | `city` | non vide | erreur 700 « The parameter named 'city' is required » |
+
+  **Piège `city` > `zipCode`** : quand les deux divergent, **la ville gagne** — `zipCode=75001` + `city=Béziers` renvoie les points de Béziers. Conséquence : ne jamais transmettre une ville périmée après que le client a changé le code postal. `ShippingOptions::runPickupSearch()` ne passe la ville de l'adresse que si le code postal recherché est encore celui de l'adresse ; sinon `null`, et le client SOAP remplit alors `city` avec le **code postal lui-même** — valeur acceptée qui laisse la géolocalisation suivre le code postal (vérifié sur 34500 / 75001 / 69003 / 33000 / 59000 / 06000). La ville entre dans la clé de cache du provider, puisqu'elle change le résultat.
+
+  **Compte de test** : Chronopost ne délivre pas de clé API en libre-service. Les comptes de démo publics `19869502` / `255562` et `68944403` / `501104` permettent d'exercer la recherche de points relais en dev (`CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD` dans `.env`, non versionné). Ils ne valent que pour la consultation — pas pour créer de vraies étiquettes. Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
 - `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal, retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
 - Credentials : `secret('chronopost.account')` / `secret('chronopost.password')` (pko/lunar-secrets) avec fallback `config('chronopost.credentials.*')`.
 - Binding : `ShippingChronopostServiceProvider::boot()` lie `PickupPointProvider → ChronopostPickupPointProvider` (boot garantit que ce binding écrase celui de `ShippingCommonServiceProvider::register()`).
 
 **Carte OpenStreetMap / Leaflet** :
-- Leaflet 1.9.4 chargé depuis CDN (`@push('scripts')` / `@push('styles')`) — aucune dépendance npm, aucune clé API.
-- Layout côte-à-côte (liste scrollable gauche, carte droite sur `md+`). Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
-- `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders.
+- **Le composant Alpine vit dans `resources/js/pickup-map.js`** (bundle Vite, fabrique globale `window.pickupMap`), pas en `x-data="{…}"` inline. Trois bugs l'imposaient, tous invisibles tant que la recherche ne renvoyait aucun point :
+  1. Les gabarits JS contenaient des `class=\"…\"`. **En HTML, `\"` n'est pas une séquence d'échappement** : le backslash est littéral et le guillemet **referme l'attribut**. Tout le corps du composant était recraché en texte brut au milieu de la page.
+  2. Leaflet était chargé via `@push('scripts')` / `@push('styles')`, or `resources/views/layouts/checkout.blade.php` ne déclarait **aucun `@stack`** — la CDN n'arrivait jamais sur la page de commande, la seule qui en a besoin. Les deux piles ont été ajoutées au layout, mais la carte n'en dépend plus.
+  3. **Le hash SRI du JS Leaflet était corrompu sur sa fin** (`…NV/XN/WPeE=` au lieu de `…NV1lvTlZBo=`). Le navigateur bloquait donc le script **en silence** et la carte restait un rectangle gris. Un SRI faux ne se voit qu'à l'exécution : toujours le recalculer, jamais le recopier — `curl -s <url> | openssl dgst -sha256 -binary | openssl base64 -A`.
+- **Fabrique globale, pas `Alpine.data()` sur `alpine:init`** : Alpine est embarqué dans le bundle Livewire (script classique en fin de `<body>`) alors que `pickup-map.js` part d'un `<script type="module">` différé du `@vite` en `<head>`. Selon le moment où Livewire démarre Alpine, `alpine:init` peut déjà avoir été émis — l'enregistrement arriverait trop tard et `x-data="pickupMap(…)"` ne résoudrait rien, sans erreur bruyante. Une fonction globale est résolue à l'évaluation de l'expression, ce qui supprime la course.
+- Leaflet 1.9.4 chargé depuis CDN **à la demande** par `pickup-map.js` (injection `<link>`/`<script>` avec SRI, promesse partagée entre instances) — aucune dépendance npm, aucune clé API. **On attend la CSS autant que le JS** : sans la feuille appliquée, `.leaflet-container` n'a pas de mise en page et les tuiles partent hors cadre (encore un rectangle gris). Échec de chargement → `console.error('[pickup-map]', …)` et la liste sous la carte reste utilisable, c'est elle qui fait foi.
+- `resources/js/**/*.js` est dans le `content` de `tailwind.config.js` : les classes des marqueurs (`bg-primary-400`, `ring-primary-300`…) sont bien scannées.
+- Régression verrouillée par `ShippingOptionsTest::test_le_composant_carte_est_reference_pas_inline` (le HTML doit contenir `x-data="pickupMap(` et jamais `L.divIcon` / `fitBounds` / `L.tileLayer`).
+- **Layout vertical (2026-07-31)** : carte pleine largeur en haut, liste scrollable en dessous. Remplace le côte-à-côte `md:` — sur une carte à demi-largeur les pins étaient illisibles. Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
+- Cadrage par `fitBounds()` sur l'ensemble des points géolocalisés (`padding` 30 px, `maxZoom` 15). Le `setView()` sur le premier point à zoom fixe laissait une partie des pins hors écran.
+- `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders. **Corollaire** : le conteneur porte un `wire:key="pickup-map-{fingerprint}"` calculé sur les ids des points. Sans cette clé, `wire:ignore` empêchait aussi la mise à jour après une **nouvelle** recherche — l'ancienne carte et ses anciens pins restaient affichés.
+- **Sélection = recentrage** : clic sur un item de la liste **ou** sur un pin → `selectPoint()` → `focusMarker()` ferme la bulle ouverte, `panTo()` le point choisi au centre, puis ouvre sa bulle. Les popups sont liées avec `autoPan: false`, sinon Leaflet recadre pour faire tenir la bulle et le point ne finit pas au centre.
+- Items de la liste en `border-2`, **jamais `border` + `ring`** : le ring déborde de la boîte et se fait rogner par l'`overflow` du bloc scrollable (contour visiblement découpé sur les bords). Même traitement que les cartes de mode de livraison.
 - Points sans lat/lon (GPS null) : liste uniquement, pas de marqueur.
 - Icônes `divIcon` stylées avec classes Tailwind DS (`primary-400`/`primary-600`), aucun hex en dur.
 
 **Front** (`App\Livewire\Components\ShippingOptions` + vue) :
 - Bloc relais affiché uniquement si `requiresPickupPoint` (service = `chronopost.chrono_relais`).
-- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → liste radios + carte. Si aucun résultat → saisie manuelle simplifiée.
+- **Préchargement automatique (2026-07-31)** : la liste et la carte se chargent sans clic, sur le code postal de l'adresse de livraison — au `mount()` si un relais est déjà retenu, et via `updatedChosenOption()` dès que le client sélectionne Chrono Relais. Le champ code postal + « Rechercher » ne servent plus qu'à élargir/déplacer la zone. `autoSearchPickupPoints()` est silencieux (pas d'erreur de validation si le code postal est vide) et ne relance rien si une recherche a déjà eu lieu (`$pickupSearched`).
+- Le champ code postal porte `wire:keydown.enter.prevent="searchPickupPoints"` : le bloc vit dans le `<form wire:submit="save">` de l'étape, valider au clavier soumettait sinon l'étape entière.
+- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → carte + liste radios. Si aucun résultat → saisie manuelle simplifiée.
+
+**Distinguer « zone non couverte » de « service en panne »** — `PickupPointProvider::lastSearchError(): ?string` :
+
+`search()` est volontairement tolérant aux pannes et renvoie `[]` aussi bien pour une zone sans point relais que pour un WS injoignable ou des credentials Chronopost absents. Le front affichait donc **le même écran muet** dans les deux cas : le bouton « Rechercher » semblait ne rien faire (symptôme rapporté en dev, où `CHRONOPOST_ACCOUNT`/`CHRONOPOST_PASSWORD` sont vides — `PickupPointSoapClient` lève alors `missing account credentials` avant tout appel réseau).
+
+- `lastSearchError()` renvoie le motif du dernier échec, ou `null` si la recherche a abouti (**y compris avec zéro résultat**). `ManualPickupPointProvider` renvoie `'no_provider_configured'` : aucune source branchée n'est pas « zéro point relais ».
+- Le composant en dérive `$pickupServiceUnavailable` et la computed `pickupEmptyMessage` : « momentanément indisponible » vs « aucun point relais autour de ce code postal ». Motif technique jamais affiché au client, uniquement loggué (canal `shipping-pickup`).
+- **Prérequis d'exploitation** : sans credentials Chronopost (Back-office → Transporteurs → Chronopost, ou `CHRONOPOST_ACCOUNT`/`CHRONOPOST_PASSWORD`), la recherche de points relais ne peut pas fonctionner — seule la saisie manuelle reste disponible.
+- Couvert par `ShippingOptionsTest` : préchargement au changement d'option, préchargement au mount, message de panne, message de zone vide. **Tout test qui sélectionne Chrono Relais doit binder un `PickupPointProvider` factice** — sans double, la recherche automatique résout le provider Chronopost réel et part en SOAP.
 - `save()` : si Chrono Relais choisi sans point retenu → erreur `pickupPointId`. Le point est persisté dans `cart.meta['pickup_point']`.
 - `FillOrderFromCart` (pipeline Lunar) copie l'intégralité de `cart.meta` → `order.meta` : la propagation du point relais est donc automatique, sans pipeline custom.
 

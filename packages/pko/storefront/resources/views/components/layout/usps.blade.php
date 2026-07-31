@@ -11,8 +11,8 @@ $usps = config('storefront.usps', []);
                         <x-ui.icon :name="$usp['icon'] ?? 'badge-check'" class="w-[22px] h-[22px]" />
                     </span>
                     <div>
-                        <p class="font-bold text-white text-sm leading-tight">{{ $usp['title'] }}</p>
-                        <p class="text-xs text-neutral-300 mt-0.5">{{ $usp['subtitle'] }}</p>
+                        <p class="font-bold text-white text-sm leading-tight">{{ \Pko\Storefront\Support\StorefrontText::render($usp['title'] ?? null) }}</p>
+                        <p class="text-xs text-neutral-300 mt-0.5">{{ \Pko\Storefront\Support\StorefrontText::render($usp['subtitle'] ?? null) }}</p>
                     </div>
                 </div>
             @endforeach

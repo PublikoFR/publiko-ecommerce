@@ -17,8 +17,18 @@ use Pko\ShippingCommon\Contracts\PickupPointProvider;
  */
 final class ManualPickupPointProvider implements PickupPointProvider
 {
-    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
+    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
     {
         return [];
+    }
+
+    /**
+     * Aucune source branchée : ce n'est pas « zéro point relais autour de ce code
+     * postal », c'est « la recherche automatique n'existe pas ». Le front doit
+     * pouvoir le dire au client plutôt que d'afficher une liste vide.
+     */
+    public function lastSearchError(): ?string
+    {
+        return 'no_provider_configured';
     }
 }

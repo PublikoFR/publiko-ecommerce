@@ -175,6 +175,52 @@ Règles à respecter dans le header (`components/layout/header.blade.php`) :
 non `hidden` — `overflow: hidden` sur un ancêtre casserait le `position: sticky` du header.
 C'est un filet de sécurité, pas une excuse pour laisser un élément déborder.
 
+### Ordre des étapes du checkout
+
+`App\Livewire\CheckoutPage::$steps` : **1 adresse de livraison → 2 adresse de facturation →
+3 mode de livraison → 4 paiement**. La facturation a été remontée juste sous la livraison
+(2026-07-31) : les deux adresses se saisissent d'affilée, la case « Identique à la facturation »
+n'a plus une étape intercalée entre elle et son effet.
+
+`determineCheckoutStep()` est écrite en **cascade de `return`** sur l'état du panier (adresse de
+livraison ? adresse de facturation ? option choisie ?), et non par incréments `+ 1` sur les
+numéros d'étape. Réordonner le tunnel ne demande donc que deux choses : renuméroter `$steps` et
+déplacer le `@include` correspondant dans `livewire/checkout-page.blade.php`. Verrouillé par
+`CheckoutBindingTest::test_billing_address_is_the_step_right_after_shipping_address` et
+`::test_same_as_billing_skips_the_billing_step`.
+
+### Variables dynamiques dans les textes éditoriaux (`StorefrontText`)
+
+Les textes de bandeau/USP saisis en back-office (Storefront → Paramètres) acceptent des
+**variables `{{...}}`** résolues au rendu par `Pko\Storefront\Support\StorefrontText::render()`.
+
+| Variable | Rendu | Source |
+|---|---|---|
+| `{{port_franco}}` | `500 € HT` | `ShippingSettings::thresholdCents()` |
+| `{{port_franco_montant}}` | `500 €` | idem, sans suffixe |
+
+Motivation : le seuil de franco était recopié en dur dans chaque bandeau
+(« Livraison offerte dès 125 € HT »). Le modifier dans **Expédition → Paramètres** ne se
+répercutait donc nulle part sur le front. La source de vérité unique reste
+`Pko\ShippingCommon\Settings\ShippingSettings` (DB → config → défaut codé) ; les vues ne
+formatent plus le montant elles-mêmes.
+
+Règles :
+
+- **Ne jamais recopier un seuil de franco en dur** dans un texte, une config ou une vue front.
+- Points d'application actuels : `components/layout/header.blade.php` (barre utilitaire au-dessus
+  du header **et** bandeau info sous le menu) et `components/layout/usps.blade.php`.
+  Tout nouvel emplacement affichant un texte éditorial doit passer par `StorefrontText::render()`.
+- Une variable inconnue est laissée telle quelle (on n'efface jamais la saisie utilisateur).
+- Les `{{ }}` d'un `Setting` ne sont pas évalués par Blade (valeur échappée à l'affichage) :
+  pas de risque d'injection de template.
+- Ajouter une variable = une entrée dans `StorefrontText::values()` + `availableVariables()`
+  (cette dernière alimente l'aide contextuelle du back-office).
+
+Dépendance : `pko/lunar-storefront` requiert désormais `pko/lunar-shipping-common`.
+
 ### Impact back-office
 - Aucun. `/admin` (Filament + Shield) inchangé, routes et middlewares séparés.
+- Exception : l'aide contextuelle des champs « Texte » (bannière) et « USPs » de
+  **Storefront → Paramètres** documente les variables disponibles.
 

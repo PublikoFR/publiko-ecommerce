@@ -2,7 +2,12 @@
 $contact = config('storefront.contact');
 $nav = config('storefront.nav.secondary', []);
 $quoteUrl = config('storefront.nav.quote_url', '/contact');
-$delivery = config('storefront.banner.text') ?: 'Livraison chantier · Retrait en magasin';
+// Les textes de bandeau acceptent des variables dynamiques (port_franco…)
+// résolues depuis la source de vérité unique (cf. StorefrontText).
+$delivery = \Pko\Storefront\Support\StorefrontText::render(
+    config('storefront.banner.text') ?: 'Livraison chantier · Retrait en magasin'
+);
+$bannerText = \Pko\Storefront\Support\StorefrontText::render(config('storefront.banner.text'));
 
 $user = auth()->user();
 @endphp
@@ -132,7 +137,7 @@ $user = auth()->user();
         <div class="bg-accent-50 border-b border-accent-100 text-primary-800 text-sm">
             <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-center gap-2 font-medium">
                 <x-ui.icon name="{{ config('storefront.banner.icon', 'truck') }}" class="w-4 h-4 text-accent-600" />
-                <span>{{ config('storefront.banner.text') }}</span>
+                <span>{{ $bannerText }}</span>
             </div>
         </div>
     @endif

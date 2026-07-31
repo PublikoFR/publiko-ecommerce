@@ -65,8 +65,8 @@ class CheckoutPage extends Component
      */
     public array $steps = [
         'shipping_address' => 1,
-        'shipping_option' => 2,
-        'billing_address' => 3,
+        'billing_address' => 2,
+        'shipping_option' => 3,
         'payment' => 4,
     ];
 
@@ -205,15 +205,19 @@ class CheckoutPage extends Component
         $meta = $customer->meta;
         $user = $this->cart->user ?? auth()->user();
 
+        // Adresse : les colonnes pko_* portent ce que le client a réellement saisi
+        // à l'inscription et priment donc sur `meta.sirene_address`, qui n'est
+        // renseigné que si la vérification INSEE est activée (INSEE_ENABLED, off
+        // par défaut) — sinon toute la partie adresse restait vide au checkout.
         return array_merge($address, array_filter([
             'first_name' => $customer->first_name,
             'last_name' => $customer->last_name,
             'company_name' => $customer->company_name,
             'contact_email' => $user?->email,
             'contact_phone' => data_get($meta, 'phone'),
-            'line_one' => data_get($meta, 'sirene_address.line_1'),
-            'city' => data_get($meta, 'sirene_address.city'),
-            'postcode' => data_get($meta, 'sirene_address.postcode'),
+            'line_one' => $customer->pko_street ?: data_get($meta, 'sirene_address.line_1'),
+            'city' => $customer->pko_city ?: data_get($meta, 'sirene_address.city'),
+            'postcode' => $customer->pko_postcode ?: data_get($meta, 'sirene_address.postcode'),
         ], fn ($value) => filled($value)));
     }
 
@@ -235,28 +239,33 @@ class CheckoutPage extends Component
      */
     public function determineCheckoutStep(): void
     {
-        $shippingAddress = $this->cart->shippingAddress;
-        $billingAddress = $this->cart->billingAddress;
+        // Ordre : livraison → facturation → mode de livraison → paiement.
+        // On avance jusqu'à la première étape non satisfaite. L'écrire comme une
+        // cascade de « return » (et non par incréments successifs) garde la
+        // méthode indépendante des valeurs de $steps : réordonner le tunnel ne
+        // demande plus que de renuméroter le tableau et de déplacer l'include.
+        if (! $this->cart->shippingAddress?->id) {
+            $this->currentStep = $this->steps['shipping_address'];
 
-        if ($shippingAddress) {
-            if ($shippingAddress->id) {
-                $this->currentStep = $this->steps['shipping_address'] + 1;
-            }
-
-            // Do we have a selected option?
-            if ($this->shippingOption) {
-                $this->chosenShipping = $this->shippingOption->getIdentifier();
-                $this->currentStep = $this->steps['shipping_option'] + 1;
-            } else {
-                $this->currentStep = $this->steps['shipping_option'];
-
-                return;
-            }
+            return;
         }
 
-        if ($billingAddress) {
-            $this->currentStep = $this->steps['billing_address'] + 1;
+        // Case « identique à la facturation » cochée : saveAddress('shipping') a
+        // déjà posé l'adresse de facturation, l'étape est donc franchie d'office.
+        if (! $this->cart->billingAddress?->id) {
+            $this->currentStep = $this->steps['billing_address'];
+
+            return;
         }
+
+        if (! $this->shippingOption) {
+            $this->currentStep = $this->steps['shipping_option'];
+
+            return;
+        }
+
+        $this->chosenShipping = $this->shippingOption->getIdentifier();
+        $this->currentStep = $this->steps['payment'];
     }
 
     /**

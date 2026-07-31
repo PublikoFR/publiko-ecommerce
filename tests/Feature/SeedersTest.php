@@ -33,48 +33,22 @@ class SeedersTest extends TestCase
         $this->assertGreaterThanOrEqual(5, Brand::query()->count());
     }
 
-    public function test_shipping_seeder_creates_zone_methods_rates(): void
+    /**
+     * Garde anti-régression : plus aucune méthode table-rate ne doit être seedée.
+     *
+     * `PkoShippingSeeder` en créait 3 (pko-standard / pko-pickup / pko-free) et
+     * les schedulait sur tous les groupes clients — elles remontaient donc au
+     * checkout à côté des services Chronopost, sans UI pour les gérer et en
+     * doublon du franco. Le calcul des frais de port passe intégralement par
+     * `UnifiedShippingModifier`. Re-seeder une méthode table-rate la ferait
+     * réapparaître au tunnel de commande.
+     */
+    public function test_no_table_rate_shipping_method_is_seeded(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $zone = ShippingZone::query()
-            ->where('name', 'France métropolitaine')
-            ->firstOrFail();
-
-        // Must be the plural 'countries' type expected by the table-rate resolver,
-        // otherwise ShippingManifest resolves zero options at checkout.
-        $this->assertSame('countries', $zone->type);
-        $this->assertTrue(
-            $zone->countries()->where('iso2', 'FR')->exists(),
-            'Shipping zone must be attached to FR country.',
-        );
-
-        // Methods must be scheduled against the customer groups, otherwise the
-        // customer-group scope rejects every rate and no option is available.
-        $standardMethod = ShippingMethod::query()->where('code', 'pko-standard')->firstOrFail();
-        $this->assertTrue(
-            $standardMethod->customerGroups()->count() > 0,
-            'Shipping methods must be scheduled against customer groups.',
-        );
-
-        $this->assertSame(3, ShippingMethod::query()->count());
-        $this->assertSame(3, ShippingRate::query()->count());
-
-        $standard = ShippingMethod::query()->where('code', 'pko-standard')->firstOrFail();
-        $this->assertSame('ship-by', $standard->driver);
-        $this->assertSame('weight', $standard->data['charge_by']);
-
-        $standardRate = ShippingRate::query()
-            ->where('shipping_method_id', $standard->id)
-            ->firstOrFail();
-
-        $this->assertSame(4, $standardRate->prices()->count());
-
-        $pickup = ShippingMethod::query()->where('code', 'pko-pickup')->firstOrFail();
-        $this->assertSame('collection', $pickup->driver);
-
-        $free = ShippingMethod::query()->where('code', 'pko-free')->firstOrFail();
-        $this->assertSame('free-shipping', $free->driver);
-        $this->assertSame(50000, $free->data['minimum_spend']['EUR']);
+        $this->assertSame(0, ShippingMethod::query()->count());
+        $this->assertSame(0, ShippingRate::query()->count());
+        $this->assertSame(0, ShippingZone::query()->count());
     }
 }

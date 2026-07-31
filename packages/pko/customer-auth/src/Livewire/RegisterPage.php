@@ -62,7 +62,13 @@ class RegisterPage extends Component
             'phone' => ['required', 'string', 'max:30'],
             'firstName' => ['required', 'string', 'max:80'],
             'lastName' => ['required', 'string', 'max:80'],
-            'companyName' => ['nullable', 'string', 'max:200'],
+            // Obligatoire : c'est la raison sociale reprise telle quelle comme
+            // company_name du Customer, puis pré-remplie sur l'adresse de
+            // commande. Elle n'est renseignée automatiquement que si la
+            // vérification INSEE est active (off par défaut) — la laisser
+            // facultative produisait des comptes sans raison sociale, et donc un
+            // champ « Raison sociale » vide au premier checkout.
+            'companyName' => ['required', 'string', 'max:200'],
             'activity' => ['nullable', 'string', 'max:200'],
             'metierGroupId' => ['nullable', 'integer', 'exists:lunar_customer_groups,id'],
             'street' => ['nullable', 'string', 'max:255'],
@@ -151,29 +157,30 @@ class RegisterPage extends Component
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);
         }
 
-        // SIRET revalidé actif côté serveur → on connecte immédiatement pour
-        // limiter la friction. Le compte reste néanmoins « pending » : il ne
-        // deviendra pleinement actif qu'une fois l'adresse e-mail vérifiée (lien
-        // du mail de bienvenue). On redirige donc vers l'accueil (et non /compte,
-        // qui est gated tant que le compte n'est pas actif) avec un rappel.
-        if ($result['sirene']->isActive()) {
-            Auth::login($result['user']);
-            session()->regenerate();
-            // Exception assumée à la règle « un compte pending ne reste jamais
-            // connecté » : on ne casse pas le parcours d'inscription.
-            JustRegistered::flag();
-            session()->flash('status', 'Bienvenue ! Votre compte a bien été créé. Pour l\'activer, validez votre adresse e-mail en cliquant sur le lien reçu par e-mail.');
+        // Auto-login systématique : une inscription qui aboutit connecte toujours.
+        //
+        // RÉGRESSION RÉCURRENTE — ne pas reconditionner ce bloc au statut SIRENE.
+        // `RegisterProCustomer` a déjà rejeté (DomainException) le seul cas
+        // disqualifiant, `Status::Inactive`. Il ne reste donc que `Active` et
+        // `Pending`, et `Pending` ne veut PAS dire « en attente de validation » :
+        // c'est le statut retourné dès que l'INSEE n'est pas consulté
+        // (INSEE_ENABLED=false — le défaut — clé API absente, timeout, 5xx). Gater
+        // l'auto-login sur `isActive()` revenait donc à ne JAMAIS auto-connecter
+        // sur toute installation sans compte INSEE.
+        //
+        // C'est cohérent avec ProAccess : le SIRET n'y est pas un critère d'accès,
+        // seule la vérification e-mail l'est. Le compte reste `pending` tant que
+        // l'e-mail n'est pas confirmé, d'où la redirection vers l'accueil (et non
+        // /compte, gated) et le flag JustRegistered qui ouvre l'accès le temps de
+        // la session.
+        Auth::login($result['user']);
+        session()->regenerate();
+        // Exception assumée à la règle « un compte pending ne reste jamais
+        // connecté » : on ne casse pas le parcours d'inscription.
+        JustRegistered::flag();
+        session()->flash('status', 'Bienvenue ! Votre compte a bien été créé. Pour l\'activer, validez votre adresse e-mail en cliquant sur le lien reçu par e-mail.');
 
-            return redirect('/');
-        }
-
-        // Compte en attente de validation SIRET : on ne connecte PAS l'utilisateur.
-        // Le connecter puis rediriger vers /compte provoquerait une boucle de
-        // redirection (pro.customer renvoie les comptes non-actifs vers /connexion,
-        // que redirect.if.pro renvoie à son tour vers /compte pour un user authentifié).
-        session()->flash('status', 'Compte créé. Nous finalisons la vérification de votre SIRET, vous serez notifié par e-mail dès activation.');
-
-        return redirect('/connexion');
+        return redirect('/');
     }
 
     #[Layout('customer-auth::layouts.auth', ['containerClass' => 'max-w-3xl'])]

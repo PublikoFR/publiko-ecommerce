@@ -43,7 +43,7 @@
                         <p class="-mt-3 text-sm text-success-700">Établissement vérifié auprès de l'INSEE — champs préremplis.</p>
                     @endif
 
-                    <x-ui.input wire:model="companyName" label="Raison sociale" placeholder="Optionnel — détecté automatiquement" :error="$errors->first('companyName')" />
+                    <x-ui.input wire:model="companyName" label="Raison sociale" required placeholder="Détectée automatiquement depuis le SIRET" :error="$errors->first('companyName')" />
 
                     {{-- Code NAF / APE : renseigné automatiquement depuis l'INSEE et
                          persisté en base, mais non exposé à l'utilisateur (donnée

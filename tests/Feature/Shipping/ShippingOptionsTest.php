@@ -98,16 +98,28 @@ class ShippingOptionsTest extends TestCase
 
     /**
      * Lie un provider de points relais factice retournant un point connu.
+     *
+     * À binder dans TOUT test qui sélectionne Chrono Relais : le composant lance
+     * désormais une recherche automatique au changement d'option, et sans double
+     * c'est le provider Chronopost réel (donc un appel SOAP) qui serait résolu.
+     *
+     * @param  list<PickupPoint>  $points
+     * @param  string|null  $error  motif d'échec simulé (service injoignable)
      */
-    private function bindPickupProviderWith(array $points): void
+    private function bindPickupProviderWith(array $points, ?string $error = null): void
     {
-        $this->app->bind(PickupPointProvider::class, fn () => new class($points) implements PickupPointProvider
+        $this->app->bind(PickupPointProvider::class, fn () => new class($points, $error) implements PickupPointProvider
         {
-            public function __construct(private array $points) {}
+            public function __construct(private array $points, private ?string $error) {}
 
-            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
+            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
             {
                 return $this->points;
+            }
+
+            public function lastSearchError(): ?string
+            {
+                return $this->error;
             }
         });
     }
@@ -318,6 +330,7 @@ class ShippingOptionsTest extends TestCase
             $this->makeOption('chronopost.chrono_relais', 1490),
             $this->makeOption('chronopost.chrono13', 1890),
         ]);
+        $this->bindPickupProviderWith([]);
 
         Livewire::test(ShippingOptions::class)
             ->set('chosenOption', 'chronopost.chrono_relais')
@@ -359,6 +372,141 @@ class ShippingOptionsTest extends TestCase
         $this->assertSame('Relais du Centre', $point['name']);
     }
 
+    /**
+     * Le client ne doit rien avoir à cliquer : choisir Chrono Relais précharge la
+     * liste (et donc la carte) sur le code postal de l'adresse de livraison.
+     */
+    public function test_choisir_chrono_relais_precharge_les_points_sans_clic_sur_rechercher(): void
+    {
+        $this->makeCartWithAddress('34500');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890),
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: 'PR900',
+                name: 'Relais Béziers',
+                address1: '5 rue des Halles',
+                postcode: '34500',
+                city: 'Béziers',
+                latitude: 43.34,
+                longitude: 3.21,
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSet('pickupPoints', [])
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSet('pickupSearchPostcode', '34500')
+            ->assertCount('pickupPoints', 1)
+            ->assertSet('pickupServiceUnavailable', false);
+    }
+
+    /**
+     * Un point relais déjà retenu : la carte doit être là dès le montage, sans
+     * repasser par le bouton « Rechercher ».
+     */
+    public function test_points_precharges_au_mount_quand_relais_deja_selectionne(): void
+    {
+        $cart = $this->makeCartWithAddress('34500');
+        $cart->shippingAddress->update(['shipping_option' => 'chronopost.chrono_relais']);
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: 'PR900',
+                name: 'Relais Béziers',
+                address1: '5 rue des Halles',
+                postcode: '34500',
+                city: 'Béziers',
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->assertSet('chosenOption', 'chronopost.chrono_relais')
+            ->assertCount('pickupPoints', 1);
+    }
+
+    /**
+     * Service injoignable (credentials Chronopost absents, SOAP KO) : le client
+     * doit le savoir. Auparavant le bouton « Rechercher » paraissait inerte —
+     * même écran que pour une zone réellement sans point relais.
+     */
+    public function test_service_indisponible_est_signale_distinctement(): void
+    {
+        $this->makeCartWithAddress('34500');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+        $this->bindPickupProviderWith([], 'Chronopost pickup: missing account credentials');
+
+        $component = Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSet('pickupServiceUnavailable', true);
+
+        $component->assertSee('momentanément indisponible');
+    }
+
+    public function test_aucun_point_trouve_est_signale_sans_parler_de_panne(): void
+    {
+        $this->makeCartWithAddress('34500');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+        $this->bindPickupProviderWith([]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSet('pickupServiceUnavailable', false)
+            ->assertSee('Aucun point relais trouvé')
+            ->assertDontSee('momentanément indisponible');
+    }
+
+    /**
+     * Le composant Alpine de la carte doit rester dans le bundle JS.
+     *
+     * En x-data inline, les gabarits contenaient des `class=\"…\"` : en HTML le
+     * backslash est littéral et le guillemet **referme l'attribut**, si bien que
+     * tout le corps du composant était recraché en texte brut dans la page.
+     */
+    public function test_le_composant_carte_est_reference_pas_inline(): void
+    {
+        $this->makeCartWithAddress('34500');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: 'PR900',
+                name: 'Relais Béziers',
+                address1: '5 rue des Halles',
+                postcode: '34500',
+                city: 'Béziers',
+                latitude: 43.34,
+                longitude: 3.21,
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSee('x-data="pickupMap(', false)
+            // Marqueurs du corps du composant : leur présence dans le HTML
+            // signifierait un retour au x-data inline.
+            ->assertDontSee('L.divIcon', false)
+            ->assertDontSee('fitBounds', false)
+            ->assertDontSee('L.tileLayer', false);
+    }
+
     public function test_saisie_manuelle_du_point_relais_est_persistee(): void
     {
         $cart = $this->makeCartWithAddress();
@@ -366,6 +514,7 @@ class ShippingOptionsTest extends TestCase
         $this->bindManifestWith([
             $this->makeOption('chronopost.chrono_relais', 1490),
         ]);
+        $this->bindPickupProviderWith([]);
 
         Livewire::test(ShippingOptions::class)
             ->set('chosenOption', 'chronopost.chrono_relais')

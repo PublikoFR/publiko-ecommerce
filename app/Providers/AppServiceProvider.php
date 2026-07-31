@@ -178,7 +178,14 @@ class AppServiceProvider extends ServiceProvider
                 // retirés du panel — L1 refonte frais de port 2026. Les tables/migrations restent
                 // en place pour pouvoir les réactiver sans réécriture (rajouter les deux plugins
                 // + peupler lunar_customer_group_shipping_method via scheduleCustomerGroup()).
-                // Aucune option ne sort au checkout (table vide → ShippingRateResolver rejette tout).
+                //
+                // ATTENTION : le modifier table-rate, lui, reste actif dans le manifest — retirer
+                // le plugin ne retire que l'UI. Ce qui empêche ses options d'apparaître au checkout,
+                // c'est l'absence de méthode schedulée sur un groupe client (ShippingRateResolver
+                // rejette alors toutes les rates). Ne JAMAIS re-seeder de méthode table-rate avec
+                // scheduleCustomerGroup() : elles réapparaîtraient au tunnel de commande à côté des
+                // services Chronopost, sans UI pour les gérer. Cf. migration
+                // 2026_07_31_120000_retire_legacy_table_rate_shipping_methods.
                 ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())
