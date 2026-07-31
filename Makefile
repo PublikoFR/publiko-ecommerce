@@ -39,7 +39,7 @@ DC=docker compose -p ecom-laravel
 EXEC=$(DC) exec -u sail $(WT_ENV) app
 EXEC_ROOT=$(DC) exec $(WT_ENV) app
 
-.PHONY: help install build up down restart shell artisan composer migrate fresh seed test lint logs ps lunar shield permissions db-dump db-restore
+.PHONY: help install build up down restart shell artisan composer migrate fresh seed test test-only lint logs ps lunar shield permissions db-dump db-restore
 
 help:
 	@echo "Back-office Laravel + Lunar + Filament"
@@ -171,6 +171,57 @@ test:
 	else \
 		docker exec weklo-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
 		$(EXEC) sh scripts/run-tests-chunked.sh ; \
+	fi
+
+# Suite CIBLEE — meme base de test que `make test`, sur un sous-ensemble.
+#
+# POURQUOI : `make test` lance les 13 chunks (~7 min 30). Dans une boucle de
+# correction on refait tourner la suite entiere pour valider une ligne, ce qui
+# coute des dizaines de minutes par mission. Cette cible ramene le cycle a
+# ~30 s.
+#
+# AUSSI SUR QUE `make test` : la securite ne vient pas du fait de tout lancer,
+# elle vient de phpunit.xml qui force `DB_DATABASE=testing` (ligne 25). Un
+# `php artisan test <chemin>` herite exactement du meme env, donc de la meme
+# base cible. Il ne peut pas toucher la base de dev.
+#
+# SEGFAULT : le decoupage en chunks existe parce que >250 tests dans un seul
+# process PHP segfaultent (cf. scripts/run-tests-chunked.sh). Un run cible est
+# par construction un seul petit chunk, tres en-dessous du seuil. On garde
+# quand meme le `ulimit -s` du script par symetrie.
+#
+# USAGE :
+#   make test-only T=tests/Feature/Checkout
+#   make test-only T=tests/Feature/Checkout/CheckoutBindingTest.php
+#   make test-only T='--filter=it_binds_the_cart'
+#
+# La suite COMPLETE (`make test`) reste obligatoire avant tout merge.
+test-only:
+	@if [ -z "$(T)" ]; then \
+		echo "make test-only : precise la cible avec T=..." ; \
+		echo "  ex. make test-only T=tests/Feature/Checkout" ; \
+		exit 2 ; \
+	fi
+	@if [ -n "$(WORKTREE_GUARD)" ]; then \
+		echo "→ [worktree] DB isolee : $(WT_DB_NAME) | code : $(CURDIR)"; \
+		docker exec weklo-mysql mysql -u root -p$(DB_ROOT_PWD) -e \
+			"CREATE DATABASE IF NOT EXISTS \`$(WT_DB_NAME)\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$(WT_DB_NAME)\`.* TO 'weklo'@'%'; FLUSH PRIVILEGES;" ; \
+		docker exec weklo-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		docker run --rm -u sail -w /var/www/html \
+			--network ecom-laravel_backend \
+			-v "$(CURDIR):/var/www/html" \
+			-v "$(MAIN_REPO)/vendor:/var/www/html/vendor" \
+			-v "$(MAIN_REPO)/.env:/var/www/html/.env:ro" \
+			-v "$(MAIN_REPO)/docker/app/php.ini:/usr/local/etc/php/conf.d/zz-weklo.ini:ro" \
+			-v "$(MAIN_REPO)/public/build:/var/www/html/public/build:ro" \
+			-v "$(MAIN_REPO)/storage:/var/www/html/storage" \
+			-v "$(MAIN_REPO)/bootstrap/cache:/var/www/html/bootstrap/cache" \
+			-e PKOS_WORKTREE=1 \
+			-e DB_DATABASE=$(WT_DB_NAME) \
+			ecom-laravel-app sh -c "ulimit -s 65536 2>/dev/null || true; php artisan test $(T)" ; \
+	else \
+		docker exec weklo-app sh -c "pkill -9 -f 'artisan test|phpunit' 2>/dev/null; exit 0" ; \
+		$(EXEC) sh -c "ulimit -s 65536 2>/dev/null || true; php artisan test $(T)" ; \
 	fi
 
 lint:
