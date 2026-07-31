@@ -54,7 +54,9 @@ return [
         'threshold_eur_help' => 'Montant minimum du panier HT pour déclencher la livraison offerte.',
 
         'services' => 'Services couverts par le franco',
-        'services_help' => 'Codes nus des services (ex : chrono13). Appuyez sur Entrée après chaque code.',
+        'services_help' => 'Sélectionnez les services de livraison offerts au-delà du seuil. Seuls les services actifs des transporteurs sont proposés.',
+        'services_placeholder' => 'Rechercher un service…',
+        'services_orphan_group' => 'Codes enregistrés (service inactif ou supprimé)',
 
         'basis' => 'Base de calcul',
         'basis_help' => 'Définit quelles lignes entrent dans le total comparé au seuil.',

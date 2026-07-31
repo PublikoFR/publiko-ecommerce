@@ -1,6 +1,12 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        {{-- Formulaire : source credentials + services + grille --}}
+        {{-- Services : table CRUD (ajout / modification / suppression en ligne) --}}
+        @livewire('pko-shipping.carrier-services-table', ['carrierCode' => $this->getCarrierCode()], key('services-'.$this->getCarrierCode()))
+
+        {{-- Grille tarifaire : table CRUD --}}
+        @livewire('pko-shipping.carrier-grid-table', ['carrierCode' => $this->getCarrierCode()], key('grid-'.$this->getCarrierCode()))
+
+        {{-- Credentials + mode de tarification --}}
         <form wire:submit="save">
             {{ $this->form }}
 
@@ -37,77 +43,6 @@
                     </div>
                 </div>
             @endif
-        </x-filament::section>
-
-        {{-- Récap services --}}
-        <x-filament::section collapsible collapsed>
-            <x-slot name="heading">Services enregistrés</x-slot>
-            <x-slot name="description">Vue en lecture seule — l'édition se fait dans le formulaire ci-dessus.</x-slot>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        <tr>
-                            <th class="py-2 pr-4">Code</th>
-                            <th class="py-2 pr-4">Libellé</th>
-                            <th class="py-2">Actif</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
-                        @forelse ($this->getServices() as $service)
-                            <tr>
-                                <td class="py-2 pr-4 font-mono text-xs">{{ $service['code'] }}</td>
-                                <td class="py-2 pr-4">{{ $service['label'] }}</td>
-                                <td class="py-2">
-                                    @if ($service['enabled'])
-                                        <x-filament::badge color="success">Actif</x-filament::badge>
-                                    @else
-                                        <x-filament::badge color="gray">Inactif</x-filament::badge>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="3" class="py-3 text-center text-gray-500 dark:text-gray-400">
-                                    Aucun service configuré.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </x-filament::section>
-
-        {{-- Récap grille --}}
-        <x-filament::section collapsible collapsed>
-            <x-slot name="heading">Grille tarifaire</x-slot>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        <tr>
-                            <th class="py-2 pr-4">Poids max (kg)</th>
-                            <th class="py-2 pr-4">Prix</th>
-                            <th class="py-2">Service</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
-                        @forelse ($this->getGrid() as $bracket)
-                            <tr>
-                                <td class="py-2 pr-4 font-mono">{{ $bracket['max_kg'] }}</td>
-                                <td class="py-2 pr-4">{{ $this->formatCents($bracket['price']) }}</td>
-                                <td class="py-2 text-gray-500">{{ $bracket['service_code'] ?? 'tous' }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="3" class="py-3 text-center text-gray-500 dark:text-gray-400">
-                                    Aucun palier tarifaire configuré.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
         </x-filament::section>
     </div>
 </x-filament-panels::page>

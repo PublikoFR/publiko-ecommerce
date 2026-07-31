@@ -6,7 +6,6 @@ namespace Pko\ShippingCommon\Filament\Pages;
 
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -16,7 +15,9 @@ use Filament\Notifications\Notification;
 use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
+use Pko\ShippingCommon\Models\CarrierService;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\StorefrontCms\Models\Setting;
 
@@ -74,10 +75,14 @@ class ShippingSettingsPage extends BasePage implements HasForms
                             ->suffix('€ HT')
                             ->required(),
 
-                        TagsInput::make('services')
+                        Select::make('services')
                             ->label(__('pko-shipping-common::admin.settings.services'))
                             ->helperText(__('pko-shipping-common::admin.settings.services_help'))
-                            ->placeholder('chrono13'),
+                            ->placeholder(__('pko-shipping-common::admin.settings.services_placeholder'))
+                            ->multiple()
+                            ->searchable()
+                            ->native(false)
+                            ->options(fn (): array => $this->serviceOptions()),
 
                         ToggleButtons::make('basis')
                             ->label(__('pko-shipping-common::admin.settings.basis'))
@@ -117,6 +122,52 @@ class ShippingSettingsPage extends BasePage implements HasForms
                     ]),
             ])
             ->statePath('data');
+    }
+
+    /**
+     * Options du select « services couverts par le franco », groupées par
+     * transporteur. Seuls les services actifs sont proposés — un transporteur
+     * dont tous les services sont désactivés (Colissimo en veille) disparaît
+     * donc de la liste. Les codes déjà enregistrés mais absents de cette liste
+     * (service désactivé ou supprimé) sont conservés pour ne pas les perdre
+     * silencieusement à l'enregistrement.
+     *
+     * @return array<string, array<string, string>>
+     */
+    protected function serviceOptions(): array
+    {
+        $carriers = app(CarrierRegistry::class);
+
+        $options = [];
+
+        $services = CarrierService::query()
+            ->where('enabled', true)
+            ->orderBy('carrier_code')
+            ->orderBy('sort')
+            ->get();
+
+        foreach ($services as $service) {
+            $carrierCode = (string) $service->carrier_code;
+            $group = $carriers->get($carrierCode)?->displayName ?? $carrierCode;
+
+            $options[$group][(string) $service->service_code] = sprintf(
+                '%s (%s)',
+                (string) $service->label,
+                (string) $service->service_code,
+            );
+        }
+
+        $known = array_merge(...array_values(array_map('array_keys', $options)) ?: [[]]);
+        $orphans = array_diff((array) ShippingSettings::francoServices(), $known);
+
+        if ($orphans !== []) {
+            $group = __('pko-shipping-common::admin.settings.services_orphan_group');
+            foreach ($orphans as $code) {
+                $options[$group][(string) $code] = (string) $code;
+            }
+        }
+
+        return $options;
     }
 
     public function save(): void

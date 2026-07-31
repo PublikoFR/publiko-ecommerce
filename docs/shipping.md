@@ -122,11 +122,31 @@ Depuis avril 2026 :
 
 - **Plugin Filament unique** `TransportersPlugin` (remplace `ShippingCommonPlugin` + `ChronopostPlugin` + `ColissimoPlugin`).
 - **`CarrierRegistry`** singleton — chaque adapter s'enregistre dans son `ServiceProvider::register()` via `afterResolving(CarrierRegistry::class)`.
-- **`AbstractCarrierConfigPage`** — rend le formulaire complet (credentials toggle env/DB + services Repeater + grille Repeater) à partir de la `CarrierDefinition`.
+- **`AbstractCarrierConfigPage`** — rend, à partir de la `CarrierDefinition` : les deux tables CRUD (services, grille), puis le formulaire credentials (toggle env/DB) et le mode de tarification.
 - **Tables `pko_carrier_services` et `pko_carrier_grids`** — data migration initiale (`2026_04_21_110100_seed_initial_carrier_data`) sème Chronopost (5 paliers, 3 services) et Colissimo (4 paliers, 2 services) depuis les anciennes valeurs config.
 - **Ajouter un nouveau transporteur** : cf. [packages/transporters.md](packages/transporters.md) — ~80 lignes au total.
 
 > **L4 (2026-07)** : `AbstractCarrierModifier` supprimé — remplacé par `ShippingCalculator` (cf. §5.10 / §5.12). Les sous-classes `ChronopostModifier` et `ColissimoModifier` sont supprimées. Seul `UnifiedShippingModifier` reste dans le pipeline Lunar.
+
+#### 5.4bis Page config transporteur — tables CRUD (2026-07)
+
+**Problème** : la page affichait d'abord deux Repeaters (services + grille) puis, en dessous, deux tableaux récapitulatifs en lecture seule des mêmes données → double affichage et scroll important.
+
+**Décision** : la donnée n'est plus affichée qu'une fois, sous forme de **tables Filament CRUD placées en haut de page** ; le formulaire (credentials + mode de tarification) passe en dessous.
+
+| Composant | Rôle |
+|---|---|
+| `Filament\Livewire\CarrierServicesTable` | Table CRUD `pko_carrier_services` d'un transporteur (create / edit / delete / réordonnancement, toggle `enabled` en ligne) |
+| `Filament\Livewire\CarrierGridTable` | Table CRUD `pko_carrier_grids`, **groupée par service** (une sous-grille visuelle par service, triée par poids max) ; prix saisis en **euros**, stockés en cents ; service choisi via Select alimenté par les services du transporteur |
+| `AbstractCarrierTable` | Base commune (Livewire + `InteractsWithTable`), vue `pko-shipping-common::livewire.carrier-table` |
+
+La vue admin est étroite (sidebar) : les actions de ligne sont en **icônes seules** (`->iconButton()` + tooltip) et la colonne « Service » de la grille est portée par l'en-tête de groupe plutôt que par une colonne. La grille n'est pas réordonnable — `CarrierGridRepository` trie par `service_code` puis `max_kg`, la colonne `sort` n'y joue aucun rôle (elle reste utilisée par les services).
+
+Pourquoi des composants Livewire dédiés plutôt que la table de la page : **une page Filament ne peut héberger qu'une seule table**. Les deux composants sont enregistrés dans `ShippingCommonServiceProvider::boot()` (`pko-shipping.carrier-services-table`, `pko-shipping.carrier-grid-table`) et embarqués via `@livewire(..., ['carrierCode' => ...])` — le pattern est donc réutilisable tel quel par tout nouveau transporteur qui hérite d'`AbstractCarrierConfigPage`.
+
+**Invalidation du cache** : `AbstractCarrierConfigPage::save()` ne réécrit plus services/grille, donc le flush explicite des repositories n'y a plus lieu d'être. Il est remplacé par des listeners modèles (`CarrierService::saved/deleted`, `CarrierGridBracket::saved/deleted`) enregistrés dans le ServiceProvider : **toute** écriture (admin, migration, seeder, import tarifs publics Colissimo) invalide le cache du repository concerné.
+
+**Paramètres d'expédition** : le champ « Services couverts par le franco » est un `Select` multiple recherchable, alimenté par `pko_carrier_services` et groupé par transporteur (au lieu d'un `TagsInput` en saisie libre, où l'admin ne savait pas quoi saisir). Seuls les **services actifs** sont proposés — un transporteur entièrement désactivé (Colissimo en veille) n'apparaît donc pas. Les codes déjà enregistrés mais absents de cette liste (service désactivé ou supprimé) sont conservés dans un groupe dédié pour ne pas être perdus silencieusement.
 
 ### 5.5 Tarification live Chronopost (2026-04)
 
