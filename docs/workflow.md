@@ -210,31 +210,42 @@ l'engine (cleanup `zend_objects_store`) n'est couverte que par l'élargissement 
 
 ## Garde anti-wipe DB (dev / local)
 
-**Problème** : `compose.yaml` fige `container_name: weklo-*`. Un `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` lancé — par un agent PKOS, un `make artisan` brut, ou par accident — retombe sur le conteneur principal et **vide la base de dev `weklo`** (staff, produits, configs). Incidents constatés les 2026-06-02 et 2026-07-16. Le premier garde (limité au flag `PKOS_WORKTREE`) laissait passer tout `php artisan migrate:fresh` lancé **hors worktree**, dans le conteneur principal — d'où le second wipe.
+**Problème** : `compose.yaml` fige `container_name: weklo-*`. Un `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` lancé — par un agent PKOS, un `make artisan` brut, ou par accident — retombe sur le conteneur principal et **vide la base de dev `weklo`** (staff, produits, configs). Incidents constatés les 2026-06-02, 2026-07-16 et 2026-07-29. Le premier garde (limité au flag `PKOS_WORKTREE`) laissait passer tout `php artisan migrate:fresh` lancé **hors worktree**, dans le conteneur principal — d'où le second wipe.
+
+**Le 3e incident (2026-07-29, task `43c8ffee`)** a percé le garde basé sur `APP_ENV` :
+
+```bash
+docker compose exec -u sail app php artisan migrate:fresh --env=testing   # ⛔ a vidé weklo
+```
+
+`.env.testing` **n'existe pas** → Laravel retombe sur `.env` → `DB_DATABASE=weklo`. Mais `--env=testing` positionne quand même `APP_ENV=testing` → l'ancienne condition `! $this->app->environment('testing')` s'évaluait à `false` et désactivait le garde. **APP_ENV est déclaratif et modifiable par un flag CLI d'un mot ; il ne dit rien de la base réellement ciblée.** Aucun dump de `weklo` n'existait — perte sèche, reseed obligatoire.
 
 **Garde — défense en profondeur** :
 
-1. **Framework (`AppServiceProvider::boot`) — garde principal, couvre TOUS les modes d'invocation** :
+1. **Framework (`AppServiceProvider::boot`) — garde principal, couvre TOUS les modes d'invocation.** La décision est déportée dans `App\Support\DestructiveCommandGuard` (testée par `tests/Unit/DestructiveCommandGuardTest.php`) et s'appuie sur le **nom de la base réellement ciblée**, pas sur `APP_ENV` :
    ```php
-   DB::prohibitDestructiveCommands(
-       $this->app->environment('production')
-           || (! $this->app->environment('testing')
-               && ! filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN))
-   );
+   DB::prohibitDestructiveCommands(DestructiveCommandGuard::shouldProhibit(
+       database: (string) config('database.connections.'.config('database.default').'.database'),
+       environment: (string) $this->app->environment(),
+       allowWipe: filter_var(env('ALLOW_DB_WIPE', false), FILTER_VALIDATE_BOOLEAN),
+   ));
    ```
    Bloque `migrate:fresh` / `migrate:refresh` / `migrate:reset` / `db:wipe` (le flag `FreshCommand::$prohibitedFromRunning`, vérifié avant tout accès DB). Matrice :
    | Contexte | Destructif autorisé ? |
    |---|---|
-   | `production` | ❌ jamais |
-   | `testing` (bases `testing_*`, forcé par `phpunit.xml`) | ✅ — `RefreshDatabase` en a besoin, ne pas casser `make test` |
-   | `local` / dev **sans** flag | ❌ bloqué (agent, artisan brut, accident) |
-   | `local` / dev **avec** `ALLOW_DB_WIPE=1` | ✅ bypass explicite, réservé à `make fresh` |
+   | `production` (APP_ENV) | ❌ jamais, `ALLOW_DB_WIPE` inclus |
+   | base `testing*` (`testing`, `testing_<hash>`, forcée par `phpunit.xml`) | ✅ — `RefreshDatabase` en a besoin, ne pas casser `make test` |
+   | toute autre base **sans** flag | ❌ bloqué (agent, artisan brut, `--env=testing`, accident) |
+   | toute autre base **avec** `ALLOW_DB_WIPE=1` | ✅ bypass explicite, réservé à `make fresh` |
+
+   **Ne jamais recâbler ce garde sur `APP_ENV`** : c'est exactement la faille du 29/07. Le seul critère fiable est le nom de la base résolue par la connexion par défaut.
 2. **Bypass sanctionné** : seule la cible `make fresh` passe `ALLOW_DB_WIPE=1` (`$(EXEC) sh -c 'ALLOW_DB_WIPE=1 php artisan migrate:fresh --force'`). C'est le **seul** chemin autorisé pour reset la base de dev, et il est déclenché explicitement par l'humain.
 3. **Makefile (worktree)** : `WORKTREE_GUARD` fait toujours un fast-fail sur `fresh`/`install`/`lunar` depuis un worktree (garde redondant, message clair).
 
 **Règles** :
 - **Un agent PKOS ne lance JAMAIS `migrate:fresh` / `db:wipe` sur la base dev.** Pour valider une migration → **`make test`** (base `testing`, jamais la dev).
 - Reset réel de la dev → `make fresh` (humain), qui porte le bypass. Ne jamais ajouter `ALLOW_DB_WIPE=1` à la main dans une commande d'agent.
+- **`--env=testing` ne cible PAS la base de test** (pas de `.env.testing` dans ce projet) et ne doit jamais être employé pour « sécuriser » une commande destructive. Pour viser explicitement la base de test : `-e DB_DATABASE=testing`, ou plus simplement `make test`.
 
 ---
 
