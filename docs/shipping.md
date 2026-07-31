@@ -18,11 +18,10 @@
 - Brackets tarifaires stockés via le trait `HasPrices` → table `lunar_prices` morphée, avec `min_quantity` comme seuil déclencheur.
 - Le driver `free-shipping` lit `data.minimum_spend` qui peut être un int ou un array keyed par code devise (`['EUR' => 50000]`).
 
-**Seed de base** (`PkoShippingSeeder`) :
-
-- 1 zone `France métropolitaine` (type `country`, rattachée à FR)
-- 3 méthodes : `pko-standard` (ship-by par poids), `pko-pickup` (collection, retrait entrepôt), `pko-free` (free-shipping dès 500 €)
-- 3 rates attachés avec brackets : 4 paliers pour le standard (690/990/1490/1990 cents), 1 bracket à 0 pour pickup + free
+**Seed de base — SUPPRIMÉ (2026-07-31).** `PkoShippingSeeder` créait 1 zone `France métropolitaine`
+et 3 méthodes (`pko-standard` ship-by par poids, `pko-pickup` collection, `pko-free` free-shipping
+dès 500 €). Voir § 5.8ter pour le motif du retrait. **Ne pas le recréer** : le calcul des frais de
+port passe intégralement par `UnifiedShippingModifier`.
 
 ### 5.2 Phase 2 — Chronopost + Colissimo dynamiques
 
@@ -183,9 +182,43 @@ Voir [packages/transporters.md](packages/transporters.md) pour les détails (col
 `ShippingManifest::getOptions($cart)` renvoie **0 option** silencieusement si l'une de ces conditions de données n'est pas remplie (constaté au premier test checkout, port Lunar) :
 
 1. **Type de zone = `countries` (pluriel)** — le resolver `ShippingZoneResolver` matche `whereType('countries')`. Une zone créée avec `type='country'` (singulier) n'est **jamais** trouvée. Valeurs valides : `unrestricted`, `countries`, `states`, `postcodes`.
-2. **Méthodes schedulées contre les groupes clients** — `ShippingRateResolver` rejette toute rate dont `shippingMethod()->customerGroup($groups)->first()` est null. Sans entrée dans `lunar_customer_group_shipping_method` (via `$method->scheduleCustomerGroup($groups)`), **aucune** option ne sort, quel que soit le groupe du client. `PkoShippingSeeder` schedule les 3 méthodes sur tous les groupes → doit donc tourner **après** `PkoCustomerGroupSeeder` dans `DatabaseSeeder`.
+2. **Méthodes schedulées contre les groupes clients** — `ShippingRateResolver` rejette toute rate dont `shippingMethod()->customerGroup($groups)->first()` est null. Sans entrée dans `lunar_customer_group_shipping_method` (via `$method->scheduleCustomerGroup($groups)`), **aucune** option ne sort, quel que soit le groupe du client.
 
-Couvert par `tests/Feature/SeedersTest::test_shipping_seeder_creates_zone_methods_rates` (assertions type `countries` + méthodes schedulées).
+Depuis 2026-07-31 c'est ce point 2 qui **maintient volontairement** les options table-rate hors du checkout (cf. § 5.8ter) — ce n'est plus un gotcha à corriger mais un invariant à préserver.
+
+### 5.8ter Retrait des méthodes table-rate du checkout (2026-07-31)
+
+**Symptôme** : trois options parasites s'affichaient au tunnel de commande à côté des services
+Chronopost — « Livraison standard » (6,90 € TTC), « Retrait entrepôt » (0,00 €) et « Livraison
+offerte » (0,00 €) — sans que personne ne sache d'où elles venaient.
+
+**Cause** : ce sont les méthodes seedées par `PkoShippingSeeder` (`pko-standard`, `pko-pickup`,
+`pko-free`). Le commentaire posé en L1 dans `AppServiceProvider` affirmait qu'« aucune option ne
+sort au checkout (table vide → ShippingRateResolver rejette tout) » : **le postulat était faux**,
+le seeder appelait `scheduleCustomerGroup($groups)` sur les trois méthodes. Sur toute base passée
+par `make fresh`, le pivot était donc peuplé et les options remontaient. Retirer `ShippingPlugin`
+du panel Filament n'avait supprimé que l'**UI**, pas le modifier : `Lunar\Shipping\ShippingModifier`
+reste enregistré dans le manifest par le `ShippingServiceProvider` du package.
+
+**Décision** : ces trois méthodes n'ont plus de rôle. Le port est calculé intégralement par
+`UnifiedShippingModifier` / `ShippingCalculator`, le franco par `ShippingSettings::thresholdCents()`
+(« Livraison offerte » en était un doublon codé en dur à 500 €), et aucune UI ne permet plus de les
+éditer. Retrait :
+
+- `PkoShippingSeeder` **supprimé** et retiré de `DatabaseSeeder`.
+- Migration `2026_07_31_120000_retire_legacy_table_rate_shipping_methods` : `enabled=0` sur les
+  trois codes **et** purge de leurs lignes dans `lunar_customer_group_shipping_method` (c'est le
+  détachement qui les sort du manifest). Lignes conservées, pas de `delete()`.
+- Le package `lunarphp/table-rate-shipping`, ses tables et ses resources Filament swappées
+  (`PkoShippingMethodResource`…) restent en place — rien n'est désinstallé.
+
+**Invariant à ne pas casser** : ne jamais re-seeder une méthode table-rate avec
+`scheduleCustomerGroup()`, elle réapparaîtrait au checkout. Verrouillé par
+`tests/Feature/SeedersTest::test_no_table_rate_shipping_method_is_seeded`.
+
+**Réactivation** (si un jour on veut un vrai click & collect) : le faire comme un service à part
+entière côté `pko_carrier_services` / `ShippingCalculator`, pas en ressuscitant le seeder — sinon
+on retrouve une option non éditable et hors du calcul unifié.
 
 ### 5.8 Frais de port offert par produit — dropshipping (2026-06, remplacé par §5.14)
 

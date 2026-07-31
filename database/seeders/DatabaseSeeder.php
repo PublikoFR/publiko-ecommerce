@@ -22,8 +22,12 @@ class DatabaseSeeder extends Seeder
             PkoCountrySeeder::class,
             PkoTaxSeeder::class,
             PkoCustomerGroupSeeder::class,
-            // After customer groups: shipping methods are scheduled against them.
-            PkoShippingSeeder::class,
+            // PkoShippingSeeder retiré : il seedait les 3 méthodes table-rate
+            // (pko-standard / pko-pickup / pko-free) et les schedulait sur tous
+            // les groupes clients, ce qui les faisait remonter au checkout à côté
+            // des services Chronopost — sans UI pour les gérer (ShippingPlugin
+            // retiré du panel en L1) et en doublon du franco. Le calcul des frais
+            // de port passe intégralement par UnifiedShippingModifier.
             PkoShippingSurchargesSeeder::class,
             PkoBrandSeeder::class,
             PkoCollectionSeeder::class,

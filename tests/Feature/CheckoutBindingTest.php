@@ -60,4 +60,55 @@ class CheckoutBindingTest extends TestCase
         Livewire::test(CheckoutPage::class)
             ->assertSet('shipping.country_id', Country::first()->id);
     }
+
+    /**
+     * L'adresse de facturation vient juste après l'adresse de livraison, avant
+     * le choix du mode de livraison. `determineCheckoutStep()` doit suivre cet
+     * ordre et non les numéros historiques (livraison → mode → facturation).
+     */
+    public function test_billing_address_is_the_step_right_after_shipping_address(): void
+    {
+        $this->makeCart();
+
+        $component = Livewire::test(CheckoutPage::class)
+            ->set('shippingIsBilling', false)
+            ->set('shipping.first_name', 'Romain')
+            ->set('shipping.last_name', 'GALVEZ')
+            ->set('shipping.contact_email', 'riderfx3@gmail.com')
+            ->set('shipping.line_one', '54 Rue des Châtaigniers')
+            ->set('shipping.city', 'Béziers')
+            ->set('shipping.postcode', '34500')
+            ->set('shipping.country_id', Country::first()->id)
+            ->call('saveAddress', 'shipping')
+            ->assertHasNoErrors();
+
+        $steps = $component->get('steps');
+
+        $this->assertSame(2, $steps['billing_address']);
+        $this->assertSame(3, $steps['shipping_option']);
+        $component->assertSet('currentStep', $steps['billing_address']);
+    }
+
+    /**
+     * Case « identique à la facturation » : l'étape facturation est déjà
+     * satisfaite, on enchaîne directement sur le mode de livraison.
+     */
+    public function test_same_as_billing_skips_the_billing_step(): void
+    {
+        $this->makeCart();
+
+        $component = Livewire::test(CheckoutPage::class)
+            ->set('shippingIsBilling', true)
+            ->set('shipping.first_name', 'Romain')
+            ->set('shipping.last_name', 'GALVEZ')
+            ->set('shipping.contact_email', 'riderfx3@gmail.com')
+            ->set('shipping.line_one', '54 Rue des Châtaigniers')
+            ->set('shipping.city', 'Béziers')
+            ->set('shipping.postcode', '34500')
+            ->set('shipping.country_id', Country::first()->id)
+            ->call('saveAddress', 'shipping')
+            ->assertHasNoErrors();
+
+        $component->assertSet('currentStep', $component->get('steps')['shipping_option']);
+    }
 }

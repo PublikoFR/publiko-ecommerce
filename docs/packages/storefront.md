@@ -175,6 +175,20 @@ Règles à respecter dans le header (`components/layout/header.blade.php`) :
 non `hidden` — `overflow: hidden` sur un ancêtre casserait le `position: sticky` du header.
 C'est un filet de sécurité, pas une excuse pour laisser un élément déborder.
 
+### Ordre des étapes du checkout
+
+`App\Livewire\CheckoutPage::$steps` : **1 adresse de livraison → 2 adresse de facturation →
+3 mode de livraison → 4 paiement**. La facturation a été remontée juste sous la livraison
+(2026-07-31) : les deux adresses se saisissent d'affilée, la case « Identique à la facturation »
+n'a plus une étape intercalée entre elle et son effet.
+
+`determineCheckoutStep()` est écrite en **cascade de `return`** sur l'état du panier (adresse de
+livraison ? adresse de facturation ? option choisie ?), et non par incréments `+ 1` sur les
+numéros d'étape. Réordonner le tunnel ne demande donc que deux choses : renuméroter `$steps` et
+déplacer le `@include` correspondant dans `livewire/checkout-page.blade.php`. Verrouillé par
+`CheckoutBindingTest::test_billing_address_is_the_step_right_after_shipping_address` et
+`::test_same_as_billing_skips_the_billing_step`.
+
 ### Variables dynamiques dans les textes éditoriaux (`StorefrontText`)
 
 Les textes de bandeau/USP saisis en back-office (Storefront → Paramètres) acceptent des
