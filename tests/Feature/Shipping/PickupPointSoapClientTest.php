@@ -150,4 +150,63 @@ class PickupPointSoapClientTest extends TestCase
         $this->expectExceptionMessage('missing account credentials');
         $client->search('75001');
     }
+
+    /**
+     * Le WS ne valide pas par schéma : il répond par des erreurs métier. Ces trois
+     * paramètres ont été trouvés empiriquement et le WS échoue silencieusement si
+     * l'un manque — d'où cette garde.
+     *
+     * - `type` vide  → 300 « Il faut que le type ou le pudoType soient renseignés »
+     * - `service` vide → 300 « service [] incorrect »
+     * - `city` vide  → 700 « The parameter named 'city' is required »
+     */
+    public function test_envoie_les_parametres_obligatoires_du_ws(): void
+    {
+        $captured = null;
+        $mock = Mockery::mock(SoapClient::class);
+        $mock->expects('recherchePointChronopostInter')
+            ->once()
+            ->andReturnUsing(function (array $args) use (&$captured) {
+                $captured = $args;
+
+                return $this->makeFakeResponse();
+            });
+
+        $client = new PickupPointSoapClient(
+            credentials: ['account' => 'A', 'password' => 'P'],
+            client: $mock,
+        );
+        $client->search('34500');
+
+        $this->assertSame('P', $captured['type']);
+        $this->assertSame('L', $captured['service']);
+        $this->assertSame('34500', $captured['zipCode']);
+        // City absente → repli sur le code postal, jamais une chaîne vide.
+        $this->assertSame('34500', $captured['city']);
+    }
+
+    /**
+     * Chez Chronopost la ville prime sur le code postal : une ville explicite doit
+     * être transmise telle quelle (c'est à l'appelant de garantir sa cohérence).
+     */
+    public function test_transmet_la_ville_quand_elle_est_fournie(): void
+    {
+        $captured = null;
+        $mock = Mockery::mock(SoapClient::class);
+        $mock->expects('recherchePointChronopostInter')
+            ->once()
+            ->andReturnUsing(function (array $args) use (&$captured) {
+                $captured = $args;
+
+                return $this->makeFakeResponse();
+            });
+
+        $client = new PickupPointSoapClient(
+            credentials: ['account' => 'A', 'password' => 'P'],
+            client: $mock,
+        );
+        $client->search('34500', 'FR', null, 'Béziers');
+
+        $this->assertSame('Béziers', $captured['city']);
+    }
 }

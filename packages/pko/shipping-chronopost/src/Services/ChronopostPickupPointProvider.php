@@ -33,11 +33,12 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
     /**
      * @return PickupPoint[]
      */
-    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
+    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
     {
         $this->lastSearchError = null;
 
-        $cacheKey = "chronopost_pickup:{$postcode}:{$countryCode}";
+        // La ville entre dans la clé : elle change le jeu de points retourné.
+        $cacheKey = "chronopost_pickup:{$postcode}:{$countryCode}:".($city ?? '');
 
         // Check cache first (only non-empty results are ever cached)
         $cached = Cache::get($cacheKey);
@@ -46,7 +47,7 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
         }
 
         try {
-            $rawPoints = $this->soapClient->search($postcode, $countryCode, $serviceCode);
+            $rawPoints = $this->soapClient->search($postcode, $countryCode, $serviceCode, $city);
         } catch (PickupPointException $e) {
             $this->lastSearchError = $e->getMessage();
 

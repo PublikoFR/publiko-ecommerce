@@ -500,16 +500,39 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
 **Client SOAP point relais** (`packages/pko/shipping-chronopost`) :
-- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS` (WSDL officiel Chronopost). `serviceCode = null` (productCode vide = tous types de points). Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
+- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS`. `serviceCode = null` (productCode vide = tous types de points).
+
+  **Endpoint (corrigé le 2026-07-31)** : `https://ws.chronopost.fr/recherchebt-ws-cxf/PointRelaisServiceWS?wsdl`. L'ancienne valeur `recherchebt-wsdl/…` répondait **404** — le `SoapClient` échouait à la construction, donc avant même d'utiliser les identifiants. Aucune recherche de point relais n'avait jamais pu aboutir.
+
+  **Paramètres obligatoires**, découverts empiriquement (le WS répond par des erreurs métier, pas par une validation de schéma) :
+
+  | Paramètre | Valeur | Sans quoi |
+  |---|---|---|
+  | `type` | `P` (point relais Pickup) | erreur 300 « Il faut que le type ou le pudoType soient renseignés ». `A` (agence / bureau de poste) répond « pour l'instant non supporté » |
+  | `service` | `L` | erreur 300 « service [] incorrect ». `L` et `T` renvoient le même jeu de points |
+  | `city` | non vide | erreur 700 « The parameter named 'city' is required » |
+
+  **Piège `city` > `zipCode`** : quand les deux divergent, **la ville gagne** — `zipCode=75001` + `city=Béziers` renvoie les points de Béziers. Conséquence : ne jamais transmettre une ville périmée après que le client a changé le code postal. `ShippingOptions::runPickupSearch()` ne passe la ville de l'adresse que si le code postal recherché est encore celui de l'adresse ; sinon `null`, et le client SOAP remplit alors `city` avec le **code postal lui-même** — valeur acceptée qui laisse la géolocalisation suivre le code postal (vérifié sur 34500 / 75001 / 69003 / 33000 / 59000 / 06000). La ville entre dans la clé de cache du provider, puisqu'elle change le résultat.
+
+  **Compte de test** : Chronopost ne délivre pas de clé API en libre-service. Les comptes de démo publics `19869502` / `255562` et `68944403` / `501104` permettent d'exercer la recherche de points relais en dev (`CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD` dans `.env`, non versionné). Ils ne valent que pour la consultation — pas pour créer de vraies étiquettes. Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
 - `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal, retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
 - Credentials : `secret('chronopost.account')` / `secret('chronopost.password')` (pko/lunar-secrets) avec fallback `config('chronopost.credentials.*')`.
 - Binding : `ShippingChronopostServiceProvider::boot()` lie `PickupPointProvider → ChronopostPickupPointProvider` (boot garantit que ce binding écrase celui de `ShippingCommonServiceProvider::register()`).
 
 **Carte OpenStreetMap / Leaflet** :
-- Leaflet 1.9.4 chargé depuis CDN (`@push('scripts')` / `@push('styles')`) — aucune dépendance npm, aucune clé API.
+- **Le composant Alpine vit dans `resources/js/pickup-map.js`** (bundle Vite, fabrique globale `window.pickupMap`), pas en `x-data="{…}"` inline. Trois bugs l'imposaient, tous invisibles tant que la recherche ne renvoyait aucun point :
+  1. Les gabarits JS contenaient des `class=\"…\"`. **En HTML, `\"` n'est pas une séquence d'échappement** : le backslash est littéral et le guillemet **referme l'attribut**. Tout le corps du composant était recraché en texte brut au milieu de la page.
+  2. Leaflet était chargé via `@push('scripts')` / `@push('styles')`, or `resources/views/layouts/checkout.blade.php` ne déclarait **aucun `@stack`** — la CDN n'arrivait jamais sur la page de commande, la seule qui en a besoin. Les deux piles ont été ajoutées au layout, mais la carte n'en dépend plus.
+  3. **Le hash SRI du JS Leaflet était corrompu sur sa fin** (`…NV/XN/WPeE=` au lieu de `…NV1lvTlZBo=`). Le navigateur bloquait donc le script **en silence** et la carte restait un rectangle gris. Un SRI faux ne se voit qu'à l'exécution : toujours le recalculer, jamais le recopier — `curl -s <url> | openssl dgst -sha256 -binary | openssl base64 -A`.
+- **Fabrique globale, pas `Alpine.data()` sur `alpine:init`** : Alpine est embarqué dans le bundle Livewire (script classique en fin de `<body>`) alors que `pickup-map.js` part d'un `<script type="module">` différé du `@vite` en `<head>`. Selon le moment où Livewire démarre Alpine, `alpine:init` peut déjà avoir été émis — l'enregistrement arriverait trop tard et `x-data="pickupMap(…)"` ne résoudrait rien, sans erreur bruyante. Une fonction globale est résolue à l'évaluation de l'expression, ce qui supprime la course.
+- Leaflet 1.9.4 chargé depuis CDN **à la demande** par `pickup-map.js` (injection `<link>`/`<script>` avec SRI, promesse partagée entre instances) — aucune dépendance npm, aucune clé API. **On attend la CSS autant que le JS** : sans la feuille appliquée, `.leaflet-container` n'a pas de mise en page et les tuiles partent hors cadre (encore un rectangle gris). Échec de chargement → `console.error('[pickup-map]', …)` et la liste sous la carte reste utilisable, c'est elle qui fait foi.
+- `resources/js/**/*.js` est dans le `content` de `tailwind.config.js` : les classes des marqueurs (`bg-primary-400`, `ring-primary-300`…) sont bien scannées.
+- Régression verrouillée par `ShippingOptionsTest::test_le_composant_carte_est_reference_pas_inline` (le HTML doit contenir `x-data="pickupMap(` et jamais `L.divIcon` / `fitBounds` / `L.tileLayer`).
 - **Layout vertical (2026-07-31)** : carte pleine largeur en haut, liste scrollable en dessous. Remplace le côte-à-côte `md:` — sur une carte à demi-largeur les pins étaient illisibles. Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
 - Cadrage par `fitBounds()` sur l'ensemble des points géolocalisés (`padding` 30 px, `maxZoom` 15). Le `setView()` sur le premier point à zoom fixe laissait une partie des pins hors écran.
 - `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders. **Corollaire** : le conteneur porte un `wire:key="pickup-map-{fingerprint}"` calculé sur les ids des points. Sans cette clé, `wire:ignore` empêchait aussi la mise à jour après une **nouvelle** recherche — l'ancienne carte et ses anciens pins restaient affichés.
+- **Sélection = recentrage** : clic sur un item de la liste **ou** sur un pin → `selectPoint()` → `focusMarker()` ferme la bulle ouverte, `panTo()` le point choisi au centre, puis ouvre sa bulle. Les popups sont liées avec `autoPan: false`, sinon Leaflet recadre pour faire tenir la bulle et le point ne finit pas au centre.
+- Items de la liste en `border-2`, **jamais `border` + `ring`** : le ring déborde de la boîte et se fait rogner par l'`overflow` du bloc scrollable (contour visiblement découpé sur les bords). Même traitement que les cartes de mode de livraison.
 - Points sans lat/lon (GPS null) : liste uniquement, pas de marqueur.
 - Icônes `divIcon` stylées avec classes Tailwind DS (`primary-400`/`primary-600`), aucun hex en dur.
 

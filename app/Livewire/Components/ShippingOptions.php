@@ -172,12 +172,21 @@ class ShippingOptions extends Component
         $postcode = trim($this->pickupSearchPostcode);
         $country = (string) ($this->shippingAddress?->country?->iso2 ?? 'FR');
 
+        // La ville n'est transmise que si elle correspond encore au code postal
+        // recherché : chez Chronopost elle prime sur le code postal, donc garder
+        // la ville de l'adresse après que le client a saisi un autre code postal
+        // renverrait les points relais de l'ancienne ville.
+        $addressPostcode = trim((string) ($this->shippingAddress?->postcode ?? ''));
+        $city = $addressPostcode !== '' && $addressPostcode === $postcode
+            ? (string) ($this->shippingAddress?->city ?? '')
+            : null;
+
         $provider = app(PickupPointProvider::class);
 
         // Pass null as serviceCode: the internal identifier 'chronopost.chrono_relais'
         // is not a valid Chronopost productCode — the WS returns all nearby relay
         // points when productCode is empty, which is the correct V1 behaviour.
-        $points = $provider->search($postcode, $country, null);
+        $points = $provider->search($postcode, $country, null, $city !== '' ? $city : null);
 
         $this->pickupPoints = array_map(
             fn (PickupPoint $point) => $point->toArray(),

@@ -48,11 +48,11 @@ class ChronopostPickupPointProviderTest extends TestCase
         $soapClient = $this->makeSoapClientMock();
         $soapClient->expects('search')
             ->once()
-            ->with('75001', 'FR', null)
+            ->with('75001', 'FR', null, 'Paris')
             ->andReturn($rawPoints);
 
         $provider = new ChronopostPickupPointProvider($soapClient);
-        $result = $provider->search('75001', 'FR', null);
+        $result = $provider->search('75001', 'FR', null, 'Paris');
 
         $this->assertCount(1, $result);
         $this->assertInstanceOf(PickupPoint::class, $result[0]);

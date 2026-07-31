@@ -112,7 +112,7 @@ class ShippingOptionsTest extends TestCase
         {
             public function __construct(private array $points, private ?string $error) {}
 
-            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
+            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
             {
                 return $this->points;
             }
@@ -468,6 +468,43 @@ class ShippingOptionsTest extends TestCase
             ->assertSet('pickupServiceUnavailable', false)
             ->assertSee('Aucun point relais trouvé')
             ->assertDontSee('momentanément indisponible');
+    }
+
+    /**
+     * Le composant Alpine de la carte doit rester dans le bundle JS.
+     *
+     * En x-data inline, les gabarits contenaient des `class=\"…\"` : en HTML le
+     * backslash est littéral et le guillemet **referme l'attribut**, si bien que
+     * tout le corps du composant était recraché en texte brut dans la page.
+     */
+    public function test_le_composant_carte_est_reference_pas_inline(): void
+    {
+        $this->makeCartWithAddress('34500');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: 'PR900',
+                name: 'Relais Béziers',
+                address1: '5 rue des Halles',
+                postcode: '34500',
+                city: 'Béziers',
+                latitude: 43.34,
+                longitude: 3.21,
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSee('x-data="pickupMap(', false)
+            // Marqueurs du corps du composant : leur présence dans le HTML
+            // signifierait un retour au x-data inline.
+            ->assertDontSee('L.divIcon', false)
+            ->assertDontSee('fitBounds', false)
+            ->assertDontSee('L.tileLayer', false);
     }
 
     public function test_saisie_manuelle_du_point_relais_est_persistee(): void

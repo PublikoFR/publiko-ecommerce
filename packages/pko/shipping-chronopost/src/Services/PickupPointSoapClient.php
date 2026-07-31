@@ -17,7 +17,28 @@ use Throwable;
  */
 class PickupPointSoapClient
 {
-    public const DEFAULT_WSDL = 'https://ws.chronopost.fr/recherchebt-wsdl/PointRelaisServiceWS?wsdl';
+    /**
+     * Endpoint CXF. L'ancienne valeur `recherchebt-wsdl/…` répond **404** : toute
+     * recherche de point relais échouait à la construction du SoapClient, donc
+     * avant même d'utiliser les identifiants. Vérifié le 2026-07-31 — les quatre
+     * variantes de casse/chemin testées, seule celle-ci renvoie 200.
+     */
+    public const DEFAULT_WSDL = 'https://ws.chronopost.fr/recherchebt-ws-cxf/PointRelaisServiceWS?wsdl';
+
+    /**
+     * Type de point recherché. `P` = point relais Pickup.
+     *
+     * Le WS refuse un `type` vide (erreur 300 « Il faut que le type ou le pudoType
+     * soient renseignés »). `A` (agence / bureau de poste) répond explicitement
+     * « pour l'instant non supporté ».
+     */
+    private const POINT_TYPE = 'P';
+
+    /**
+     * Service demandé. Vide → erreur 300 « service [] incorrect ». `L` et `T`
+     * renvoient le même jeu de points ; on retient `L` (livraison).
+     */
+    private const SERVICE_CODE = 'L';
 
     /**
      * @param  array{account?: string, password?: string}  $credentials
@@ -43,6 +64,7 @@ class PickupPointSoapClient
         string $postcode,
         string $countryCode = 'FR',
         ?string $serviceCode = null,
+        ?string $city = null,
     ): array {
         $account = (string) ($this->credentials['account'] ?? '');
         $password = (string) ($this->credentials['password'] ?? '');
@@ -57,15 +79,27 @@ class PickupPointSoapClient
             $response = $client->recherchePointChronopostInter([
                 'accountNumber' => $account,
                 'password' => $password,
+                'address' => '',
                 'zipCode' => $postcode,
-                'city' => '',
+                // `city` est obligatoire (erreur 700 si vide) et **prime sur le code
+                // postal** quand les deux divergent : zipCode=75001 + city=Béziers
+                // renvoie les points de Béziers. Passer une ville périmée après un
+                // changement de code postal donnerait donc des résultats à côté.
+                // Le code postal lui-même est une valeur de remplissage acceptée par
+                // le WS, qui géolocalise alors sur le code postal — vérifié sur
+                // 34500 / 75001 / 69003 / 33000 / 59000 / 06000.
+                'city' => ($city !== null && trim($city) !== '') ? $city : $postcode,
                 'countryCode' => $countryCode,
-                'type' => '',
+                'type' => self::POINT_TYPE,
                 'productCode' => $serviceCode ?? '',
-                'service' => '',
+                'service' => self::SERVICE_CODE,
                 'weight' => '',
                 'shippingDate' => '',
                 'maxPointChronopost' => 20,
+                'maxDistanceSearch' => 20,
+                'holidayTolerant' => 1,
+                'language' => 'FR',
+                'version' => '2.0',
             ]);
         } catch (SoapFault $e) {
             throw new PickupPointException(

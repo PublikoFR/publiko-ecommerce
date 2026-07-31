@@ -22,9 +22,13 @@ interface PickupPointProvider
      * credentials absents), retourner [] plutôt que throw — le front propose alors
      * la saisie manuelle.
      *
+     * $city est facultatif et n'est qu'une aide à la géolocalisation : ne le
+     * passer que s'il correspond bien au code postal recherché (cf. le piège
+     * documenté dans PickupPointSoapClient, où la ville prime sur le code postal).
+     *
      * @return list<PickupPoint>
      */
-    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array;
+    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array;
 
     /**
      * Motif technique du dernier échec de search(), ou null si la dernière
