@@ -67,7 +67,7 @@ class ColissimoConfig extends AbstractCarrierConfigPage
                 Notification::make()
                     ->success()
                     ->title("Tarifs publics {$year} chargés")
-                    ->body('Rechargez la page pour voir les nouvelles valeurs dans le formulaire.')
+                    ->body('Rechargez la page pour voir les nouvelles valeurs dans les tableaux.')
                     ->send();
             });
 

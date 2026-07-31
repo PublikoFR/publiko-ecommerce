@@ -6,11 +6,16 @@ namespace Pko\ShippingCommon;
 
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Lunar\Base\ShippingModifiers;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
+use Pko\ShippingCommon\Filament\Livewire\CarrierGridTable;
+use Pko\ShippingCommon\Filament\Livewire\CarrierServicesTable;
+use Pko\ShippingCommon\Models\CarrierGridBracket;
+use Pko\ShippingCommon\Models\CarrierService;
 use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Observers\OrderShipmentObserver;
 use Pko\ShippingCommon\Pickup\ManualPickupPointProvider;
@@ -63,6 +68,25 @@ class ShippingCommonServiceProvider extends ServiceProvider
         }
 
         Order::observe(OrderShipmentObserver::class);
+
+        // Tables CRUD embarquées dans la page de configuration transporteur
+        // (une page Filament ne peut héberger qu'une seule table).
+        Livewire::component('pko-shipping.carrier-services-table', CarrierServicesTable::class);
+        Livewire::component('pko-shipping.carrier-grid-table', CarrierGridTable::class);
+
+        // Toute écriture sur les services/paliers (admin, migration, seeder,
+        // import de tarifs publics) invalide le cache du repository concerné.
+        $flushServices = function (CarrierService $service): void {
+            $this->app->make(CarrierServiceRepository::class)->flushCache((string) $service->carrier_code);
+        };
+        CarrierService::saved($flushServices);
+        CarrierService::deleted($flushServices);
+
+        $flushGrid = function (CarrierGridBracket $bracket): void {
+            $this->app->make(CarrierGridRepository::class)->flushCache((string) $bracket->carrier_code);
+        };
+        CarrierGridBracket::saved($flushGrid);
+        CarrierGridBracket::deleted($flushGrid);
 
         /** @var ShippingModifiers $modifiers */
         $modifiers = $this->app->make(ShippingModifiers::class);

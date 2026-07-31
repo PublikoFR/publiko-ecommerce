@@ -108,17 +108,20 @@ Secrets::register('dpd',
 
 ### 4. `make composer CMD='update pko/lunar-shipping-dpd'` + `make artisan CMD='migrate'`.
 
-Et c'est tout : le transporteur apparaît dans « Expédition » avec son formulaire complet (credentials env/DB + services + grille), le Modifier injecte les quotes au checkout, le Job crée l'étiquette post-paiement.
+Et c'est tout : le transporteur apparaît dans « Expédition » avec ses tables services + grille et son formulaire credentials (env/DB), le Modifier injecte les quotes au checkout, le Job crée l'étiquette post-paiement.
 
 ## Édition des grilles et services
 
 Depuis la page Filament Config d'un transporteur :
 
+- Table **Services** (`CarrierServicesTable`) : ligne par service (libellé avec la description en gris italique juste dessous), actions Modifier / Supprimer (icônes seules, la vue admin étant étroite), bouton « Ajouter un service », réordonnancement, toggle « Actif » en ligne. Le code est unique par transporteur (validé au formulaire). La recherche porte sur le libellé et la description, en restant scopée au transporteur.
+- Table **Grille tarifaire par poids** (`CarrierGridTable`) : **groupée par service** (une sous-grille par service, triée par poids max), ligne par palier avec les mêmes actions. Prix **saisi en euros** et stocké en cents ; service choisi dans un Select alimenté par les services du transporteur (vide = tous les services).
 - Section **Credentials** : toggle env/DB + inputs conditionnels (cf. [secrets.md](secrets.md)).
-- Section **Services activés** : Repeater (code, libellé, actif).
-- Section **Grille tarifaire** : Repeater (max_kg, prix en cents, service optionnel).
+- Section **Mode de tarification** (transporteurs `supportsLive` uniquement).
 
-À la soumission (`AbstractCarrierConfigPage::save()`), les services et paliers sont réécrits (delete + insert) dans une transaction, puis le cache des repositories est flushé.
+Les tables sont placées **au-dessus** du formulaire : la donnée n'est affichée qu'une seule fois, chaque ligne étant éditable sur place (cf. `docs/shipping.md` §5.4bis).
+
+`AbstractCarrierConfigPage::save()` n'écrit plus que les credentials et le mode de tarification. Chaque écriture sur `pko_carrier_services` / `pko_carrier_grids` invalide automatiquement le cache du repository concerné (listeners modèles enregistrés dans `ShippingCommonServiceProvider::boot()`).
 
 ## Modes de tarification
 

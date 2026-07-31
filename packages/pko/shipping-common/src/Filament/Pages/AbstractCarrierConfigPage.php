@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Pko\ShippingCommon\Filament\Pages;
 
 use Filament\Actions\Action;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -16,7 +13,6 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\DB;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\Secrets\Facades\Secrets;
 use Pko\Secrets\Filament\Forms\SecretsFormSchema;
@@ -24,13 +20,9 @@ use Pko\ShippingCommon\Carriers\CarrierDefinition;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
-use Pko\ShippingCommon\Models\CarrierGridBracket;
-use Pko\ShippingCommon\Models\CarrierService;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingMode;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
-use Pko\ShippingCommon\Repositories\CarrierGridRepository;
-use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
 use Throwable;
 
 /**
@@ -39,9 +31,12 @@ use Throwable;
  * Subclasses declare carrierCode() and (optionally) override the navigation
  * labels / title. Parent renders :
  *   - Credentials section (via SecretsFormSchema, toggle env/DB)
- *   - Services section (repeater on pko_carrier_services)
- *   - Grid section (repeater on pko_carrier_grids)
+ *   - Pricing mode section (carriers supporting live pricing)
  *   - Test credentials action.
+ *
+ * Les services et la grille tarifaire sont gérés par deux tables CRUD Livewire
+ * embarquées dans la vue (CarrierServicesTable / CarrierGridTable), une page
+ * Filament ne pouvant héberger qu'une seule table.
  */
 abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
 {
@@ -92,8 +87,6 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
         $this->form->fill(array_merge(
             SecretsFormSchema::initialData($this->carrierCode()),
             [
-                'services' => app(CarrierServiceRepository::class)->allFor($this->carrierCode()),
-                'grid' => app(CarrierGridRepository::class)->allFor($this->carrierCode()),
                 'pricing_mode' => app(PricingModeResolver::class)->getFor($this->carrierCode())->value,
             ],
         ));
@@ -133,39 +126,6 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
                     heading: "Credentials {$def->displayName}",
                 ),
                 $pricingSection,
-
-                Section::make('Services activés')
-                    ->description('Activer/désactiver les services que ce transporteur proposera au checkout.')
-                    ->schema([
-                        Repeater::make('services')
-                            ->label(null)
-                            ->schema([
-                                TextInput::make('code')->label('Code')->required()->columnSpan(1),
-                                TextInput::make('label')->label('Libellé')->required()->columnSpan(2),
-                                Toggle::make('enabled')->label('Actif')->columnSpan(1),
-                            ])
-                            ->columns(4)
-                            ->defaultItems(0)
-                            ->reorderable(false)
-                            ->addActionLabel('Ajouter un service'),
-                    ]),
-
-                Section::make('Grille tarifaire par poids')
-                    ->description('Paliers tarifaires en cents (ex : 1290 = 12,90 €). Prix appliqué au premier palier dont `max_kg` ≥ poids du panier.')
-                    ->schema([
-                        Repeater::make('grid')
-                            ->label(null)
-                            ->schema([
-                                TextInput::make('max_kg')->label('Max (kg)')->numeric()->required()->columnSpan(1),
-                                TextInput::make('price')->label('Prix (cents)')->numeric()->required()->columnSpan(1),
-                                TextInput::make('service_code')->label('Service (vide = tous)')->columnSpan(2),
-                            ])
-                            ->columns(4)
-                            ->defaultItems(0)
-                            ->reorderable()
-                            ->orderColumn('sort')
-                            ->addActionLabel('Ajouter un palier'),
-                    ]),
             ])))
             ->statePath('data');
     }
@@ -184,39 +144,6 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
                 app(LivePricingResolver::class)->flushCache($carrier);
             }
         }
-
-        DB::transaction(function () use ($carrier, $state): void {
-            CarrierService::query()->where('carrier_code', $carrier)->delete();
-            foreach (($state['services'] ?? []) as $i => $service) {
-                if (empty($service['code'])) {
-                    continue;
-                }
-                CarrierService::create([
-                    'carrier_code' => $carrier,
-                    'service_code' => (string) $service['code'],
-                    'label' => (string) ($service['label'] ?? $service['code']),
-                    'enabled' => (bool) ($service['enabled'] ?? false),
-                    'sort' => $i * 10,
-                ]);
-            }
-
-            CarrierGridBracket::query()->where('carrier_code', $carrier)->delete();
-            foreach (($state['grid'] ?? []) as $i => $bracket) {
-                if (! isset($bracket['max_kg'], $bracket['price'])) {
-                    continue;
-                }
-                CarrierGridBracket::create([
-                    'carrier_code' => $carrier,
-                    'service_code' => ! empty($bracket['service_code']) ? (string) $bracket['service_code'] : null,
-                    'max_kg' => (int) $bracket['max_kg'],
-                    'price_cents' => (int) $bracket['price'],
-                    'sort' => $i * 10,
-                ]);
-            }
-        });
-
-        app(CarrierServiceRepository::class)->flushCache($carrier);
-        app(CarrierGridRepository::class)->flushCache($carrier);
 
         Notification::make()
             ->success()
@@ -244,19 +171,11 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
     }
 
     /**
-     * @return array<int, array{code: string, label: string, enabled: bool}>
+     * Code transporteur exposé à la vue (tables Livewire embarquées).
      */
-    public function getServices(): array
+    public function getCarrierCode(): string
     {
-        return app(CarrierServiceRepository::class)->allFor($this->carrierCode());
-    }
-
-    /**
-     * @return array<int, array{max_kg: int, price: int, service_code: string|null}>
-     */
-    public function getGrid(): array
-    {
-        return app(CarrierGridRepository::class)->allFor($this->carrierCode());
+        return $this->carrierCode();
     }
 
     /**
@@ -265,11 +184,6 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
     public function getShipper(): array
     {
         return (array) config($this->carrierCode().'.shipper', []);
-    }
-
-    public function formatCents(int $cents): string
-    {
-        return number_format($cents / 100, 2, ',', ' ').' €';
     }
 
     protected function getHeaderActions(): array
