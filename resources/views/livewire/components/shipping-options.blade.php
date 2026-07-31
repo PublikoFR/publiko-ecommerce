@@ -143,19 +143,31 @@
                     <div class="flex items-end gap-2">
                         <div class="flex-1">
                             <label class="block text-xs font-medium text-neutral-600 mb-1">Code postal</label>
+                            {{-- keydown.enter.prevent : le bloc vit dans le <form wire:submit="save">
+                                 du mode de livraison. Sans ça, valider le code postal au clavier
+                                 soumettait l'étape entière au lieu de relancer la recherche. --}}
                             <input type="text"
                                    wire:model="pickupSearchPostcode"
+                                   wire:keydown.enter.prevent="searchPickupPoints"
                                    inputmode="numeric"
                                    class="w-full rounded-lg border-neutral-300 text-sm"
                                    placeholder="Ex : 75001" />
                         </div>
                         <x-ui.button type="button" variant="secondary" wire:click="searchPickupPoints">
-                            Rechercher
+                            <span wire:loading.remove wire:target="searchPickupPoints">Rechercher</span>
+                            <span wire:loading wire:target="searchPickupPoints">Recherche…</span>
                         </x-ui.button>
                     </div>
                     @error('pickupSearchPostcode')
                         <p class="text-sm text-red-500">{{ $message }}</p>
                     @enderror
+
+                    @if ($this->pickupEmptyMessage)
+                        <p class="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            <x-ui.icon name="info" class="w-4 h-4 mt-0.5 text-amber-500 shrink-0" />
+                            <span>{{ $this->pickupEmptyMessage }}</span>
+                        </p>
+                    @endif
 
                     @if (! empty($pickupPoints))
                         @once
@@ -171,9 +183,13 @@
                             @endpush
                         @endonce
 
-                        {{-- Conteneur principal : liste + carte côte à côte --}}
+                        {{-- Conteneur principal : carte en haut, liste en dessous.
+                             wire:key change dès que le jeu de points change — le conteneur
+                             Leaflet étant en wire:ignore, c'est le remplacement du nœud qui
+                             force Alpine à ré-initialiser la carte sur les nouveaux pins. --}}
                         <div
-                            class="flex flex-col md:flex-row gap-3"
+                            wire:key="pickup-map-{{ $this->pickupPointsFingerprint }}"
+                            class="flex flex-col gap-3"
                             x-data="{
                                 map: null,
                                 markers: {},
@@ -181,17 +197,19 @@
                                 points: @js($pickupPoints),
                                 init() {
                                     this.$nextTick(() => {
-                                        const hasCoords = this.points.some(p => p.latitude && p.longitude);
-                                        if (!hasCoords) return;
+                                        const located = this.points.filter(p => p.latitude && p.longitude);
+                                        if (!located.length || !this.$refs.mapContainer) return;
 
-                                        const firstWithCoords = this.points.find(p => p.latitude && p.longitude);
-                                        this.map = L.map(this.$refs.mapContainer).setView(
-                                            [firstWithCoords.latitude, firstWithCoords.longitude], 13
-                                        );
+                                        this.map = L.map(this.$refs.mapContainer);
                                         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                                             maxZoom: 18,
                                             attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>'
                                         }).addTo(this.map);
+
+                                        // Cadrage sur l'ensemble des points : centrer sur le
+                                        // premier laissait une partie des pins hors écran.
+                                        const bounds = L.latLngBounds(located.map(p => [p.latitude, p.longitude]));
+                                        this.map.fitBounds(bounds, {padding: [30, 30], maxZoom: 15});
 
                                         this.points.forEach(p => {
                                             if (!p.latitude || !p.longitude) return;
@@ -230,8 +248,16 @@
                                 },
                             }"
                         >
-                            {{-- Liste des points (scrollable) --}}
-                            <div class="md:w-1/2 space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {{-- Carte Leaflet (wire:ignore : Livewire ne doit pas re-render le conteneur) --}}
+                            @if ($this->mappablePickupPoints !== [])
+                                <div wire:ignore>
+                                    <div x-ref="mapContainer"
+                                         class="w-full h-72 rounded-lg border border-neutral-200 overflow-hidden z-0"></div>
+                                </div>
+                            @endif
+
+                            {{-- Liste des points (scrollable), sous la carte --}}
+                            <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
                                 @foreach ($pickupPoints as $point)
                                     <label wire:key="pickup_{{ $point['id'] }}"
                                            @click="selectPoint('{{ $point['id'] }}')"
@@ -254,17 +280,10 @@
                                     </label>
                                 @endforeach
                             </div>
-
-                            {{-- Carte Leaflet (wire:ignore : Livewire ne doit pas re-render le conteneur) --}}
-                            @if (collect($pickupPoints)->some(fn ($p) => ! empty($p['latitude']) && ! empty($p['longitude'])))
-                                <div class="md:w-1/2" wire:ignore>
-                                    <div x-ref="mapContainer"
-                                         class="w-full h-64 md:h-72 rounded-lg border border-neutral-200 overflow-hidden z-0"></div>
-                                </div>
-                            @endif
                         </div>
                     @else
-                        {{-- Saisie manuelle simplifiée (V1) — aucun point retourné automatiquement --}}
+                        {{-- Saisie manuelle simplifiée — repli quand la liste automatique
+                             ne donne rien (service indisponible ou zone non couverte). --}}
                         <div class="space-y-2">
                             <p class="text-xs text-neutral-500">Saisissez les coordonnées de votre point relais Chronopost / Pickup :</p>
                             <input type="text" wire:model="manualPickupPoint.name"

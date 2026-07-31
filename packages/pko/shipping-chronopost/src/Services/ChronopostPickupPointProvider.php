@@ -21,6 +21,11 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
 {
     private const CACHE_TTL_SECONDS = 10800; // 3 hours
 
+    /**
+     * Motif du dernier échec, exposé via lastSearchError().
+     */
+    private ?string $lastSearchError = null;
+
     public function __construct(
         private readonly PickupPointSoapClient $soapClient,
     ) {}
@@ -30,6 +35,8 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
      */
     public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array
     {
+        $this->lastSearchError = null;
+
         $cacheKey = "chronopost_pickup:{$postcode}:{$countryCode}";
 
         // Check cache first (only non-empty results are ever cached)
@@ -41,6 +48,8 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
         try {
             $rawPoints = $this->soapClient->search($postcode, $countryCode, $serviceCode);
         } catch (PickupPointException $e) {
+            $this->lastSearchError = $e->getMessage();
+
             Log::channel('shipping-pickup')->error('Chronopost pickup point search failed', [
                 'postcode' => $postcode,
                 'country_code' => $countryCode,
@@ -58,6 +67,11 @@ final class ChronopostPickupPointProvider implements PickupPointProvider
         Cache::put($cacheKey, $rawPoints, self::CACHE_TTL_SECONDS);
 
         return $this->hydrate($rawPoints);
+    }
+
+    public function lastSearchError(): ?string
+    {
+        return $this->lastSearchError;
     }
 
     /**

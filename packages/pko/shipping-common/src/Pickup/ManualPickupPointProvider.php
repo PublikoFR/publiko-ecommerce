@@ -21,4 +21,14 @@ final class ManualPickupPointProvider implements PickupPointProvider
     {
         return [];
     }
+
+    /**
+     * Aucune source branchée : ce n'est pas « zéro point relais autour de ce code
+     * postal », c'est « la recherche automatique n'existe pas ». Le front doit
+     * pouvoir le dire au client plutôt que d'afficher une liste vide.
+     */
+    public function lastSearchError(): ?string
+    {
+        return 'no_provider_configured';
+    }
 }

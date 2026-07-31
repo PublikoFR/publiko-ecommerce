@@ -25,4 +25,17 @@ interface PickupPointProvider
      * @return list<PickupPoint>
      */
     public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array;
+
+    /**
+     * Motif technique du dernier échec de search(), ou null si la dernière
+     * recherche s'est déroulée normalement (y compris avec zéro résultat).
+     *
+     * search() étant volontairement tolérant aux pannes, un tableau vide est
+     * ambigu : « aucun point relais autour de ce code postal » et « le service
+     * est injoignable » se ressemblent côté appelant. Sans cette distinction le
+     * front affichait le même écran muet dans les deux cas — le bouton
+     * « Rechercher » semblait ne rien faire. Destiné au log et au choix du
+     * message utilisateur, jamais à être affiché tel quel au client.
+     */
+    public function lastSearchError(): ?string;
 }

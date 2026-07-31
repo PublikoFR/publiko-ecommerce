@@ -495,7 +495,7 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point relais** devient obligatoire avant de continuer.
 
 **Abstraction** (`packages/pko/shipping-common`) :
-- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`).
+- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`) + `lastSearchError(): ?string` (cf. plus bas).
 - DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, distanceKm, latitude, longitude, openingHours) + `toArray()` / `fromArray()`. Coordonnées GPS optionnelles pour la carte.
 - Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
@@ -507,14 +507,26 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 
 **Carte OpenStreetMap / Leaflet** :
 - Leaflet 1.9.4 chargé depuis CDN (`@push('scripts')` / `@push('styles')`) — aucune dépendance npm, aucune clé API.
-- Layout côte-à-côte (liste scrollable gauche, carte droite sur `md+`). Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
-- `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders.
+- **Layout vertical (2026-07-31)** : carte pleine largeur en haut, liste scrollable en dessous. Remplace le côte-à-côte `md:` — sur une carte à demi-largeur les pins étaient illisibles. Synchronisation bidirectionnelle : clic marqueur → `$wire.set('pickupPointId')` → `updatedPickupPointId()` ; clic item liste → `selectPoint()` met à jour les icônes marqueurs.
+- Cadrage par `fitBounds()` sur l'ensemble des points géolocalisés (`padding` 30 px, `maxZoom` 15). Le `setView()` sur le premier point à zoom fixe laissait une partie des pins hors écran.
+- `wire:ignore` sur le conteneur carte pour éviter la destruction par Livewire lors des re-renders. **Corollaire** : le conteneur porte un `wire:key="pickup-map-{fingerprint}"` calculé sur les ids des points. Sans cette clé, `wire:ignore` empêchait aussi la mise à jour après une **nouvelle** recherche — l'ancienne carte et ses anciens pins restaient affichés.
 - Points sans lat/lon (GPS null) : liste uniquement, pas de marqueur.
 - Icônes `divIcon` stylées avec classes Tailwind DS (`primary-400`/`primary-600`), aucun hex en dur.
 
 **Front** (`App\Livewire\Components\ShippingOptions` + vue) :
 - Bloc relais affiché uniquement si `requiresPickupPoint` (service = `chronopost.chrono_relais`).
-- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → liste radios + carte. Si aucun résultat → saisie manuelle simplifiée.
+- **Préchargement automatique (2026-07-31)** : la liste et la carte se chargent sans clic, sur le code postal de l'adresse de livraison — au `mount()` si un relais est déjà retenu, et via `updatedChosenOption()` dès que le client sélectionne Chrono Relais. Le champ code postal + « Rechercher » ne servent plus qu'à élargir/déplacer la zone. `autoSearchPickupPoints()` est silencieux (pas d'erreur de validation si le code postal est vide) et ne relance rien si une recherche a déjà eu lieu (`$pickupSearched`).
+- Le champ code postal porte `wire:keydown.enter.prevent="searchPickupPoints"` : le bloc vit dans le `<form wire:submit="save">` de l'étape, valider au clavier soumettait sinon l'étape entière.
+- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → carte + liste radios. Si aucun résultat → saisie manuelle simplifiée.
+
+**Distinguer « zone non couverte » de « service en panne »** — `PickupPointProvider::lastSearchError(): ?string` :
+
+`search()` est volontairement tolérant aux pannes et renvoie `[]` aussi bien pour une zone sans point relais que pour un WS injoignable ou des credentials Chronopost absents. Le front affichait donc **le même écran muet** dans les deux cas : le bouton « Rechercher » semblait ne rien faire (symptôme rapporté en dev, où `CHRONOPOST_ACCOUNT`/`CHRONOPOST_PASSWORD` sont vides — `PickupPointSoapClient` lève alors `missing account credentials` avant tout appel réseau).
+
+- `lastSearchError()` renvoie le motif du dernier échec, ou `null` si la recherche a abouti (**y compris avec zéro résultat**). `ManualPickupPointProvider` renvoie `'no_provider_configured'` : aucune source branchée n'est pas « zéro point relais ».
+- Le composant en dérive `$pickupServiceUnavailable` et la computed `pickupEmptyMessage` : « momentanément indisponible » vs « aucun point relais autour de ce code postal ». Motif technique jamais affiché au client, uniquement loggué (canal `shipping-pickup`).
+- **Prérequis d'exploitation** : sans credentials Chronopost (Back-office → Transporteurs → Chronopost, ou `CHRONOPOST_ACCOUNT`/`CHRONOPOST_PASSWORD`), la recherche de points relais ne peut pas fonctionner — seule la saisie manuelle reste disponible.
+- Couvert par `ShippingOptionsTest` : préchargement au changement d'option, préchargement au mount, message de panne, message de zone vide. **Tout test qui sélectionne Chrono Relais doit binder un `PickupPointProvider` factice** — sans double, la recherche automatique résout le provider Chronopost réel et part en SOAP.
 - `save()` : si Chrono Relais choisi sans point retenu → erreur `pickupPointId`. Le point est persisté dans `cart.meta['pickup_point']`.
 - `FillOrderFromCart` (pipeline Lunar) copie l'intégralité de `cart.meta` → `order.meta` : la propagation du point relais est donc automatique, sans pipeline custom.
 
