@@ -10,6 +10,7 @@ use Livewire\Livewire;
 use Lunar\Base\ShippingModifiers;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
+use Pko\ShippingCommon\Console\Commands\BackfillShipmentsCommand;
 use Pko\ShippingCommon\Console\Commands\PollTrackingCommand;
 use Pko\ShippingCommon\Contracts\PickupPointProvider;
 use Pko\ShippingCommon\Filament\Livewire\CarrierGridTable;
@@ -66,6 +67,7 @@ class ShippingCommonServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 PollTrackingCommand::class,
+                BackfillShipmentsCommand::class,
             ]);
         }
 

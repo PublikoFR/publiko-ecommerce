@@ -73,9 +73,34 @@ class OrderShipmentActionsTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Bordereau du ');
+        $response->assertDontSee('Point relais :');
     }
 
-    private function makeOrderId(): int
+    public function test_le_point_relais_est_lisible_meme_sans_etiquette(): void
+    {
+        // Cas courant tant que le worker de queue n'a pas consommé le job :
+        // la commande désigne un relais mais aucun envoi n'existe encore.
+        $orderId = $this->makeOrderId([
+            'pickup_point' => [
+                'id' => '056DL',
+                'name' => 'POKE STORE',
+                'address1' => '45 allées Paul Riquet',
+                'postcode' => '34500',
+                'city' => 'BEZIERS',
+            ],
+        ]);
+
+        $response = $this->get("/admin/orders/{$orderId}");
+
+        $response->assertOk();
+        $response->assertSee('Point relais : POKE STORE (056DL)');
+        $response->assertSee('Aucune étiquette générée');
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function makeOrderId(array $meta = []): int
     {
         $channel = Channel::query()->first();
         $currency = Currency::query()->first();
@@ -95,7 +120,7 @@ class OrderShipmentActionsTest extends TestCase
             'tax_breakdown' => '[]',
             'discount_breakdown' => '[]',
             'shipping_breakdown' => '[]',
-            'meta' => '[]',
+            'meta' => json_encode($meta),
             'placed_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),

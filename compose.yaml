@@ -31,6 +31,37 @@ services:
             - traefik.http.routers.weklo.entrypoints=web
             - traefik.http.services.weklo.loadbalancer.server.port=80
 
+    # Consommateur de la file (QUEUE_CONNECTION=redis). Sans lui, tout job dispatché
+    # s'empile indéfiniment : la création d'étiquette transporteur, les conversions
+    # média et les e-mails ne s'exécutent jamais, sans la moindre erreur visible.
+    queue:
+        build:
+            context: ./docker/app
+            dockerfile: Dockerfile
+            args:
+                UID: ${UID:-1000}
+                GID: ${GID:-1000}
+        container_name: weklo-queue
+        restart: unless-stopped
+        working_dir: /var/www/html
+        user: sail
+        volumes:
+            - .:/var/www/html
+            - ./docker/app/php.ini:/usr/local/etc/php/conf.d/zz-weklo.ini:ro
+        environment:
+            APP_ENV: ${APP_ENV:-local}
+            APP_DEBUG: ${APP_DEBUG:-true}
+        # --tries/--backoff laissés aux jobs, qui définissent déjà leur politique
+        # (CreateCarrierShipmentJob : 5 tentatives, backoff jusqu'à 4 h).
+        command: php artisan queue:work --timeout=120 --sleep=3 --max-time=3600
+        depends_on:
+            mysql:
+                condition: service_healthy
+            redis:
+                condition: service_started
+        networks:
+            - backend
+
     mysql:
         image: mysql:8.0
         container_name: weklo-mysql

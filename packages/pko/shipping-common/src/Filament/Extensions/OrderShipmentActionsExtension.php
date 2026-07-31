@@ -41,11 +41,45 @@ final class OrderShipmentActionsExtension extends ResourceExtension
             ->orderBy('created_at')
             ->get();
 
-        if ($shipments->isEmpty()) {
-            return $actions;
+        $items = [];
+
+        // Point relais : lisible d'un coup d'œil, plutôt que d'aller le déchiffrer
+        // dans le dump brut de `meta` du bloc « Informations supplémentaires ».
+        if ($point = $this->pickupPoint($order)) {
+            $items[] = Action::make('pickup_point')
+                ->label(trim(sprintf(
+                    'Point relais : %s%s',
+                    $point['name'] ?? 'sans nom',
+                    isset($point['id']) ? ' ('.$point['id'].')' : '',
+                )))
+                ->icon('heroicon-o-map-pin')
+                ->disabled()
+                ->tooltip(trim(sprintf(
+                    '%s — %s %s',
+                    $point['address1'] ?? '',
+                    $point['postcode'] ?? '',
+                    $point['city'] ?? '',
+                )));
         }
 
-        $items = [];
+        if ($shipments->isEmpty()) {
+            if ($items === []) {
+                return $actions;
+            }
+
+            $items[] = Action::make('no_shipment_yet')
+                ->label('Aucune étiquette générée')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->disabled()
+                ->tooltip("La création d'étiquette est mise en file à l'encaissement. Vérifier que le worker de queue tourne (make queue-logs).");
+
+            $actions[] = ActionGroup::make($items)
+                ->label('Expédition')
+                ->icon('heroicon-o-truck')
+                ->button();
+
+            return $actions;
+        }
 
         foreach ($shipments as $shipment) {
             $suffix = $shipments->count() > 1 ? ' — '.ucfirst((string) $shipment->carrier) : '';
@@ -87,6 +121,20 @@ final class OrderShipmentActionsExtension extends ResourceExtension
             ->button();
 
         return $actions;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function pickupPoint(Order $order): ?array
+    {
+        $meta = $order->meta instanceof \ArrayObject
+            ? $order->meta->getArrayCopy()
+            : (array) ($order->meta ?? []);
+
+        $point = $meta['pickup_point'] ?? null;
+
+        return is_array($point) && $point !== [] ? $point : null;
     }
 
     private function hasLabel(CarrierShipment $shipment): bool

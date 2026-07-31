@@ -179,6 +179,14 @@ lint:
 logs:
 	$(DC) logs -f
 
+# Suivre le worker de file (creation d'etiquettes, conversions media, e-mails).
+queue-logs:
+	$(DC) logs -f queue
+
+# Etat de la file : nombre de jobs en attente, par type.
+queue-status:
+	$(EXEC) php artisan queue:monitor default
+
 ps:
 	$(DC) ps
 

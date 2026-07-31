@@ -16,6 +16,14 @@ class OrderShipmentObserver
     /** Lunar order statuses that mean the order has been paid. */
     private const PAID_STATUSES = ['paid', 'payment-received'];
 
+    /*
+     * Pourquoi pas de hook `created()` : au moment où la commande est créée, ses
+     * adresses ne le sont pas encore (`CreateOrderAddresses` s'exécute après
+     * `FillOrderFromCart`). Un observer `created` ne verrait donc jamais de
+     * `shipping_option` — une commande importée déjà payée reste sans étiquette.
+     * Ce trou est couvert par la commande `shipping:backfill-shipments`.
+     */
+
     public function updated(Order $order): void
     {
         // Lunar stores the paid state in `status` (the Stripe addon maps a succeeded
@@ -28,6 +36,11 @@ class OrderShipmentObserver
             return;
         }
 
+        $this->dispatchForOrder($order);
+    }
+
+    private function dispatchForOrder(Order $order): void
+    {
         $option = $order->shippingAddress?->shipping_option;
         if (! is_string($option) || ! str_contains($option, '.')) {
             return;

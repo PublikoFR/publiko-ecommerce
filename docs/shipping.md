@@ -903,3 +903,26 @@ Conséquence sur l'étiquette : `CreateCarrierShipmentJob::applyPickupPoint()` (
 > **Piège de test** : sauvegarder une `OrderAddress` déclenche l'observer de `lunarphp/table-rate-shipping`, qui résout une zone depuis le pays. Une adresse de fixture sans `country_id` fait lever un `TypeError` dans `PostcodeLookup::__construct()`, sans rapport apparent avec le code testé.
 
 Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, commande sans relais intouchée, idempotence).
+
+---
+
+### 5.23 Aucune étiquette générée en dev : il manquait un worker de queue (2026-07-31)
+
+**Symptôme** : commandes bien en `payment-received`, `shipping_option` correctement posée, mais **zéro ligne dans `pko_carrier_shipments`** — donc aucun n° de suivi, aucun raccourci « Expédition » sur la fiche commande, aucun bordereau possible.
+
+**Diagnostic** : `OrderShipmentObserver` fonctionne — reproduit en conditions réelles, le job part bien. Mais `QUEUE_CONNECTION=redis` et **aucun service worker n'existait** dans `compose.yaml` : 675 jobs s'étaient accumulés dans `queues:default`, dont 6 `CreateCarrierShipmentJob`. Rien n'échoue, rien ne s'affiche, les jobs attendent simplement un consommateur qui n'existe pas.
+
+> **Piège de diagnostic** : `redis-cli LLEN queues:default` depuis le conteneur redis répondait `0` et `KEYS 'queues:*'` ne renvoyait rien, ce qui laissait croire qu'aucun job n'était poussé. Laravel n'utilise pas forcément la base redis interrogée par défaut. Passer par l'application (`Redis::connection()->llen('queues:default')` en tinker) donne la vraie valeur.
+
+**Correctifs**
+
+1. **Service `queue`** ajouté à `compose.yaml` (même image que `app`, `php artisan queue:work --timeout=120 --max-time=3600`). Le dev reflète enfin la prod. `make queue-logs` suit son activité, `make queue-status` donne la profondeur de file.
+2. **Commande de rattrapage** `php artisan shipping:backfill-shipments [--dry-run] [--limit=N]` : crée les envois manquants sur les commandes déjà payées. Elle couvre les commandes passées worker éteint, mais aussi le trou structurel décrit ci-dessous. Idempotente (les commandes portant déjà un envoi sont ignorées, et le job fait un `firstOrCreate`).
+
+**Trou structurel assumé** : `OrderShipmentObserver` n'écoute que `updated` avec changement de statut. Un hook `created` serait inopérant — au moment où la commande est créée, ses adresses ne le sont pas encore (`CreateOrderAddresses` s'exécute après `FillOrderFromCart`), donc aucune `shipping_option` n'est lisible. Une commande **importée ou saisie directement dans un état payé** n'a donc pas d'étiquette : c'est `shipping:backfill-shipments` qui la rattrape.
+
+> **Piège rencontré en écrivant la commande** : filtrer par `whereDoesntHave('addresses', fn ($q) => $q->whereNull('shipping_option'))` exclut **toutes** les commandes — l'adresse de facturation n'a jamais de `shipping_option`. Le filtre doit porter sur `type = 'shipping'`. Le test ne l'avait pas vu tant que son jeu de données ne comportait pas d'adresse de facturation ; elle y a été ajoutée pour verrouiller le cas.
+
+**Fiche commande** : `OrderShipmentActionsExtension` affiche désormais le point relais retenu (nom + identifiant, adresse en infobulle) même quand aucune étiquette n'existe encore, et signale explicitement « Aucune étiquette générée » avec le renvoi vers `make queue-logs`. L'information n'était lisible que dans le dump brut de `meta` du bloc « Informations supplémentaires », généré automatiquement par Lunar et non modifiable sans toucher à `vendor/`.
+
+Tests : `OrderShipmentObserverTest` (dispatch à la transition, pas de doublon, absence d'option, rattrapage et son idempotence), `OrderShipmentActionsTest` (point relais lisible sans étiquette).
