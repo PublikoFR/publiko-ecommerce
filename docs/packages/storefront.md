@@ -224,3 +224,27 @@ Dépendance : `pko/lunar-storefront` requiert désormais `pko/lunar-shipping-com
 - Exception : l'aide contextuelle des champs « Texte » (bannière) et « USPs » de
   **Storefront → Paramètres** documente les variables disponibles.
 
+
+### Disponibilité produit — le mode d'achat Lunar fait foi (2026-07-31)
+
+**Symptôme** : un produit affiché « Sur commande » (stock fournisseur) refusait l'ajout au panier avec « La quantité dépasse le stock disponible. », et le message venait recouvrir le prix sur la carte produit.
+
+**Cause** : `App\Livewire\Components\AddToCart::addToCart()` comparait `purchasable->stock < quantity` et ignorait le champ Lunar `ProductVariant::$purchasable`, qui vaut `always` sur tout le catalogue rattaché à un fournisseur — c'est-à-dire « commandable même à stock zéro ». Toute la vente sur approvisionnement était donc bloquée.
+
+**Règles**
+
+1. **Ne jamais comparer `stock` à la main pour décider d'un ajout au panier.** Utiliser `canBeFulfilledAtQuantity(int $quantity)` du contrat `Lunar\Base\Purchasable`, qui applique le mode d'achat : `always` → toujours acceptable, `in_stock` → borné par `getTotalInventory()` (`stock + backorder`).
+2. **Un badge de disponibilité ne doit jamais promettre plus que ce que le panier accepte.** `Pko\Storefront\Support\VariantAvailability::for($variant)` retourne `['tone', 'label', 'orderable']` et centralise la règle :
+
+   | Situation | Libellé |
+   |---|---|
+   | stock > 5 | En stock |
+   | 0 < stock ≤ 5 | Stock limité |
+   | stock = 0 et `canBeFulfilledAtQuantity(1)` | Sur commande |
+   | stock = 0 et non approvisionnable | **Épuisé** |
+
+   Le cas « Épuisé » n'existait pas : une variante `in_stock` à zéro s'annonçait « Sur commande » puis se faisait refuser. Toute nouvelle surface affichant un statut de stock doit passer par ce helper plutôt que de retester `stock > 0`.
+
+**Placement du message d'erreur** — sur la carte produit, le bouton d'ajout vit dans une colonne `shrink-0` alignée en bas avec le prix : un bloc d'erreur en flux y élargit la colonne et recouvre le prix. En mode `compact`, le bloc est donc sorti du flux et ancré **au-dessus** du bouton (`absolute bottom-full right-0`). Ancrer vers le bas ne marche pas : l'`<article>` de la carte est en `overflow-hidden` et rognerait le message. En page produit (mode normal), le bloc reste en flux sous le bouton.
+
+Tests : `tests/Feature/Storefront/AddToCartAvailabilityTest` (ajout d'un produit sur commande, refus au-delà du stock en `in_stock`, acceptation à la limite, cohérence des quatre libellés de badge).

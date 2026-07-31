@@ -9,19 +9,15 @@ $firstVariant = $product->variants->first();
 $code = $firstVariant?->sku;
 $variantsCount = $product->variants->count();
 $isNew = optional($product->created_at)->gt(now()->subDays(30));
-$stock = (int) ($firstVariant?->stock ?? 0);
 
 // Prix + achat réservés aux clients connectés (tout compte authentifié).
 $isPro = auth()->check();
 
-// Statut de stock → tonalité DS
-if ($stock <= 0) {
-    $stockTone = 'neutral'; $stockLabel = 'Sur commande';
-} elseif ($stock <= 5) {
-    $stockTone = 'warning'; $stockLabel = 'Stock limité';
-} else {
-    $stockTone = 'success'; $stockLabel = 'En stock';
-}
+// Statut de stock → tonalité DS. Dérivé du mode d'achat Lunar, pas du seul stock :
+// « Sur commande » ne doit s'afficher que si le panier accepte réellement la ligne.
+$availability = \Pko\Storefront\Support\VariantAvailability::for($firstVariant);
+$stockTone = $availability['tone'];
+$stockLabel = $availability['label'];
 @endphp
 
 <article class="group bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-neutral-300">

@@ -1,4 +1,4 @@
-<div>
+<div @class(['relative' => $compact])>
     @if ($compact)
         {{-- Carte produit : bouton d'ajout compact (qté 1) --}}
         <button type="button" wire:click.prevent="addToCart"
@@ -33,7 +33,16 @@
     @endif
 
     @if ($errors->has('quantity'))
-        <div class="p-2.5 mt-3 text-xs font-medium text-center text-danger-700 rounded-md bg-danger-50 border border-danger-100" role="alert">
+        {{-- En carte produit, le bouton vit dans une colonne étroite (`shrink-0`) alignée
+             en bas avec le prix : un bloc d'erreur en flux y élargit la colonne et vient
+             recouvrir le prix. On le sort donc du flux, ancré AU-DESSUS du bouton —
+             l'`<article>` de la carte est en `overflow-hidden`, un ancrage vers le bas
+             serait rogné. En page produit (mode normal), le bloc reste en flux. --}}
+        <div @class([
+            'text-xs font-medium text-danger-700 rounded-md bg-danger-50 border border-danger-100',
+            'p-2.5 mt-3 text-center' => ! $compact,
+            'absolute bottom-full right-0 mb-1.5 z-20 w-max max-w-[13rem] px-2.5 py-1.5 text-right shadow-sm' => $compact,
+        ]) role="alert">
             @foreach ($errors->get('quantity') as $error)
                 {{ $error }}
             @endforeach

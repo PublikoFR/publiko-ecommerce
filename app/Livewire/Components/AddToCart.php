@@ -37,8 +37,16 @@ class AddToCart extends Component
     {
         $this->validate();
 
-        if ($this->purchasable->stock < $this->quantity) {
-            $this->addError('quantity', 'La quantité dépasse le stock disponible.');
+        // `canBeFulfilledAtQuantity()` (contrat Lunar\Base\Purchasable) respecte le mode
+        // d'achat de la variante : `always` reste commandable à stock zéro — c'est le cas
+        // des produits en stock fournisseur, affichés « Sur commande ». Un simple
+        // `stock < quantity` bloquait toute la vente sur approvisionnement.
+        if (! $this->purchasable->canBeFulfilledAtQuantity($this->quantity)) {
+            $available = max(0, $this->purchasable->getTotalInventory());
+
+            $this->addError('quantity', $available > 0
+                ? "Stock insuffisant : {$available} disponible(s)."
+                : 'Ce produit est momentanément indisponible.');
 
             return;
         }
