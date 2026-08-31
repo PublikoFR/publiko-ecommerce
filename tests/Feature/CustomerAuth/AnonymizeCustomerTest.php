@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Lunar\Models\Cart;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 use Lunar\Models\Order;
@@ -85,12 +86,20 @@ class AnonymizeCustomerTest extends TestCase
         ]);
         $customer->users()->attach($user);
 
+        // Cart::delete() est un soft-delete (SoftDeletes) : la ligne reste en
+        // base avec sa FK user_id/customer_id active si on ne force pas.
+        $cart = Cart::factory()->create([
+            'customer_id' => $customer->id,
+            'user_id' => $user->id,
+        ]);
+
         // Aucune commande → suppression physique complète.
         $result = app(AnonymizeCustomer::class)->purge($customer);
 
         $this->assertSame('deleted', $result);
         $this->assertNull(Customer::find($customer->id), 'Le client sans commande doit être supprimé.');
         $this->assertNull(User::find($user->id), 'Le compte de connexion doit être supprimé.');
+        $this->assertNull(Cart::withTrashed()->find($cart->id), 'Le panier doit être supprimé physiquement (forceDelete).');
     }
 
     public function test_purge_anonymizes_customer_with_orders(): void

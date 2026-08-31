@@ -113,7 +113,9 @@ class AnonymizeCustomer
         }
 
         $customer->addresses()->delete();
-        Cart::where('customer_id', $customer->id)->delete();
+        // forceDelete : Cart utilise SoftDeletes, un delete() classique laisse
+        // la ligne en base et sa FK `customer_id`/`user_id` bloque la suppression.
+        Cart::where('customer_id', $customer->id)->forceDelete();
         $customer->customerGroups()->detach();
         $customer->discounts()->detach();
     }
@@ -125,7 +127,8 @@ class AnonymizeCustomer
         DB::table('lunar_orders')->where('user_id', $user->id)->update(['user_id' => null]);
         DB::table('lunar_discount_user')->where('user_id', $user->id)->delete();
         DB::table('lunar_customer_user')->where('user_id', $user->id)->delete();
-        Cart::where('user_id', $user->id)->delete();
+        // forceDelete : idem, Cart::delete() est un soft-delete qui laisse la FK active.
+        Cart::where('user_id', $user->id)->forceDelete();
 
         $user->delete();
     }

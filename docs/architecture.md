@@ -174,6 +174,23 @@ remplissent à l'écran.
 **Fix** : dériver l'`id` du nom du `wire:model` (`inp-{slug}`), sinon du label,
 random en dernier recours seulement. Cf. `packages/pko/storefront/resources/views/components/ui/input.blade.php`.
 
+### 7.8 Widgets Filament injectés via `@livewire(::class)` : enregistrement explicite obligatoire
+
+Un widget Filament (`Filament\Widgets\TableWidget`) monté dans une vue custom via
+`@livewire(\Pko\...\MonWidget::class, [], 'un-id')` se rend correctement au
+premier chargement de page, mais Livewire échoue à le retrouver lors d'une
+action AJAX interne (ex. suppression d'une ligne de table) avec
+`Livewire\Exceptions\ComponentNotFoundException: Unable to find component`.
+Cause : sans enregistrement explicite, Livewire dérive le nom du composant
+depuis le FQCN à la volée, et cette résolution automatique n'est fiable que
+pour les composants situés dans les chemins de découverte conventionnels
+(`App\Livewire\*`) — pas pour un namespace de package (`Pko\AdminNav\...`).
+
+**Fix** : enregistrer explicitement chaque widget concerné avec
+`Livewire::component('admin-nav::mon-widget', MonWidget::class)` dans le
+`boot()` du ServiceProvider du package, comme déjà fait pour les composants
+Livewire classiques. Cf. `packages/pko/lunar-admin-nav/src/AdminNavServiceProvider.php`.
+
 ---
 
 
