@@ -867,9 +867,9 @@ Le bordereau reste **journalier par nature** — il atteste d'une remise groupé
 
 #### F) Ce qui reste à faire avant une mise en production
 
-1. **Credentials réels** — `.env` porte le compte de démo `19869502`, valable pour la recherche de points relais uniquement. Aucune LT réelle ne peut être émise tant que le compte de production n'est pas saisi (Back-office → Expédition → Chronopost, ou `CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD`).
-2. **Vérifier le format des codes produits sur le compte réel** — le module officiel envoie `1` / `2` / `86`, la documentation Chronopost cite parfois la forme à deux chiffres (`01`, `02`). En cas de rejet, corriger dans le champ « Code produit transporteur » sans toucher au code.
-3. **Dimensions par variante** — tant que les variantes ne portent pas leurs dimensions, tous les colis partent au carton par défaut.
+1. **Credentials réels** — `.env` porte le compte de démo `19869502`, valable pour la recherche de points relais uniquement. Aucune LT réelle ne peut être émise tant que le compte de production n'est pas saisi (Back-office → Expédition → Chronopost, ou `CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD`). *(2026-08-31 : mail envoyé au commercial Chronopost pour obtenir le compte prod — en attente.)*
+2. ~~Vérifier le format des codes produits sur le compte réel~~ — **résolu (2026-08-31)**. Comparaison avec le module PrestaShop officiel (`MDE Prestashop/modules/chronopost/chronopost.php`, tableau `$carriersDefinitions`) : le service d'émission de LT (skybill) utilise exclusivement le champ `product_code` (`1`, `2`, `86`, `16`…), jamais `product_code_bal` (forme à deux chiffres, définie mais non lue ailleurs dans le module — code mort côté PrestaShop). Nos codes dans `packages/pko/shipping-chronopost/config/chronopost.php` (`chrono_relais=86`, `chrono13=1`, `chrono10=2`, `chrono18=16`, `chrono_classic=44`) correspondent exactement. Rien à corriger.
+3. **Dimensions par variante** — tant que les variantes ne portent pas leurs dimensions, tous les colis partent au carton par défaut. Fonctionnalité inutilisée pour l'instant (catalogue sans variantes), mais `ParcelDimensionsCalculator` lit déjà les dimensions de variante si présentes (repli sur le carton par défaut sinon) : le jour où des variantes dimensionnées seront ajoutées, elles seront prises en compte automatiquement, sans changement de code.
 
 #### G) Écarts assumés avec le module PrestaShop
 
