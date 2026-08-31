@@ -37,3 +37,4 @@ core
 /deploy/*.env
 /deploy/laravel/env.*
 !/deploy/**/*.example
+.grepai/
