@@ -562,7 +562,7 @@ Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, p
 
 ### 5.7 Hors scope shipping
 
-- Tracking webhook (polling ou push transporteur)
+- Tracking **push** transporteur (webhook) — le **polling** est en revanche implémenté, cf. §5.6 (`shipping:poll-tracking`, horaire, API La Poste unifiée)
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
 - Sendcloud (alternative SaaS écartée pour coût)
