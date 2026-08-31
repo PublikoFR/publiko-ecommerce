@@ -153,10 +153,9 @@ class LoyaltyManager
             ->filter(fn ($t) => (int) $t->points_required <= $totalPoints)
             ->max('points_required') ?? 0);
 
-        // Les 2 prochains cadeaux à débloquer (paliers strictement au-dessus du solde).
+        // Tous les cadeaux à venir (paliers strictement au-dessus du solde).
         $upcomingTiers = $allTiers
             ->filter(fn ($t) => (int) $t->points_required > $totalPoints)
-            ->take(2)
             ->values();
 
         $nextTier = $upcomingTiers->first();

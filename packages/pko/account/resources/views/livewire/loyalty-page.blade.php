@@ -98,6 +98,30 @@
             @endif
         </x-ui.card>
 
+        {{-- Tous les cadeaux à venir --}}
+        @if ($upcoming->isNotEmpty())
+            <div>
+                <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Tous les cadeaux à venir</h2>
+                <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory -mx-1 px-1">
+                    @foreach ($upcoming as $tier)
+                        <div class="snap-start shrink-0 w-40">
+                            <x-ui.card padding="lg" class="h-full flex flex-col items-center text-center">
+                                <div class="w-16 h-16 rounded-full bg-primary-50 overflow-hidden flex items-center justify-center shrink-0">
+                                    @if ($tier->gift_image_url)
+                                        <img src="{{ $tier->gift_image_url }}" alt="{{ $tier->gift_title }}" class="w-full h-full object-cover" />
+                                    @else
+                                        <x-ui.icon name="gift" class="w-7 h-7 text-primary-600" />
+                                    @endif
+                                </div>
+                                <p class="mt-3 text-sm font-semibold text-neutral-900 leading-tight">{{ $tier->gift_title }}</p>
+                                <span class="mt-1 text-xs text-neutral-500">{{ (int) $tier->points_required }} pts</span>
+                            </x-ui.card>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- Cadeaux débloqués --}}
         <div>
             <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Cadeaux débloqués</h2>

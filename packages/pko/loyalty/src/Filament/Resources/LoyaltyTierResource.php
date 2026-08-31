@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 use Lunar\Admin\Support\Resources\BaseResource;
 use Pko\Loyalty\Filament\Resources\LoyaltyTierResource\Pages;
 use Pko\Loyalty\Models\LoyaltyTier;
+use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 
 class LoyaltyTierResource extends BaseResource
 {
@@ -57,14 +58,9 @@ class LoyaltyTierResource extends BaseResource
             Forms\Components\Textarea::make('gift_description')
                 ->label('Description du cadeau')
                 ->rows(3),
-            Forms\Components\TextInput::make('gift_image_url')
-                ->label('URL image cadeau')
-                ->url()
-                ->maxLength(500),
-            Forms\Components\TextInput::make('position')
-                ->label('Position')
-                ->numeric()
-                ->default(0),
+            MediaPicker::make('gift_image')
+                ->label('Photo du cadeau')
+                ->mediagroup('gift_image'),
             Forms\Components\Toggle::make('active')
                 ->label('Actif')
                 ->default(true),
@@ -75,7 +71,7 @@ class LoyaltyTierResource extends BaseResource
     {
         return $table
             ->reorderable('position')
-            ->defaultSort('points_required')
+            ->defaultSort('position')
             ->columns([
                 Tables\Columns\ImageColumn::make('gift_image_url')
                     ->label('Cadeau')
