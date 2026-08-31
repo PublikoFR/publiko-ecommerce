@@ -9,6 +9,8 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Cart;
+use Lunar\Models\CartAddress;
+use Lunar\Models\CartLine;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 use Lunar\Models\Order;
@@ -100,6 +102,47 @@ class AnonymizeCustomerTest extends TestCase
         $this->assertNull(Customer::find($customer->id), 'Le client sans commande doit être supprimé.');
         $this->assertNull(User::find($user->id), 'Le compte de connexion doit être supprimé.');
         $this->assertNull(Cart::withTrashed()->find($cart->id), 'Le panier doit être supprimé physiquement (forceDelete).');
+    }
+
+    public function test_purge_deletes_carts_with_addresses_and_lines(): void
+    {
+        $user = User::create([
+            'name' => 'Luc Petit',
+            'email' => 'luc@example.test',
+            'password' => Hash::make('password'),
+        ]);
+
+        $customer = Customer::create([
+            'first_name' => 'Luc',
+            'last_name' => 'Petit',
+            'company_name' => 'Panier SARL',
+        ]);
+        $customer->users()->attach($user);
+
+        // Panier actif, avec adresse + ligne : les FK NO ACTION de
+        // lunar_cart_addresses / lunar_cart_lines bloquent le forceDelete si
+        // elles ne sont pas dénouées d'abord (erreur SQL 1451).
+        $cart = Cart::factory()->create([
+            'customer_id' => $customer->id,
+            'user_id' => $user->id,
+        ]);
+        CartAddress::factory()->create(['cart_id' => $cart->id, 'type' => 'shipping']);
+        CartLine::factory()->create(['cart_id' => $cart->id]);
+
+        // Panier déjà soft-deleted et fusionné dans le panier courant : sa FK
+        // user_id reste active en base, et sa self-FK merged_id aussi.
+        $mergedCart = Cart::factory()->create(['user_id' => $user->id, 'merged_id' => $cart->id]);
+        $mergedCart->delete();
+
+        $result = app(AnonymizeCustomer::class)->purge($customer);
+
+        $this->assertSame('deleted', $result);
+        $this->assertNull(Customer::find($customer->id));
+        $this->assertNull(User::find($user->id));
+        $this->assertNull(Cart::withTrashed()->find($cart->id));
+        $this->assertNull(Cart::withTrashed()->find($mergedCart->id));
+        $this->assertSame(0, CartAddress::where('cart_id', $cart->id)->count());
+        $this->assertSame(0, CartLine::where('cart_id', $cart->id)->count());
     }
 
     public function test_purge_anonymizes_customer_with_orders(): void
