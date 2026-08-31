@@ -31,6 +31,7 @@ class ProductPage extends Component
             (new Product)->getMorphClass(),
             [
                 'element.media',
+                'element.videos',
                 'element.variants.basePrices.currency',
                 'element.variants.basePrices.priceable',
                 'element.variants.values.option',
@@ -175,6 +176,14 @@ class ProductPage extends Component
             ->pluck('target')
             ->filter()
             ->values();
+    }
+
+    /**
+     * Vidéos produit (YouTube, Vimeo, Dailymotion, MP4) triées par sort_order.
+     */
+    public function getVideosProperty(): Collection
+    {
+        return $this->product->videos;
     }
 
     public function getDocumentsProperty(): Collection
