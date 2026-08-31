@@ -26,6 +26,14 @@
                         @endforeach
                     </div>
                 @endif
+
+                @if ($this->videos->isNotEmpty())
+                    <div class="mt-4 space-y-4">
+                        @foreach ($this->videos as $video)
+                            <x-pko-product-video wire:key="video_{{ $video->id }}" :video="$video" class="rounded-2xl border border-neutral-200" />
+                        @endforeach
+                    </div>
+                @endif
             </div>
 
             {{-- Details --}}

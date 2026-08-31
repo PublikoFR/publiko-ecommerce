@@ -6,6 +6,7 @@ namespace Pko\CustomerAuth\Actions;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Lunar\Models\Cart;
 use Lunar\Models\Customer;
 
@@ -113,9 +114,7 @@ class AnonymizeCustomer
         }
 
         $customer->addresses()->delete();
-        // forceDelete : Cart utilise SoftDeletes, un delete() classique laisse
-        // la ligne en base et sa FK `customer_id`/`user_id` bloque la suppression.
-        Cart::where('customer_id', $customer->id)->forceDelete();
+        $this->deleteCarts(Cart::withTrashed()->where('customer_id', $customer->id)->pluck('id')->all());
         $customer->customerGroups()->detach();
         $customer->discounts()->detach();
     }
@@ -127,9 +126,41 @@ class AnonymizeCustomer
         DB::table('lunar_orders')->where('user_id', $user->id)->update(['user_id' => null]);
         DB::table('lunar_discount_user')->where('user_id', $user->id)->delete();
         DB::table('lunar_customer_user')->where('user_id', $user->id)->delete();
-        // forceDelete : idem, Cart::delete() est un soft-delete qui laisse la FK active.
-        Cart::where('user_id', $user->id)->forceDelete();
+        $this->deleteCarts(Cart::withTrashed()->where('user_id', $user->id)->pluck('id')->all());
 
         $user->delete();
+    }
+
+    /**
+     * Supprime physiquement des paniers en dénouant d'abord toutes les FK
+     * `NO ACTION` qui pointent dessus (adresses, lignes, intents Stripe,
+     * paniers fusionnés). Un `forceDelete()` direct échoue sinon en 1451.
+     *
+     * `withTrashed()` est indispensable côté appelant : Cart utilise
+     * SoftDeletes, donc un panier déjà soft-deleted reste en base avec ses FK
+     * `customer_id` / `user_id` actives et bloque la suppression du client.
+     *
+     * @param  array<int, int>  $cartIds
+     */
+    private function deleteCarts(array $cartIds): void
+    {
+        if ($cartIds === []) {
+            return;
+        }
+
+        // Panier fusionné dans un autre panier : la self-FK `merged_id` est en
+        // NO ACTION, on la dénoue (colonne nullable).
+        DB::table('lunar_carts')->whereIn('merged_id', $cartIds)->update(['merged_id' => null]);
+
+        DB::table('lunar_cart_addresses')->whereIn('cart_id', $cartIds)->delete();
+        DB::table('lunar_cart_lines')->whereIn('cart_id', $cartIds)->delete();
+
+        // Table fournie par lunarphp/stripe : absente si le driver n'est pas installé.
+        if (Schema::hasTable('lunar_stripe_payment_intents')) {
+            DB::table('lunar_stripe_payment_intents')->whereIn('cart_id', $cartIds)->delete();
+        }
+
+        // Les commandes gardent leur `cart_id` en nullOnDelete → rien à faire.
+        Cart::withTrashed()->whereIn('id', $cartIds)->forceDelete();
     }
 }

@@ -38,7 +38,7 @@ Toute intégration externe (admin UI, ai-importer, Artisan command) passe par ce
 ### Composant storefront — `<x-pko-product-video>`
 
 Deux signatures : `:video="$productVideo"` (relation ORM) ou `:url="https://..."` (ad-hoc).
-Rendu wrapper responsive `aspect-ratio: 16 / 9` (pas d'override v1). `<iframe lazy>` pour YT/Vimeo/DM, `<video controls preload=metadata>` pour MP4. Branchement dans le thème manuel (le package n'injecte pas automatiquement dans la page produit storefront).
+Rendu wrapper responsive `aspect-ratio: 16 / 9` (pas d'override v1). `<iframe lazy>` pour YT/Vimeo/DM, `<video controls preload=metadata>` pour MP4. Le package n'injecte rien automatiquement — c'est `App\Livewire\ProductPage` (`getVideosProperty()`, eager-load `element.videos`) et `resources/views/livewire/product-page.blade.php` qui font le branchement dans la fiche produit storefront.
 
 ### Section admin — `EditProductUnified`
 
