@@ -21,6 +21,8 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_started
+            mailpit:
+                condition: service_started
         networks:
             - backend
             - traefik_network
@@ -98,6 +100,24 @@ services:
             - redis_data:/data
         networks:
             - backend
+
+    # Catcher SMTP local (docs/architecture.md) — MAIL_HOST=mailpit dans .env
+    # pointe vers ce service. Sans lui, Mail::send() échoue silencieusement
+    # côté queue ou lève une erreur de connexion SMTP non visible dans l'UI :
+    # aucun mail (contact, commande, etc.) n'arrive jamais en local.
+    mailpit:
+        image: axllent/mailpit:latest
+        container_name: weklo-mailpit
+        restart: unless-stopped
+        networks:
+            - backend
+            - traefik_network
+        labels:
+            - traefik.enable=true
+            - traefik.docker.network=traefik_network
+            - traefik.http.routers.weklo-mailpit.rule=Host(`mailpit.weklo.localhost`)
+            - traefik.http.routers.weklo-mailpit.entrypoints=web
+            - traefik.http.services.weklo-mailpit.loadbalancer.server.port=8025
 
     phpmyadmin:
         image: phpmyadmin:latest

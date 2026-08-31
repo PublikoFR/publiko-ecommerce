@@ -84,7 +84,24 @@
 
                     {{-- Price card (Design System) --}}
                     <div class="bg-white border border-neutral-200 rounded-xl p-6">
-                        <x-storefront.price-gate :variant="$this->variant" size="xl" />
+                        <div class="flex items-start justify-between gap-3">
+                            <x-storefront.price-gate :variant="$this->variant" size="xl" />
+                            @auth
+                                <div class="relative group/tip shrink-0">
+                                    <button
+                                        type="button"
+                                        aria-label="Ajouter à une liste"
+                                        onclick="Livewire.dispatch('open-purchase-list-picker', {id: {{ $this->variant->id }}, type: '{{ addslashes(\Lunar\Models\ProductVariant::class) }}'})"
+                                        class="w-10 h-10 flex items-center justify-center rounded-md border border-neutral-300 text-neutral-500 hover:border-primary-500 hover:text-primary-600 transition"
+                                    >
+                                        <x-ui.icon name="list" class="w-5 h-5" />
+                                    </button>
+                                    <span role="tooltip" class="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 shadow-md z-10">
+                                        Ajouter à une liste
+                                    </span>
+                                </div>
+                            @endauth
+                        </div>
                         @auth
                             <div class="inline-flex items-center gap-1.5 mt-2 text-success-700 text-[13px] font-semibold">
                                 <x-ui.icon name="badge-check" class="w-4 h-4 text-success-500" /> Tarif pro · remises dégressives par volume

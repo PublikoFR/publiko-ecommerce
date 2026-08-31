@@ -14,7 +14,7 @@ Stack technique, environnement Docker, mécanismes d'extension Lunar, gotchas, a
 | **Livewire** | 3.x | Moteur interactif de Filament. |
 | **MySQL** | 8.x | Compatible Lunar (SQLite en test uniquement), full-text search FR natif, JSON types performants. |
 | **Redis** | 7.x | Queue + cache + session dans un seul service (compose simple). |
-| **Mailpit** | dev | Catcher SMTP local pour le développement et les tests manuels. |
+| **Mailpit** | dev | Catcher SMTP local pour le développement et les tests manuels. Service `mailpit` de `compose.yaml` (image `axllent/mailpit`), UI web sur `http://mailpit.weklo.localhost`. `MAIL_HOST=mailpit` dans `.env` doit pointer dessus — sans ce service, `Mail::send()` échoue silencieusement (aucun mail ne part, y compris le formulaire de contact). |
 
 **Règles non-négociables** :
 

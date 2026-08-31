@@ -7,7 +7,9 @@ namespace App\Livewire\Components;
 use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Base\Purchasable;
+use Lunar\DataTypes\Price;
 use Lunar\Facades\CartSession;
+use Lunar\Facades\Pricing;
 
 class AddToCart extends Component
 {
@@ -53,6 +55,25 @@ class AddToCart extends Component
 
         CartSession::manager()->add($this->purchasable, $this->quantity);
         $this->dispatch('add-to-cart');
+    }
+
+    /**
+     * Prix total formaté pour la quantité sélectionnée (respecte les remises
+     * dégressives par palier de quantité) — affiché dans le bouton d'ajout.
+     */
+    public function getTotalPriceProperty(): ?string
+    {
+        try {
+            $matched = Pricing::for($this->purchasable)->qty($this->quantity)->get()->matched;
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $matched) {
+            return null;
+        }
+
+        return (new Price($matched->price->value * $this->quantity, $matched->price->currency))->formatted();
     }
 
     public function render(): View

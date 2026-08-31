@@ -28,6 +28,9 @@
                     class="flex-1 inline-flex items-center justify-center gap-2 h-12 px-6 text-sm font-semibold text-primary-700 bg-accent-500 rounded-md shadow-accent hover:bg-accent-600 transition active:scale-[0.97]">
                 <x-ui.icon name="cart" class="w-5 h-5" />
                 Ajouter au panier
+                @if ($this->totalPrice)
+                    <span class="font-mono" wire:loading.remove wire:target="quantity">· {{ $this->totalPrice }}</span>
+                @endif
             </button>
         </div>
     @endif
