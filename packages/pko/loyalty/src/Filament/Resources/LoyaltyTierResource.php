@@ -70,8 +70,8 @@ class LoyaltyTierResource extends BaseResource
     public static function getDefaultTable(Table $table): Table
     {
         return $table
-            ->reorderable('position')
-            ->defaultSort('position')
+            ->reorderable('position', false)
+            ->defaultSort('points_required')
             ->columns([
                 Tables\Columns\ImageColumn::make('gift_image_url')
                     ->label('Cadeau')
