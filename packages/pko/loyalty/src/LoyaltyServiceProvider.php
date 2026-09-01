@@ -7,6 +7,7 @@ namespace Pko\Loyalty;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
+use Pko\Loyalty\Console\RecalculateLoyaltyTiersCommand;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\PointsHistory;
@@ -43,5 +44,9 @@ class LoyaltyServiceProvider extends ServiceProvider
             'pointsHistory',
             fn (Customer $customer) => $customer->hasMany(PointsHistory::class, 'customer_id'),
         );
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([RecalculateLoyaltyTiersCommand::class]);
+        }
     }
 }

@@ -8,6 +8,7 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 - **Trigger calcul points** : observer Eloquent sur `Lunar\Models\Order` (`updated`/`created`), déclenché quand `placed_at` passe à non-null. Choix vs `PaymentAttemptEvent` : robuste pour les paiements offline et idempotent (vérification d'existence dans `pko_loyalty_points_history.order_id` unique).
 - **Source HT** : colonne `lunar_orders.sub_total` (entier cents, hors taxes). `points = floor((sub_total/100) / ratio)`.
 - **Anti-doublon palier** : index unique `(customer_id, tier_id)` sur `pko_loyalty_gift_history`.
+- **Déblocage multi-paliers** : `unlockEligibleTiers()` débloque **tous** les paliers éligibles (points_required <= solde) sans GiftHistory, pas seulement le plus haut atteint. Sans ça, un palier ajouté après coup sous le solde déjà acquis d'un client (ou un saut de plusieurs paliers en une seule commande) reste invisible pour toujours : ni « à venir » (déjà dépassé), ni « débloqué » (jamais inscrit en base). Commande `php artisan loyalty:recalculate` (`--dry-run` pour compter sans écrire) pour rattraper les clients déjà existants — idempotente, ne crée que les GiftHistory manquantes.
 - **Notifications** : `Illuminate\Notifications\Notification` (mail). Client via routing sur `Customer->users()->first()->email`. Admin via `Setting::get('admin_email')` puis fallback `config('loyalty.admin_email')` / env `LOYALTY_ADMIN_EMAIL`.
 - **Settings** : table dédiée `pko_loyalty_settings(key, value)` — pas de dépendance `spatie/laravel-settings` ajoutée. Lecture via `Pko\Loyalty\Models\Setting::get()`.
 - **Photo du cadeau** : plus de colonne `gift_image_url` (migration `2026_08_31_000000_drop_gift_image_url_from_pko_loyalty_tiers`). `LoyaltyTier` utilise `HasMediaAttachments` (`pko/lunar-media-core`), média rattaché au mediagroup `gift_image` via `MediaPicker` dans `LoyaltyTierResource`. Accesseur `getGiftImageUrlAttribute()` conservé (mappe sur `firstMediaUrl('gift_image')`) pour ne pas casser les usages existants (notifications, vue storefront).
@@ -35,7 +36,6 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 
 ### Backlog phase 2
 - Gestion remboursements / annulations (retrait points).
-- Commande artisan `loyalty:recalculate` pour rejouer historique clients existants.
 
 ---
 
