@@ -72,44 +72,70 @@ class LoyaltyManager
         });
     }
 
-    protected function unlockEligibleTiers(CustomerPoints $cp, ?int $oldTierId, int $orderId): void
+    /**
+     * Débloque tous les paliers éligibles (points_required <= solde) qui n'ont pas
+     * encore de GiftHistory pour ce client — pas seulement le plus haut atteint.
+     * Sans ça, un palier ajouté après coup sous le solde déjà acquis d'un client
+     * (ou un saut de plusieurs paliers en une seule commande) reste invisible :
+     * ni "à venir" (déjà dépassé) ni "débloqué" (jamais inscrit en base).
+     *
+     * @return int Nombre de paliers nouvellement débloqués.
+     */
+    protected function unlockEligibleTiers(CustomerPoints $cp, ?int $oldTierId, ?int $orderId = null): int
     {
-        $tier = LoyaltyTier::query()
+        $eligibleTiers = LoyaltyTier::query()
             ->where('active', true)
             ->where('points_required', '<=', $cp->total_points)
-            ->orderByDesc('points_required')
-            ->first();
+            ->orderBy('points_required')
+            ->get();
 
-        if (! $tier) {
-            return;
+        if ($eligibleTiers->isEmpty()) {
+            return 0;
         }
 
-        if ($tier->id === $oldTierId) {
-            return;
+        $highestTierId = $eligibleTiers->last()->id;
+        if ($highestTierId !== $oldTierId) {
+            $cp->current_tier_id = $highestTierId;
+            $cp->save();
         }
 
-        $cp->current_tier_id = $tier->id;
-        $cp->save();
-
-        $exists = GiftHistory::query()
+        $alreadyUnlockedTierIds = GiftHistory::query()
             ->where('customer_id', $cp->customer_id)
-            ->where('tier_id', $tier->id)
-            ->exists();
+            ->whereIn('tier_id', $eligibleTiers->pluck('id'))
+            ->pluck('tier_id')
+            ->all();
 
-        if ($exists) {
-            return;
+        $unlockedCount = 0;
+
+        foreach ($eligibleTiers as $tier) {
+            if (in_array($tier->id, $alreadyUnlockedTierIds, true)) {
+                continue;
+            }
+
+            $history = GiftHistory::create([
+                'customer_id' => $cp->customer_id,
+                'tier_id' => $tier->id,
+                'order_id' => $orderId,
+                'points_at_unlock' => $cp->total_points,
+                'status' => GiftStatus::Pending,
+                'unlocked_at' => now(),
+            ]);
+
+            $this->dispatchTierUnlocked($cp->customer_id, $tier, $cp->total_points, $history);
+            $unlockedCount++;
         }
 
-        $history = GiftHistory::create([
-            'customer_id' => $cp->customer_id,
-            'tier_id' => $tier->id,
-            'order_id' => $orderId,
-            'points_at_unlock' => $cp->total_points,
-            'status' => GiftStatus::Pending,
-            'unlocked_at' => now(),
-        ]);
+        return $unlockedCount;
+    }
 
-        $this->dispatchTierUnlocked($cp->customer_id, $tier, $cp->total_points, $history);
+    /**
+     * Rejoue le déblocage des paliers éligibles pour un client déjà existant,
+     * hors flux commande (cf. `loyalty:recalculate`). Rattrape les paliers
+     * ajoutés après coup ou sautés lors de commandes passées.
+     */
+    public function recalculateForCustomer(CustomerPoints $cp): int
+    {
+        return $this->unlockEligibleTiers($cp, $cp->current_tier_id);
     }
 
     public function dispatchTierUnlocked(int $customerId, LoyaltyTier $tier, int $totalPoints, GiftHistory $history): void

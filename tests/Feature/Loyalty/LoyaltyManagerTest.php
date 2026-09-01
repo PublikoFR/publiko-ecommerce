@@ -102,6 +102,66 @@ class LoyaltyManagerTest extends TestCase
         $this->assertSame(1, GiftHistory::where('customer_id', $customer->id)->count());
     }
 
+    public function test_unlocks_all_skipped_tiers_in_a_single_order(): void
+    {
+        Notification::fake();
+        LoyaltyTier::query()->update(['active' => false]); // neutralise les paliers seedés par défaut
+        $customer = Customer::factory()->create();
+        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => 'X', 'active' => true]);
+        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'gift_title' => 'Y', 'active' => true]);
+        $or = LoyaltyTier::create(['name' => 'Or', 'points_required' => 2000, 'gift_title' => 'Z', 'active' => true]);
+
+        // Une seule commande fait franchir les 3 paliers d'un coup.
+        app(LoyaltyManager::class)->awardForOrder($this->makePlacedOrder($customer, 300_000_00));
+
+        $this->assertSame(3, GiftHistory::where('customer_id', $customer->id)->count());
+        foreach ([$bronze, $argent, $or] as $tier) {
+            $this->assertDatabaseHas('pko_loyalty_gift_history', [
+                'customer_id' => $customer->id,
+                'tier_id' => $tier->id,
+            ]);
+        }
+        $this->assertSame(
+            $or->id,
+            (int) CustomerPoints::where('customer_id', $customer->id)->value('current_tier_id')
+        );
+    }
+
+    public function test_recalculate_backfills_tier_added_after_customer_already_passed_it(): void
+    {
+        Notification::fake();
+        LoyaltyTier::query()->update(['active' => false]); // neutralise les paliers seedés par défaut
+        $customer = Customer::factory()->create();
+        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'gift_title' => 'TV', 'active' => true]);
+
+        $manager = app(LoyaltyManager::class);
+        $manager->awardForOrder($this->makePlacedOrder($customer, 182_300_00));
+
+        // Palier ajouté après coup, sous le solde déjà acquis : jamais débloqué tant
+        // qu'aucune commande ne redéclenche le calcul.
+        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => "Bon d'achat 50€", 'active' => true]);
+
+        $this->assertDatabaseMissing('pko_loyalty_gift_history', [
+            'customer_id' => $customer->id,
+            'tier_id' => $bronze->id,
+        ]);
+
+        $cp = CustomerPoints::where('customer_id', $customer->id)->first();
+        $unlockedCount = $manager->recalculateForCustomer($cp);
+
+        $this->assertSame(1, $unlockedCount);
+        $this->assertDatabaseHas('pko_loyalty_gift_history', [
+            'customer_id' => $customer->id,
+            'tier_id' => $bronze->id,
+        ]);
+        // Le palier déjà débloqué (Argent) ne doit pas être dupliqué.
+        $this->assertSame(2, GiftHistory::where('customer_id', $customer->id)->count());
+        $this->assertDatabaseHas('pko_loyalty_gift_history', [
+            'customer_id' => $customer->id,
+            'tier_id' => $argent->id,
+        ]);
+    }
+
     private function makePlacedOrder(Customer $customer, int $subTotalCents): Order
     {
         return Order::factory()->create([
