@@ -11,7 +11,7 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 - **Notifications** : `Illuminate\Notifications\Notification` (mail). Client via routing sur `Customer->users()->first()->email`. Admin via `Setting::get('admin_email')` puis fallback `config('loyalty.admin_email')` / env `LOYALTY_ADMIN_EMAIL`.
 - **Settings** : table dédiée `pko_loyalty_settings(key, value)` — pas de dépendance `spatie/laravel-settings` ajoutée. Lecture via `Pko\Loyalty\Models\Setting::get()`.
 - **Photo du cadeau** : plus de colonne `gift_image_url` (migration `2026_08_31_000000_drop_gift_image_url_from_pko_loyalty_tiers`). `LoyaltyTier` utilise `HasMediaAttachments` (`pko/lunar-media-core`), média rattaché au mediagroup `gift_image` via `MediaPicker` dans `LoyaltyTierResource`. Accesseur `getGiftImageUrlAttribute()` conservé (mappe sur `firstMediaUrl('gift_image')`) pour ne pas casser les usages existants (notifications, vue storefront).
-- **Ordre des paliers** : champ `position` retiré du formulaire admin — réordonnancement uniquement par glisser-déposer dans la liste (`->reorderable('position')` + `->defaultSort('position')`, pattern identique à `HomeTileResource`).
+- **Ordre des paliers** : champ `position` retiré du formulaire admin. Le glisser-déposer (`->reorderable('position', false)`) est désactivé côté UI mais **pas supprimé du code** (économie de compute, réactivable en repassant `true`) — la liste est triée par `points_required` croissant (`->defaultSort('points_required')`), colonne déjà `->sortable()`.
 
 ### Tables (préfixe `pko_loyalty_`)
 - `pko_loyalty_tiers` — paliers (name, points_required, gift_title, gift_description, position, active ; photo via `pko_mediables`)
