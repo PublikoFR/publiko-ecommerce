@@ -18,19 +18,34 @@
             $pointsHistory = $snapshot['points_history'] ?? collect();
 
             $g1 = $upcoming[0] ?? null;
-            $g2 = $upcoming[1] ?? null;
 
-            // Remplissage du connecteur "vous → prochain cadeau" (0-100 %).
-            $fill1 = 0;
+            // Remplissage de la mini barre de progression du cadeau en cours (0-100 %).
+            $fill = 0;
             $toNext = 0;
             if ($g1) {
                 $span = max(1, (int) $g1->points_required - $prevPoints);
-                $fill1 = (int) round(min(100, max(0, (($totalPoints - $prevPoints) / $span) * 100)));
+                $fill = (int) round(min(100, max(0, (($totalPoints - $prevPoints) / $span) * 100)));
                 $toNext = max(0, (int) $g1->points_required - $totalPoints);
             }
+
+            // Piste "Flow" : cadeaux débloqués (chronologique) → cadeau en cours → cadeaux à venir.
+            $unlockedAsc = $unlocked->sortBy('unlocked_at')->values();
+            $flow = $unlockedAsc->map(fn ($gift) => ['type' => 'unlocked', 'tier' => $gift->tier, 'gift' => $gift])
+                ->values();
+            if ($g1) {
+                $flow->push(['type' => 'current', 'tier' => $g1, 'gift' => null]);
+            }
+            foreach ($upcoming->skip(1) as $tier) {
+                $flow->push(['type' => 'upcoming', 'tier' => $tier, 'gift' => null]);
+            }
+            $currentIndex = $flow->search(fn ($item) => $item['type'] === 'current');
+            if ($currentIndex === false && $unlockedAsc->isNotEmpty() && empty($snapshot['no_tiers_configured'])) {
+                $flow->push(['type' => 'trophy', 'tier' => null, 'gift' => null]);
+            }
+            $initialActive = $currentIndex !== false ? $currentIndex : max(0, $flow->count() - 1);
         @endphp
 
-        {{-- Solde de points + wizard vers les 2 prochains cadeaux --}}
+        {{-- Flow : débloqués (perspective, gauche) → prochain cadeau (centre) → à venir (perspective, droite) --}}
         <x-ui.card padding="lg">
             <div class="flex items-baseline gap-2 mb-1">
                 <span class="text-5xl font-display font-bold text-primary-700">{{ $totalPoints }}</span>
@@ -43,120 +58,123 @@
                     {{ \Illuminate\Support\Str::plural('point', $toNext) }} pour débloquer
                     <strong class="text-neutral-900">{{ $g1->gift_title }}</strong>
                 </p>
-
-                {{-- Stepper horizontal : Vous → cadeau qui arrive → cadeau suivant --}}
-                <div class="mt-8 flex items-start">
-                    {{-- Départ : position actuelle --}}
-                    <div class="flex flex-col items-center w-16 shrink-0">
-                        <div class="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center ring-4 ring-primary-100">
-                            <x-ui.icon name="check" class="w-5 h-5 text-white" />
-                        </div>
-                        <span class="mt-2 text-xs font-semibold text-neutral-700">Vous</span>
-                        <span class="text-[11px] text-neutral-400">{{ $totalPoints }} pts</span>
-                    </div>
-
-                    {{-- Connecteur 1 (progression vers le cadeau qui arrive) --}}
-                    <div class="flex-1 mt-5 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-                        <div class="h-full bg-primary-600 rounded-full transition-all" style="width: {{ $fill1 }}%"></div>
-                    </div>
-
-                    {{-- Cadeau qui arrive (au milieu) — actif --}}
-                    <div class="flex flex-col items-center w-24 shrink-0">
-                        <div class="w-12 h-12 rounded-full bg-white ring-4 ring-primary-200 overflow-hidden flex items-center justify-center shadow-sm">
-                            @if ($g1->gift_image_url)
-                                <img src="{{ $g1->gift_image_url }}" alt="{{ $g1->gift_title }}" class="w-full h-full object-cover" />
-                            @else
-                                <x-ui.icon name="gift" class="w-6 h-6 text-primary-600" />
-                            @endif
-                        </div>
-                        <span class="mt-2 text-xs font-semibold text-neutral-900 text-center leading-tight">{{ $g1->gift_title }}</span>
-                        <span class="text-[11px] text-neutral-500">{{ (int) $g1->points_required }} pts</span>
-                    </div>
-
-                    @if ($g2)
-                        {{-- Connecteur 2 (verrouillé tant que le 1er n'est pas atteint) --}}
-                        <div class="flex-1 mt-5 h-1.5 rounded-full bg-neutral-100"></div>
-
-                        {{-- Cadeau suivant (à droite) — verrouillé --}}
-                        <div class="flex flex-col items-center w-24 shrink-0">
-                            <div class="w-12 h-12 rounded-full bg-neutral-50 ring-4 ring-neutral-100 overflow-hidden flex items-center justify-center opacity-70">
-                                @if ($g2->gift_image_url)
-                                    <img src="{{ $g2->gift_image_url }}" alt="{{ $g2->gift_title }}" class="w-full h-full object-cover grayscale" />
-                                @else
-                                    <x-ui.icon name="gift" class="w-6 h-6 text-neutral-400" />
-                                @endif
-                            </div>
-                            <span class="mt-2 text-xs font-semibold text-neutral-500 text-center leading-tight">{{ $g2->gift_title }}</span>
-                            <span class="text-[11px] text-neutral-400">{{ (int) $g2->points_required }} pts</span>
-                        </div>
-                    @endif
-                </div>
             @elseif (! empty($snapshot['no_tiers_configured']))
                 <p class="text-sm text-neutral-500 mt-2">Aucun palier de fidélité n'est configuré pour le moment.</p>
             @elseif (! empty($snapshot['all_tiers_unlocked']))
                 <p class="text-sm text-primary-700 mt-2 font-semibold">Bravo, vous avez débloqué tous les paliers de fidélité !</p>
             @endif
-        </x-ui.card>
 
-        {{-- Tous les cadeaux à venir --}}
-        @if ($upcoming->isNotEmpty())
-            <div>
-                <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Tous les cadeaux à venir</h2>
-                <div class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory -mx-1 px-1">
-                    @foreach ($upcoming as $tier)
-                        <div class="snap-start shrink-0 w-40">
-                            <x-ui.card padding="lg" class="h-full flex flex-col items-center text-center">
-                                <div class="w-16 h-16 rounded-full bg-primary-50 overflow-hidden flex items-center justify-center shrink-0">
-                                    @if ($tier->gift_image_url)
-                                        <img src="{{ $tier->gift_image_url }}" alt="{{ $tier->gift_title }}" class="w-full h-full object-cover" />
-                                    @else
-                                        <x-ui.icon name="gift" class="w-7 h-7 text-primary-600" />
-                                    @endif
+            @if ($flow->isNotEmpty())
+                <div
+                    class="relative mt-8 -mx-7 h-72 sm:h-80 overflow-hidden cursor-grab active:cursor-grabbing select-none [touch-action:none] [perspective:1600px]"
+                    x-data="loyaltyFlow({ initialActive: {{ $initialActive }}, count: {{ $flow->count() }} })"
+                    @wheel="onWheel"
+                    @mousedown="onDown" @mousemove.window="onMove" @mouseup.window="onUp"
+                    @touchstart="onDown" @touchmove.window="onMove" @touchend.window="onUp"
+                >
+                    {{-- Halo lime derrière le cadeau en cours --}}
+                    <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div class="w-64 h-64 rounded-full bg-accent-400/20 blur-3xl"></div>
+                    </div>
+
+                    @foreach ($flow as $i => $item)
+                        @php
+                            $isCurrent = $item['type'] === 'current';
+                            $tier = $item['tier'];
+                        @endphp
+
+                        <div
+                            @if ($i === 0) x-ref="sizer" @endif
+                            class="absolute left-1/2 top-1/2 flex flex-col items-center text-center w-28 sm:w-36 will-change-transform"
+                            :class="snapping ? 'transition-[transform,opacity] duration-300 ease-out' : ''"
+                            :style="cardStyle({{ $i }})"
+                        >
+                            @if ($isCurrent)
+                                <span class="absolute -top-8 left-1/2 -translate-x-1/2 w-max inline-flex items-center rounded-full bg-accent-500 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary-900 shadow-accent">
+                                    Prochain cadeau
+                                </span>
+                            @endif
+
+                            <div @class([
+                                'relative w-full aspect-square rounded-lg overflow-hidden flex items-center justify-center border',
+                                'bg-accent-50 border-accent-400 ring-[6px] ring-accent-200 shadow-accent' => $isCurrent,
+                                'bg-white border-neutral-200 shadow-md' => ! $isCurrent && $item['type'] === 'unlocked',
+                                'bg-neutral-100 border-neutral-200 shadow-sm' => $item['type'] === 'upcoming',
+                                'bg-accent-50 border-accent-300 shadow-accent' => $item['type'] === 'trophy',
+                            ])>
+                                @if ($tier?->gift_image_url)
+                                    <img
+                                        src="{{ $tier->gift_image_url }}"
+                                        alt="{{ $tier->gift_title }}"
+                                        draggable="false"
+                                        class="w-full h-full object-cover pointer-events-none"
+                                    />
+                                @else
+                                    <x-ui.icon
+                                        :name="$item['type'] === 'trophy' ? 'trophy' : 'gift'"
+                                        class="w-9 h-9 {{ $isCurrent ? 'text-primary-700' : 'text-neutral-400' }}"
+                                    />
+                                @endif
+
+                                @if ($item['type'] === 'unlocked')
+                                    <span class="absolute bottom-1.5 right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-accent-500 shadow-sm ring-2 ring-white">
+                                        <x-ui.icon name="check" class="w-3 h-3 text-primary-900" />
+                                    </span>
+                                @elseif ($item['type'] === 'upcoming')
+                                    <span class="absolute top-1.5 right-1.5 flex items-center justify-center w-6 h-6 rounded-full bg-neutral-900/60 backdrop-blur-sm">
+                                        <x-ui.icon name="lock" class="w-3.5 h-3.5 text-white" />
+                                    </span>
+                                @endif
+                            </div>
+
+                            @if ($isCurrent)
+                                <div class="mt-3 w-full h-2 rounded-full bg-neutral-100 overflow-hidden">
+                                    <div class="h-full bg-accent-500 rounded-full" style="width: {{ $fill }}%"></div>
                                 </div>
-                                <p class="mt-3 text-sm font-semibold text-neutral-900 leading-tight">{{ $tier->gift_title }}</p>
-                                <span class="mt-1 text-xs text-neutral-500">{{ (int) $tier->points_required }} pts</span>
-                            </x-ui.card>
+                            @endif
+
+                            <p class="mt-2 text-xs font-semibold {{ $isCurrent ? 'text-neutral-900' : 'text-neutral-600' }} leading-tight line-clamp-2">
+                                {{ $tier?->gift_title ?? 'Tout débloqué' }}
+                            </p>
+                            @if ($tier)
+                                <span class="text-[11px] text-neutral-400">{{ (int) $tier->points_required }} pts</span>
+                            @endif
                         </div>
                     @endforeach
                 </div>
-            </div>
-        @endif
+            @endif
+        </x-ui.card>
 
-        {{-- Cadeaux débloqués --}}
+        {{-- Suivi des cadeaux débloqués --}}
         <div>
-            <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Cadeaux débloqués</h2>
+            <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Suivi de vos cadeaux débloqués</h2>
             @if ($unlocked->isEmpty())
                 <x-ui.card padding="lg" class="text-center">
                     <x-ui.icon name="gift" class="w-10 h-10 text-neutral-300 mx-auto mb-2" />
                     <p class="text-neutral-500 text-sm">Vous n'avez pas encore débloqué de cadeau. Continuez à cumuler des points !</p>
                 </x-ui.card>
             @else
-                <div class="grid gap-4 sm:grid-cols-2">
-                    @foreach ($unlocked as $gift)
-                        <x-ui.card padding="lg" class="flex gap-4">
-                            @if ($gift->tier?->gift_image_url)
-                                <img src="{{ $gift->tier->gift_image_url }}" alt="{{ $gift->tier->gift_title }}"
-                                     class="w-16 h-16 rounded-md object-cover shrink-0" />
-                            @else
-                                <div class="w-16 h-16 rounded-md bg-primary-50 flex items-center justify-center shrink-0">
-                                    <x-ui.icon name="gift" class="w-7 h-7 text-primary-600" />
+                <x-ui.card padding="none">
+                    <ul class="divide-y divide-neutral-100">
+                        @foreach ($unlocked as $gift)
+                            <li class="flex items-center gap-4 px-5 py-4">
+                                <div class="w-10 h-10 rounded-full bg-accent-50 flex items-center justify-center shrink-0">
+                                    <x-ui.icon name="gift" class="w-5 h-5 text-primary-700" />
                                 </div>
-                            @endif
-                            <div class="min-w-0">
-                                <p class="font-semibold text-neutral-900">{{ $gift->tier?->gift_title ?? 'Cadeau' }}</p>
-                                @if ($gift->tier?->name)
-                                    <p class="text-xs text-neutral-500">Palier {{ $gift->tier->name }}</p>
-                                @endif
-                                <div class="mt-2 flex items-center gap-2">
-                                    <x-ui.badge variant="{{ $gift->status === \Pko\Loyalty\Enums\GiftStatus::Sent ? 'success' : 'primary' }}">
-                                        {{ $gift->status?->label() ?? '—' }}
-                                    </x-ui.badge>
-                                    <span class="text-xs text-neutral-400">{{ optional($gift->unlocked_at)->format('d/m/Y') }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-semibold text-neutral-900 truncate">{{ $gift->tier?->gift_title ?? 'Cadeau' }}</p>
+                                    @if ($gift->tier?->name)
+                                        <p class="text-xs text-neutral-500">Palier {{ $gift->tier->name }}</p>
+                                    @endif
                                 </div>
-                            </div>
-                        </x-ui.card>
-                    @endforeach
-                </div>
+                                <x-ui.badge variant="{{ $gift->status === \Pko\Loyalty\Enums\GiftStatus::Sent ? 'success' : 'primary' }}">
+                                    {{ $gift->status?->label() ?? '—' }}
+                                </x-ui.badge>
+                                <span class="text-xs text-neutral-400 shrink-0 w-16 text-right">{{ optional($gift->unlocked_at)->format('d/m/Y') }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </x-ui.card>
             @endif
         </div>
 
