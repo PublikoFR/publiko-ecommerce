@@ -8,7 +8,8 @@
         "illuminate/support": "^11.0",
         "lunarphp/core": "^1.0",
         "filament/filament": "^3.0",
-        "pko/lunar-media-core": "@dev"
+        "pko/lunar-media-core": "@dev",
+        "pko/lunar-mail-templates": "@dev"
     },
     "autoload": {
         "psr-4": {

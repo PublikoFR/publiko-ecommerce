@@ -4,55 +4,38 @@ declare(strict_types=1);
 
 namespace Pko\ShippingCommon\Mail;
 
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
+use Pko\MailTemplates\Mail\TemplatedMail;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
 
-class ShipmentCreatedMail extends Mailable implements ShouldQueue
+/**
+ * E-mail 06 « Commande expédiée ».
+ *
+ * La classe ne porte plus que la traduction du domaine (expédition) en
+ * placeholders : le texte vit dans `pko_mail_templates`, éditable en back-office.
+ */
+class ShipmentCreatedMail extends TemplatedMail implements ShouldQueue
 {
-    use Queueable;
-    use SerializesModels;
-
-    public function __construct(public readonly CarrierShipment $shipment) {}
-
-    public function envelope(): Envelope
+    public function __construct(public readonly CarrierShipment $shipment)
     {
-        return new Envelope(
-            subject: 'Votre commande '.$this->orderReference().' a été expédiée',
+        parent::__construct('order.shipped', [
+            'first_name' => self::firstName($shipment),
+            'order_reference' => (string) ($shipment->order?->reference ?? $shipment->order_id),
+            'tracking_url' => LaPosteTrackingClient::PUBLIC_TRACKING_URL.$shipment->tracking_number,
+            'carrier_name' => ucfirst((string) $shipment->carrier),
+        ]);
+    }
+
+    private static function firstName(CarrierShipment $shipment): string
+    {
+        $order = $shipment->order;
+
+        return (string) (
+            $order?->shippingAddress?->first_name
+            ?? $order?->billingAddress?->first_name
+            ?? $order?->customer?->first_name
+            ?? ''
         );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'pko-shipping-common::emails.shipment-created',
-            with: [
-                'shipment' => $this->shipment,
-                'trackingUrl' => $this->trackingUrl(),
-                'carrierLabel' => $this->carrierLabel(),
-                'orderReference' => $this->orderReference(),
-                'brandName' => brand_name(),
-            ],
-        );
-    }
-
-    protected function trackingUrl(): string
-    {
-        return LaPosteTrackingClient::PUBLIC_TRACKING_URL.$this->shipment->tracking_number;
-    }
-
-    protected function carrierLabel(): string
-    {
-        return ucfirst((string) $this->shipment->carrier);
-    }
-
-    protected function orderReference(): string
-    {
-        return (string) ($this->shipment->order?->reference ?? $this->shipment->order_id);
     }
 }

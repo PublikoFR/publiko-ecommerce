@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace Pko\Loyalty\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Lunar\DataTypes\Price;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Pko\Loyalty\Enums\GiftStatus;
+use Pko\Loyalty\Mail\TierUnlockedMail;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\LoyaltyTier;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Models\Setting;
 use Pko\Loyalty\Notifications\TierUnlockedAdmin;
-use Pko\Loyalty\Notifications\TierUnlockedCustomer;
 
 class LoyaltyManager
 {
@@ -143,9 +144,15 @@ class LoyaltyManager
         $customer = Customer::find($customerId);
 
         if ($customer && $email = $this->resolveCustomerEmail($customer)) {
-            Notification::route('mail', $email)
-                ->notify(new TierUnlockedCustomer($customer, $tier, $totalPoints));
-            $history->update(['email_sent' => true]);
+            $mail = new TierUnlockedMail($customer, $tier, $totalPoints);
+
+            // `email_sent` ne doit refléter qu'un envoi réel : si le modèle est
+            // désactivé en back-office, l'historique reste à false et le palier
+            // pourra être notifié plus tard sans être considéré comme traité.
+            if ($mail->shouldSend()) {
+                Mail::to($email)->send($mail);
+                $history->update(['email_sent' => true]);
+            }
         }
 
         $adminEmail = (string) (Setting::get('admin_email') ?: config('loyalty.admin_email'));

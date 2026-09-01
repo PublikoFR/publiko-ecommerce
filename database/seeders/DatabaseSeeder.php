@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Pko\Loyalty\Database\Seeders\DefaultTiersSeeder;
+use Pko\MailTemplates\Database\Seeders\MailTemplateSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,6 +16,7 @@ class DatabaseSeeder extends Seeder
         Model::unguard();
 
         $this->call([
+            MailTemplateSeeder::class,
             PkoAdminUserSeeder::class,
             PkoCurrencySeeder::class,
             PkoChannelSeeder::class,

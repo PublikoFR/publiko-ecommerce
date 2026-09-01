@@ -86,6 +86,8 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustome
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
+use Pko\MailTemplates\Filament\MailTemplatesPlugin;
+use Pko\OrderNotifications\Filament\Extensions\OrderDelayActionExtension;
 use Pko\Pennylane\Filament\Extensions\OrderInvoiceActionsExtension;
 use Pko\Pennylane\Filament\PennylanePlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
@@ -192,6 +194,7 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(ProductDocumentsPlugin::make())
                 ->plugin(AiImporterPlugin::make())
                 ->plugin(LoyaltyPlugin::make())
+                ->plugin(MailTemplatesPlugin::make())
                 ->plugin(StorefrontCmsPlugin::make())
                 ->plugin(StoreLocatorPlugin::make())
                 ->plugin(MediaManagerShimPlugin::make())
@@ -234,6 +237,7 @@ class AppServiceProvider extends ServiceProvider
                 CustomerGroupDeletionGuardExtension::class,
             ],
             ManageOrder::class => [
+                OrderDelayActionExtension::class,
                 OrderInvoiceActionsExtension::class,
                 OrderQuoteActionsExtension::class,
                 OrderShipmentActionsExtension::class,
