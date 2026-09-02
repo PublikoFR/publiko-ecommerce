@@ -25,7 +25,7 @@ class MailTemplateSeeder extends Seeder
                 ['key' => $key, 'locale' => 'fr'],
                 [
                     'subject' => $content['subject'],
-                    'blocks' => $content['blocks'],
+                    'content' => $content['content'],
                     'enabled' => $content['enabled'] ?? true,
                 ],
             );

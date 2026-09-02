@@ -8159,7 +8159,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-admin-nav",
-                "reference": "99ffe76641f9ec17388eb1e2ebf89ddb5d586707"
+                "reference": "4fa57a04743f85dfc302560525a6a62d6798e3dd"
             },
             "require": {
                 "bezhansalleh/filament-shield": "^3.9",
@@ -8170,6 +8170,7 @@
                 "pko/lunar-ai-importer": "@dev",
                 "pko/lunar-catalog-features": "@dev",
                 "pko/lunar-loyalty": "@dev",
+                "pko/lunar-mail-templates": "@dev",
                 "pko/lunar-product-documents": "@dev",
                 "pko/lunar-shipping-chronopost": "@dev",
                 "pko/lunar-shipping-colissimo": "@dev",

@@ -33,7 +33,7 @@ class SyncMailTemplatesCommand extends Command
 
             $attributes = [
                 'subject' => $content['subject'],
-                'blocks' => $content['blocks'],
+                'content' => $content['content'],
                 'enabled' => $content['enabled'] ?? true,
             ];
 

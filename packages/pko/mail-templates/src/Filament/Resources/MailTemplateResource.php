@@ -4,21 +4,22 @@ declare(strict_types=1);
 
 namespace Pko\MailTemplates\Filament\Resources;
 
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Builder;
 use Pko\MailTemplates\Filament\Resources\MailTemplateResource\Pages;
 use Pko\MailTemplates\Models\MailTemplate;
+use Pko\MailTemplates\Support\MailPreview;
 use Pko\MailTemplates\Support\MailTemplateRegistry;
 
 class MailTemplateResource extends Resource
@@ -76,58 +77,6 @@ class MailTemplateResource extends Resource
                         ->helperText(__('pko-mail-templates::admin.field.enabled_help')),
                 ]),
 
-            Section::make(__('pko-mail-templates::admin.section.content'))
-                ->schema([
-                    Repeater::make('blocks')
-                        ->label(__('pko-mail-templates::admin.field.blocks'))
-                        ->schema([
-                            Select::make('type')
-                                ->label(__('pko-mail-templates::admin.block.type'))
-                                ->options([
-                                    'paragraph' => __('pko-mail-templates::admin.block.paragraph'),
-                                    'heading' => __('pko-mail-templates::admin.block.heading'),
-                                    'button' => __('pko-mail-templates::admin.block.button'),
-                                    'divider' => __('pko-mail-templates::admin.block.divider'),
-                                    'signature' => __('pko-mail-templates::admin.block.signature'),
-                                ])
-                                ->default('paragraph')
-                                ->live()
-                                ->required(),
-
-                            Textarea::make('text')
-                                ->label(__('pko-mail-templates::admin.block.text'))
-                                ->rows(3)
-                                ->visible(fn (Get $get): bool => in_array(
-                                    $get('type'),
-                                    ['paragraph', 'heading', 'signature'],
-                                    true,
-                                )),
-
-                            TextInput::make('label')
-                                ->label(__('pko-mail-templates::admin.block.label'))
-                                ->visible(fn (Get $get): bool => $get('type') === 'button'),
-
-                            TextInput::make('url')
-                                ->label(__('pko-mail-templates::admin.block.url'))
-                                ->visible(fn (Get $get): bool => $get('type') === 'button'),
-
-                            Select::make('variant')
-                                ->label(__('pko-mail-templates::admin.block.variant'))
-                                ->options([
-                                    'primary' => __('pko-mail-templates::admin.block.variant_primary'),
-                                    'accent' => __('pko-mail-templates::admin.block.variant_accent'),
-                                ])
-                                ->default('primary')
-                                ->visible(fn (Get $get): bool => $get('type') === 'button'),
-                        ])
-                        ->itemLabel(fn (array $state): ?string => Str::limit(
-                            (string) ($state['text'] ?? $state['label'] ?? $state['type'] ?? ''),
-                            60,
-                        ))
-                        ->reorderable()
-                        ->collapsible()
-                        ->defaultItems(1),
-                ]),
         ]);
     }
 
@@ -149,6 +98,17 @@ class MailTemplateResource extends Resource
                     ->limit(50)
                     ->searchable(),
 
+                TextColumn::make('audience')
+                    ->label(__('pko-mail-templates::admin.field.audience'))
+                    ->badge()
+                    ->state(fn (MailTemplate $record): string => MailTemplateRegistry::audience($record->key))
+                    ->formatStateUsing(fn (string $state): string => __('pko-mail-templates::admin.audience.'.$state))
+                    ->color(fn (string $state): string => match ($state) {
+                        MailTemplateRegistry::AUDIENCE_ADMIN => 'warning',
+                        MailTemplateRegistry::AUDIENCE_BOTH => 'info',
+                        default => 'success',
+                    }),
+
                 IconColumn::make('enabled')
                     ->label(__('pko-mail-templates::admin.field.enabled'))
                     ->boolean(),
@@ -157,6 +117,48 @@ class MailTemplateResource extends Resource
                     ->label(__('pko-mail-templates::admin.field.updated_at'))
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('audience')
+                    ->label(__('pko-mail-templates::admin.field.audience'))
+                    ->options([
+                        MailTemplateRegistry::AUDIENCE_CUSTOMER => __('pko-mail-templates::admin.audience.customer'),
+                        MailTemplateRegistry::AUDIENCE_ADMIN => __('pko-mail-templates::admin.audience.admin'),
+                        MailTemplateRegistry::AUDIENCE_BOTH => __('pko-mail-templates::admin.audience.both'),
+                    ])
+                    // `audience` vient du registre (code), pas d'une colonne :
+                    // le filtre se fait donc sur la liste des clés correspondantes.
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (blank($value)) {
+                            return $query;
+                        }
+
+                        $keys = array_keys(array_filter(
+                            MailTemplateRegistry::all(),
+                            static fn (array $meta): bool => $meta['audience'] === $value,
+                        ));
+
+                        return $query->whereIn('key', $keys);
+                    }),
+            ])
+            ->actions([
+                Action::make('preview')
+                    ->label(__('pko-mail-templates::admin.action.preview'))
+                    ->icon('heroicon-o-eye')
+                    ->slideOver()
+                    ->modalHeading(fn (MailTemplate $record): string => MailTemplateRegistry::has($record->key)
+                        ? MailTemplateRegistry::get($record->key)['label']
+                        : $record->key)
+                    ->modalContent(fn (MailTemplate $record) => view(
+                        'pko-mail-templates::filament.preview-panel',
+                        ['html' => MailPreview::render($record->key)],
+                    ))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('pko-mail-templates::admin.action.close')),
+
+                EditAction::make(),
             ])
             ->defaultSort('key')
             ->paginated([25, 50]);

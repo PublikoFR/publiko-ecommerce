@@ -17,12 +17,12 @@ use Pko\MailTemplates\Models\MailTemplate;
  */
 final class TemplateResolver
 {
-    /** @var array<string, array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}>|null */
+    /** @var array<string, array{subject: string, content: array<string, mixed>, enabled: bool}>|null */
     private static ?array $defaults = null;
 
     /**
-     * @return array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}|null
-     *                                                                                              null si la clé est inconnue ou le mail désactivé.
+     * @return array{subject: string, content: array<string, mixed>, enabled: bool}|null
+     *                                                                                   null si la clé est inconnue ou le mail désactivé.
      */
     public static function resolve(string $key, string $locale = 'fr'): ?array
     {
@@ -42,7 +42,7 @@ final class TemplateResolver
     }
 
     /**
-     * @return array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}|null
+     * @return array{subject: string, content: array<string, mixed>, enabled: bool}|null
      */
     private static function fromDatabase(string $key, string $locale): ?array
     {
@@ -64,13 +64,13 @@ final class TemplateResolver
 
         return [
             'subject' => $template->subject,
-            'blocks' => $template->blocks,
+            'content' => $template->content,
             'enabled' => $template->enabled,
         ];
     }
 
     /**
-     * @return array<string, array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}>
+     * @return array<string, array{subject: string, content: array<string, mixed>, enabled: bool}>
      */
     public static function defaults(string $locale = 'fr'): array
     {
@@ -84,7 +84,7 @@ final class TemplateResolver
             $path = __DIR__.'/../../database/content/fr.php';
         }
 
-        /** @var array<string, array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}> $content */
+        /** @var array<string, array{subject: string, content: array<string, mixed>, enabled: bool}> $content */
         $content = require $path;
 
         return self::$defaults = $content;

@@ -16,6 +16,23 @@ class MailTemplateRenderingTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Enveloppe une liste de blocs dans l'arbre page-builder minimal attendu
+     * (une section, une colonne), pour garder les cas de test lisibles.
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @return array{heading: string, sections: array<int, array<string, mixed>>}
+     */
+    private static function page(array $blocks): array
+    {
+        return [
+            'heading' => '',
+            'sections' => [
+                ['id' => 's1', 'layout' => '1col', 'columns' => [['blocks' => $blocks]]],
+            ],
+        ];
+    }
+
     public function test_chaque_cle_declaree_possede_un_contenu_par_defaut(): void
     {
         $defaults = TemplateResolver::defaults('fr');
@@ -43,7 +60,7 @@ class MailTemplateRenderingTest extends TestCase
     {
         foreach (TemplateResolver::defaults('fr') as $key => $content) {
             $declared = MailTemplateRegistry::get($key)['placeholders'];
-            $used = Placeholders::found($content['subject'], $content['blocks']);
+            $used = Placeholders::found($content['subject'], $content['content']);
 
             $undeclared = array_diff($used, $declared);
 
@@ -65,7 +82,7 @@ class MailTemplateRenderingTest extends TestCase
                 continue;
             }
 
-            $used = Placeholders::found($content['subject'], $content['blocks']);
+            $used = Placeholders::found($content['subject'], $content['content']);
 
             foreach ($meta['required'] as $required) {
                 $this->assertContains(
@@ -125,7 +142,7 @@ class MailTemplateRenderingTest extends TestCase
             'key' => 'order.confirmed',
             'locale' => 'fr',
             'subject' => 'Sujet réécrit en back-office',
-            'blocks' => [['type' => 'paragraph', 'text' => 'Commande :order_reference bien reçue.']],
+            'content' => self::page([['type' => 'text', 'html' => '<p>Commande :order_reference bien reçue.</p>']]),
             'enabled' => true,
         ]);
 
@@ -143,7 +160,7 @@ class MailTemplateRenderingTest extends TestCase
             'key' => 'order.confirmed',
             'locale' => 'fr',
             'subject' => 'x',
-            'blocks' => [['type' => 'paragraph', 'text' => 'y']],
+            'content' => self::page([['type' => 'text', 'html' => '<p>y</p>']]),
             'enabled' => false,
         ]);
 

@@ -6,7 +6,8 @@
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "filament/filament": "^3.0"
+        "filament/filament": "^3.0",
+        "pko/lunar-page-builder": "@dev"
     },
     "autoload": {
         "psr-4": {

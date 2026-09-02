@@ -6,7 +6,7 @@ return [
     'nav' => 'E-mails',
     'model' => 'Modèle d\'e-mail',
     'model_plural' => 'Modèles d\'e-mails',
-    'group' => 'Paramètres',
+    'group' => 'Configuration',
 
     'section' => [
         'settings' => 'Réglages',
@@ -21,6 +21,7 @@ return [
         'enabled_help' => 'Décoché, cet e-mail n\'est jamais envoyé, même si l\'événement qui le déclenche se produit.',
         'blocks' => 'Blocs',
         'updated_at' => 'Modifié le',
+        'audience' => 'Destinataire',
     ],
 
     'block' => [
@@ -36,6 +37,23 @@ return [
         'variant' => 'Style du bouton',
         'variant_primary' => 'Principal',
         'variant_accent' => 'Mise en avant',
+    ],
+
+    'action' => [
+        'save_settings' => 'Enregistrer les réglages',
+        'preview' => 'Aperçu',
+        'close' => 'Fermer',
+    ],
+
+    'audience' => [
+        'customer' => 'Client',
+        'admin' => 'Équipe',
+        'both' => 'Client + équipe',
+    ],
+
+    'preview' => [
+        'disabled' => 'Ce modèle est désactivé ou sans contenu : aucun aperçu à afficher.',
+        'error' => 'Impossible de composer l\'aperçu : :message',
     ],
 
     'hint' => [

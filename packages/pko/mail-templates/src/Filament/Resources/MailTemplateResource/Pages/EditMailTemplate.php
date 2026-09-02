@@ -6,36 +6,47 @@ namespace Pko\MailTemplates\Filament\Resources\MailTemplateResource\Pages;
 
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Validation\ValidationException;
 use Pko\MailTemplates\Filament\Resources\MailTemplateResource;
-use Pko\MailTemplates\Support\ContentGuard;
+use Pko\MailTemplates\Support\ContentGuardException;
 
+/**
+ * Écran d'édition d'un modèle d'e-mail.
+ *
+ * Le form Filament ne porte plus que les réglages (objet, activation) : le
+ * contenu est édité par le composant PageBuilder, le même que celui des pages
+ * et articles, qui écrit directement la colonne `content`.
+ *
+ * La cohérence des placeholders n'est donc plus contrôlée ici mais dans
+ * `MailTemplate::saving()`, seul point de passage commun aux deux éditeurs.
+ */
 class EditMailTemplate extends EditRecord
 {
     protected static string $resource = MailTemplateResource::class;
 
-    /**
-     * Contrôle de cohérence avant enregistrement (règle dans ContentGuard).
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected static string $view = 'pko-mail-templates::filament.edit-mail-template';
+
+    public function getMaxContentWidth(): MaxWidth
     {
-        $error = ContentGuard::check(
-            (string) $this->record->key,
-            (string) ($data['subject'] ?? ''),
-            is_array($data['blocks'] ?? null) ? $data['blocks'] : [],
-            (bool) ($data['enabled'] ?? false),
-        );
+        return MaxWidth::Full;
+    }
 
-        if ($error !== null) {
-            Notification::make()->danger()->title($error)->persistent()->send();
+    /**
+     * Désactiver un modèle dont le contenu est incomplet doit rester possible ;
+     * l'activer avec un contenu incomplet ne l'est pas. C'est `ContentGuard`,
+     * appelé par le modèle, qui tranche — on se contente ici de traduire son
+     * refus en erreur de formulaire plutôt qu'en page d'erreur 500.
+     */
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        try {
+            parent::save($shouldRedirect, $shouldSendSavedNotification);
+        } catch (ContentGuardException $e) {
+            Notification::make()->danger()->title($e->getMessage())->persistent()->send();
 
-            throw ValidationException::withMessages(['data.blocks' => $error]);
+            throw ValidationException::withMessages(['data.subject' => $e->getMessage()]);
         }
-
-        return $data;
     }
 
     protected function getRedirectUrl(): string

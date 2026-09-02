@@ -15,17 +15,17 @@ namespace Pko\MailTemplates\Support;
 final class ContentGuard
 {
     /**
-     * @param  array<int|string, array<string, mixed>>  $blocks
+     * @param  array{heading?: string, sections?: array<int, array<string, mixed>>}  $content
      * @return string|null Message d'erreur, ou null si le contenu est valide.
      */
-    public static function check(string $key, string $subject, array $blocks, bool $enabled): ?string
+    public static function check(string $key, string $subject, array $content, bool $enabled): ?string
     {
         if (! MailTemplateRegistry::has($key)) {
             return null;
         }
 
         $meta = MailTemplateRegistry::get($key);
-        $used = Placeholders::found($subject, array_values($blocks));
+        $used = Placeholders::found($subject, $content);
 
         $unknown = array_diff($used, $meta['placeholders']);
 

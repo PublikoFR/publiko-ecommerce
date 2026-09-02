@@ -1,38 +1,68 @@
 {{--
-    Rendu générique d'un e-mail transactionnel à partir de blocs typés.
+    Rendu générique d'un e-mail transactionnel à partir de l'arbre page-builder
+    (`{heading, sections:[{layout, columns:[{blocks:[]}]}]}`).
+
     Aucun texte en dur ici : tout vient de la base ou du fichier de contenus.
+
+    Pourquoi un rendu dédié plutôt que celui du page-builder : le rendu web
+    s'appuie sur Tailwind et des classes CSS, que Gmail et Outlook ignorent.
+    Chaque bloc est donc redécliné en `<table>` + styles inline dans `blocks/`.
 --}}
+@php
+    // Blocs du page-builder sans équivalent e-mail : une vidéo ne se lit pas dans
+    // un client mail, un accordéon n'a pas de JS, une galerie casse la mise en
+    // page. On les ignore silencieusement plutôt que de rendre du vide cassé.
+    $supported = ['text', 'title', 'button', 'separator', 'callout', 'list', 'image', 'quote'];
+
+    $sections = $content['sections'] ?? [];
+@endphp
+
 <x-storefront-cms::mail.layout :title="$subjectLine" :preheader="$preheader ?? null">
-    @foreach ($blocks as $block)
-        @switch($block['type'] ?? 'paragraph')
-            @case('heading')
-                <h1 style="margin:0 0 16px;font-size:20px;line-height:1.35;color:#00453e;">{{ $block['text'] ?? '' }}</h1>
-                @break
+    @if (! empty($content['heading']))
+        <h1 style="margin:0 0 16px;font-size:20px;line-height:1.35;color:#00453e;">{{ $content['heading'] }}</h1>
+    @endif
 
-            @case('button')
-                @if (! empty($block['url']))
-                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px auto 22px;">
-                        <tr>
-                            <td align="center" style="border-radius:8px;background:{{ ($block['variant'] ?? 'primary') === 'accent' ? '#aac932' : '#00453e' }};">
-                                <a href="{{ $block['url'] }}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:bold;color:{{ ($block['variant'] ?? 'primary') === 'accent' ? '#16201d' : '#ffffff' }};text-decoration:none;border-radius:8px;">{{ $block['label'] ?? '' }}</a>
-                            </td>
-                        </tr>
-                    </table>
+    @foreach ($sections as $section)
+        @php
+            $columns = array_values(array_filter(
+                $section['columns'] ?? [],
+                static fn ($column) => ! empty($column['blocks']),
+            ));
+        @endphp
+
+        @continue($columns === [])
+
+        @if (count($columns) === 1)
+            @foreach ($columns[0]['blocks'] as $block)
+                @if (in_array($block['type'] ?? '', $supported, true))
+                    @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
                 @endif
-                @break
+            @endforeach
+        @else
+            {{-- Multi-colonnes : table à cellules côte à côte. Volontairement limité
+                 à 2 colonnes rendues — au-delà, illisible sur mobile et mal géré
+                 par Outlook ; les colonnes suivantes sont empilées à la suite. --}}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
+                <tr>
+                    @foreach (array_slice($columns, 0, 2) as $column)
+                        <td valign="top" width="50%" style="padding-right:12px;">
+                            @foreach ($column['blocks'] as $block)
+                                @if (in_array($block['type'] ?? '', $supported, true))
+                                    @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
+                                @endif
+                            @endforeach
+                        </td>
+                    @endforeach
+                </tr>
+            </table>
 
-            @case('divider')
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;">
-                    <tr><td style="border-top:1px solid #eef1f0;font-size:0;line-height:0;">&nbsp;</td></tr>
-                </table>
-                @break
-
-            @case('signature')
-                <p style="margin:22px 0 0;font-size:15px;line-height:1.6;color:#16201d;">{!! nl2br(e($block['text'] ?? '')) !!}</p>
-                @break
-
-            @default
-                <p style="margin:0 0 14px;">{!! nl2br(e($block['text'] ?? '')) !!}</p>
-        @endswitch
+            @foreach (array_slice($columns, 2) as $column)
+                @foreach ($column['blocks'] as $block)
+                    @if (in_array($block['type'] ?? '', $supported, true))
+                        @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
+                    @endif
+                @endforeach
+            @endforeach
+        @endif
     @endforeach
 </x-storefront-cms::mail.layout>

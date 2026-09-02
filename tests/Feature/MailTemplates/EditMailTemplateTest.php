@@ -7,10 +7,9 @@ namespace Tests\Feature\MailTemplates;
 use App\Models\Staff;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
-use Pko\MailTemplates\Filament\Resources\MailTemplateResource\Pages\EditMailTemplate;
 use Pko\MailTemplates\Models\MailTemplate;
 use Pko\MailTemplates\Support\ContentGuard;
+use Pko\MailTemplates\Support\ContentGuardException;
 use Tests\TestCase;
 
 /**
@@ -33,12 +32,29 @@ class EditMailTemplateTest extends TestCase
         }
     }
 
+    /**
+     * Arbre page-builder minimal (une section, une colonne) autour d'une liste
+     * de blocs, pour garder les cas de test lisibles.
+     *
+     * @param  array<int, array<string, mixed>>  $blocks
+     * @return array{heading: string, sections: array<int, array<string, mixed>>}
+     */
+    private static function page(array $blocks): array
+    {
+        return [
+            'heading' => '',
+            'sections' => [
+                ['id' => 's1', 'layout' => '1col', 'columns' => [['blocks' => $blocks]]],
+            ],
+        ];
+    }
+
     public function test_un_contenu_complet_est_accepte(): void
     {
         $error = ContentGuard::check(
             'order.confirmed',
             'Votre commande :order_reference',
-            [['type' => 'paragraph', 'text' => 'Montant : :order_total € HT.']],
+            self::page([['type' => 'text', 'html' => '<p>Montant : :order_total € HT.</p>']]),
             enabled: true,
         );
 
@@ -51,7 +67,7 @@ class EditMailTemplateTest extends TestCase
         $error = ContentGuard::check(
             'order.shipped',
             'Votre commande est en route',
-            [['type' => 'paragraph', 'text' => 'Bonjour, votre colis est parti.']],
+            self::page([['type' => 'text', 'html' => '<p>Bonjour, votre colis est parti.</p>']]),
             enabled: true,
         );
 
@@ -66,7 +82,7 @@ class EditMailTemplateTest extends TestCase
         $error = ContentGuard::check(
             'order.confirmed',
             'Commande :order_reference',
-            [['type' => 'paragraph', 'text' => 'Bonjour :prenom_du_client.']],
+            self::page([['type' => 'text', 'html' => '<p>Bonjour :prenom_du_client.</p>']]),
             enabled: true,
         );
 
@@ -80,7 +96,7 @@ class EditMailTemplateTest extends TestCase
         $error = ContentGuard::check(
             'order.ready_for_pickup',
             'Brouillon',
-            [['type' => 'paragraph', 'text' => 'Texte en attente du client.']],
+            self::page([['type' => 'text', 'html' => '<p>Texte en attente du client.</p>']]),
             enabled: false,
         );
 
@@ -93,30 +109,41 @@ class EditMailTemplateTest extends TestCase
         $error = ContentGuard::check(
             'order.ready_for_pickup',
             'Brouillon',
-            [['type' => 'paragraph', 'text' => 'Bonjour :inconnu.']],
+            self::page([['type' => 'text', 'html' => '<p>Bonjour :inconnu.</p>']]),
             enabled: false,
         );
 
         $this->assertNotNull($error);
     }
 
-    /** La règle est bien branchée sur l'écran d'édition, pas seulement testée à part. */
-    public function test_l_ecran_d_edition_refuse_un_contenu_invalide(): void
+    /**
+     * La règle est bien branchée sur le chemin d'écriture réel, pas seulement
+     * testée à part. Depuis que le contenu est édité par le PageBuilder, la
+     * garde vit dans `MailTemplate::saving()` : c'est elle qu'on vérifie, car
+     * elle couvre aussi bien l'écran Filament que l'éditeur de blocs.
+     */
+    public function test_le_modele_refuse_un_contenu_invalide_a_l_enregistrement(): void
     {
         $template = MailTemplate::query()->where('key', 'order.shipped')->firstOrFail();
 
-        // Contenu privé de ses variables obligatoires : c'est l'état que
-        // l'écran doit refuser d'enregistrer tant que le modèle est actif.
+        $this->expectException(ContentGuardException::class);
+
         $template->update([
-            'blocks' => [['type' => 'paragraph', 'text' => 'Votre colis est parti.']],
             'enabled' => true,
+            'content' => self::page([['type' => 'text', 'html' => '<p>Votre colis est parti.</p>']]),
+        ]);
+    }
+
+    /** Le même contenu incomplet passe si le modèle est désactivé. */
+    public function test_le_modele_accepte_un_contenu_incomplet_si_desactive(): void
+    {
+        $template = MailTemplate::query()->where('key', 'order.shipped')->firstOrFail();
+
+        $template->update([
+            'enabled' => false,
+            'content' => self::page([['type' => 'text', 'html' => '<p>Votre colis est parti.</p>']]),
         ]);
 
-        Livewire::test(EditMailTemplate::class, ['record' => $template->getKey()])
-            ->fillForm(['subject' => 'Objet sans aucune variable'])
-            ->call('save')
-            ->assertHasFormErrors();
-
-        $this->assertNotSame('Objet sans aucune variable', $template->refresh()->subject);
+        $this->assertFalse($template->refresh()->enabled);
     }
 }

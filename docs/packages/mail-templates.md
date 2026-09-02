@@ -16,7 +16,7 @@ Les e-mails rattachés à un domaine existant restent dans leur package
 
 ## Où vit un texte
 
-1. **Base** — `pko_mail_templates` (`key`, `subject`, `blocks` JSON, `enabled`). Source de vérité, éditable en back-office.
+1. **Base** — `pko_mail_templates` (`key`, `subject`, `content` JSON, `enabled`). Source de vérité, éditable en back-office.
 2. **Fichier de contenus** — `packages/pko/mail-templates/database/content/fr.php`. Utilisé si la clé est absente en base.
 
 Le fichier de contenus est de la **data** au sens du §3.0.4 du CLAUDE.md : c'est
@@ -64,25 +64,71 @@ En cas d'échec SMTP, la réservation est libérée : un rejeu ultérieur retent
 Les tests `MailTemplateRenderingTest` échouent si une clé n'a pas de contenu,
 si un contenu n'a pas de clé, ou si un placeholder utilisé n'est pas déclaré.
 
-## Blocs disponibles
+## Format du contenu et rendu
 
-`paragraph`, `heading`, `button` (`label`, `url`, `variant: primary|accent`),
-`divider`, `signature`. Le rendu s'appuie sur
-`storefront-cms::components.mail.layout` (logo, contact, mentions légales) et
-échappe systématiquement le contenu.
+Le contenu suit l'**arbre du page-builder** (`{heading, sections:[{layout,
+columns:[{blocks:[]}]}]}`), le même que les pages et articles — schéma :
+`packages/pko/page-builder/resources/schema/content.schema.json`.
+
+Blocs rendus en e-mail : `text`, `title`, `button`, `separator`, `callout`,
+`list`, `image`, `quote`. Les blocs `video`, `accordion`, `gallery` et `code`
+sont **ignorés silencieusement** : ils n'ont pas d'équivalent utilisable dans un
+client mail.
+
+**Le rendu du page-builder n'est pas réutilisé.** Il produit du Tailwind et des
+classes CSS, que Gmail et Outlook ignorent. Chaque bloc est redécliné en
+`<table>` + styles inline dans `resources/views/blocks/`, assemblés par
+`resources/views/message.blade.php` au-dessus de
+`storefront-cms::components.mail.layout` (logo, contact, mentions légales).
+
+Multi-colonnes : les **2 premières colonnes** d'une section sont rendues côte à
+côte en table ; les suivantes sont empilées. Au-delà de 2, un e-mail devient
+illisible sur mobile et Outlook gère mal.
+
+La conversion depuis l'ancien format plat est assurée par `LegacyBlocksConverter`
+et la migration `2026_09_02_000100_convert_pko_mail_templates_to_page_builder_content`.
 
 ## Édition back-office
 
-**Paramètres → E-mails**. La création est désactivée (les modèles viennent du
-seeder), seule l'édition est offerte. `ContentGuard` refuse l'enregistrement si
-une variable **obligatoire** a disparu d'un modèle actif, ou si une variable
-**inconnue** a été inventée. Un modèle désactivé tolère un contenu incomplet :
-c'est l'état des e-mails dont le contenu n'est pas encore arrivé.
+**Configuration → Réglages → E-mails** (déclaré dans
+`lunar-admin-nav/src/Navigation/Builder.php` — une resource absente de ce fichier
+n'apparaît pas dans la sidebar, quel que soit son `navigationGroup`).
+
+L'écran d'édition combine deux mécanismes :
+
+- **Réglages** (objet, activation) : form Filament classique.
+- **Contenu** : le composant Livewire `pko-page-builder`, le même éditeur que les
+  pages et articles, monté avec `withMeta: false` (pas de titre, slug, SEO ni
+  couverture). Il écrit lui-même la colonne `content`.
+
+La création est désactivée : les modèles viennent du seeder.
+
+`ContentGuard` refuse le contenu si une variable **obligatoire** a disparu d'un
+modèle actif, ou si une variable **inconnue** a été inventée. La garde est posée
+dans **`MailTemplate::saving()`** et non dans la page : c'est le seul point de
+passage commun à l'éditeur Filament, au PageBuilder, au seeder et à tinker. Elle
+lève une `ContentGuardException`, que `EditMailTemplate` traduit en erreur de
+formulaire. Un modèle désactivé tolère un contenu incomplet.
+
+### Liste des modèles
+
+Colonne **Destinataire** (client / équipe / les deux), issue du champ `audience`
+de `MailTemplateRegistry` — c'est du code, pas une colonne en base, d'où un
+filtre qui traduit la valeur en liste de clés. Les 18 modèles actuels partent au
+client.
+
+Action **œil** : ouvre un panneau latéral affichant le mail rendu, dans une
+iframe isolée (le HTML d'un e-mail porte ses propres styles, qui déborderaient
+sur le back-office). Le rendu passe par `TemplatedMail`, donc par le chemin réel
+d'envoi — l'aperçu montre ce que le client recevra.
 
 ## Prévisualisation
 
-`/_mail` liste les 18, `/_mail/{key}` rend le message avec des valeurs de
-démonstration. Routes chargées **uniquement** en `local` et `testing`.
+Deux chemins, une seule source : `MailPreview` (valeurs de démonstration + rendu).
+
+- **Back-office** : action œil dans la liste (voir ci-dessus).
+- **Route locale** : `/_mail` liste les 18, `/_mail/{key}` rend un message.
+  Chargées **uniquement** en `local` et `testing`.
 
 ## Expéditeur
 
@@ -122,3 +168,4 @@ commerciaux, les envoyer en pleine nuit dessert le propos.
 - Les mailables implémentent `ShouldQueue` : en test, `Mail::assertQueued`, pas `assertSent`.
 - `TemplatedMail` ne peut pas déclarer de propriété `$locale` (déjà portée, non-readonly, par `Illuminate\Mail\Mailable`) — d'où `$templateLocale`.
 - Les montants affichés sont des **HT** (`sub_total`) : les textes client annoncent explicitement « € HT ».
+- Après un changement de format de contenu, penser à `make artisan CMD='migrate'` sur la base de dev : les tests (`RefreshDatabase`) rejouent toutes les migrations et restent verts même si la base de dev est en retard, ce qui masque le décalage jusqu'à l'ouverture de l'écran.

@@ -25,7 +25,7 @@ class TemplatedMail extends Mailable
     use Queueable;
     use SerializesModels;
 
-    /** @var array{subject: string, blocks: array<int, array<string, mixed>>, enabled: bool}|null */
+    /** @var array{subject: string, content: array<string, mixed>, enabled: bool}|null */
     private ?array $template;
 
     /**
@@ -59,7 +59,7 @@ class TemplatedMail extends Mailable
         return $this
             ->subject(Placeholders::apply($this->template['subject'], $this->values))
             ->view('pko-mail-templates::message', [
-                'blocks' => Placeholders::applyToBlocks($this->template['blocks'], $this->values),
+                'content' => Placeholders::applyToContent($this->template['content'], $this->values),
                 'subjectLine' => Placeholders::apply($this->template['subject'], $this->values),
             ]);
     }
