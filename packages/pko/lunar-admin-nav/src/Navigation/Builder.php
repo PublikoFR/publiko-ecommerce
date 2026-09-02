@@ -31,6 +31,7 @@ use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
+use Pko\MailTemplates\Filament\Resources\MailTemplateResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
@@ -154,6 +155,7 @@ class Builder
                 self::resItem(PkoActivityResource::class, 'heroicon-o-clock', 'Activités'),
                 self::resItem(RoleResource::class, 'heroicon-o-shield-check', 'Rôles'),
                 self::resItem(PkoStaffResource::class, 'heroicon-o-user-circle', 'Personnel'),
+                self::resItem(MailTemplateResource::class, 'heroicon-o-envelope', 'E-mails'),
             ], sort: 1),
             self::nestedMenu('Financier', 'heroicon-o-credit-card', [
                 self::resItem(PkoCurrencyResource::class, 'heroicon-o-banknotes', 'Devises'),

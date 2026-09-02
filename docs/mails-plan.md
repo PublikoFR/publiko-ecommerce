@@ -62,11 +62,19 @@ logique dans un package, sans toucher à la config Lunar (§6 du CLAUDE.md).
 ## Questions ouvertes
 
 - ~~07 et 08~~ : **tranché le 2026-09-01** — contenus communiqués plus tard, clés seedées désactivées.
-- ~~02~~ : **répondu par le code** — l'activation se fait à la vérification de l'e-mail
-  (`customer-auth/routes/web.php`), il n'y a aucune validation SIRET manuelle. 01 et 02
-  s'enchaînent donc correctement. ⚠️ Mais le texte client du 02 affirme « votre SIRET a été
-  validé », ce qui est faux : le SIRET n'est pas vérifié (INSEE peut être coupé, la valeur
-  peut être nulle). Mention retirée des deux contenus — **à faire confirmer au client**.
+- ~~02~~ : **répondu par le code**. Deux mécanismes distincts, à ne pas confondre :
+  - **Le SIRET est bien validé dès l'inscription** — clé de contrôle puis appel INSEE côté
+    Livewire (`RegisterPage::verifySirene`), re-validation au submit, et `RegisterProCustomer`
+    rejoue `verify()` en rejetant l'inscription si l'établissement est inactif, puis horodate
+    `sirene_verified_at`. Le texte client « votre SIRET a bien été validé » est donc exact.
+  - **L'activation du compte**, elle, ne dépend que de la vérification de l'e-mail
+    (`customer-auth/routes/web.php`) — c'est ce que dit le commentaire du code, qui porte sur
+    le critère d'activation, pas sur l'existence d'une validation SIRET.
+
+  01 et 02 s'enchaînent donc correctement, textes client conservés tels quels.
+  ⚠️ Seul cas de bord : si l'API INSEE est indisponible, `SireneClient` retombe sur
+  `Status::Pending`, l'inscription passe et `sirene_verified_at` reste null — le mail
+  affirme alors une validation qui n'a pas eu lieu. Non traité (cas de panne, texte figé).
 - **03** : « un petit cadeau glissé dans le colis » — geste logistique manuel. Le mail
   l'annonce ; qui garantit que le cadeau est réellement mis ?
 - **13** : le CTA « Donner mon avis » pointe vers quoi ? (Google, Trustpilot, formulaire interne)
