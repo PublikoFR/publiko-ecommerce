@@ -179,8 +179,22 @@ class CreateCarrierShipmentJob implements ShouldQueue
             return;
         }
 
+        $mail = new ShipmentCreatedMail($shipment);
+
+        // Le contenu de l'e-mail est éditable en back-office et peut y être
+        // désactivé : on ne marque alors pas l'expédition comme notifiée, pour
+        // que la réactivation du modèle reprenne les envois en attente.
+        if (! $mail->shouldSend()) {
+            Log::info('Shipment notification disabled by mail template', [
+                'order_id' => $order->id,
+                'carrier_shipment_id' => $shipment->id,
+            ]);
+
+            return;
+        }
+
         try {
-            Mail::to($recipient)->send(new ShipmentCreatedMail($shipment));
+            Mail::to($recipient)->send($mail);
 
             $shipment->forceFill(['notified_customer_at' => now()])->save();
         } catch (Throwable $e) {

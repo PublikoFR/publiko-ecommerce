@@ -1,0 +1,26 @@
+{
+    "name": "pko/lunar-order-notifications",
+    "description": "E-mails du parcours commande : confirmation, paiement, livraison, retard, relances.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "pko/lunar-mail-templates": "@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pko\\OrderNotifications\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\OrderNotifications\\OrderNotificationsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

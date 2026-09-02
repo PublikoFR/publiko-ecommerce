@@ -9,7 +9,8 @@
         "lunarphp/core": "^1.0",
         "filament/filament": "^3.0",
         "barryvdh/laravel-dompdf": "^3.0",
-        "ext-zip": "*"
+        "ext-zip": "*",
+        "pko/lunar-mail-templates": "@dev"
     },
     "autoload": {
         "psr-4": {

@@ -17,7 +17,8 @@
         "pko/lunar-shipping-colissimo": "@dev",
         "pko/lunar-shipping-common": "@dev",
         "pko/lunar-storefront-cms": "@dev",
-        "pko/lunar-store-locator": "@dev"
+        "pko/lunar-store-locator": "@dev",
+        "pko/lunar-mail-templates": "@dev"
     },
     "autoload": {
         "psr-4": {

@@ -112,7 +112,14 @@ class RegisterProCustomer
         // SMTP ne doit jamais faire échouer l'inscription (sinon 500 + compte
         // orphelin → « email already taken » au retry). On loggue et on continue.
         try {
-            Mail::to($result['user']->email)->send(new CustomerRegisteredMail($result['customer'], $result['user']));
+            $welcome = new CustomerRegisteredMail($result['customer'], $result['user']);
+
+            // Le modèle peut être désactivé en back-office. Le lien de vérification
+            // reste alors accessible via le renvoi manuel (`verification.send`),
+            // l'inscription n'est donc pas bloquée.
+            if ($welcome->shouldSend()) {
+                Mail::to($result['user']->email)->send($welcome);
+            }
         } catch (\Throwable $e) {
             logger()->error('CustomerRegisteredMail failed', [
                 'email' => $result['user']->email,

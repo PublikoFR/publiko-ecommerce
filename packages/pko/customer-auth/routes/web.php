@@ -12,6 +12,7 @@ use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
 use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
+use Pko\CustomerAuth\Mail\AccountActivatedMail;
 use Pko\CustomerAuth\Mail\EmailVerificationMail;
 use Pko\CustomerAuth\Support\JustRegistered;
 use Pko\CustomerAuth\Support\ProAccess;
@@ -44,6 +45,16 @@ Route::middleware(['web', 'signed'])
                 if ($customer->getAttribute('pko_status') === 'pending') {
                     $customer->setAttribute('pko_status', 'active');
                     $customer->save();
+
+                    // E-mail 02 : le compte vient de passer `pending` -> `active`.
+                    // Envoyé ici et pas dans un observer, pour ne notifier que
+                    // l'activation par vérification d'e-mail — une réactivation
+                    // manuelle en back-office n'a pas le même sens pour le client.
+                    $activation = new AccountActivatedMail($customer);
+
+                    if ($activation->shouldSend()) {
+                        Mail::to($user->email)->send($activation);
+                    }
                 }
             }
         }

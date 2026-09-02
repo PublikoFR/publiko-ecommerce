@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Lunar\Models\Cart;
 use Lunar\Models\CartAddress;
 use Lunar\Models\CartLine;
+use Lunar\Models\Currency;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 use Lunar\Models\Order;
@@ -25,6 +26,20 @@ class AnonymizeCustomerTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+    }
+
+    /**
+     * Devise déjà seedée, plutôt que celle qu'inventerait CartFactory.
+     *
+     * `CurrencyFactory` tire son code avec `faker->unique()->currencyCode` : le
+     * `unique()` de Faker ne connaît que les valeurs tirées dans le process, pas
+     * celles présentes en base. Quand le tirage tombe sur « EUR », déjà posé par
+     * PkoCurrencySeeder, l'insertion viole la contrainte d'unicité et le test
+     * échoue au hasard.
+     */
+    private static function seededCurrencyId(): int
+    {
+        return (int) Currency::query()->value('id');
     }
 
     public function test_anonymize_keeps_customer_and_orders_but_removes_personal_data_and_login(): void
@@ -93,6 +108,7 @@ class AnonymizeCustomerTest extends TestCase
         $cart = Cart::factory()->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
+            'currency_id' => self::seededCurrencyId(),
         ]);
 
         // Aucune commande → suppression physique complète.
@@ -125,13 +141,18 @@ class AnonymizeCustomerTest extends TestCase
         $cart = Cart::factory()->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
+            'currency_id' => self::seededCurrencyId(),
         ]);
         CartAddress::factory()->create(['cart_id' => $cart->id, 'type' => 'shipping']);
         CartLine::factory()->create(['cart_id' => $cart->id]);
 
         // Panier déjà soft-deleted et fusionné dans le panier courant : sa FK
         // user_id reste active en base, et sa self-FK merged_id aussi.
-        $mergedCart = Cart::factory()->create(['user_id' => $user->id, 'merged_id' => $cart->id]);
+        $mergedCart = Cart::factory()->create([
+            'user_id' => $user->id,
+            'merged_id' => $cart->id,
+            'currency_id' => self::seededCurrencyId(),
+        ]);
         $mergedCart->delete();
 
         $result = app(AnonymizeCustomer::class)->purge($customer);

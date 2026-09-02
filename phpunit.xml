@@ -19,6 +19,11 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Les factories Lunar appellent $faker->state, formatter absent de
+             la locale fr_FR : sous APP_FAKER_LOCALE=fr_FR (le .env du projet),
+             CartAddressFactory échoue une fois sur deux, au hasard du booléen
+             qui garde l'appel. On fige la locale des tests sur en_US. -->
+        <env name="APP_FAKER_LOCALE" value="en_US"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
