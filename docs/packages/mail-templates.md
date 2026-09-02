@@ -164,7 +164,7 @@ n'est ni stylable, ni immédiat, ni accessible au tactile.
   n'autoriserait qu'un seul test par modèle et par destinataire. L'action est
   masquée sur un modèle désactivé ou sans contenu.
 
-En local, ces envois arrivent dans Mailpit (`mailpit.weklo.localhost`).
+En local, ces envois arrivent dans le Mailpit partagé : **http://mail.localhost**.
 
 ## Prévisualisation
 

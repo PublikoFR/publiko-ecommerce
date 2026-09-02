@@ -21,8 +21,6 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_started
-            mailpit:
-                condition: service_started
         networks:
             - backend
             - traefik_network
@@ -101,23 +99,14 @@ services:
         networks:
             - backend
 
-    # Catcher SMTP local (docs/architecture.md) — MAIL_HOST=mailpit dans .env
-    # pointe vers ce service. Sans lui, Mail::send() échoue silencieusement
-    # côté queue ou lève une erreur de connexion SMTP non visible dans l'UI :
-    # aucun mail (contact, commande, etc.) n'arrive jamais en local.
-    mailpit:
-        image: axllent/mailpit:latest
-        container_name: weklo-mailpit
-        restart: unless-stopped
-        networks:
-            - backend
-            - traefik_network
-        labels:
-            - traefik.enable=true
-            - traefik.docker.network=traefik_network
-            - traefik.http.routers.weklo-mailpit.rule=Host(`mailpit.weklo.localhost`)
-            - traefik.http.routers.weklo-mailpit.entrypoints=web
-            - traefik.http.services.weklo-mailpit.loadbalancer.server.port=8025
+    # Pas de service `mailpit` ici : le projet utilise le catcher SMTP PARTAGÉ
+    # de la stack Traefik (~/webdev/tools/traefik), commun à tous les sites
+    # locaux et consultable sur http://mail.localhost.
+    #
+    # `MAIL_HOST=mailpit` résout vers ce conteneur via `traefik_network`, auquel
+    # `app` est déjà rattaché. Un service `mailpit` déclaré ici reprendrait le
+    # nom sur le réseau interne du projet et capterait tous les envois dans une
+    # boîte séparée que personne ne consulte — c'est ce qui se passait avant.
 
     phpmyadmin:
         image: phpmyadmin:latest
