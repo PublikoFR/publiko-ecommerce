@@ -9,6 +9,8 @@
     Chaque bloc est donc redécliné en `<table>` + styles inline dans `blocks/`.
 --}}
 @php
+    use Pko\MailTemplates\Support\EmailLayout;
+
     // Blocs du page-builder sans équivalent e-mail : une vidéo ne se lit pas dans
     // un client mail, un accordéon n'a pas de JS, une galerie casse la mise en
     // page. On les ignore silencieusement plutôt que de rendre du vide cassé.
@@ -28,41 +30,51 @@
                 $section['columns'] ?? [],
                 static fn ($column) => ! empty($column['blocks']),
             ));
+            $count = count($columns);
+            $columnWidth = EmailLayout::columnWidth($count);
         @endphp
 
-        @continue($columns === [])
+        @continue($count === 0)
 
-        @if (count($columns) === 1)
+        @if ($count === 1)
             @foreach ($columns[0]['blocks'] as $block)
                 @if (in_array($block['type'] ?? '', $supported, true))
                     @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
                 @endif
             @endforeach
         @else
-            {{-- Multi-colonnes : table à cellules côte à côte. Volontairement limité
-                 à 2 colonnes rendues — au-delà, illisible sur mobile et mal géré
-                 par Outlook ; les colonnes suivantes sont empilées à la suite. --}}
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
-                <tr>
-                    @foreach (array_slice($columns, 0, 2) as $column)
-                        <td valign="top" width="50%" style="padding-right:12px;">
+            {{--
+                Colonnes en « fluid hybrid » : des blocs `inline-block` bornés par
+                `max-width`, qui se replient d'eux-mêmes quand la fenêtre devient
+                trop étroite. Pas de media query, volontairement — l'application
+                Gmail Android les ignore, et c'est le client où le repli compte le plus.
+
+                Outlook (Word) ne connaît pas `inline-block` : les commentaires
+                conditionnels lui fournissent une vraie table, invisible partout ailleurs.
+
+                `font-size:0` sur le conteneur supprime l'espace blanc que les
+                navigateurs insèrent entre deux éléments inline ; chaque colonne
+                rétablit sa taille de police.
+            --}}
+            <div style="font-size:0;text-align:left;margin:0 0 8px;">
+                <!--[if mso]><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><![endif]-->
+
+                @foreach ($columns as $column)
+                    <!--[if mso]><td width="{{ EmailLayout::msoColumnPercent($count) }}%" valign="top"><![endif]-->
+                    <div style="display:inline-block;width:100%;max-width:{{ $columnWidth }}px;vertical-align:top;font-size:15px;line-height:1.65;color:#16201d;">
+                        <div style="padding:0 {{ $loop->last ? 0 : EmailLayout::COLUMN_GAP }}px 0 0;">
                             @foreach ($column['blocks'] as $block)
                                 @if (in_array($block['type'] ?? '', $supported, true))
                                     @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
                                 @endif
                             @endforeach
-                        </td>
-                    @endforeach
-                </tr>
-            </table>
-
-            @foreach (array_slice($columns, 2) as $column)
-                @foreach ($column['blocks'] as $block)
-                    @if (in_array($block['type'] ?? '', $supported, true))
-                        @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
-                    @endif
+                        </div>
+                    </div>
+                    <!--[if mso]></td><![endif]-->
                 @endforeach
-            @endforeach
+
+                <!--[if mso]></tr></table><![endif]-->
+            </div>
         @endif
     @endforeach
 </x-storefront-cms::mail.layout>

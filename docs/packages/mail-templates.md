@@ -81,9 +81,39 @@ classes CSS, que Gmail et Outlook ignorent. Chaque bloc est redécliné en
 `resources/views/message.blade.php` au-dessus de
 `storefront-cms::components.mail.layout` (logo, contact, mentions légales).
 
-Multi-colonnes : les **2 premières colonnes** d'une section sont rendues côte à
-côte en table ; les suivantes sont empilées. Au-delà de 2, un e-mail devient
-illisible sur mobile et Outlook gère mal.
+### Colonnes : fluid hybrid, sans media query
+
+Jusqu'à **3 colonnes** côte à côte (`EmailLayout::MAX_SIDE_BY_SIDE`), au-delà
+chaque colonne prend toute la largeur et s'empile.
+
+Le rendu n'utilise **pas** de media query : l'application Gmail Android les
+ignore, or c'est justement le client où le repli compte. À la place, chaque
+colonne est un `inline-block` borné par une `max-width` en pixels — quand la
+fenêtre devient trop étroite pour les aligner, elles passent d'elles-mêmes les
+unes sous les autres. C'est pour cette raison que les largeurs sont calculées en
+pixels et non en pourcentages : un pourcentage resterait proportionnel et
+n'empilerait jamais rien.
+
+Outlook (moteur Word) ne connaît pas `inline-block` : des commentaires
+conditionnels `[if mso]` lui fournissent une vraie table, invisible ailleurs.
+
+Le conteneur porte `font-size:0` pour supprimer le blanc que les navigateurs
+insèrent entre deux éléments inline ; chaque colonne rétablit sa taille.
+
+Géométrie dans `EmailLayout` : gabarit 600 px, padding 32 px, soit 536 px utiles ;
+2 colonnes → 260 px, 3 colonnes → 168 px, gouttière de 16 px.
+
+### Texte riche
+
+Le bloc `text` contient du HTML issu de l'éditeur, sémantique et sans style. Un
+client mail n'a pas de feuille de styles : `EmailHtml::inlineStyles()` pose donc
+les styles manquants sur `p`, `a`, `ul`, `ol`, `li`, titres, `blockquote`, `hr`,
+tableaux et images. Sans lui, les marges de paragraphe varient d'un client à
+l'autre et les liens s'affichent en bleu système au lieu de la couleur de marque.
+
+Les styles déjà présents sur l'élément sont conservés et placés **après** les
+nôtres : à déclarations égales dans un même attribut `style`, la dernière
+l'emporte, donc la mise en forme choisie par le rédacteur gagne toujours.
 
 La conversion depuis l'ancien format plat est assurée par `LegacyBlocksConverter`
 et la migration `2026_09_02_000100_convert_pko_mail_templates_to_page_builder_content`.
