@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature\MailTemplates;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Pko\MailTemplates\Mail\TemplatedMail;
 use Pko\MailTemplates\Models\MailTemplate;
+use Pko\MailTemplates\Support\MailPreview;
 use Pko\MailTemplates\Support\MailTemplateRegistry;
 use Pko\MailTemplates\Support\Placeholders;
-use Illuminate\Support\Facades\Mail;
-use Pko\MailTemplates\Support\MailPreview;
 use Pko\MailTemplates\Support\TemplateResolver;
 use Tests\TestCase;
 

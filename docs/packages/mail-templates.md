@@ -147,12 +147,16 @@ de `MailTemplateRegistry` — c'est du code, pas une colonne en base, d'où un
 filtre qui traduit la valeur en liste de clés. Les 18 modèles actuels partent au
 client.
 
-Deux actions, en icônes seules :
+Trois actions, en icônes seules, chacune porteuse d'une infobulle Alpine/Tippy
+(`tooltip()`, rendu `x-tooltip`) et non d'un attribut `title` : le picto étant le
+seul repère visuel, l'infobulle est le libellé de l'action. Un `title` natif
+n'est ni stylable, ni immédiat, ni accessible au tactile.
 
 - **Œil** — panneau latéral affichant le mail rendu, dans une iframe isolée (le
   HTML d'un e-mail porte ses propres styles, qui déborderaient sur le
   back-office). Le rendu passe par `TemplatedMail`, donc par le chemin réel
   d'envoi : l'aperçu montre ce que le client recevra.
+- **Crayon** — édition du modèle.
 - **Avion en papier** — envoie le modèle à une adresse, pré-remplie avec celle
   de l'utilisateur connecté, pour juger le rendu dans un vrai client mail.
   L'objet est préfixé `[TEST]`, sans quoi le message serait indiscernable d'un

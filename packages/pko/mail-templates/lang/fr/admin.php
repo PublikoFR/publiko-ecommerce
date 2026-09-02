@@ -46,6 +46,12 @@ return [
         'preview' => 'Aperçu',
         'close' => 'Fermer',
         'send_test' => 'Envoyer un test',
+
+        // Les boutons d'action n'affichent qu'un picto : l'infobulle est le seul
+        // libellé visible, elle doit donc dire ce que fait l'action.
+        'preview_tooltip' => 'Aperçu du message',
+        'send_test_tooltip' => 'Envoyer un e-mail de test',
+        'edit_tooltip' => 'Modifier le contenu',
     ],
 
     'test' => [

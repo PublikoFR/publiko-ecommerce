@@ -150,6 +150,7 @@ class MailTemplateResource extends Resource
                     ->label(__('pko-mail-templates::admin.action.preview'))
                     ->icon('heroicon-o-eye')
                     ->iconButton()
+                    ->tooltip(__('pko-mail-templates::admin.action.preview_tooltip'))
                     ->slideOver()
                     ->modalHeading(fn (MailTemplate $record): string => MailTemplateRegistry::has($record->key)
                         ? MailTemplateRegistry::get($record->key)['label']
@@ -166,6 +167,7 @@ class MailTemplateResource extends Resource
                     ->icon('heroicon-o-paper-airplane')
                     ->iconButton()
                     ->color('gray')
+                    ->tooltip(__('pko-mail-templates::admin.action.send_test_tooltip'))
                     // Un modèle désactivé ou sans contenu n'a rien à envoyer.
                     ->visible(fn (MailTemplate $record): bool => MailPreview::mail($record->key)->shouldSend())
                     ->form(fn (): array => [
@@ -197,7 +199,9 @@ class MailTemplateResource extends Resource
                             ->send();
                     }),
 
-                EditAction::make()->iconButton(),
+                EditAction::make()
+                    ->iconButton()
+                    ->tooltip(__('pko-mail-templates::admin.action.edit_tooltip')),
             ])
             ->defaultSort('key')
             ->paginated([25, 50]);
