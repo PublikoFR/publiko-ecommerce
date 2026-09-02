@@ -41,6 +41,12 @@ class TemplatedMail extends Mailable
         $this->template = TemplateResolver::resolve($key, $templateLocale);
     }
 
+    /**
+     * Préfixe ajouté à l'objet, pour distinguer un envoi de test d'un vrai
+     * message dans la boîte de réception du destinataire.
+     */
+    public string $subjectPrefix = '';
+
     /** Le contenu existe et le mail est actif. */
     public function shouldSend(): bool
     {
@@ -56,11 +62,13 @@ class TemplatedMail extends Mailable
             );
         }
 
+        $subject = $this->subjectPrefix.Placeholders::apply($this->template['subject'], $this->values);
+
         return $this
-            ->subject(Placeholders::apply($this->template['subject'], $this->values))
+            ->subject($subject)
             ->view('pko-mail-templates::message', [
                 'content' => Placeholders::applyToContent($this->template['content'], $this->values),
-                'subjectLine' => Placeholders::apply($this->template['subject'], $this->values),
+                'subjectLine' => $subject,
             ]);
     }
 }

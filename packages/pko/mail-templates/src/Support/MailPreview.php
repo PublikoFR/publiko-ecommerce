@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\MailTemplates\Support;
 
+use Illuminate\Support\Facades\Mail;
 use Pko\MailTemplates\Mail\TemplatedMail;
 use Throwable;
 
@@ -69,6 +70,49 @@ final class MailPreview
     public static function mail(string $key): TemplatedMail
     {
         return new TemplatedMail($key, self::sampleValues($key));
+    }
+
+    /**
+     * Envoie le modèle, rempli de valeurs de démonstration, à une adresse
+     * choisie — pour juger le rendu dans un vrai client mail.
+     *
+     * Envoi direct plutôt que via OnceMailer : la garde anti-doublon
+     * n'autoriserait qu'un seul test par modèle et par destinataire.
+     */
+    public static function sendTest(string $key, string $recipient): void
+    {
+        $mail = self::mail($key);
+
+        if (! $mail->shouldSend()) {
+            throw new \RuntimeException(__('pko-mail-templates::admin.test.disabled'));
+        }
+
+        // Sans ce préfixe, un e-mail de test est indiscernable d'un vrai message
+        // dans la boîte de réception.
+        $mail->subjectPrefix = '[TEST] ';
+
+        Mail::to($recipient)->send($mail);
+    }
+
+    /** Adresse proposée par défaut pour un envoi de test. */
+    public static function defaultTestRecipient(): string
+    {
+        // L'utilisateur connecté d'abord : c'est lui qui veut voir le rendu.
+        $staffEmail = filament()->auth()->user()?->email;
+
+        if (is_string($staffEmail) && $staffEmail !== '') {
+            return $staffEmail;
+        }
+
+        if (function_exists('brand_setting')) {
+            $configured = brand_setting('admin_email');
+
+            if (is_string($configured) && $configured !== '') {
+                return $configured;
+            }
+        }
+
+        return (string) config('mail.from.address', '');
     }
 
     /**

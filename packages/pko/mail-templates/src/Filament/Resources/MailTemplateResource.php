@@ -9,6 +9,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
@@ -21,6 +22,7 @@ use Pko\MailTemplates\Filament\Resources\MailTemplateResource\Pages;
 use Pko\MailTemplates\Models\MailTemplate;
 use Pko\MailTemplates\Support\MailPreview;
 use Pko\MailTemplates\Support\MailTemplateRegistry;
+use Throwable;
 
 class MailTemplateResource extends Resource
 {
@@ -147,6 +149,7 @@ class MailTemplateResource extends Resource
                 Action::make('preview')
                     ->label(__('pko-mail-templates::admin.action.preview'))
                     ->icon('heroicon-o-eye')
+                    ->iconButton()
                     ->slideOver()
                     ->modalHeading(fn (MailTemplate $record): string => MailTemplateRegistry::has($record->key)
                         ? MailTemplateRegistry::get($record->key)['label']
@@ -158,7 +161,43 @@ class MailTemplateResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel(__('pko-mail-templates::admin.action.close')),
 
-                EditAction::make(),
+                Action::make('send_test')
+                    ->label(__('pko-mail-templates::admin.action.send_test'))
+                    ->icon('heroicon-o-paper-airplane')
+                    ->iconButton()
+                    ->color('gray')
+                    // Un modèle désactivé ou sans contenu n'a rien à envoyer.
+                    ->visible(fn (MailTemplate $record): bool => MailPreview::mail($record->key)->shouldSend())
+                    ->form(fn (): array => [
+                        TextInput::make('recipient')
+                            ->label(__('pko-mail-templates::admin.field.test_recipient'))
+                            ->helperText(__('pko-mail-templates::admin.field.test_recipient_help'))
+                            ->email()
+                            ->required()
+                            ->default(MailPreview::defaultTestRecipient()),
+                    ])
+                    ->action(function (MailTemplate $record, array $data): void {
+                        $recipient = (string) $data['recipient'];
+
+                        try {
+                            MailPreview::sendTest($record->key, $recipient);
+                        } catch (Throwable $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title(__('pko-mail-templates::admin.test.failed'))
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('pko-mail-templates::admin.test.sent', ['email' => $recipient]))
+                            ->send();
+                    }),
+
+                EditAction::make()->iconButton(),
             ])
             ->defaultSort('key')
             ->paginated([25, 50]);

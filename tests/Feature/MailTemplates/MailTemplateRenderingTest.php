@@ -9,6 +9,8 @@ use Pko\MailTemplates\Mail\TemplatedMail;
 use Pko\MailTemplates\Models\MailTemplate;
 use Pko\MailTemplates\Support\MailTemplateRegistry;
 use Pko\MailTemplates\Support\Placeholders;
+use Illuminate\Support\Facades\Mail;
+use Pko\MailTemplates\Support\MailPreview;
 use Pko\MailTemplates\Support\TemplateResolver;
 use Tests\TestCase;
 
@@ -165,6 +167,40 @@ class MailTemplateRenderingTest extends TestCase
         ]);
 
         $this->assertFalse((new TemplatedMail('order.confirmed'))->shouldSend());
+    }
+
+    /** L'envoi de test doit partir même en rafale : il contourne OnceMailer. */
+    public function test_l_envoi_de_test_n_est_pas_bride_par_la_garde_anti_doublon(): void
+    {
+        Mail::fake();
+
+        MailPreview::sendTest('order.confirmed', 'staff@example.test');
+        MailPreview::sendTest('order.confirmed', 'staff@example.test');
+
+        Mail::assertSent(TemplatedMail::class, 2);
+    }
+
+    /** L'objet est préfixé, sans quoi un test se confond avec un vrai message. */
+    public function test_l_envoi_de_test_prefixe_l_objet(): void
+    {
+        Mail::fake();
+
+        MailPreview::sendTest('order.confirmed', 'staff@example.test');
+
+        Mail::assertSent(
+            TemplatedMail::class,
+            fn (TemplatedMail $mail): bool => str_starts_with($mail->build()->subject, '[TEST] ')
+        );
+    }
+
+    /** Un modèle désactivé n'a rien à envoyer : refus explicite plutôt que mail vide. */
+    public function test_l_envoi_de_test_refuse_un_modele_desactive(): void
+    {
+        Mail::fake();
+
+        $this->expectException(\RuntimeException::class);
+
+        MailPreview::sendTest('order.ready_for_pickup', 'staff@example.test');
     }
 
     public function test_le_contenu_est_echappe_dans_le_rendu(): void

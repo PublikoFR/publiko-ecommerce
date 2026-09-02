@@ -147,10 +147,20 @@ de `MailTemplateRegistry` — c'est du code, pas une colonne en base, d'où un
 filtre qui traduit la valeur en liste de clés. Les 18 modèles actuels partent au
 client.
 
-Action **œil** : ouvre un panneau latéral affichant le mail rendu, dans une
-iframe isolée (le HTML d'un e-mail porte ses propres styles, qui déborderaient
-sur le back-office). Le rendu passe par `TemplatedMail`, donc par le chemin réel
-d'envoi — l'aperçu montre ce que le client recevra.
+Deux actions, en icônes seules :
+
+- **Œil** — panneau latéral affichant le mail rendu, dans une iframe isolée (le
+  HTML d'un e-mail porte ses propres styles, qui déborderaient sur le
+  back-office). Le rendu passe par `TemplatedMail`, donc par le chemin réel
+  d'envoi : l'aperçu montre ce que le client recevra.
+- **Avion en papier** — envoie le modèle à une adresse, pré-remplie avec celle
+  de l'utilisateur connecté, pour juger le rendu dans un vrai client mail.
+  L'objet est préfixé `[TEST]`, sans quoi le message serait indiscernable d'un
+  vrai envoi. L'envoi contourne `OnceMailer` : la garde anti-doublon
+  n'autoriserait qu'un seul test par modèle et par destinataire. L'action est
+  masquée sur un modèle désactivé ou sans contenu.
+
+En local, ces envois arrivent dans Mailpit (`mailpit.weklo.localhost`).
 
 ## Prévisualisation
 

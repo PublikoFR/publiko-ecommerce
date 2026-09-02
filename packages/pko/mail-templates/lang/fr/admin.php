@@ -22,6 +22,8 @@ return [
         'blocks' => 'Blocs',
         'updated_at' => 'Modifié le',
         'audience' => 'Destinataire',
+        'test_recipient' => 'Envoyer à',
+        'test_recipient_help' => 'Le message part avec des données d\'exemple et un objet préfixé [TEST].',
     ],
 
     'block' => [
@@ -43,6 +45,13 @@ return [
         'save_settings' => 'Enregistrer les réglages',
         'preview' => 'Aperçu',
         'close' => 'Fermer',
+        'send_test' => 'Envoyer un test',
+    ],
+
+    'test' => [
+        'sent' => 'E-mail de test envoyé à :email',
+        'failed' => 'Envoi du test impossible',
+        'disabled' => 'Ce modèle est désactivé ou sans contenu : il n\'y a rien à envoyer.',
     ],
 
     'audience' => [
