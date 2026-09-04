@@ -6,18 +6,18 @@ namespace Pko\Loyalty\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Notification;
 use Lunar\DataTypes\Price;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Pko\Loyalty\Enums\GiftStatus;
+use Pko\Loyalty\Mail\TierUnlockedAdminMail;
 use Pko\Loyalty\Mail\TierUnlockedMail;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\LoyaltyTier;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Models\Setting;
-use Pko\Loyalty\Notifications\TierUnlockedAdmin;
+use Pko\MailTemplates\Support\AdminRecipient;
 
 class LoyaltyManager
 {
@@ -155,11 +155,10 @@ class LoyaltyManager
             }
         }
 
-        $adminEmail = (string) (Setting::get('admin_email') ?: config('loyalty.admin_email'));
-        if ($adminEmail !== '') {
-            Notification::route('mail', $adminEmail)
-                ->notify(new TierUnlockedAdmin($customer, $tier, $totalPoints));
-        }
+        AdminRecipient::send(
+            new TierUnlockedAdminMail($customer, $tier, $totalPoints),
+            $history,
+        );
     }
 
     protected function resolveCustomerEmail(Customer $customer): ?string

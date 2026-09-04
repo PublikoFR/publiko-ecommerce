@@ -56,7 +56,7 @@ class MailTemplateListTest extends TestCase
         }
     }
 
-    public function test_la_liste_affiche_les_dix_huit_modeles(): void
+    public function test_la_liste_affiche_tous_les_modeles(): void
     {
         Livewire::test(ListMailTemplates::class)
             ->assertCanSeeTableRecords(MailTemplate::all());

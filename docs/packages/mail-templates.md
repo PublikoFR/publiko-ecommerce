@@ -1,7 +1,8 @@
 # pko/lunar-mail-templates + pko/lunar-order-notifications
 
 Socle des e-mails transactionnels et déclencheurs du parcours commande.
-Périmètre : la bibliothèque de 18 modèles fournie par le client (31/08/2026).
+Périmètre : la bibliothèque de 18 modèles client fournie le 31/08/2026, plus
+4 modèles **équipe** (inscription, nouvelle commande, virement, palier fidélité).
 
 ## Pourquoi deux packages
 
@@ -13,6 +14,9 @@ Périmètre : la bibliothèque de 18 modèles fournie par le client (31/08/2026)
 Les e-mails rattachés à un domaine existant restent dans leur package
 (`customer-auth` pour l'inscription, `shipping-common` pour l'expédition,
 `loyalty` pour les paliers) et étendent simplement `TemplatedMail`.
+Les 4 modèles `audience = admin` partent à `admin_notification_email()`
+(Storefront → Paramètres, champ « E-mail notifications équipe »), via
+`AdminRecipient::send()` + `OnceMailer`.
 
 ## Où vit un texte
 
@@ -144,8 +148,8 @@ formulaire. Un modèle désactivé tolère un contenu incomplet.
 
 Colonne **Destinataire** (client / équipe / les deux), issue du champ `audience`
 de `MailTemplateRegistry` — c'est du code, pas une colonne en base, d'où un
-filtre qui traduit la valeur en liste de clés. Les 18 modèles actuels partent au
-client.
+filtre qui traduit la valeur en liste de clés. Les 18 modèles d'origine partent
+au client ; les clés `*_admin` partent à l'équipe.
 
 Trois actions, en icônes seules, chacune porteuse d'une infobulle Alpine/Tippy
 (`tooltip()`, rendu `x-tooltip`) et non d'un attribut `title` : le picto étant le
@@ -171,7 +175,7 @@ En local, ces envois arrivent dans le Mailpit partagé : **http://mail.localhost
 Deux chemins, une seule source : `MailPreview` (valeurs de démonstration + rendu).
 
 - **Back-office** : action œil dans la liste (voir ci-dessus).
-- **Route locale** : `/_mail` liste les 18, `/_mail/{key}` rend un message.
+- **Route locale** : `/_mail` liste les modèles, `/_mail/{key}` rend un message.
   Chargées **uniquement** en `local` et `testing`.
 
 ## Expéditeur
@@ -199,6 +203,23 @@ commerciaux, les envoyer en pleine nuit dessert le propos.
 | `ORDER_REVIEW_DELAY_DAYS` | `7` | Délai après livraison avant la demande d'avis |
 | `ABANDONED_CART_HOURS` | `24` | Inactivité avant relance panier |
 | `QUOTE_REMINDER_DAYS` | `5` | Attente avant relance d'un devis |
+
+## E-mails équipe
+
+Destinataire unique : `admin_notification_email()` lit `Setting::get('admin_email')`
+(Storefront → Paramètres), puis `ADMIN_NOTIFICATION_EMAIL` / `CONTACT_EMAIL`,
+puis `LOYALTY_ADMIN_EMAIL`. Si vide, l'envoi est sauté (log info).
+
+| Clé | Déclencheur | Package |
+|---|---|---|
+| `account.registered_admin` | `RegisterProCustomer` | customer-auth |
+| `order.placed_admin` | `placed_at` renseigné | order-notifications |
+| `order.payment_offline_admin` | statut `payment-offline` | order-notifications |
+| `loyalty.tier_unlocked_admin` | déblocage de palier | loyalty |
+
+L'inscription équipe porte un `Reply-To` vers l'e-mail du client, pour
+répondre d'un clic. Le bouton « Appeler » n'est rendu que si un téléphone
+a été saisi (`PhoneLink::href()`, ignoré si l'URL est vide).
 
 ## Ce qui n'est pas couvert
 

@@ -72,6 +72,7 @@ class StorefrontSettings extends Page implements HasForms
             'brand_meta_description' => Setting::get('brand.meta_description'),
             'contact_phone' => Setting::get('contact.phone', $config['contact']['phone'] ?? null),
             'contact_email' => Setting::get('contact.email', $config['contact']['email'] ?? null),
+            'admin_email' => Setting::get('admin_email', ''),
             'contact_tagline' => Setting::get('contact.tagline', $config['contact']['tagline'] ?? null),
             'banner_enabled' => (bool) Setting::get('banner.enabled', $config['banner']['enabled'] ?? true),
             'banner_text' => Setting::get('banner.text', $config['banner']['text'] ?? null),
@@ -137,6 +138,10 @@ class StorefrontSettings extends Page implements HasForms
                     TextInput::make('contact_phone')->label('Téléphone')->tel()->placeholder('02 XX XX XX XX'),
                     TextInput::make('contact_email')->label('E-mail')->email(),
                 ]),
+                TextInput::make('admin_email')
+                    ->label('E-mail notifications équipe')
+                    ->email()
+                    ->helperText('Destinataire des e-mails internes : nouvelle inscription, nouvelle commande, virement à rapprocher, palier de fidélité.'),
                 TextInput::make('contact_tagline')->label('Accroche header')->placeholder("Besoin d'un conseil ?"),
             ]),
             Section::make('Bannière info (sous header)')->schema([
@@ -210,6 +215,7 @@ class StorefrontSettings extends Page implements HasForms
         Setting::set('brand.meta_description', $data['brand_meta_description']);
         Setting::set('contact.phone', $data['contact_phone']);
         Setting::set('contact.email', $data['contact_email']);
+        Setting::set('admin_email', $data['admin_email'] ?? '');
         Setting::set('contact.tagline', $data['contact_tagline']);
         Setting::set('banner.enabled', (bool) $data['banner_enabled']);
         Setting::set('banner.text', $data['banner_text']);

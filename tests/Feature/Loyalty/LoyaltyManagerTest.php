@@ -6,16 +6,18 @@ namespace Tests\Feature\Loyalty;
 
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
+use Pko\Loyalty\Mail\TierUnlockedAdminMail;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\LoyaltyTier;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Models\Setting;
-use Pko\Loyalty\Notifications\TierUnlockedAdmin;
 use Pko\Loyalty\Services\LoyaltyManager;
+use Pko\StorefrontCms\Models\Setting as StorefrontSetting;
 use Tests\TestCase;
 
 class LoyaltyManagerTest extends TestCase
@@ -26,7 +28,7 @@ class LoyaltyManagerTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-        config()->set('loyalty.admin_email', 'admin@weklo.test');
+        StorefrontSetting::set('admin_email', 'admin@weklo.test');
     }
 
     public function test_points_ratio_falls_back_when_zero(): void
@@ -69,7 +71,7 @@ class LoyaltyManagerTest extends TestCase
 
     public function test_unlocks_tier_and_dispatches_notifications(): void
     {
-        Notification::fake();
+        Mail::fake();
         $customer = Customer::factory()->create();
         $tier = LoyaltyTier::create([
             'name' => 'Bronze',
@@ -86,7 +88,10 @@ class LoyaltyManagerTest extends TestCase
             'customer_id' => $customer->id,
             'tier_id' => $tier->id,
         ]);
-        Notification::assertSentOnDemand(TierUnlockedAdmin::class);
+        Mail::assertSent(TierUnlockedAdminMail::class, function (TierUnlockedAdminMail $mail): bool {
+            return $mail->hasTo('admin@weklo.test')
+                && $mail->values['tier_name'] === 'Bronze';
+        });
     }
 
     public function test_no_double_unlock_for_same_tier(): void

@@ -93,3 +93,35 @@ if (! function_exists('brand_meta_description')) {
         return (string) brand_setting('brand.meta_description', '');
     }
 }
+
+if (! function_exists('admin_notification_email')) {
+    /**
+     * Destinataire des e-mails internes (inscription, commande, virement, palier).
+     *
+     * Source : Storefront → Paramètres (`admin_email`), puis les env historiques
+     * `ADMIN_NOTIFICATION_EMAIL` / `CONTACT_EMAIL` / `LOYALTY_ADMIN_EMAIL`.
+     */
+    function admin_notification_email(): string
+    {
+        $fromSetting = brand_setting('admin_email');
+
+        if (is_array($fromSetting)) {
+            $fromSetting = collect($fromSetting)->filter(fn (mixed $v): bool => is_string($v) && $v !== '')->first();
+        }
+
+        if (is_string($fromSetting) && $fromSetting !== '') {
+            return $fromSetting;
+        }
+
+        foreach ([
+            config('customer-auth.admin_notification_email'),
+            config('loyalty.admin_email'),
+        ] as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+}

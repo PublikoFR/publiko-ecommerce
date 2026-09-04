@@ -44,7 +44,6 @@ class LoyaltyHub extends Page implements HasForms
     {
         $this->settingsForm->fill([
             'points_ratio' => Setting::get('points_ratio', (string) config('loyalty.default_ratio', 1)),
-            'admin_email' => Setting::get('admin_email', (string) config('loyalty.admin_email', '')),
         ]);
     }
 
@@ -65,10 +64,6 @@ class LoyaltyHub extends Page implements HasForms
                     ->required()
                     ->numeric()
                     ->minValue(0.01),
-                TextInput::make('admin_email')
-                    ->label(__('admin-nav::admin.hubs.loyalty.fields.admin_email.label'))
-                    ->email()
-                    ->helperText(__('admin-nav::admin.hubs.loyalty.fields.admin_email.help')),
             ])
             ->statePath('settingsData');
     }
@@ -78,7 +73,6 @@ class LoyaltyHub extends Page implements HasForms
         $data = $this->settingsForm->getState();
 
         Setting::set('points_ratio', $data['points_ratio']);
-        Setting::set('admin_email', $data['admin_email'] ?? '');
 
         Notification::make()
             ->success()

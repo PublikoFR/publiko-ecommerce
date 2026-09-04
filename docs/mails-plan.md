@@ -81,3 +81,15 @@ logique dans un package, sans toucher à la config Lunar (§6 du CLAUDE.md).
 - **14/15** : le SAV est-il dans le périmètre du projet ? C'est un module complet, pas un mail.
 - **16** : l'avoir est-il exposé au client dans son espace ? Le texte dit « depuis votre espace client ».
 - **12** : le statut « livré » est-il poussé manuellement, ou lu depuis le tracking transporteur ?
+
+## E-mails équipe (ajout 2026-09-03)
+
+Hors bibliothèque client. 4 modèles `audience = admin`, éditables dans
+Configuration → E-mails, destinataire unique Storefront → Paramètres
+(`admin_email`) :
+
+- `account.registered_admin` — inscription (onboarding téléphone)
+- `order.placed_admin` — nouvelle commande
+- `order.payment_offline_admin` — virement à rapprocher
+- `loyalty.tier_unlocked_admin` — palier fidélité
+
