@@ -17,6 +17,10 @@ class CartDrawer extends Component
 
     public ?string $subTotal = null;
 
+    public ?string $discountTotal = null;
+
+    public ?string $couponCode = null;
+
     public ?string $total = null;
 
     public int $linesCount = 0;
@@ -81,6 +85,8 @@ class CartDrawer extends Component
         if ($cart === null) {
             $this->lines = [];
             $this->subTotal = null;
+            $this->discountTotal = null;
+            $this->couponCode = null;
             $this->total = null;
             $this->linesCount = 0;
 
@@ -99,6 +105,10 @@ class CartDrawer extends Component
 
         $this->linesCount = count($this->lines);
         $this->subTotal = $cart->subTotal?->formatted();
+        $this->discountTotal = ($cart->discountTotal?->value ?? 0) > 0
+            ? $cart->discountTotal->formatted()
+            : null;
+        $this->couponCode = $cart->coupon_code;
         $this->total = $cart->total?->formatted();
     }
 

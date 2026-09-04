@@ -84,6 +84,17 @@
                     @if ($subTotal)
                         <div class="flex justify-between text-neutral-600"><span>Sous-total HT</span><span>{{ $subTotal }}</span></div>
                     @endif
+                    @if ($discountTotal)
+                        <div class="flex justify-between text-success-700">
+                            <span>
+                                Remise
+                                @if ($couponCode)
+                                    <span class="font-mono">({{ $couponCode }})</span>
+                                @endif
+                            </span>
+                            <span>-{{ $discountTotal }}</span>
+                        </div>
+                    @endif
                     @if ($total)
                         <div class="flex justify-between items-baseline pt-2 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $total }}</span></div>
                     @endif
