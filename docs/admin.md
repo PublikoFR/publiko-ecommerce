@@ -397,6 +397,13 @@ make artisan CMD='lunar:orders:sync-new'
 Couvert par `tests/Feature/Orders/NewCustomerFlagTest.php`, qui vérifie à la fois
 le calcul du flag et le garde-fou de configuration.
 
+**Libellés du badge** : Lunar affichait « Nouveau » / **« Retour »**, ce dernier se
+lisant comme un retour marchandise ou une demande SAV. Override partiel dans
+`lang/vendor/lunarpanel/fr/customer.php` (`table.new` / `table.returning`) →
+« Nouveau » / « Récurrent », aligné sur le filtre FR de Lunar déjà intitulé
+« Nouveau / Récurrent ». Laravel fusionne ce fichier par-dessus celui du package
+(`array_replace_recursive`), inutile de recopier tout le fichier.
+
 ## Suppression d'un groupe client — cascade dans les deux sens
 
 **Principe : une liaison se nettoie quel que soit le côté supprimé.**
