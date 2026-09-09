@@ -22,6 +22,7 @@ Tous les fichiers PHP portés portent `declare(strict_types=1);` (CLAUDE.md §3.
 | GET | `/search` | `SearchPage` | `search.view` |
 | GET | `/collections/{slug}` | `CollectionPage` | `collection.view` |
 | GET | `/products/{slug}` | `ProductPage` | `product.view` |
+| GET | `/panier` | `CartPage` | `cart.view` |
 | GET | `/checkout` | `CheckoutPage` | `checkout.view` |
 | GET | `/checkout/success` | `CheckoutSuccessPage` | `checkout-success.view` |
 | GET | `/contact` | `ContactPage` | `contact.view` |
@@ -47,6 +48,17 @@ Page dédiée soignée (Design System) : composant full-page `App\Livewire\Conta
 ### Dépendances NPM ajoutées
 - `@tailwindcss/forms` ^0.5.9
 - `@ryangjchandler/alpine-clipboard` ^2.3.0
+
+### Codes promo (coupons Lunar)
+
+Le BO Lunar Admin (Marketing → Réductions) crée les codes. Le storefront n'a **pas** de modèle custom : on pose `cart.coupon_code` puis on recalcule. Lunar applique la remise dans le pipeline `ApplyDiscounts`.
+
+- **UI** : composant Livewire `App\Livewire\Components\CouponCode` (`components.coupon-code`).
+  - Page panier (`/panier`) : champ dans le récapitulatif, dès qu'il y a des lignes.
+  - Checkout : **même champ** dans le récapitulatif à partir de l'étape facturation (`currentStep >= billing_address`, donc aussi livraison / paiement).
+- **Application** : `Discounts::validateCoupon()` (existence + dates + max uses) → `coupon_code` + `Discounts::resetDiscounts()` + `$cart->recalculate()`. Si le code est valide mais ne produit aucune remise (seuil mini, groupe client, canal…), on **retire** le code et on affiche une erreur — un `coupon_code` orphelin bloquerait la scission de panier mixte (cf. `docs/shipping.md`).
+- **Affichage** : ligne « Remise (CODE) » dans les récaps panier, checkout et tiroir, alimentée par `$cart->discountTotal` (jamais recomposée en vue).
+- **Tests** : `tests/Feature/Storefront/CouponCodeTest.php`.
 
 ### Checkout — corrections starter kit → Livewire 3 (2026-06)
 

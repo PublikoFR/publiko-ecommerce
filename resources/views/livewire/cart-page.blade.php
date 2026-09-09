@@ -73,8 +73,22 @@
                         @if ($this->cart)
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between"><span class="text-neutral-600">Sous-total HT</span><span class="font-semibold">{{ $this->cart->subTotal?->formatted() ?? '—' }}</span></div>
+                                @if (($this->cart->discountTotal?->value ?? 0) > 0)
+                                    <div class="flex justify-between text-success-700">
+                                        <span>
+                                            Remise
+                                            @if ($this->cart->coupon_code)
+                                                <span class="font-mono">({{ $this->cart->coupon_code }})</span>
+                                            @endif
+                                        </span>
+                                        <span class="font-semibold">-{{ $this->cart->discountTotal->formatted() }}</span>
+                                    </div>
+                                @endif
                                 <div class="flex justify-between"><span class="text-neutral-600">TVA</span><span class="font-semibold">{{ $this->cart->taxTotal?->formatted() ?? '—' }}</span></div>
                                 <div class="flex justify-between items-baseline pt-3 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $this->cart->total?->formatted() ?? '—' }}</span></div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-neutral-100">
+                                <livewire:components.coupon-code wire:key="cart-coupon" />
                             </div>
                         @endif
                         <x-ui.button variant="accent" size="lg" href="/checkout" fullWidth iconRight="arrow-right" class="mt-6">Passer la commande</x-ui.button>

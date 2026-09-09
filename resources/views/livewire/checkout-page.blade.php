@@ -55,6 +55,21 @@
                             </dd>
                         </div>
 
+                        @if (($cart->discountTotal?->value ?? 0) > 0)
+                            <div class="flex flex-wrap py-4 text-success-700">
+                                <dt class="w-1/2 font-medium">
+                                    Remise
+                                    @if ($cart->coupon_code)
+                                        <span class="font-mono">({{ $cart->coupon_code }})</span>
+                                    @endif
+                                </dt>
+
+                                <dd class="w-1/2 text-right font-semibold">
+                                    -{{ $cart->discountTotal->formatted() }}
+                                </dd>
+                            </div>
+                        @endif
+
                         @if ($this->shippingOption)
                             <div class="flex flex-wrap py-4">
                                 <dt class="w-1/2 font-medium">
@@ -90,6 +105,12 @@
                         </div>
                     </dl>
                 </div>
+
+                @if ($currentStep >= $steps['billing_address'])
+                    <div class="pt-4 border-t border-neutral-100">
+                        <livewire:components.coupon-code wire:key="checkout-coupon" />
+                    </div>
+                @endif
             </div>
 
             <div class="space-y-6 lg:col-span-2">
