@@ -17,6 +17,7 @@ use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
 use Pko\CustomerAuth\Support\EmailVerification;
+use Pko\MailTemplates\Support\AdminRecipient;
 use Pko\StorefrontCms\Models\Setting;
 use Tests\TestCase;
 

@@ -787,7 +787,7 @@ Tests : `CheckoutQuoteInterceptionTest::test_quote_only_cart_skips_the_shipping_
 | Correctif | Détail |
 |---|---|
 | `WeightCalculator::isFrancoEligible()` | `pko_franco_eligible` est un tinyint **sans cast** sur `Lunar\Models\Product` : Eloquent renvoie `1`/`0`. La comparaison stricte `=== true` excluait du franco tout produit non-`inherit`, ce qui annulait le franco du panier entier (`cartHasFrancoExcludedLine`). Cast explicite en booléen. |
-| `PkoCustomerSeeder` | Les comptes pro seedés n'étaient rattachés qu'à leur groupe métier (`installateurs`). `ProAccess::denialReason()` exige **aussi** le groupe par défaut (`nouveau-client`) → connexion storefront refusée pour tous les comptes de démo, et suites E2E authentifiées bloquées. Le seeder attache désormais le groupe par défaut et pose `email_verified_at`. |
+| `PkoCustomerSeeder` | Les comptes pro seedés n'étaient rattachés qu'à leur groupe métier (`installateurs`), et `ProAccess::denialReason()` exigeait alors **aussi** le groupe par défaut (`nouveau-client`) → connexion storefront refusée pour tous les comptes de démo, et suites E2E authentifiées bloquées. Le seeder attache désormais le groupe par défaut et pose `email_verified_at`. Le gate ne regarde plus les groupes du tout (cf. `docs/admin.md`, « Groupes clients et accès pro ») : seul `email_verified_at` reste nécessaire ici. |
 | `DestructiveCommandGuard::isTestDatabase()` | La base de la stack Playwright (`pko_e2e`) n'était pas reconnue comme base de test → `migrate:fresh --seed` du `global-setup` bloqué par la garde anti-wipe, tous les runs E2E en échec. Exception explicite sur le nom `pko_e2e` (le verrou production reste absolu). |
 
 ### 5.20 Franco sur tous les services par défaut (2026-07-31)

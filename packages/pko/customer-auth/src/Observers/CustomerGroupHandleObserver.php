@@ -14,9 +14,9 @@ use Pko\CustomerAuth\Support\DefaultCustomerGroup;
  *
  * Le champ `handle` de la resource Lunar est un TextInput libre : un groupe créé
  * depuis l'admin en recopiant son nom obtient un handle « Nouveau client » qui
- * ne matche plus le `nouveau-client` attendu par l'inscription et par le
- * contrôle d'accès pro. L'observer normalise (et dé-duplique) le handle, et
- * verrouille celui du groupe par défaut pour qu'il ne puisse plus dériver.
+ * ne matche plus le `nouveau-client` attendu par l'inscription. L'observer
+ * normalise (et dé-duplique) le handle, et verrouille celui du groupe par
+ * défaut pour qu'il ne puisse plus dériver.
  */
 class CustomerGroupHandleObserver
 {
