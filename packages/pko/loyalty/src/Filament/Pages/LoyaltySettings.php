@@ -44,7 +44,6 @@ class LoyaltySettings extends BasePage implements HasForms
     {
         $this->form->fill([
             'points_ratio' => Setting::get('points_ratio', (string) config('loyalty.default_ratio', 1)),
-            'admin_email' => Setting::get('admin_email', (string) config('loyalty.admin_email', '')),
         ]);
     }
 
@@ -58,10 +57,6 @@ class LoyaltySettings extends BasePage implements HasForms
                     ->required()
                     ->numeric()
                     ->minValue(0.01),
-                TextInput::make('admin_email')
-                    ->label('Email admin (notifications)')
-                    ->email()
-                    ->helperText('Destinataire de la notification quand un client débloque un palier. Surcharge LOYALTY_ADMIN_EMAIL.'),
             ])
             ->statePath('data');
     }
@@ -71,7 +66,6 @@ class LoyaltySettings extends BasePage implements HasForms
         $data = $this->form->getState();
 
         Setting::set('points_ratio', $data['points_ratio']);
-        Setting::set('admin_email', $data['admin_email'] ?? '');
 
         Notification::make()
             ->success()

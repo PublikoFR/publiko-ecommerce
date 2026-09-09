@@ -16,7 +16,10 @@ use Pko\OrderNotifications\Mail\FirstOrderGiftMail;
 use Pko\OrderNotifications\Mail\OrderConfirmedMail;
 use Pko\OrderNotifications\Mail\OrderDeliveredMail;
 use Pko\OrderNotifications\Mail\OrderPaymentReceivedMail;
+use Pko\OrderNotifications\Mail\OrderPlacedAdminMail;
+use Pko\OrderNotifications\Mail\PaymentOfflineAdminMail;
 use Pko\OrderNotifications\Support\OrderMailData;
+use Pko\StorefrontCms\Models\Setting;
 use Tests\TestCase;
 
 class OrderMailObserverTest extends TestCase
@@ -37,6 +40,34 @@ class OrderMailObserverTest extends TestCase
         $order->update(['placed_at' => now()]);
 
         Mail::assertQueued(OrderConfirmedMail::class);
+        Mail::assertNotQueued(OrderPlacedAdminMail::class);
+    }
+
+    public function test_la_notification_equipe_part_quand_la_commande_est_passee(): void
+    {
+        Mail::fake();
+        Setting::set('admin_email', 'ops@example.test');
+
+        $order = $this->makeOrder();
+        $order->update(['placed_at' => now()]);
+
+        Mail::assertQueued(OrderPlacedAdminMail::class, function (OrderPlacedAdminMail $mail) use ($order): bool {
+            return $mail->hasTo('ops@example.test')
+                && $mail->values['order_reference'] === (string) $order->fresh()->reference;
+        });
+    }
+
+    public function test_le_virement_declenche_la_notification_equipe(): void
+    {
+        Mail::fake();
+        Setting::set('admin_email', 'ops@example.test');
+
+        $order = $this->makeOrder(['placed_at' => now()]);
+        $order->update(['status' => 'payment-offline']);
+
+        Mail::assertQueued(PaymentOfflineAdminMail::class, function (PaymentOfflineAdminMail $mail): bool {
+            return $mail->hasTo('ops@example.test');
+        });
     }
 
     public function test_le_paiement_recu_part_au_passage_en_statut_paye(): void

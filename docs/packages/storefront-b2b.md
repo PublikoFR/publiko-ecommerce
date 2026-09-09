@@ -72,7 +72,7 @@ Tarifs HT contractuels propres à un client (équivalent des *« Prix spécifiqu
 - Si `Status::Inactive` → `DomainException` bloquante.
 - **`pko_status` = `pending` à la création (toujours)** : le compte ne devient `active` qu'à la **vérification de l'e-mail** (route `verification.verify`). **C'est le SEUL critère d'activation.** Le SIRET **n'est pas une valeur fiable** : quand la vérif INSEE est désactivée, c'est juste la saisie du client (contrôle Luhn dans `submit()`), voire `null` si le champ est vide/retiré — il ne peut donc pas conditionner l'activation. En particulier, un `sirene_status='pending'` (INSEE off/indisponible) **n'empêche pas** l'activation : c'est le clic du client sur le lien e-mail qui active, jamais une validation admin. Voir §15.5 vérification e-mail.
 - **`email_verified_at` reste `null`** : l'utilisateur confirme son adresse via un lien signé. Ne jamais le marquer vérifié à la création.
-- **Notification admin** : après l'inscription, un `CustomerRegisteredAdminMail` récapitulant toutes les coordonnées est envoyé à `brand_setting('admin_email')` (fallback config `customer-auth.admin_notification_email`). Envoi isolé en try/catch (un échec SMTP ne compromet pas l'inscription).
+- **Notification admin** : après l'inscription, un `CustomerRegisteredAdminMail` (`TemplatedMail`, clé `account.registered_admin`, audience équipe) récapitule les coordonnées et part via `AdminRecipient::send()` à `admin_notification_email()` (Storefront → Paramètres, `admin_email`). `Reply-To` = e-mail du client. Envoi isolé en try/catch (un échec SMTP ne compromet pas l'inscription). Éditable dans Configuration → E-mails.
 
 **Groupes clients** (`lunar_customer_groups`) :
 - Colonne custom `pko_is_metier` (bool, migration customer-auth) : un groupe « métier » est proposé dans la liste déroulante du formulaire d'inscription (`RegisterPage`), pour typer le nouveau client dès la création. Toggle éditable via `CustomerGroupFieldsExtension` (form + colonne Filament).
@@ -323,7 +323,7 @@ Nouveau groupe de navigation **Storefront** dans l'admin Filament avec 7 resourc
 | **Pages CMS** | `Page` | RichEditor, slug unique, status (published/draft). Routes `/pages/{slug}` (CGV, mentions, FAQ, politique…). |
 | **Abonnés newsletter** | `NewsletterSubscriber` | Liste read-only (pas de create), bulk delete, search + sort. |
 | **Magasins** | `Store` | Sections Identité / Adresse / Contact / Horaires (`KeyValue` jour→plage), slug auto, coordonnées lat/lng. |
-| **Paramètres** (page) | `Setting` | Contact (tél, e-mail, accroche), bannière info (toggle + texte + icône select), seuil livraison offerte cents, social links (FB/IG/LI/YT), USPs via `Repeater` icône+titre+sous-titre, slug collection vedette home. |
+| **Paramètres** (page) | `Setting` | Contact (tél, e-mail, accroche), e-mail notifications équipe (`admin_email`), bannière info (toggle + texte + icône select), seuil livraison offerte cents, social links (FB/IG/LI/YT), USPs via `Repeater` icône+titre+sous-titre, slug collection vedette home. |
 
 Plugins Filament : `Pko\StorefrontCms\Filament\StorefrontCmsPlugin` et `Pko\StoreLocator\Filament\StoreLocatorPlugin` enregistrés dans `AppServiceProvider`. Nav group inséré avant `Commandes`.
 

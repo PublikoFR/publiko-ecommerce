@@ -16,6 +16,7 @@ use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
 use Pko\CustomerAuth\Support\DefaultCustomerGroup;
+use Pko\MailTemplates\Support\AdminRecipient;
 
 class RegisterProCustomer
 {
@@ -127,19 +128,18 @@ class RegisterProCustomer
             ]);
         }
 
-        // Notification interne à l'administrateur (récap des coordonnées). Même
-        // isolation que le mail client : un échec SMTP ne compromet pas l'inscription.
-        // Priorité au réglage back-office (Storefront → Paramètres), puis config/env.
-        $adminEmail = brand_setting('admin_email') ?: config('customer-auth.admin_notification_email');
-        if (! empty($adminEmail)) {
-            try {
-                Mail::to($adminEmail)->send(new CustomerRegisteredAdminMail($result['customer'], $result['user']));
-            } catch (\Throwable $e) {
-                logger()->error('CustomerRegisteredAdminMail failed', [
-                    'email' => $adminEmail,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        // Notification interne (récap des coordonnées, onboarding téléphone).
+        // Même isolation que le mail client : un échec SMTP ne compromet pas
+        // l'inscription. Destinataire : Storefront → Paramètres (`admin_email`).
+        try {
+            AdminRecipient::send(
+                new CustomerRegisteredAdminMail($result['customer'], $result['user']),
+                $result['customer'],
+            );
+        } catch (\Throwable $e) {
+            logger()->error('CustomerRegisteredAdminMail failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $result;

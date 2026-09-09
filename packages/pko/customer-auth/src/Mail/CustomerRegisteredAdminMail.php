@@ -5,32 +5,34 @@ declare(strict_types=1);
 namespace Pko\CustomerAuth\Mail;
 
 use App\Models\User;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Queue\SerializesModels;
 use Lunar\Models\Customer;
+use Pko\CustomerAuth\Support\CustomerAdminMailData;
+use Pko\MailTemplates\Mail\TemplatedMail;
 
 /**
- * Notification interne envoyée à l'administrateur à chaque inscription client,
- * récapitulant toutes les coordonnées saisies.
+ * Notification équipe à chaque inscription client (onboarding téléphone).
+ *
+ * Reply-To = e-mail du client : un « répondre » ouvre directement le fil.
  */
-class CustomerRegisteredAdminMail extends Mailable
+class CustomerRegisteredAdminMail extends TemplatedMail
 {
-    use Queueable;
-    use SerializesModels;
-
     public function __construct(
         public readonly Customer $customer,
         public readonly User $user,
-    ) {}
+    ) {
+        parent::__construct('account.registered_admin', CustomerAdminMailData::values($customer, $user));
+    }
 
     public function build(): static
     {
+        parent::build();
+
         $company = $this->customer->company_name ?: $this->user->name;
 
-        return $this
-            ->subject('Nouvelle inscription client — '.$company)
-            ->replyTo($this->user->email, $this->user->name ?: $company)
-            ->view('customer-auth::mail.customer-registered-admin');
+        if ($this->user->email !== '') {
+            $this->replyTo($this->user->email, $this->user->name ?: (string) $company);
+        }
+
+        return $this;
     }
 }

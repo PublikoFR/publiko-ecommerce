@@ -29,6 +29,20 @@ final class MailPreview
         $samples = [
             'first_name' => 'Camille',
             'company_name' => 'Fermetures du Sud',
+            'contact_name' => 'Camille Martin',
+            'email' => 'camille.martin@example.test',
+            'phone' => '06 12 34 56 78',
+            'phone_url' => 'tel:+33612345678',
+            'siret' => '98104397900021',
+            'vat_number' => 'FR12345678901',
+            'naf_code' => '43.29A',
+            'activity' => 'Travaux d\'installation électrique',
+            'address' => '12 rue des Lilas, 34000 Montpellier, FR',
+            'groups' => 'Nouveau client, Installateur',
+            'status' => 'pending',
+            'sirene_status' => 'active',
+            'order_status' => 'En attente de paiement',
+            'admin_url' => url('/admin/orders/10432'),
             'order_reference' => 'CMD-10432',
             'order_total' => '1 248,90',
             'quote_reference' => 'DEV-2098',
@@ -62,6 +76,10 @@ final class MailPreview
         $values = [];
         foreach (MailTemplateRegistry::get($key)['placeholders'] as $placeholder) {
             $values[$placeholder] = $samples[$placeholder] ?? strtoupper($placeholder);
+        }
+
+        if (in_array($key, ['account.registered_admin', 'loyalty.tier_unlocked_admin'], true)) {
+            $values['admin_url'] = url('/admin/customers/42');
         }
 
         return $values;
@@ -104,10 +122,10 @@ final class MailPreview
             return $staffEmail;
         }
 
-        if (function_exists('brand_setting')) {
-            $configured = brand_setting('admin_email');
+        if (function_exists('admin_notification_email')) {
+            $configured = admin_notification_email();
 
-            if (is_string($configured) && $configured !== '') {
+            if ($configured !== '') {
                 return $configured;
             }
         }

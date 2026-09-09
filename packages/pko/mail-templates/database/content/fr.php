@@ -78,6 +78,30 @@ La fermeture pour les pros.</p>'],
         ]),
     ],
 
+    // Inscription — notification équipe (onboarding téléphone)
+    'account.registered_admin' => [
+        'subject' => 'Nouvelle inscription — :company_name',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Nouvelle inscription client'],
+            ['type' => 'text', 'html' => '<p>Un nouveau compte professionnel vient d\'être créé. Contacter le client par téléphone pour l\'onboarding.</p>'],
+            ['type' => 'text', 'html' => '<p><strong>Société</strong> : :company_name<br>
+<strong>Contact</strong> : :contact_name<br>
+<strong>E-mail</strong> : :email<br>
+<strong>Téléphone</strong> : :phone<br>
+<strong>SIRET</strong> : :siret<br>
+<strong>N° TVA</strong> : :vat_number<br>
+<strong>Code NAF</strong> : :naf_code<br>
+<strong>Activité</strong> : :activity<br>
+<strong>Adresse</strong> : :address<br>
+<strong>Groupe(s)</strong> : :groups<br>
+<strong>Statut compte</strong> : :status<br>
+<strong>SIRET INSEE</strong> : :sirene_status</p>'],
+            ['type' => 'button', 'label' => 'Appeler :phone', 'url' => ':phone_url', 'variant' => 'accent'],
+            ['type' => 'button', 'label' => 'Voir la fiche client', 'url' => ':admin_url', 'variant' => 'secondary'],
+        ]),
+    ],
+
     // 03 — Première commande avec petit cadeau
     'order.first_order_gift' => [
         'subject' => 'Merci pour votre première commande chez WEKLO 🎉',
@@ -108,6 +132,42 @@ La fermeture pour les pros.</p>'],
             ['type' => 'text', 'html' => '<p>À très bientôt,<br>
 L\'équipe WEKLO<br>
 La fermeture pour les pros.</p>'],
+        ]),
+    ],
+
+    // Nouvelle commande — notification équipe
+    'order.placed_admin' => [
+        'subject' => 'Nouvelle commande :order_reference — :company_name',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Nouvelle commande'],
+            ['type' => 'text', 'html' => '<p>Une commande vient d\'être passée.</p>'],
+            ['type' => 'text', 'html' => '<p><strong>Référence</strong> : :order_reference<br>
+<strong>Montant</strong> : :order_total € HT<br>
+<strong>Statut</strong> : :order_status<br>
+<strong>Société</strong> : :company_name<br>
+<strong>Contact</strong> : :contact_name<br>
+<strong>E-mail</strong> : :email<br>
+<strong>Téléphone</strong> : :phone</p>'],
+            ['type' => 'button', 'label' => 'Voir la commande', 'url' => ':admin_url', 'variant' => 'primary'],
+        ]),
+    ],
+
+    // Paiement virement — notification équipe
+    'order.payment_offline_admin' => [
+        'subject' => 'Virement à rapprocher — :order_reference',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Paiement hors ligne'],
+            ['type' => 'text', 'html' => '<p>Une commande a été passée en paiement par virement. Vérifier la réception du virement avant de lancer la préparation.</p>'],
+            ['type' => 'text', 'html' => '<p><strong>Référence</strong> : :order_reference<br>
+<strong>Montant</strong> : :order_total € HT<br>
+<strong>Statut</strong> : :order_status<br>
+<strong>Société</strong> : :company_name<br>
+<strong>Contact</strong> : :contact_name<br>
+<strong>E-mail</strong> : :email<br>
+<strong>Téléphone</strong> : :phone</p>'],
+            ['type' => 'button', 'label' => 'Voir la commande', 'url' => ':admin_url', 'variant' => 'primary'],
         ]),
     ],
 
@@ -295,6 +355,20 @@ La fermeture pour les pros.</p>'],
             ['type' => 'text', 'html' => '<p>Merci de faire grandir WEKLO avec nous.<br>
 L\'équipe WEKLO<br>
 La fermeture pour les pros.</p>'],
+        ]),
+    ],
+
+    // Palier fidélité — notification équipe
+    'loyalty.tier_unlocked_admin' => [
+        'subject' => 'Palier :tier_name atteint — :company_name',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Nouveau palier de fidélité'],
+            ['type' => 'text', 'html' => '<p>:contact_name (:company_name) vient d\'atteindre le palier :tier_name.</p>'],
+            ['type' => 'text', 'html' => '<p><strong>E-mail</strong> : :email<br>
+<strong>Cadeau</strong> : :tier_benefit<br>
+<strong>Solde</strong> : :total_points points</p>'],
+            ['type' => 'button', 'label' => 'Voir la fiche client', 'url' => ':admin_url', 'variant' => 'primary'],
         ]),
     ],
 

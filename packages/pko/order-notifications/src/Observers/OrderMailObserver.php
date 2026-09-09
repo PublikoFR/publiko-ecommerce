@@ -7,11 +7,14 @@ namespace Pko\OrderNotifications\Observers;
 use Illuminate\Support\Facades\Log;
 use Lunar\Models\Order;
 use Pko\MailTemplates\Mail\TemplatedMail;
+use Pko\MailTemplates\Support\AdminRecipient;
 use Pko\MailTemplates\Support\OnceMailer;
 use Pko\OrderNotifications\Mail\FirstOrderGiftMail;
 use Pko\OrderNotifications\Mail\OrderConfirmedMail;
 use Pko\OrderNotifications\Mail\OrderDeliveredMail;
 use Pko\OrderNotifications\Mail\OrderPaymentReceivedMail;
+use Pko\OrderNotifications\Mail\OrderPlacedAdminMail;
+use Pko\OrderNotifications\Mail\PaymentOfflineAdminMail;
 use Pko\OrderNotifications\Support\OrderMailData;
 
 /**
@@ -38,6 +41,8 @@ class OrderMailObserver
         }
 
         $this->send(new OrderConfirmedMail($order), $order);
+        $this->sendAdmin(new OrderPlacedAdminMail($order), $order);
+        $this->sendPaymentOfflineAdmin($order);
     }
 
     public function updated(Order $order): void
@@ -46,6 +51,7 @@ class OrderMailObserver
         // c'est ce moment-là, et pas la création de la ligne, qui vaut confirmation.
         if ($order->wasChanged('placed_at') && $order->placed_at !== null) {
             $this->send(new OrderConfirmedMail($order), $order);
+            $this->sendAdmin(new OrderPlacedAdminMail($order), $order);
         }
 
         if (! $order->wasChanged('status')) {
@@ -55,6 +61,10 @@ class OrderMailObserver
         if (in_array($order->status, self::PAID_STATUSES, true)) {
             $this->send(new OrderPaymentReceivedMail($order), $order);
             $this->sendFirstOrderGift($order);
+        }
+
+        if ($order->status === 'payment-offline') {
+            $this->sendPaymentOfflineAdmin($order);
         }
 
         if ($order->status === 'delivered') {
@@ -116,5 +126,19 @@ class OrderMailObserver
         }
 
         OnceMailer::send($mail, $recipient, $order);
+    }
+
+    private function sendPaymentOfflineAdmin(Order $order): void
+    {
+        if ($order->status !== 'payment-offline') {
+            return;
+        }
+
+        $this->sendAdmin(new PaymentOfflineAdminMail($order), $order);
+    }
+
+    private function sendAdmin(TemplatedMail $mail, Order $order): void
+    {
+        AdminRecipient::send($mail, $order);
     }
 }

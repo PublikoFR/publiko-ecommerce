@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
+use Pko\CustomerAuth\Mail\CustomerRegisteredAdminMail;
 use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
 use Pko\CustomerAuth\Support\EmailVerification;
+use Pko\StorefrontCms\Models\Setting;
 use Tests\TestCase;
 
 class RegisterProCustomerTest extends TestCase
@@ -96,6 +98,49 @@ class RegisterProCustomerTest extends TestCase
             return $mail->hasTo($result['user']->email)
                 && $mail->customer->id === $result['customer']->id;
         });
+    }
+
+    public function test_notification_admin_part_avec_les_coordonnees(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+        Setting::set('admin_email', 'ops@example.test');
+        Setting::forget();
+        config()->set('customer-auth.admin_notification_email', 'ops@example.test');
+
+        $this->assertSame('ops@example.test', AdminRecipient::email());
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData([
+            'phone' => '06 12 34 56 78',
+            'first_name' => 'Jean',
+            'last_name' => 'Dupont',
+            'company_name' => 'ACME SAS',
+        ]));
+
+        Mail::assertSent(CustomerRegisteredAdminMail::class, function (CustomerRegisteredAdminMail $mail) use ($result): bool {
+            $this->assertTrue($mail->hasTo('ops@example.test'));
+            $this->assertSame('pro@example.test', $mail->values['email']);
+            $this->assertSame('ACME SAS', $mail->values['company_name']);
+            $this->assertSame('06 12 34 56 78', $mail->values['phone']);
+            $this->assertSame('tel:+33612345678', $mail->values['phone_url']);
+            $mail->build();
+            $this->assertTrue($mail->hasReplyTo($result['user']->email));
+
+            return true;
+        });
+    }
+
+    public function test_notification_admin_absente_si_pas_de_destinataire(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+        Setting::set('admin_email', '');
+        config()->set('customer-auth.admin_notification_email', null);
+        config()->set('loyalty.admin_email', null);
+
+        app(RegisterProCustomer::class)->handle($this->defaultData());
+
+        Mail::assertNotSent(CustomerRegisteredAdminMail::class);
     }
 
     public function test_email_reste_non_verifie_a_la_creation(): void

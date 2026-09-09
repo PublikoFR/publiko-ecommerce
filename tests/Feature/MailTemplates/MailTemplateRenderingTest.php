@@ -35,6 +35,22 @@ class MailTemplateRenderingTest extends TestCase
         ];
     }
 
+    public function test_les_mails_equipe_sont_marques_admin(): void
+    {
+        foreach ([
+            'account.registered_admin',
+            'order.placed_admin',
+            'order.payment_offline_admin',
+            'loyalty.tier_unlocked_admin',
+        ] as $key) {
+            $this->assertSame(
+                MailTemplateRegistry::AUDIENCE_ADMIN,
+                MailTemplateRegistry::audience($key),
+                "« {$key} » doit être destiné à l'équipe."
+            );
+        }
+    }
+
     public function test_chaque_cle_declaree_possede_un_contenu_par_defaut(): void
     {
         $defaults = TemplateResolver::defaults('fr');

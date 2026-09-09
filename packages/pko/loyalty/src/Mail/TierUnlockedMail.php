@@ -29,7 +29,7 @@ class TierUnlockedMail extends TemplatedMail
         ]);
     }
 
-    private static function benefit(LoyaltyTier $tier): string
+    public static function benefit(LoyaltyTier $tier): string
     {
         $benefit = (string) $tier->gift_title;
 
