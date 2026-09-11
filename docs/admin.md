@@ -338,6 +338,72 @@ suppression du groupe, mais reste détachée avant `delete()` (FK `NO ACTION`).
   qu'`AttachAction` + `EditAction` — cohérent en opt-in, bloquant chez nous
   (une restriction posée serait irréversible depuis l'admin). D'où l'extension.
 
+## Groupes clients et accès pro — strictement indépendants
+
+**Un groupe client ne conditionne JAMAIS la connexion.** Les groupes Lunar sont
+des étiquettes de tarification et de visibilité catalogue, que l'admin déplace
+librement depuis la fiche client — retirer « Nouveau client » une fois le compte
+qualifié, le basculer dans son groupe métier. C'est un geste d'administration
+courant, il ne doit avoir aucun effet sur l'authentification.
+
+`ProAccess::denialReason()` a longtemps exigé l'appartenance au groupe par
+défaut (`customer-auth.default_customer_group_handle`, « nouveau-client »).
+Conséquence signalée en production : **retirer ce groupe d'une fiche client
+rendait le compte inconnectable** (« Accès réservé aux comptes
+professionnels »), jusqu'à ce qu'on le lui remette. Le gate ne regarde donc plus
+les groupes du tout.
+
+Critères d'accès pro restants, dans l'ordre où ils sont évalués :
+
+| critère | motif de refus |
+|---|---|
+| session d'impersonation admin | — (bypass, cf. plus haut) |
+| session `JustRegistered` (auto-login post-inscription) | — (bypass) |
+| aucun `Customer` rattaché à l'utilisateur | compte non rattaché à une société |
+| `pko_status = banned` | compte suspendu |
+| `pko_status = pending` | e-mail non confirmé (lien renvoyé) |
+
+Le rattachement au groupe par défaut reste posé à l'inscription
+(`RegisterProCustomer`) — un client sans groupe n'a pas de prix — et
+`BackfillDefaultCustomerGroupCommand` sert toujours à rattraper les comptes
+historiques. Mais c'est désormais une question de **tarification**, plus jamais
+d'accès. Régression couverte par `ProAccessRedirectTest`
+(`test_customer_keeps_access_after_default_group_is_removed`,
+`test_customer_in_another_group_only_keeps_access`).
+
+## Colonne « Type de client » de la liste des commandes — « Retour » à tort
+
+La colonne affiche `lunar_orders.new_customer`, calculé par le job Lunar
+`MarkAsNewCustomer` : nouveau client ⟺ aucune commande **placée** antérieurement
+avec la même adresse e-mail de facturation. **Ce flag n'a aucun rapport avec le
+groupe client « Nouveau client »** — l'homonymie a fait croire à un lien de
+cause à effet.
+
+Le job est dispatché **dans la transaction** de `Lunar\Actions\Carts\CreateOrder`.
+Avec `after_commit = false` (défaut Laravel), il partait en file immédiatement :
+un worker rapide le consommait avant le commit, `Order::find()` ne trouvait rien
+et le job sortait **silencieusement** — sans échec, donc sans retry. La colonne
+gardait alors sa valeur par défaut (`false`) et affichait « Retour » pour un
+primo-commandant. Symptôme intermittent, au gré de la course entre le worker et
+le commit.
+
+Correction : `config/queue.php` pose `'after_commit' => env('QUEUE_AFTER_COMMIT', true)`
+sur les connexions `redis` et `database`. Rattrapage de l'historique :
+
+```bash
+make artisan CMD='lunar:orders:sync-new'
+```
+
+Couvert par `tests/Feature/Orders/NewCustomerFlagTest.php`, qui vérifie à la fois
+le calcul du flag et le garde-fou de configuration.
+
+**Libellés du badge** : Lunar affichait « Nouveau » / **« Retour »**, ce dernier se
+lisant comme un retour marchandise ou une demande SAV. Override partiel dans
+`lang/vendor/lunarpanel/fr/customer.php` (`table.new` / `table.returning`) →
+« Nouveau » / « Récurrent », aligné sur le filtre FR de Lunar déjà intitulé
+« Nouveau / Récurrent ». Laravel fusionne ce fichier par-dessus celui du package
+(`array_replace_recursive`), inutile de recopier tout le fichier.
+
 ## Suppression d'un groupe client — cascade dans les deux sens
 
 **Principe : une liaison se nettoie quel que soit le côté supprimé.**

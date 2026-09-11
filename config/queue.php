@@ -40,7 +40,8 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            // Voir la note « after_commit » plus bas : true par défaut.
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
         'beanstalkd' => [
@@ -69,7 +70,20 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            /*
+             * Les jobs ne sont poussés qu'APRÈS le commit de la transaction qui
+             * les a dispatchés. Sans ça, un worker rapide consomme le job avant
+             * le commit et ne trouve pas encore le modèle en base : il sort
+             * silencieusement, sans échec ni retry.
+             *
+             * Cas concret : Lunar\Jobs\Orders\MarkAsNewCustomer est dispatché
+             * DANS la transaction de CreateOrder. Perdu, il laisse
+             * `lunar_orders.new_customer` à sa valeur par défaut (false), donc la
+             * colonne « Type de client » du back-office affiche « Retour » pour
+             * un client qui commande pour la première fois — de façon
+             * intermittente, au gré de la course entre le worker et le commit.
+             */
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
     ],

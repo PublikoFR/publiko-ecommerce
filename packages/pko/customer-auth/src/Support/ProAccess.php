@@ -77,16 +77,21 @@ class ProAccess
         // (non vérifié quand INSEE est off, voire null), il ne peut donc pas
         // conditionner l'accès. Seule la vérification e-mail fait foi.
 
-        // Résolution tolérante (cf. DefaultCustomerGroup) : un handle non
-        // slugifié saisi dans l'admin refusait l'accès pro à tous les comptes.
-        // Le fallback valait par ailleurs 'installateurs' ici, un handle qui
-        // n'existe nulle part — donc un refus systématique si la config manquait.
-        $required = DefaultCustomerGroup::resolve();
-        if ($required === null
-            || ! $customer->customerGroups()->whereKey($required->id)->exists()
-        ) {
-            return 'Accès réservé aux comptes professionnels.';
-        }
+        // AUCUN gate sur les groupes clients. Les groupes Lunar servent à la
+        // tarification et à la visibilité catalogue, pas à l'authentification :
+        // ce sont des étiquettes que l'admin déplace librement depuis la fiche
+        // client (retirer « Nouveau client » une fois le client qualifié, le
+        // basculer dans son groupe métier…).
+        //
+        // Tant que ce gate exigeait l'appartenance au groupe par défaut, ce
+        // geste d'administration parfaitement légitime déconnectait le client
+        // définitivement — il ne pouvait plus se reconnecter tant qu'on ne lui
+        // remettait pas « Nouveau client ». Le rattachement au groupe par défaut
+        // reste posé à l'inscription (cf. RegisterProCustomer) pour que le client
+        // ait des prix, mais son retrait n'est plus un motif de refus.
+        //
+        // Le critère d'accès pro est donc : un compte rattaché à un Customer,
+        // non banni, dont l'e-mail est vérifié (pko_status).
 
         return null;
     }

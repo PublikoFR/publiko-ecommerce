@@ -11,8 +11,13 @@ use Pko\CustomerAuth\Support\DefaultCustomerGroup;
 /**
  * Rattache au groupe par défaut (« Nouveau client ») les clients qui n'y sont
  * pas — réparation des comptes créés pendant que le lookup du groupe échouait
- * (handle non slugifié, cf. DefaultCustomerGroup). Sans ce rattachement, ces
- * comptes restent sans accès pro (ProAccess::denialReason()).
+ * (handle non slugifié, cf. DefaultCustomerGroup). L'enjeu est la TARIFICATION :
+ * un client sans groupe n'a pas de prix. L'accès pro, lui, ne dépend plus
+ * d'aucun groupe (cf. ProAccess et docs/admin.md).
+ *
+ * À lancer avec discernement : la commande ne sait pas distinguer un client
+ * réellement orphelin d'un client dont l'admin a délibérément retiré « Nouveau
+ * client » pour le qualifier — elle le lui remettrait.
  *
  * Idempotente : ne touche que les clients réellement orphelins, n'en détache
  * aucun. `--dry-run` pour compter sans écrire.

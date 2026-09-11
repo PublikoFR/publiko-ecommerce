@@ -85,6 +85,38 @@ class ProAccessRedirectTest extends TestCase
         $this->assertNull(ProAccess::denialReason($user));
     }
 
+    public function test_customer_keeps_access_after_default_group_is_removed(): void
+    {
+        // Régression signalée par le client : retirer le groupe « Nouveau client »
+        // depuis la fiche client (geste normal de qualification en back-office)
+        // rendait le compte inconnectable — « Accès réservé aux comptes
+        // professionnels » — jusqu'à ce qu'on lui remette le groupe.
+        $user = $this->makeUser('degrouped@example.test', 'active');
+        $customer = $user->customers()->first();
+
+        $customer->customerGroups()->detach();
+
+        $this->assertNull(ProAccess::denialReason($user->fresh()));
+
+        $this->actingAs($user)->get('/compte')->assertOk();
+    }
+
+    public function test_customer_in_another_group_only_keeps_access(): void
+    {
+        // Variante du même geste : l'admin remplace « Nouveau client » par le
+        // groupe métier du client. L'accès doit suivre.
+        $user = $this->makeUser('metier@example.test', 'active');
+        $customer = $user->customers()->first();
+
+        $metier = CustomerGroup::firstOrCreate(
+            ['handle' => 'installateurs'],
+            ['name' => 'Installateurs', 'pko_is_metier' => true],
+        );
+        $customer->customerGroups()->sync([$metier->id]);
+
+        $this->assertNull(ProAccess::denialReason($user->fresh()));
+    }
+
     public function test_freshly_registered_pending_user_keeps_full_access(): void
     {
         // Régression « demi-connexion » : après inscription, l'utilisateur est
