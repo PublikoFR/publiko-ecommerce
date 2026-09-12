@@ -168,7 +168,9 @@ class SiteNameTest extends TestCase
         $order->refresh();
 
         $pipe = new PropagateCartSiteNamePipeline;
-        $pipe->handle($order, function (Order $o): Order { return $o; });
+        $pipe->handle($order, function (Order $o): Order {
+            return $o;
+        });
 
         $this->assertNull($order->fresh()->pko_site_name);
     }
@@ -191,7 +193,9 @@ class SiteNameTest extends TestCase
         $order->refresh();
 
         $pipe = new PropagateCartSiteNamePipeline;
-        $pipe->handle($order, function (Order $o): Order { return $o; });
+        $pipe->handle($order, function (Order $o): Order {
+            return $o;
+        });
 
         $this->assertSame(255, mb_strlen((string) $order->fresh()->pko_site_name));
     }

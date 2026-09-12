@@ -1,7 +1,7 @@
 <?php
 
-use Lunar\Base\OrderReferenceGenerator;
 use App\Pipelines\Orders\PropagateCartSiteNamePipeline;
+use Lunar\Base\OrderReferenceGenerator;
 use Lunar\Pipelines\Order\Creation\CleanUpOrderLines;
 use Lunar\Pipelines\Order\Creation\CreateOrderAddresses;
 use Lunar\Pipelines\Order\Creation\CreateOrderLines;
