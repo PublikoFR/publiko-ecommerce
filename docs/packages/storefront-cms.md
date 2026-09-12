@@ -52,6 +52,9 @@ Table `pko_brand_pages` (1-to-1 avec `lunar_brands`) : `brand_id unique FK, layo
 
 Admin : `ManageBrandContent` page Filament, injectée dans `BrandResource` via `BrandContentExtension::extendPages()` + `extendSubNavigation()`. `firstOrNewForBrand()` crée le BrandPage à la première visite si inexistant. ⚠ Propriété page renommée `$data` (array) car `$layout` et `$slug` sont des propriétés statiques de `Filament\Pages\Page` — redéclaration interdite.
 
+**Sub-navigation : pattern obligatoire pour les `Page` hors `InteractsWithRecord`**  
+`BrandResource` positionne la sous-navigation à `SubNavigationPosition::End` (colonne de droite). `ManageBrandContent` étend `Filament\Resources\Pages\Page` (pas `EditRecord`) — sans override, `getSubNavigation()` retourne `[]` et la sidebar disparaît. Fix : override `getSubNavigation()` → `static::getResource()::getRecordSubNavigation($this)` + `getSubNavigationParameters()` → `['record' => $this->record]`. Appliquer ce pattern à toute `Page` custom dans BrandResource ou tout autre resource avec sous-navigation.
+
 Storefront : route `/marque/{slug}` → `BrandController::show`. Résolution brand : Lunar Url (priorité) puis fallback sur `Str::slug($brand->name) === $slug`. Layout via `brandPage->layout` avec fallback `storefront-cms::brands.show`.
 
 

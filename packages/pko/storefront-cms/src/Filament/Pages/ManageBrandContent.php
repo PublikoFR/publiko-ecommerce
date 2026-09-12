@@ -8,6 +8,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Navigation\NavigationGroup;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Support\Enums\MaxWidth;
@@ -91,7 +92,7 @@ class ManageBrandContent extends Page implements HasForms
             'seo_description' => $data['seoDescription'] ?? null,
         ]);
 
-        Notification::make()->title('Métadonnées enregistrées')->success()->send();
+        Notification::make()->title(__('pko-storefront-cms::admin.brand_content.saved'))->success()->send();
     }
 
     public function getTitle(): string
@@ -102,5 +103,27 @@ class ManageBrandContent extends Page implements HasForms
     public function getMaxContentWidth(): MaxWidth
     {
         return MaxWidth::Full;
+    }
+
+    /**
+     * Expose la sous-navigation BrandResource (Modifier, Médias, URLs…) sur cette page.
+     * Sans ce override, ManageBrandContent (qui n'utilise pas InteractsWithRecord)
+     * retourne [] et la sidebar de sous-navigation disparaît.
+     *
+     * @return array<NavigationGroup>
+     */
+    public function getSubNavigation(): array
+    {
+        return static::getResource()::getRecordSubNavigation($this);
+    }
+
+    /**
+     * Fournit le record au générateur de liens de sous-navigation.
+     *
+     * @return array<string,mixed>
+     */
+    public function getSubNavigationParameters(): array
+    {
+        return ['record' => $this->record];
     }
 }
