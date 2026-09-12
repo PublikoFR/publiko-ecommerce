@@ -801,6 +801,8 @@ Tests : `CheckoutQuoteInterceptionTest::test_quote_only_cart_skips_the_shipping_
 
 La restriction à une liste reste possible : cocher des services dans **Admin → Expédition → Paramètres** limite le franco à ceux-ci. **Laisser le champ vide = tous les services** (la page convertit `[]` ⇄ `['*']`, le joker n'apparaît jamais comme option du select).
 
+> **Piège liste restrictive** : si une liste explicite a été enregistrée (ex. `['chrono_relais', 'chrono13']`), tout nouveau service ajouté ultérieurement (ex. `chrono10`) ne sera **pas** couvert automatiquement. Le symptôme est : « le franco offre certains services mais pas les nouveaux ». Correctif : retourner dans **Admin → Expédition → Paramètres**, vider le champ « Services couverts par le franco » (= joker, recommandé), ou cocher explicitement le service manquant.
+
 > Le joker ne touche ni les sentinelles « sur devis », ni les forfaits `flatPriceCents`, ni les suppléments `autoSurchargeCents` — un panier franco livré en Corse paie toujours son supplément (§5.12).
 
 Tests : `ShippingCalculatorTest::test_franco_applique_sur_tous_les_services_par_defaut` + `test_franco_restreint_a_chrono13_quand_la_config_le_precise`, `ShippingCasesTest::test_scenario_05_franco_offre_tous_les_services`, `e2e/tests/expeditions/modes-livraison.spec.ts`.
