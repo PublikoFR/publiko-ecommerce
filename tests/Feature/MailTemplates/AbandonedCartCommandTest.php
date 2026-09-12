@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\MailTemplates;
 
+use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -134,7 +135,7 @@ class AbandonedCartCommandTest extends TestCase
      */
     private function makeAbandonedCart(int $daysAgo): Cart
     {
-        $user = \App\Models\User::factory()->create();
+        $user = User::factory()->create();
         $channel = Channel::getDefault();
         $currency = Currency::getDefault();
 
