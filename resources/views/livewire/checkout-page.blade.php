@@ -157,6 +157,23 @@
                     @endif
                 @endif
 
+                @if ($currentStep >= $steps['payment'])
+                    <div class="bg-white border border-neutral-100 rounded-xl">
+                        <div class="flex items-center h-16 px-6 border-b border-neutral-100">
+                            <h3 class="text-lg font-medium">Nom du chantier</h3>
+                        </div>
+                        <div class="p-6">
+                            <x-ui.input
+                                wire:model.blur="siteName"
+                                label="Nom du chantier (optionnel)"
+                                hint="Permet d'identifier cette commande dans vos documents (facture, bon de livraison)."
+                                placeholder="Ex. : Résidence Les Acacias — Lot A"
+                                maxlength="255"
+                            />
+                        </div>
+                    </div>
+                @endif
+
                 @include('partials.checkout.payment', [
                     'step' => $steps['payment'],
                 ])

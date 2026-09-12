@@ -482,3 +482,23 @@ vérifié discriminant (rétablir le `DB::table()` reproduit le 1451 à l'identi
 Faute de cascade possible : le groupe par défaut Lunar, le groupe de l'inscription
 professionnelle (`customer-auth.default_customer_group_handle`), et les restrictions
 catalogue explicites.
+
+## Fiche commande — extensions ManageOrder
+
+Les champs métier custom sont ajoutés à la fiche commande Lunar via des `ResourceExtension`
+attachées à `ManageOrder::class` dans `AppServiceProvider::LunarPanel::extensions()`.
+`ResourceExtension` n'expose qu'un hook `headerActions()` (pas d'infolist) → les informations
+lisibles sont affichées sous forme de badge Action désactivé.
+
+### Nom du chantier (`pko_site_name`)
+
+Extension : `App\Filament\Extensions\OrderSiteNameExtension`.
+
+Affiche un badge "Chantier : <nom>" dans l'en-tête de la fiche quand `order->pko_site_name`
+est renseigné. Champ nullable string(255) sur `lunar_orders`, ajouté par la migration
+`2026_09_12_000001_add_pko_site_name_to_lunar_orders.php`.
+
+- **Saisie** : checkout step 4 (payment), champ optionnel persisté immédiatement dans `cart.meta['pko_site_name']` via `CheckoutPage::updatedSiteName()`.
+- **Propagation cart → order** : pipeline `App\Pipelines\Orders\PropagateCartSiteNamePipeline` (ajouté avant `MarkQuoteOrderAwaitingQuote` dans `config/lunar/orders.php`).
+- **Split quote** : `CreateSplitQuoteOrder` copie le champ depuis la commande payante directement dans l'INSERT (bypass pipeline).
+- **Modification client** : `Pko\Account\Livewire\OrderDetailPage::saveSiteName()` — re-guard ownership obligatoire dans la méthode (pas uniquement dans mount).

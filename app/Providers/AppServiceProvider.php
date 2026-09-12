@@ -11,6 +11,7 @@ use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
 use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
+use App\Filament\Extensions\OrderSiteNameExtension;
 use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
@@ -242,6 +243,7 @@ class AppServiceProvider extends ServiceProvider
                 OrderQuoteActionsExtension::class,
                 OrderShipmentActionsExtension::class,
                 OrderSplitBadgeExtension::class,
+                OrderSiteNameExtension::class,
             ],
             Dashboard::class => [
                 DisableBrokenChartsExtension::class,
