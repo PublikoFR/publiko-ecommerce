@@ -77,6 +77,17 @@ class MailTemplateResource extends Resource
                     Toggle::make('enabled')
                         ->label(__('pko-mail-templates::admin.field.enabled'))
                         ->helperText(__('pko-mail-templates::admin.field.enabled_help')),
+
+                    // Affiché uniquement pour le modèle « Panier non finalisé ».
+                    TextInput::make('settings.delay_days')
+                        ->label(__('pko-mail-templates::admin.field.delay_days'))
+                        ->helperText(__('pko-mail-templates::admin.field.delay_days_help'))
+                        ->numeric()
+                        ->integer()
+                        ->minValue(1)
+                        ->maxValue(90)
+                        ->default(5)
+                        ->hidden(fn (Get $get): bool => $get('key') !== 'cart.abandoned'),
                 ]),
 
         ]);

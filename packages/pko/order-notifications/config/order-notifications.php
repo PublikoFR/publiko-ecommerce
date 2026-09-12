@@ -16,8 +16,10 @@ return [
 
     /*
      * Délai d'inactivité, en heures, avant la relance panier (e-mail 11).
+     * Fallback si aucune valeur n'est définie en base (via Paramètres → E-mails).
+     * La valeur en base (jours) prend priorité : voir SendAbandonedCartMailsCommand.
      */
-    'abandoned_cart_hours' => (int) env('ABANDONED_CART_HOURS', 24),
+    'abandoned_cart_hours' => (int) env('ABANDONED_CART_HOURS', 120),
 
     /*
      * Délai, en jours, avant la relance d'un devis sans suite (e-mail 10).
