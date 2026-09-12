@@ -54,7 +54,7 @@ return [
         'threshold_eur_help' => 'Montant minimum du panier HT pour déclencher la livraison offerte.',
 
         'services' => 'Services couverts par le franco',
-        'services_help' => 'Laissez vide pour offrir le port sur TOUS les services au-delà du seuil (comportement par défaut). Sélectionnez des services pour restreindre le franco à ceux-ci — seuls les services actifs sont proposés.',
+        'services_help' => 'Laissez vide pour offrir le port sur TOUS les services au-delà du seuil (comportement recommandé). Si vous sélectionnez une liste, seuls les services cochés sont offerts — tout nouveau service ajouté ultérieurement ne sera PAS couvert automatiquement et devra être ajouté manuellement ici.',
         'services_placeholder' => 'Tous les services (laisser vide)',
         'services_orphan_group' => 'Codes enregistrés (service inactif ou supprimé)',
 
