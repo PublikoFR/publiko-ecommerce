@@ -50,6 +50,7 @@ final class CreateSplitQuoteOrder
             'tax_breakdown' => '[]',
             'discount_breakdown' => '[]',
             'shipping_breakdown' => '[]',
+            'pko_site_name' => $payableOrder->pko_site_name,
             'meta' => json_encode([
                 'split_from' => $payableOrder->id,
                 'split_group' => $splitGroup,

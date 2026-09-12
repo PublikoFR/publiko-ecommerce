@@ -76,6 +76,12 @@ class CheckoutPage extends Component
     public string $paymentType = 'card';
 
     /**
+     * Optional site/project name for this order (pro construction context).
+     * Persisted in cart.meta['pko_site_name'] immediately on update.
+     */
+    public ?string $siteName = null;
+
+    /**
      * How to handle a mixed cart (quote + payable lines).
      * 'split'     → pay payable now, quote order sent separately (default)
      * 'quote_all' → group everything into a single quote order
@@ -147,6 +153,8 @@ class CheckoutPage extends Component
         $this->billing = $this->cart->billingAddress
             ? $this->addressToArray($this->cart->billingAddress)
             : $this->prefilledAddress();
+
+        $this->siteName = $this->cart->meta['pko_site_name'] ?? null;
 
         $this->autoConfirmPrefilledAddress();
 
@@ -324,6 +332,29 @@ class CheckoutPage extends Component
 
         $this->chosenShipping = $this->shippingOption->getIdentifier();
         $this->currentStep = $this->steps['payment'];
+    }
+
+    /**
+     * Persist the site name to cart.meta on each blur event.
+     * Using updatedSiteName() (called by wire:model.blur) rather than storing
+     * only during checkout() ensures the value survives 3DS redirects that
+     * re-enter via mount() without going through checkout().
+     */
+    public function updatedSiteName(): void
+    {
+        if (! $this->cart) {
+            return;
+        }
+
+        $cleaned = filled($this->siteName) ? mb_substr(strip_tags((string) $this->siteName), 0, 255) : null;
+        $this->siteName = $cleaned;
+
+        $currentMeta = (array) ($this->cart->meta ?? []);
+        $this->cart->forceFill([
+            'meta' => array_merge($currentMeta, ['pko_site_name' => $cleaned]),
+        ])->save();
+
+        $this->cart = CartSession::current();
     }
 
     /**

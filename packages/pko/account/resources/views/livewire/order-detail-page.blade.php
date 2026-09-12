@@ -11,6 +11,39 @@
         <p class="text-sm text-neutral-500 mt-1">{{ optional($order->placed_at)->format('d/m/Y H:i') }} · <x-ui.badge variant="primary">{{ $order->status }}</x-ui.badge></p>
     </div>
 
+    {{-- Nom du chantier --}}
+    <x-ui.card padding="lg">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex-1">
+                <h2 class="font-bold text-neutral-900 mb-1">Nom du chantier</h2>
+                @if (! $editingSiteName)
+                    <p class="text-sm text-neutral-700">
+                        {{ $order->pko_site_name ?: '—' }}
+                    </p>
+                @else
+                    <div class="mt-2 space-y-3">
+                        <x-ui.input
+                            wire:model="siteName"
+                            placeholder="Ex. : Résidence Les Acacias — Lot A"
+                            maxlength="255"
+                            :error="$errors->first('siteName')"
+                        />
+                        <div class="flex gap-2">
+                            <x-ui.button wire:click="saveSiteName" size="sm" variant="primary">Enregistrer</x-ui.button>
+                            <x-ui.button wire:click="cancelEditSiteName" size="sm" variant="secondary">Annuler</x-ui.button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+            @if (! $editingSiteName)
+                <button wire:click="$set('editingSiteName', true)"
+                        class="shrink-0 text-sm font-medium text-primary-600 hover:text-primary-700">
+                    Modifier
+                </button>
+            @endif
+        </div>
+    </x-ui.card>
+
     <x-ui.card padding="lg">
         <h2 class="font-bold text-neutral-900 mb-4">Articles commandés</h2>
         <ul class="divide-y divide-neutral-100">
