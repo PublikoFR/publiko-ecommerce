@@ -3,12 +3,17 @@
 # echec produit une archive gzip vide dont le code retour est 0 → faux backup.
 SHELL := /bin/bash
 
-# Garde anti-wipe : detecte si make tourne depuis un worktree PKOS.
+# Garde anti-wipe : detecte si make tourne depuis un worktree d'orchestrateur.
 # container_name est fige dans compose.yaml → un worktree retombe sur le
 # conteneur principal = base de dev weklo. On bloque les commandes destructives
 # et on propage PKOS_WORKTREE=1 dans le conteneur pour la garde framework
 # (DB::prohibitDestructiveCommands dans AppServiceProvider).
-WORKTREE_GUARD := $(findstring /.pkos/worktrees/,$(CURDIR))
+#
+# Les deux emplacements sont testes : l'orchestrateur a migre ses worktrees de
+# ~/.pkos/worktrees/ vers ~/.timon/worktrees/. Ne detecter que l'ancien chemin
+# desactivait silencieusement la garde anti-wipe ET l'isolation de la base de
+# test par worktree (retour a la base partagee "testing").
+WORKTREE_GUARD := $(or $(findstring /.pkos/worktrees/,$(CURDIR)),$(findstring /.timon/worktrees/,$(CURDIR)))
 WT_ENV := $(if $(WORKTREE_GUARD),-e PKOS_WORKTREE=1,)
 
 # Isolation DB par worktree : derive un nom de base unique depuis le task ID

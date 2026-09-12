@@ -104,6 +104,14 @@ métier custom (ex. SIRET, paiement) doit être écrite directement en français
 
 **Hors worktree** (repo principal) : `make test` utilise toujours `testing` comme avant.
 
+**Détection du worktree — les deux emplacements sont testés.** `WORKTREE_GUARD` fait un `findstring` sur le `CURDIR`, et l'orchestrateur a migré ses worktrees de `~/.pkos/worktrees/` vers `~/.timon/worktrees/`. Ne détecter que l'ancien chemin désactivait **silencieusement** l'isolation de la base de test (retour à la base partagée `testing`) **et** la garde anti-wipe du §« Protection de la base de dev » — sans aucun message. Le Makefile matche désormais les deux :
+
+```makefile
+WORKTREE_GUARD := $(or $(findstring /.pkos/worktrees/,$(CURDIR)),$(findstring /.timon/worktrees/,$(CURDIR)))
+```
+
+Si l'orchestrateur change encore de racine de worktrees, **ajouter le nouveau chemin ici** est un prérequis avant tout lot de tasks parallèles. Vérification rapide : `make -f <(printf 'CURDIR := /chemin/simule\ninclude Makefile\ncheck:\n\t@echo [$(WORKTREE_GUARD)] [$(WT_DB_NAME)]\n') check`.
+
 **Pourquoi pas SQLite in-memory** : le projet utilise des colonnes JSON (fulltext search Lunar) et des FK multi-table → non compatible SQLite.
 
 **Pourquoi pas `paratest`** : l'user `weklo` ne peut pas créer les bases `testing_1`…`testing_N` nécessaires au parallélisme paratest — `SHOW GRANTS FOR 'weklo'@'%'` confirme grants uniquement sur `weklo` et `testing`.
