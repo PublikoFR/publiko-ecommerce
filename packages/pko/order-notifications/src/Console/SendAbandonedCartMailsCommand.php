@@ -82,7 +82,7 @@ class SendAbandonedCartMailsCommand extends Command
             ->where('key', 'cart.abandoned')
             ->first(['settings']);
 
-        $fromDb = (int) ($template?->settings['delay_days'] ?? 0);
+        $fromDb = (int) (($template?->settings ?? [])['delay_days'] ?? 0);
 
         if ($fromDb > 0) {
             return $fromDb;
