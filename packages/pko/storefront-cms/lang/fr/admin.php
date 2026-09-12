@@ -13,6 +13,9 @@ return [
     ],
     'brand_content' => [
         'nav' => 'Page marque',
+        'seo_section' => 'SEO & Configuration',
+        'save_meta' => 'Enregistrer les métadonnées',
+        'saved' => 'Métadonnées enregistrées',
     ],
     'home_offer' => [
         'nav' => 'Offres du moment',
