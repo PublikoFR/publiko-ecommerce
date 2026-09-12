@@ -273,3 +273,15 @@ Tests : `tests/Feature/Storefront/AddToCartAvailabilityTest` (ajout d'un produit
 `autoConfirmPrefilledAddress()` (appelée en `mount()`) pose l'adresse sur le panier **uniquement si tous les champs requis sont présents** — prénom, nom, ligne 1, ville, code postal, pays et un e-mail valide. Au moindre manque, le formulaire s'affiche comme avant. `shippingIsBilling` étant vrai par défaut, l'adresse de facturation est copiée dans la foulée, sinon le client enchaînait sur l'étape suivante avec les mêmes données à ressaisir. Le bouton « Modifier » du récapitulatif reste le chemin de correction.
 
 Tests : `CheckoutBindingTest` (le jeu de pays inclut l'Afghanistan pour prouver que le défaut ne vient pas du premier enregistrement), `CheckoutPrefilledAddressTest` (profil complet → récapitulatif, profil incomplet → formulaire, retour en modification).
+
+### Champ nom de chantier (pko_site_name)
+
+`CheckoutPage` expose une propriété publique `?string $siteName` liée au champ texte via `wire:model.blur`. Le hook Livewire `updatedSiteName()` est déclenché sur **chaque événement blur** (perte de focus) et persiste la valeur dans `cart->meta['pko_site_name']` via `$cart->update(['meta' => ...])`.
+
+**Pourquoi blur plutôt que submit ?** La persistance immédiate garantit que la valeur survit aux redirects 3DS (le tunnel paiement Stripe redirige l'utilisateur hors du domaine, puis le renvoie) — un champ soumis seulement en fin de step serait perdu à la redirection.
+
+**Sanitisation côté serveur** (dans `updatedSiteName()`) : `strip_tags()` + `mb_substr($value, 0, 255)` avant l'update du panier. Le champ est optionnel : une valeur vide ou nulle est acceptée sans erreur.
+
+**Propagation vers l'Order** : `PropagateCartSiteNamePipeline` (enregistré dans `config/lunar/orders.php → pipelines.creation`, positionné après `CreateOrderLines` et avant `MarkQuoteOrderAwaitingQuote`) lit `cart->meta['pko_site_name']` et le copie dans la colonne `pko_site_name` de la table `orders`. Le champ est également propagé lors d'un split de devis.
+
+Tests : `tests/Feature/PropagateCartSiteNamePipelineTest`, `tests/Feature/Storefront/CheckoutSiteNameTest`, `tests/Feature/Account/OrderSiteNameTest` (modification autorisée, autorisation 403 si commande d'un autre client, validation longueur).
