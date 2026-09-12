@@ -25,11 +25,13 @@ class MailTemplate extends Model
         'subject',
         'content',
         'enabled',
+        'settings',
     ];
 
     protected $casts = [
         'content' => 'array',
         'enabled' => 'boolean',
+        'settings' => 'array',
     ];
 
     protected static function booted(): void

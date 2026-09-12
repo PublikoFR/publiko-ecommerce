@@ -24,6 +24,8 @@ return [
         'audience' => 'Destinataire',
         'test_recipient' => 'Envoyer à',
         'test_recipient_help' => 'Le message part avec des données d\'exemple et un objet préfixé [TEST].',
+        'delay_days' => 'Délai de relance (jours)',
+        'delay_days_help' => 'Nombre de jours d\'inactivité du panier avant l\'envoi de la relance.',
     ],
 
     'block' => [
