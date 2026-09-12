@@ -98,12 +98,6 @@ final class OrderDelayActionExtension extends ResourceExtension
 
     private function resolveOrder(): ?Order
     {
-        $record = filament()->getCurrentPanel() ? request()->route('record') : null;
-
-        if ($record === null) {
-            return null;
-        }
-
-        return Order::find($record);
+        return $this->caller?->record instanceof Order ? $this->caller->record : null;
     }
 }
