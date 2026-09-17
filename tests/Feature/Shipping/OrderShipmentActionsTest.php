@@ -41,6 +41,26 @@ class OrderShipmentActionsTest extends TestCase
         $this->actingAs($staff, 'staff');
     }
 
+    public function test_la_liste_des_expeditions_lie_vers_la_fiche_commande(): void
+    {
+        $orderId = $this->makeOrderId();
+
+        CarrierShipment::create([
+            'order_id' => $orderId,
+            'carrier' => 'chronopost',
+            'service_code' => 'chrono13',
+            'origin' => CarrierShipment::ORIGIN_WEKLO,
+            'status' => CarrierShipment::STATUS_CREATED,
+            'tracking_number' => 'LT-10',
+        ]);
+
+        // Régression : la colonne Commande pointait vers une route inexistante
+        // (filament.admin.resources.orders.view) → 500 sur toute la liste.
+        $this->get('/admin/expedition/carrier-shipments')
+            ->assertOk()
+            ->assertSee("/admin/orders/{$orderId}", false);
+    }
+
     public function test_la_fiche_commande_expose_letiquette_et_le_bordereau_du_jour(): void
     {
         $orderId = $this->makeOrderId();
