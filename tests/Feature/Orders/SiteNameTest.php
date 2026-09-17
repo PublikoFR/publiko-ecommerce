@@ -19,7 +19,9 @@ use Lunar\Models\Country;
 use Lunar\Models\Currency;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
+use Pko\Account\Livewire\Dashboard;
 use Pko\Account\Livewire\OrderDetailPage;
+use Pko\Account\Livewire\OrdersPage;
 use Tests\TestCase;
 
 class SiteNameTest extends TestCase
@@ -263,6 +265,22 @@ class SiteNameTest extends TestCase
     }
 
     // ── Account OrderDetailPage Livewire tests ────────────────────────────────
+
+    public function test_liste_des_commandes_affiche_le_nom_de_chantier(): void
+    {
+        [$customer, $user] = $this->makeCustomerWithUser();
+        $this->makeOrderForCustomer($customer, 'payment-received', 'Résidence Les Pins');
+        $this->makeOrderForCustomer($customer, 'payment-received');
+
+        $this->actingAs($user);
+
+        Livewire::test(OrdersPage::class)
+            ->assertSee('Chantier : Résidence Les Pins')
+            ->assertDontSee('Chantier : —');
+
+        Livewire::test(Dashboard::class)
+            ->assertSee('Chantier : Résidence Les Pins');
+    }
 
     public function test_client_peut_modifier_le_nom_de_chantier_de_sa_commande(): void
     {

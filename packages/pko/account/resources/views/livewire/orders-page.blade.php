@@ -23,7 +23,12 @@
                     <tbody class="divide-y divide-neutral-100 text-sm">
                         @foreach ($orders as $order)
                             <tr class="hover:bg-neutral-50">
-                                <td class="px-4 py-3 font-mono font-semibold text-neutral-900">#{{ $order->reference ?? $order->id }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="font-mono font-semibold text-neutral-900">#{{ $order->reference ?? $order->id }}</span>
+                                    @if (filled($order->pko_site_name))
+                                        <p class="mt-0.5 max-w-xs truncate text-xs text-neutral-500" title="{{ $order->pko_site_name }}">Chantier : {{ $order->pko_site_name }}</p>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-neutral-600">{{ optional($order->placed_at)->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-4 py-3">
                                     <x-ui.badge variant="primary">{{ $order->status }}</x-ui.badge>
