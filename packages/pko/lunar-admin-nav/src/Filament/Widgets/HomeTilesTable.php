@@ -7,12 +7,20 @@ namespace Pko\AdminNav\Filament\Widgets;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Pko\AdminNav\Filament\Widgets\Concerns\ConfiguresResourceTableActions;
 use Pko\StorefrontCms\Filament\Resources\HomeTileResource;
 use Pko\StorefrontCms\Models\HomeTile;
 
 class HomeTilesTable extends BaseWidget
 {
+    use ConfiguresResourceTableActions;
+
     protected int|string|array $columnSpan = 'full';
+
+    protected function getTableResource(): string
+    {
+        return HomeTileResource::class;
+    }
 
     public function table(Table $table): Table
     {

@@ -66,6 +66,7 @@ Chaque raccourci est un `NavigationItem::make()->url(XxxResource::getUrl())` ave
 - 4 onglets : Paliers, Cadeaux débloqués, Historique des points, Configuration
 - Tab actif persisté via query string `?tab=paliers` (Livewire `#[Url]`)
 - Les 3 premiers onglets = `TableWidget` (Filament) qui réutilisent `Resource::table()` des Resources natives → zéro duplication de schéma
+- Chaque widget utilise le trait `Widgets\Concerns\ConfiguresResourceTableActions` (méthode `getTableResource()`). Sans lui, `EditAction` n'est configurée par personne hors page de Resource : ni URL d'édition, ni formulaire → modale vide. Le trait envoie vers la page `edit` si la Resource en a une, sinon ouvre le formulaire de la Resource en modale.
 - Le 4e onglet embarque le formulaire de `LoyaltySettings` (ratio points, email admin) inline
 
 ### `HomepageHub` (`admin/page-accueil`)
@@ -145,7 +146,7 @@ Pour retirer la réorganisation et revenir au menu Filament natif :
 
 **Ajouter une Resource au menu** : éditer `Builder::build()` et insérer `...self::navItems(NouvelleResource::class, sort: N)` dans le sous-array du groupe cible.
 
-**Nouveau hub à onglets** : créer une Page sous `src/Filament/Pages/`, des `TableWidget` sous `src/Filament/Widgets/`, enregistrer la Page dans `AdminNavPlugin::register()->pages([...])`.
+**Nouveau hub à onglets** : créer une Page sous `src/Filament/Pages/`, des `TableWidget` sous `src/Filament/Widgets/`, enregistrer la Page dans `AdminNavPlugin::register()->pages([...])`. Les `TableWidget` qui réutilisent `Resource::table()` doivent `use ConfiguresResourceTableActions`.
 
 **Nouvelle sub-navigation on-page** pour un groupe de Resources Lunar : dupliquer le pattern Taxes / Expédition — Pko subclass Resource avec `$subNavigationPosition = End` + Pko subclass pages redéclarant `$resource` + swap via reflection. Si les Resources visées sont dans `LunarPanelManager::$resources`, swap dans `AppServiceProvider`. Sinon (plugins Lunar satellites), swap dans `AdminNavPlugin::register()` au niveau du Panel.
 
