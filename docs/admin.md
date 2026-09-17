@@ -487,15 +487,25 @@ catalogue explicites.
 
 Les champs métier custom sont ajoutés à la fiche commande Lunar via des `ResourceExtension`
 attachées à `ManageOrder::class` dans `AppServiceProvider::LunarPanel::extensions()`.
-`ResourceExtension` n'expose qu'un hook `headerActions()` (pas d'infolist) → les informations
-lisibles sont affichées sous forme de badge Action désactivé.
+Deux types de hooks : `headerActions()` pour les actions d'en-tête, et les hooks statiques
+d'infolist de `ManageOrder` (`extendOrderSummarySchema`, `extendInfolistAsideSchema`…) pour
+afficher une information. Une information ne doit **pas** être un faux bouton désactivé.
+
+### Menu « Actions » de l'en-tête
+
+Extension : `App\Filament\Extensions\OrderHeaderActionsDropdownExtension`, enregistrée **en
+dernier** dans la liste `ManageOrder::class` (elle reçoit les actions de toutes les extensions
+précédentes). Elle regroupe toutes les actions d'en-tête (Lunar + PKO) dans un `ActionGroup`
+unique ; les sous-groupes (ex. avoirs Pennylane) deviennent des sections du menu
+(`dropdown(false)`). Les badges informatifs nommés `*_badge` (commande scindée) restent hors menu.
+Les tests `callAction('<nom>')` fonctionnent toujours : Filament met en cache les actions groupées.
 
 ### Nom du chantier (`pko_site_name`)
 
 Extension : `App\Filament\Extensions\OrderSiteNameExtension`.
 
-Affiche un badge "Chantier : <nom>" dans l'en-tête de la fiche quand `order->pko_site_name`
-est renseigné. Champ nullable string(255) sur `lunar_orders`, ajouté par la migration
+Affiche une ligne « Chantier » dans le résumé de commande (aside), juste sous la référence,
+via le hook `extendOrderSummarySchema`, quand `order->pko_site_name` est renseigné. Champ nullable string(255) sur `lunar_orders`, ajouté par la migration
 `2026_09_12_000001_add_pko_site_name_to_lunar_orders.php`.
 
 - **Saisie** : checkout step 4 (payment), champ optionnel persisté immédiatement dans `cart.meta['pko_site_name']` via `CheckoutPage::updatedSiteName()`.

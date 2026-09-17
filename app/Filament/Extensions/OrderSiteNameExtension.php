@@ -4,44 +4,44 @@ declare(strict_types=1);
 
 namespace App\Filament\Extensions;
 
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
+use Filament\Infolists\Components\Component;
+use Filament\Infolists\Components\TextEntry;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Models\Order;
 
 /**
- * Affiche le nom du chantier (pko_site_name) sur la fiche commande Filament.
- *
- * ResourceExtension n'expose pas de hook infolist : on utilise un badge
- * Action désactivé dans headerActions, conformément au pattern OrderSplitBadgeExtension.
+ * Affiche le nom du chantier (pko_site_name) sur la fiche commande Filament,
+ * dans le résumé de commande, juste sous la référence.
  */
 final class OrderSiteNameExtension extends ResourceExtension
 {
     /**
-     * @param  array<int, Action|ActionGroup>  $actions
-     * @return array<int, Action|ActionGroup>
+     * @param  array<int, Component>  $schema
+     * @return array<int, Component>
      */
-    public function headerActions(array $actions): array
+    public function extendOrderSummarySchema(array $schema): array
     {
-        $order = $this->resolveOrder();
+        $entry = TextEntry::make('pko_site_name')
+            ->label('Chantier')
+            ->alignEnd()
+            ->visible(fn (?Order $record): bool => filled($record?->pko_site_name));
 
-        if ($order === null || ! filled($order->pko_site_name)) {
-            return $actions;
+        $referenceIndex = null;
+        foreach ($schema as $index => $component) {
+            if ($component instanceof TextEntry && $component->getName() === 'reference') {
+                $referenceIndex = $index;
+                break;
+            }
         }
 
-        $actions[] = Action::make('site_name_badge')
-            ->label('Chantier : '.$order->pko_site_name)
-            ->icon('heroicon-o-building-office-2')
-            ->color('gray')
-            ->disabled()
-            ->button()
-            ->tooltip('Nom du chantier renseigné par le client à la commande.');
+        if ($referenceIndex === null) {
+            $schema[] = $entry;
 
-        return $actions;
-    }
+            return $schema;
+        }
 
-    private function resolveOrder(): ?Order
-    {
-        return $this->caller?->record ?? null;
+        array_splice($schema, $referenceIndex + 1, 0, [$entry]);
+
+        return $schema;
     }
 }
