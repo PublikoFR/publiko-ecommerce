@@ -65,11 +65,34 @@ En cas d'échec SMTP, la réservation est libérée : un rejeu ultérieur retent
 4. Brancher le déclencheur.
 5. `php artisan pko:mail-templates:sync`.
 
-**Revoir le contenu par défaut d'un e-mail existant** : la synchro sans `--force`
-ne touche pas une ligne déjà en base. Pour réappliquer un seul modèle sans
-écraser les retouches back-office des autres :
+### Revoir le contenu par défaut d'un e-mail existant
+
+La synchro sans `--force` ne touche pas une ligne déjà en base : modifier
+`fr.php` ne suffit pas pour qu'un texte revu arrive en production. Le passage
+se fait **par migration**, donc automatiquement au déploiement :
+
+1. Modifier le contenu dans `database/content/fr.php`.
+2. Recopier l'**ancienne** version (objet + contenu, telle qu'avant la
+   modification) dans `database/content/upgrades/<date>_<sujet>.php`, indexée
+   par clé. C'est de la DATA, comme `fr.php` (marque autorisée).
+3. Créer une migration qui appelle
+   `DefaultContentUpgrade::applyFile(__DIR__.'/../content/upgrades/<fichier>.php')`.
+
+`DefaultContentUpgrade` ne remplace le contenu en base **que s'il est encore
+identique à l'ancienne version** (comparaison sur l'arbre page-builder
+normalisé, identifiants retirés : un modèle ouvert puis réenregistré sans
+changement compte comme non retouché). Un texte ou un objet retouché en
+back-office est conservé et signalé par un `warning` dans les logs
+(`Mail template kept: customized in back-office`). `enabled` n'est jamais
+modifié. Sans ligne en base, rien n'est fait : la synchro la créera avec le
+nouveau contenu.
+
+Exemple : `2026_09_17_000100_upgrade_loyalty_tier_unlocked_mail_content`
+(encart cadeau). Test : `DefaultContentUpgradeTest`.
+
+Hors déploiement, pour forcer un seul modèle à la main (écrase les retouches) :
 `php artisan pko:mail-templates:sync --force --key=loyalty.tier_unlocked`
-(`--key` répétable). À lancer aussi en production après déploiement.
+(`--key` répétable).
 
 Les tests `MailTemplateRenderingTest` échouent si une clé n'a pas de contenu,
 si un contenu n'a pas de clé, ou si un placeholder utilisé n'est pas déclaré.
