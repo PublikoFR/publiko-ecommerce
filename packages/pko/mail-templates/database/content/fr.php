@@ -346,16 +346,40 @@ La fermeture pour les pros.</p>'],
     'loyalty.tier_unlocked' => [
         'subject' => 'Vous avez atteint un nouveau palier WEKLO 🎉',
         'enabled' => true,
-        'content' => $page([
-            ['type' => 'text', 'html' => '<p>Bonjour :first_name,</p>'],
-            ['type' => 'text', 'html' => '<p>Votre fidélité porte ses fruits 🎉</p>'],
-            ['type' => 'text', 'html' => '<p>Grâce à vos achats chez WEKLO, vous venez d\'atteindre :tier_name.</p>'],
-            ['type' => 'text', 'html' => '<p>Parce que nous considérons qu\'un client fidèle mérite plus qu\'un simple merci, ce nouveau niveau vous permet de bénéficier de :tier_benefit.</p>'],
-            ['type' => 'text', 'html' => '<p>Vous nous faites confiance, nous vous le rendons.</p>'],
-            ['type' => 'text', 'html' => '<p>Merci de faire grandir WEKLO avec nous.<br>
+        // Trois sections : l'encart cadeau (fond lime clair, photo + intitulé)
+        // est une section à part pour pouvoir porter son propre fond.
+        'content' => [
+            'heading' => '',
+            'sections' => [
+                ['layout' => '1col', 'columns' => [['blocks' => [
+                    ['type' => 'text', 'html' => '<p>Bonjour :first_name,</p>'],
+                    ['type' => 'text', 'html' => '<p>Votre fidélité porte ses fruits 🎉</p>'],
+                    ['type' => 'text', 'html' => '<p>Grâce à vos achats chez WEKLO, vous venez d\'atteindre le palier <strong>:tier_name</strong>.</p>'],
+                    ['type' => 'text', 'html' => '<p>Parce que nous considérons qu\'un client fidèle mérite plus qu\'un simple merci, ce nouveau niveau vous offre :</p>'],
+                ]]]],
+                [
+                    'layout' => '2col',
+                    'background_color' => '#f6faea',
+                    'padding' => ['t' => 20, 'r' => 20, 'b' => 6, 'l' => 20],
+                    'margin' => ['t' => 4, 'b' => 22],
+                    'columns' => [
+                        ['blocks' => [
+                            ['type' => 'image', 'url' => ':gift_image_url', 'alt' => ':gift_title'],
+                        ]],
+                        ['blocks' => [
+                            ['type' => 'title', 'level' => 'h3', 'text' => ':gift_title'],
+                            ['type' => 'text', 'html' => '<p>:gift_description</p>'],
+                        ]],
+                    ],
+                ],
+                ['layout' => '1col', 'columns' => [['blocks' => [
+                    ['type' => 'text', 'html' => '<p>Vous nous faites confiance, nous vous le rendons.</p>'],
+                    ['type' => 'text', 'html' => '<p>Merci de faire grandir WEKLO avec nous.<br>
 L\'équipe WEKLO<br>
 La fermeture pour les pros.</p>'],
-        ]),
+                ]]]],
+            ],
+        ],
     ],
 
     // Palier fidélité — notification équipe

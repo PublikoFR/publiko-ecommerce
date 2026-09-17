@@ -12,7 +12,8 @@ use Pko\MailTemplates\Mail\TemplatedMail;
  * E-mail 17 « Nouveau palier de fidélité ».
  *
  * `tier_benefit` reprend l'intitulé du cadeau du palier, et sa description
- * quand elle existe : le texte client ne prévoit qu'un seul emplacement.
+ * quand elle existe, en une seule phrase. `gift_title`, `gift_description` et
+ * `gift_image_url` servent à l'encart cadeau du message.
  */
 class TierUnlockedMail extends TemplatedMail
 {
@@ -26,7 +27,18 @@ class TierUnlockedMail extends TemplatedMail
             'tier_name' => (string) $tier->name,
             'tier_benefit' => self::benefit($tier),
             'total_points' => (string) $totalPoints,
+            'gift_title' => (string) $tier->gift_title,
+            'gift_description' => (string) ($tier->gift_description ?? ''),
+            'gift_image_url' => self::giftImageUrl($tier),
         ]);
+    }
+
+    /**
+     * URL absolue : un client mail ne résout pas un chemin relatif au site.
+     */
+    public static function giftImageUrl(LoyaltyTier $tier): string
+    {
+        return (string) $tier->firstMedia('gift_image')?->getFullUrl();
     }
 
     public static function benefit(LoyaltyTier $tier): string

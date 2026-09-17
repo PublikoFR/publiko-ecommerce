@@ -31,15 +31,37 @@ final class EmailLayout
      */
     public const MAX_SIDE_BY_SIDE = 3;
 
-    public static function columnWidth(int $columns): int
+    /**
+     * @param  int  $available  Largeur disponible : réduite du padding horizontal
+     *                          quand la section est encadrée (fond, marge interne).
+     */
+    public static function columnWidth(int $columns, int $available = self::CONTENT_WIDTH): int
     {
         if ($columns <= 1 || $columns > self::MAX_SIDE_BY_SIDE) {
-            return self::CONTENT_WIDTH;
+            return $available;
         }
 
         $gaps = self::COLUMN_GAP * ($columns - 1);
 
-        return (int) floor((self::CONTENT_WIDTH - $gaps) / $columns);
+        return (int) floor(($available - $gaps) / $columns);
+    }
+
+    /**
+     * Un bloc qui ne rendrait rien (image sans source, texte ou titre vides une
+     * fois les variables remplacées) ne doit pas occuper de place : sans ce
+     * filtre, une colonne ne contenant qu'une image absente resterait vide à
+     * côté du texte au lieu de lui laisser toute la largeur.
+     *
+     * @param  array<string, mixed>  $block
+     */
+    public static function blockIsEmpty(array $block): bool
+    {
+        return match ($block['type'] ?? '') {
+            'image' => empty($block['media_id']) && trim((string) ($block['url'] ?? '')) === '',
+            'text' => trim(strip_tags((string) ($block['html'] ?? ''), '<img>')) === '',
+            'title', 'callout' => trim((string) ($block['text'] ?? '')) === '',
+            default => false,
+        };
     }
 
     /** Largeur en pourcentage pour la table de repli Outlook. */

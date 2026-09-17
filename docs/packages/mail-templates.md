@@ -65,6 +65,12 @@ En cas d'échec SMTP, la réservation est libérée : un rejeu ultérieur retent
 4. Brancher le déclencheur.
 5. `php artisan pko:mail-templates:sync`.
 
+**Revoir le contenu par défaut d'un e-mail existant** : la synchro sans `--force`
+ne touche pas une ligne déjà en base. Pour réappliquer un seul modèle sans
+écraser les retouches back-office des autres :
+`php artisan pko:mail-templates:sync --force --key=loyalty.tier_unlocked`
+(`--key` répétable). À lancer aussi en production après déploiement.
+
 Les tests `MailTemplateRenderingTest` échouent si une clé n'a pas de contenu,
 si un contenu n'a pas de clé, ou si un placeholder utilisé n'est pas déclaré.
 
@@ -106,6 +112,28 @@ insèrent entre deux éléments inline ; chaque colonne rétablit sa taille.
 
 Géométrie dans `EmailLayout` : gabarit 600 px, padding 32 px, soit 536 px utiles ;
 2 colonnes → 260 px, 3 colonnes → 168 px, gouttière de 16 px.
+
+### Sections encadrées et blocs vides
+
+Une section dont `background_color` ou `padding` est renseigné (mêmes champs que
+dans l'éditeur de pages) est rendue dans une table à fond coloré, coins arrondis
+12 px. La largeur des colonnes est alors calculée sur la largeur utile **moins**
+le padding horizontal (`EmailLayout::columnWidth($n, $available)`) : 2 colonnes
+dans un encart de 20 px → 240 px.
+
+Un bloc qui ne rendrait rien une fois les variables remplacées (image sans
+source, texte ou titre vides) est retiré **avant** de compter les colonnes
+(`EmailLayout::blockIsEmpty()`). Sans ce filtre, une colonne ne contenant qu'une
+image absente laisserait un trou à côté du texte.
+
+Le champ `url` du bloc `image` accepte un placeholder (`:gift_image_url`). La
+valeur doit être une URL **absolue** : un client mail ne résout pas un chemin
+relatif.
+
+Exemple : `loyalty.tier_unlocked` présente le cadeau dans un encart lime clair
+(`#f6faea`), photo à gauche (`:gift_image_url`), intitulé et description à
+droite (`:gift_title`, `:gift_description`). Sans photo, le texte prend toute la
+largeur de l'encart.
 
 ### Texte riche
 

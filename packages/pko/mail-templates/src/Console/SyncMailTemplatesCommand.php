@@ -13,6 +13,7 @@ class SyncMailTemplatesCommand extends Command
 {
     protected $signature = 'pko:mail-templates:sync
                             {--force : Écrase les contenus déjà présents en base}
+                            {--key=* : Limite la synchronisation à ces clés (ex. --key=loyalty.tier_unlocked)}
                             {--locale=fr : Langue à synchroniser}';
 
     protected $description = 'Synchronise les contenus par défaut des e-mails vers la base.';
@@ -23,8 +24,15 @@ class SyncMailTemplatesCommand extends Command
         $force = (bool) $this->option('force');
         $created = 0;
         $updated = 0;
+        $only = array_filter((array) $this->option('key'));
 
         foreach (TemplateResolver::defaults($locale) as $key => $content) {
+            // `--force --key=…` : réapplique un contenu par défaut revu sans
+            // écraser les retouches faites en back-office sur les autres e-mails.
+            if ($only !== [] && ! in_array($key, $only, true)) {
+                continue;
+            }
+
             if (! MailTemplateRegistry::has($key)) {
                 $this->warn("Clé absente du registre, ignorée : {$key}");
 
