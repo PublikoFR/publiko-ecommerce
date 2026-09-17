@@ -61,6 +61,14 @@ services:
         # Contrepartie assumée : jusqu'à une minute de latence avant qu'un job parte,
         # exactement comme en production.
         command: php artisan schedule:work
+        # Les tâches `->runInBackground()` sont lancées par un `sh -c '(…) &'` qui
+        # rend la main aussitôt : le sous-shell orphelin est adopté par le PID 1.
+        # Sans init, ce PID 1 est `schedule:work` lui-même, qui n'appelle jamais
+        # `wait()` → un zombie PHP par tâche terminée, sans limite (8 000+ en 3 jours,
+        # jusqu'à gonfler la table des processus de l'hôte). `init: true` place
+        # `tini` en PID 1 pour les libérer. `restart` ne suffit pas : recréer le
+        # conteneur (`docker compose up -d scheduler`).
+        init: true
         depends_on:
             mysql:
                 condition: service_healthy
