@@ -8585,7 +8585,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/pko/pennylane",
-                "reference": "1edb4d778fdc201a742bab53a04df03a7492b7c5"
+                "reference": "a4ea0d40fe5c591291a7a4fc8217574f85fbcc11"
             },
             "require": {
                 "filament/filament": "^3.0",
@@ -8594,7 +8594,8 @@
                 "illuminate/queue": "^11.0",
                 "illuminate/support": "^11.0",
                 "lunarphp/core": "^1.0",
-                "php": "^8.2"
+                "php": "^8.2",
+                "pko/lunar-account": "@dev"
             },
             "require-dev": {
                 "orchestra/testbench": "^9.0",
