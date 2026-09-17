@@ -8,7 +8,7 @@
     <div>
         <a href="{{ route('account.orders') }}" class="text-sm text-primary-600 hover:text-primary-700 font-semibold">← Mes commandes</a>
         <h1 class="text-2xl font-display font-bold text-neutral-900 mt-1">Commande #{{ $order->reference ?? $order->id }}</h1>
-        <p class="text-sm text-neutral-500 mt-1">{{ optional($order->placed_at)->format('d/m/Y H:i') }} · <x-ui.badge variant="primary">{{ $order->status }}</x-ui.badge></p>
+        <p class="text-sm text-neutral-500 mt-1">{{ optional($order->placed_at)->format('d/m/Y H:i') }} · <x-ui.badge variant="primary">{{ order_status_label($order->status) }}</x-ui.badge></p>
     </div>
 
     {{-- Nom du chantier --}}

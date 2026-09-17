@@ -148,7 +148,7 @@
                         @php($tx = $order->transactions->where('type', 'capture')->first() ?? $order->transactions->first())
                         <div>
                             <dt class="font-medium text-neutral-800">Mode de paiement</dt>
-                            <dd class="mt-0.5 capitalize">{{ $tx->driver ?? '—' }}</dd>
+                            <dd class="mt-0.5">{{ payment_driver_label($tx->driver ?? null) }}</dd>
                         </div>
                         @if ($tx->reference)
                             <div>
@@ -158,13 +158,14 @@
                         @endif
                         <div>
                             <dt class="font-medium text-neutral-800">Statut paiement</dt>
-                            <dd class="mt-0.5">{{ $tx->status ?? '—' }}</dd>
+                            <dd class="mt-0.5">{{ payment_status_label($tx->status ?? null) }}</dd>
                         </div>
                     @endif
-                    @if ($order->shippingAddress?->shipping_option)
+                    @php($shippingName = optional($order->shipping_breakdown?->items)->first()?->name ?? $order->shippingAddress?->shipping_option)
+                    @if ($shippingName)
                         <div>
                             <dt class="font-medium text-neutral-800">Mode de livraison</dt>
-                            <dd class="mt-0.5">{{ $order->shippingAddress->shipping_option }}</dd>
+                            <dd class="mt-0.5">{{ $shippingName }}</dd>
                         </div>
                     @endif
                 </dl>

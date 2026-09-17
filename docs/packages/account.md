@@ -41,3 +41,17 @@ Exemple : `OrderDetailPage::saveSiteName()` re-garde l'appartenance même si `mo
 - Validation : max 255, strip_tags côté serveur.
 
 Voir `docs/admin.md` § "Nom du chantier" pour la chaîne complète cart → order.
+
+## Libellés de statut de commande
+
+Les slugs Lunar (`payment-received`, `awaiting-quote`…) restent la valeur stockée et comparée. L'affichage (espace client, e-mails, checkout) passe par le helper `order_status_label()` (`Pko\Account\Support\OrderStatusLabel`), qui lit `config('lunar.orders.statuses.<slug>.label')` et retombe sur le slug si aucun libellé n'existe.
+
+Helpers globaux (autoload `packages/pko/account/src/helpers.php`) :
+
+| Helper | Usage |
+|---|---|
+| `order_status_label(?string $status)` | Statut de commande |
+| `payment_driver_label(?string $driver)` | Driver de transaction (`stripe` → « Carte bancaire ») |
+| `payment_status_label(?string $status)` | Statut de transaction |
+
+Ne pas dupliquer les libellés de statut : toute nouvelle valeur va dans `config/lunar/orders.php`.

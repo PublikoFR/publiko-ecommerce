@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\OrderNotifications\Support;
 
 use Lunar\Models\Order;
+use Pko\Account\Support\OrderStatusLabel;
 use Pko\MailTemplates\Support\PhoneLink;
 
 /**
@@ -91,9 +92,7 @@ final class OrderMailData
 
     public static function statusLabel(Order $order): string
     {
-        $label = config('lunar.orders.statuses.'.$order->status.'.label');
-
-        return is_string($label) && $label !== '' ? $label : (string) $order->status;
+        return OrderStatusLabel::of($order->status);
     }
 
     /** @return array<string, string> */
