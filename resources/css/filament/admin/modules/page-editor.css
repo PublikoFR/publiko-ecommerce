@@ -128,6 +128,14 @@
     font-weight: 600;
     color: var(--text-muted);
 }
+.wk-editor .wk-crumb a {
+    color: inherit;
+    text-decoration: none;
+}
+.wk-editor .wk-crumb a:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
 .wk-editor .wk-crumb b {
     color: var(--text-secondary);
 }
@@ -305,6 +313,7 @@
     cursor: pointer;
     white-space: nowrap;
     line-height: 1;
+    text-decoration: none;
     transition: filter 0.15s ease, background 0.15s ease;
 }
 .wk-editor .wk-btn:hover {
