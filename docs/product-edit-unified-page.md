@@ -8,7 +8,7 @@ Le back-office Lunar natif éclate l'édition d'un produit en ~10 sous-pages (Av
 
 ### Architecture
 
-On **n'introduit pas de Filament Resource custom** (cf. règle CLAUDE.md §3.1.9). À la place, on **subclasse** `Lunar\Admin\Filament\Resources\ProductResource` et on remplace sa page `edit` via le pattern `swapLunarResources()` déjà en place dans `AppServiceProvider`.
+On **n'introduit pas de Filament Resource custom** (cf. règle AGENTS.md §3.1.6). À la place, on **subclasse** `Lunar\Admin\Filament\Resources\ProductResource` et on remplace sa page `edit` via le pattern `swapLunarResources()` déjà en place dans `AppServiceProvider`.
 
 - `App\Filament\Resources\PkoProductResource` — masque la sous-navigation (`getDefaultSubNavigation() => []`) et remap `edit` sur la nouvelle page.
 - `App\Filament\Resources\PkoProductResource\Pages\EditProductUnified` — page Filament custom (extends `Page`) avec `InteractsWithForms` pour embarquer le `MediaPicker`.

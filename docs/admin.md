@@ -210,7 +210,7 @@ Le footer `sticky bottom-0` du form `EditProductUnified` se détachait quand on 
 
 Voir `docs/product-edit-unified-page.md`. En résumé :
 
-- Subclasse `Lunar\Admin\Filament\Resources\ProductResource` via le pattern `swapLunarResources()` déjà en place — **pas** de Filament Resource custom (cohérent avec la règle §3.1.9 du `CLAUDE.md`).
+- Subclasse `Lunar\Admin\Filament\Resources\ProductResource` via le pattern `swapLunarResources()` déjà en place — **pas** de Filament Resource custom (cohérent avec la règle `AGENTS.md` §3.1.6).
 - Sous-navigation Lunar masquée (`getDefaultSubNavigation() => []`).
 - Page Livewire unique (`EditProductUnified`) avec état plat + mini Filament Form embarqué uniquement pour le `MediaPicker` (Pko).
 - Persistance : transaction unique — attributs, prix (y compris paliers B2B natifs Lunar via `min_quantity`), variantes, collections, tags (job Lunar `SyncTags`), features (CatalogFeatures), associations (cross-sell).

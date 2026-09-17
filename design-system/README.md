@@ -11,6 +11,20 @@ Front doit s'y référer.
 > exécutés. L'implémentation réelle se fait en composants **Blade + Alpine +
 > Tailwind** dans `packages/pko/storefront` et les autres packages front.
 
+## Règles d'implémentation Front Office — obligatoires
+
+Référencées par `AGENTS.md §3.3`. S'appliquent à **tout le Front Office** : pages, layouts, composants Blade, Livewire, e-mails transactionnels côté client.
+
+1. **Tokens uniquement** : couleurs via les classes Tailwind mappées sur le DS (`primary` = forest `#00453e`, `accent`/`lime` = `#aac932`, `neutral` green-tinted, `success`/`warning`/`danger`/`info`) ou les variables CSS de `resources/css/app.css` (`var(--surface-*)`, `var(--text-*)`, `var(--shadow-*)`, `var(--radius-*)`…). **Jamais** de hex en dur dans une vue front.
+2. **Typo** : `font-display` (Forno Waffle) pour les titres, `font-sans` (Hanken Grotesk) pour le corps, `font-mono` (IBM Plex Mono) pour les données (réf. produit, prix techniques).
+3. **Formes & ombres** : coins arrondis généreux (`rounded-md/xl/2xl`), ombres forest-teintées (`shadow-sm/md/lg`, `shadow-accent` pour le CTA lime unique).
+4. **Accent lime = parcimonie** : `bg-accent-500` réservé à **un seul CTA fort par vue**. Le reste des actions = `primary`.
+5. **Icônes** : Lucide, trait 2px arrondi, jamais d'emoji.
+6. **Composants réutilisables** : étendre les composants Blade existants (`packages/pko/storefront/resources/views/components/ui/*` et `storefront/*`), alignés sur `design-system/components/*.prompt.md`. Ne pas dupliquer un composant existant.
+7. **Habillage** : motif via `public/img/habillage.svg` + helpers `.wk-decor*`, en filigrane (5–12 % d'opacité), jamais dominant (détail plus bas).
+8. **Feature absente du prototype** `ui_kits/ecommerce/` : l'implémenter avec les mêmes tokens/composants, sans inventer de style.
+9. **Branding dynamique** : cf. « Point de vigilance branding » plus bas.
+
 ## Comment les tokens sont branchés dans le projet
 
 | Token DS | Où c'est câblé dans le projet |
