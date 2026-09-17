@@ -25,18 +25,29 @@ class TemplatedMail extends Mailable
     use Queueable;
     use SerializesModels;
 
-    /** @var array{subject: string, content: array<string, mixed>, enabled: bool}|null */
-    private ?array $template;
+    /**
+     * `protected` et non `private` : SerializesModels ne restaure que les
+     * propriétés visibles depuis la classe fille. Une propriété privée du
+     * parent revient non initialisée du worker, et build() plante.
+     *
+     * @var array{subject: string, content: array<string, mixed>, enabled: bool}|null
+     */
+    protected ?array $template;
 
     /**
      * @param  array<string, string|int|float|null>  $values
      */
     public function __construct(
-        public readonly string $key,
-        public readonly array $values = [],
+        // Pas de `readonly` sur ces trois propriétés : le worker de file les
+        // restaure par réflexion depuis la portée de la classe fille
+        // (SerializesModels::__unserialize), ce que PHP refuse pour une
+        // propriété readonly déclarée dans la classe parente. Toute sous-classe
+        // en ShouldQueue échouait alors sur une vraie file (redis, database).
+        public string $key,
+        public array $values = [],
         // `$locale` est déjà défini par Illuminate\Mail\Mailable (et non readonly) :
         // le redéclarer ici casse le chargement de la classe.
-        public readonly string $templateLocale = 'fr',
+        public string $templateLocale = 'fr',
     ) {
         $this->template = TemplateResolver::resolve($key, $templateLocale);
     }

@@ -127,6 +127,17 @@ Si l'orchestrateur change encore de racine de worktrees, **ajouter le nouveau ch
 ---
 
 
+## Quand lancer quels tests (2026-09-17)
+
+| Moment | Tests |
+|---|---|
+| Boucle de dev, avant commit, avant merge | `make test-only T=<chemin>` sur les tests liés au changement |
+| Déploiement dev / pré-prod | Aucun test supplémentaire |
+| **Déploiement PRODUCTION** | `make test` (suite complète) + `npm run test:e2e` |
+| Sur demande explicite | `make test` et/ou `npm run test:e2e` |
+
+Pourquoi : la suite complète dépasse largement le délai des shells d'agent. Coupée en cours, elle laisse la base `testing` à moitié détruite (`SQLSTATE[42S02]` / `[42S01]` sur les runs suivants) — la recréer (`DROP`/`CREATE DATABASE testing`) avant de relancer quoi que ce soit.
+
 ## Découpage de `make test` en chunks (anti-segfault cumulatif)
 
 **Problème** : voir « Cause 2 » ci-dessus — un unique process PHP exécutant les 316 tests accumule de l'état jusqu'au crash (~80% des runs).
@@ -254,7 +265,7 @@ docker compose exec -u sail app php artisan migrate:fresh --env=testing   # ⛔ 
    - Base absente ou sans aucune table → le dump est ignoré avec un message (rien à perdre), ce qui garde `make install` fonctionnel sur une machine vierge.
 
 **Règles** :
-- **Un agent PKOS ne lance JAMAIS `migrate:fresh` / `db:wipe` sur la base dev.** Pour valider une migration → **`make test`** (base `testing`, jamais la dev).
+- **Un agent PKOS ne lance JAMAIS `migrate:fresh` / `db:wipe` sur la base dev.** Pour valider une migration → **`make test-only T=<chemin>`** (base `testing`, jamais la dev).
 - Reset réel de la dev → `make fresh` (humain), qui porte le bypass. Ne jamais ajouter `ALLOW_DB_WIPE=1` à la main dans une commande d'agent.
 - **`--env=testing` ne cible PAS la base de test** (pas de `.env.testing` dans ce projet) et ne doit jamais être employé pour « sécuriser » une commande destructive. Pour viser explicitement la base de test : `-e DB_DATABASE=testing`, ou plus simplement `make test`.
 - **`--database=testing` n'existe pas non plus** : `config/database.php` ne déclare aucune connexion de ce nom (uniquement `mysql`, `sqlite`…).

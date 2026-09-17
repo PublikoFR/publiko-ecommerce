@@ -34,6 +34,15 @@ fera lui-même, hors skill) :
 
 ## Procédure (dans l'ordre)
 1. **Vérifier la config** (prérequis). Manquant → STOPPER.
+1bis. **Suite complète + E2E — obligatoires avant la PROD** (et seulement ici,
+   jamais pour le déploiement dev) :
+   ```bash
+   make test
+   npm run test:e2e
+   ```
+   Longues (bien au-delà du délai d'un shell) : les lancer en arrière-plan et
+   attendre la fin, ne jamais les couper en cours (base `testing` corrompue).
+   Rouge → STOPPER, afficher les échecs, ne pas déployer.
 2. **Dry-run d'abord** :
    ```bash
    DRY_RUN=true bash deploy/deploy.sh deploy/prod.env

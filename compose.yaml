@@ -74,8 +74,13 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_started
+        # `traefik_network` est nécessaire pour joindre le Mailpit partagé
+        # (`MAIL_HOST=mailpit`) : c'est ce conteneur qui dépile la file, donc qui
+        # envoie tous les mails en ShouldQueue. Sans lui : « getaddrinfo for
+        # mailpit failed » et aucun mail en file n'arrive en local.
         networks:
             - backend
+            - traefik_network
 
     mysql:
         image: mysql:8.0

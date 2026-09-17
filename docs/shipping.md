@@ -924,6 +924,8 @@ Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, comm
 
    Contrepartie assumée : jusqu'à une minute de latence avant qu'un job démarre. `make scheduler-logs` suit l'activité, `make schedule-list` liste les tâches et leur prochain passage, `make queue-status` donne la profondeur de file.
 
+   > **`traefik_network` obligatoire sur ce service** (2026-09-17). C'est le scheduler qui dépile la file, donc qui envoie tous les mails en `ShouldQueue`. Le Mailpit partagé (`MAIL_HOST=mailpit`) n'est joignable que via `traefik_network` : rattaché au seul réseau `backend`, l'envoi échoue sur « getaddrinfo for mailpit failed » et aucun mail en file n'arrive en local.
+
    > **`init: true` obligatoire sur ce service** (2026-09-17). Les tâches `->runInBackground()` sont lancées via `sh -c '(…) &'` : le sous-shell orphelin est adopté par le PID 1 du conteneur. Sans init, ce PID 1 est `schedule:work` — PHP n'appelle jamais `wait()` sur des enfants adoptés, donc chaque tâche terminée laisse un zombie `[php] <defunct>` (≈4/min, 8 344 après 3 j 15 h, table des processus de l'hôte saturée). `init: true` injecte `tini` en PID 1, qui les libère. Ne pas retirer `runInBackground()` : il est nécessaire en prod (tick cron d'une minute, tâches longues), où le vrai init récupère les orphelins. Les autres conteneurs n'en ont pas besoin : `app` a `apache2` en PID 1, qui récupère ses enfants, et `mysql`/`redis` ne forkent pas de sous-processus orphelins.
 
    > Ne pas ajouter en plus un service `queue:work` résident : deux consommateurs sur la même file font doublon, et un worker résident garde le code en mémoire — il continuerait d'exécuter l'ancienne version d'un job jusqu'au redémarrage du conteneur, ce qui fait croire à un correctif sans effet.
