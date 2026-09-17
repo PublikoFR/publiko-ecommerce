@@ -12,6 +12,8 @@ L'admin Lunar enregistre ~20 resources dans 3 groupes anglais (`Catalog`, `Sales
 
 **Traductions** : `lang/vendor/lunarpanel/fr/global.php` mappe `catalog→Catalogue`, `sales→Commandes`, `settings→Configuration`. Les resources Lunar tombent maintenant dans les bons groupes français.
 
+**Libellés de slugs** : liste et fiche commande Lunar lisent déjà `config('lunar.orders.statuses.*.label')`. La vue publiée `resources/views/vendor/lunarpanel/infolists/components/transaction.blade.php` traduit le driver et le statut de paiement via `payment_driver_label()` / `payment_status_label()`. Ne jamais modifier `vendor/`.
+
 **Sous-classes** : 4 resources dans `app/Filament/Resources/Pko*Resource.php` étendent les resources Lunar `ProductTypeResource`, `ProductOptionResource`, `AttributeGroupResource`, `CollectionGroupResource` pour changer uniquement `getNavigationGroup()` → `'Paramètres catalogue'`. `ProductTypeResource` retire aussi `getNavigationParentItem()` (était imbriqué sous "Produits").
 
 **Reflection swap** : `LunarPanelManager::$resources` est `protected static` sans setter. `AppServiceProvider::swapLunarResources()` utilise `ReflectionProperty` pour substituer les 4 classes **avant** `register()`. Fragile en cas de changement interne Lunar — à surveiller lors des mises à jour.

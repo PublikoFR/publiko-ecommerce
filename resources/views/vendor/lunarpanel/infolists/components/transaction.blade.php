@@ -30,7 +30,7 @@
 >
     <div class="p-2 space-y-2">
         <div class="px-4 py-2 rounded text-xs bg-white dark:bg-gray-800 shadow text-gray-600 dark:text-gray-400 ring-1 ring-gray-100 dark:ring-gray-700">
-            <span>{{ $transaction->driver }}</span> //
+            <span>{{ payment_driver_label($transaction->driver) }}</span> //
             @if($stripeUrl)
                 <a
                     href="{{ $stripeUrl }}"
@@ -50,7 +50,7 @@
             <div class="flex items-center gap-6">
                 <div>
                     <strong class="text-xs">
-                        {{ $transaction->status }}
+                        {{ payment_status_label($transaction->status) }}
                     </strong>
                 </div>
 

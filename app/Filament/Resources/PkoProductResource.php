@@ -121,11 +121,10 @@ class PkoProductResource extends ProductResource
             ->sortable()
             ->toggleable()
             ->getStateUsing(fn (Product $record) => $record->deleted_at ? 'deleted' : $record->status)
-            ->formatStateUsing(fn (string $state) => match ($state) {
-                'published' => 'Publié',
-                'draft' => 'Brouillon',
-                'deleted' => 'Supprimé',
-                default => ucfirst($state),
+            ->formatStateUsing(function (string $state): string {
+                $key = 'lunarpanel::product.table.status.states.'.$state;
+
+                return trans()->has($key) ? (string) __($key) : $state;
             })
             ->color(fn (string $state) => match ($state) {
                 'published' => 'success',
