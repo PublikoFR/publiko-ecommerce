@@ -61,12 +61,74 @@ Les pages par défaut de Lunar (ex: `Lunar\Admin\...\ListProductTypes`) déclare
 - Les ~300 `->label('...')` form fields non wrappés
 - Traduction des commentaires/README en anglais
 
-### Création d'un nouveau package — checklist
+### Création d'un nouveau package — checklist obligatoire
 
-Voir `CLAUDE.md §3.2` pour la checklist complète. En résumé :
-1. `packages/pko/<feature-kebab>/` avec composer.json + README.md + ServiceProvider
-2. Ajouter `"pko/lunar-<feature>": "@dev"` dans le root composer.json require (pas d'autoload)
-3. Si médias attachés : require `pko/lunar-media-core` + trait HasMediaAttachments
-4. Si Resource extends Lunar : override `getDefaultPages()` avec sous-classes
-5. Labels admin wrappés `__()` + `lang/fr/admin.php`
+Référencée par `AGENTS.md §3.2`. Tous les modules custom vivent sous `packages/pko/<feature>/`, installés via path repositories. **Jamais** d'entrée PSR-4 dans le `composer.json` racine ni de provider dans `bootstrap/providers.php`.
 
+1. **Nommage**
+   - Dossier : `packages/pko/<feature-kebab>/` (ex : `packages/pko/my-feature/`)
+   - Namespace : `Pko\MyFeature\` (PascalCase)
+   - Composer `name` : `pko/lunar-<feature-kebab>` (ex : `pko/lunar-my-feature`)
+   - ServiceProvider : `Pko\MyFeature\MyFeatureServiceProvider`
+
+2. **Fichiers obligatoires** à la racine du package :
+   - `composer.json` avec `name`, `description`, `type: "library"`, `license: "proprietary"`, `require` (dont toutes les cross-deps `pko/lunar-*`), `autoload.psr-4`, et **impérativement** `extra.laravel.providers` (auto-discovery)
+   - `README.md` minimal : description en une phrase + install + dépendances
+   - `src/<Feature>ServiceProvider.php` : `loadMigrationsFrom`, `loadViewsFrom`, `loadRoutesFrom`, `loadTranslationsFrom` selon le besoin
+
+3. **i18n minimal** : toute Filament Resource/Page avec `navigationLabel`/`modelLabel`/`pluralModelLabel` wrappe ces labels avec `__()` + fichier `lang/fr/admin.php` dans le package.
+   ```php
+   public static function getNavigationLabel(): string
+   {
+       return __('pko-<feature>::admin.<resource>.nav');
+   }
+   ```
+   `ServiceProvider::boot()` appelle `loadTranslationsFrom(__DIR__.'/../lang', 'pko-<feature>')` et `publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/pko-<feature>')], 'pko-<feature>-lang')`.
+
+4. **Médias** : si le package attache des fichiers à un modèle → `"pko/lunar-media-core": "@dev"` dans `require` + trait `Pko\LunarMediaCore\Concerns\HasMediaAttachments` + composant `Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker`. Jamais de pivot polymorphique maison.
+
+5. **Branding** : aucun nom de client dans le nom de package, le namespace, les labels (cf. `AGENTS.md §3.0`).
+
+6. **Enregistrement root** : ajouter `"pko/lunar-<feature>": "@dev"` dans `require` du `composer.json` racine. Le repository `type=path, url=packages/pko/*` le découvre automatiquement.
+
+7. **Resource Lunar subclassée** : override de `getDefaultPages()` (cf. section suivante).
+
+8. **Ce qu'il ne faut PAS faire**
+   - ❌ Ajouter le namespace dans `autoload.psr-4` du `composer.json` racine
+   - ❌ Ajouter le ServiceProvider dans `bootstrap/providers.php`
+   - ❌ Ajouter `autoload.files` dans le root pour les helpers du package (mettre `"files"` dans le `composer.json` du package)
+
+### Swap de Resource Lunar — pattern obligatoire
+
+Complète le gotcha `$resource` hardcodé ci-dessus. Si on subclasse une Resource Lunar (`PkoProductTypeResource extends ProductTypeResource`), override obligatoire de `getDefaultPages()` avec des sous-classes de pages qui redéclarent `$resource` :
+
+```php
+// PkoProductTypeResource.php
+public static function getDefaultPages(): array
+{
+    return [
+        'index' => PkoListProductTypes::route('/'),
+        'create' => PkoCreateProductType::route('/create'),
+        'edit' => PkoEditProductType::route('/{record}/edit'),
+    ];
+}
+
+// PkoProductTypeResource/Pages/PkoListProductTypes.php
+class PkoListProductTypes extends \Lunar\Admin\...\ListProductTypes
+{
+    protected static string $resource = PkoProductTypeResource::class;
+}
+```
+
+S'applique aux Resources swappées via reflection dans `AppServiceProvider::swapLunarResources()`.
+
+**Swap par réflexion dans un cluster** (pattern `PkoXResource` + `SwapXResourcesPlugin`) : en plus de remplacer dans `$panel->resources`, populer `$panel->clusteredComponents[$cluster][]` si la Resource déclare `$cluster`. Sinon elle a bien sa route mais n'apparaît pas dans la sub-nav du cluster. Implémentation de référence : `Pko\ShippingCommon\Filament\SwapLunarShippingResourcesPlugin`.
+
+### Nouvelle Resource / Page / Cluster Filament — `make shield-sync`
+
+Après toute création d'une Filament Resource, Page ou Cluster, lancer **`make shield-sync`** avant de considérer le travail terminé (`shield:generate --all` + `shield:super-admin --user=1` + `optimize:clear`, idempotent). Sans ça :
+- les nouvelles entités n'apparaissent pas dans la sidebar (policies Shield absentes → `canAccess()` bloque) ;
+- les items rattachés à un cluster ne remontent pas dans son sub-nav ;
+- les caches Filament de routes/vues ne sont pas purgés.
+
+Après création d'un `Cluster` dans `packages/pko/*/src/Filament/Clusters/`, vérifier que `$panel->discoverClusters(in: ..., for: ...)` dans `app/Providers/AppServiceProvider.php` pointe sur le bon dossier — sinon la route `admin/{slug}` n'existe pas.

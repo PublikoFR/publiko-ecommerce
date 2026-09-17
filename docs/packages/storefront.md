@@ -12,7 +12,7 @@ Port du [Lunar Livewire Starter Kit](https://github.com/lunarphp/livewire-starte
 - `package.json` : ajout `@tailwindcss/forms`, `@ryangjchandler/alpine-clipboard`
 - `config/livewire.php` publié, `layout => 'layouts.storefront'`
 
-Tous les fichiers PHP portés portent `declare(strict_types=1);` (CLAUDE.md §3.2).
+Tous les fichiers PHP portés portent `declare(strict_types=1);` (AGENTS.md §3.1).
 
 ### Routes publiques
 
@@ -265,7 +265,7 @@ Tests : `tests/Feature/Storefront/AddToCartAvailabilityTest` (ajout d'un produit
 
 **Pays pré-sélectionné.** `CheckoutPage::emptyAddress()` posait `Country::orderBy('name')->value('id')` sous le commentaire « pays de la boutique » : en pratique le **premier pays de la table par ordre alphabétique**, soit l'Afghanistan — affiché en écriture native (`$country->native`) dans le `<select>`, ce qui rendait le symptôme d'autant plus déroutant.
 
-- Nouveau réglage `config('storefront.country')` (ISO 3166-1 alpha-2), env `STOREFRONT_COUNTRY`, repli sur `SHIPPER_COUNTRY` puis `FR`. Pas de « France » en dur dans le code : la boutique reste réutilisable (cf. CLAUDE.md §3.0).
+- Nouveau réglage `config('storefront.country')` (ISO 3166-1 alpha-2), env `STOREFRONT_COUNTRY`, repli sur `SHIPPER_COUNTRY` puis `FR`. Pas de « France » en dur dans le code : la boutique reste réutilisable (cf. AGENTS.md §3.0).
 - `getCountriesProperty()` trie désormais sur `native`, c'est-à-dire sur ce que le `<select>` affiche réellement. Le tri sur `name` (anglais) produisait une liste d'apparence aléatoire.
 
 **Adresse déjà connue → récapitulatif direct.** Le pré-remplissage depuis le profil client (`prefilledAddress()`) alimentait le formulaire mais n'enregistrait rien sur le panier : `determineCheckoutStep()` maintenait donc l'étape « adresse de livraison » et le client devait revalider un formulaire déjà rempli.

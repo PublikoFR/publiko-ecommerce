@@ -7,7 +7,7 @@ Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (Weklo,
 | Doc | Contenu |
 |---|---|
 | [architecture.md](architecture.md) | Stack principale, environnement Docker, mécanismes d'extension Lunar, gotchas Lunar, arborescence clé, ce qu'il faut éviter |
-| [packages-architecture.md](packages-architecture.md) | Path repositories composer, foundation media-core, i18n minimal, gotcha Resource swap, checklist nouveau package |
+| [packages-architecture.md](packages-architecture.md) | Path repositories composer, foundation media-core, i18n minimal, gotcha et pattern de swap de Resource Lunar, checklist nouveau package, `make shield-sync` |
 | [admin.md](admin.md) | Navigation Filament, page d'édition produit unifiée, liste produits, sticky footer, global search |
 | [workflow.md](workflow.md) | Tests, Git, outils IA (MCP servers), RBAC |
 | [payments.md](payments.md) | Stripe, rejet Cashier |
@@ -60,4 +60,4 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 
 ## Convention
 
-Cette documentation est **la référence maître**. Tout changement d'architecture / nouvelle dépendance / nouvelle règle → mise à jour du fichier concerné dans **le même commit** (cf. `CLAUDE.md §1`).
+Cette documentation est **la référence maître**. Tout changement d'architecture / nouvelle dépendance / nouvelle règle → mise à jour du fichier concerné dans **le même commit** (cf. `AGENTS.md §1`).
