@@ -73,12 +73,14 @@ Tout le Front Office (vues, Livewire, e-mails client) suit le design system de `
 1. **Tests** : `make test-only T=<chemin>` sur les tests liés au changement, vert avant commit ou merge. `make test` et `npm run test:e2e` **uniquement** sur demande explicite ou avant un déploiement en **PRODUCTION** (une suite coupée détruit la base `testing`).
 2. `make lint` vert avant commit.
 3. **Conventional Commits** : `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `perf:`, `build:`.
-4. **Messages de commit** : aucune mention d'assistant IA (Claude, Anthropic, Claude Code, Codex…), pas de `Co-Authored-By`, pas d'emoji générateur. Un scope technique comme `ai-importer` reste autorisé. Commits autorisés sans mon autorisation, toujours sur une branche dédiée.
+4. **Messages de commit** : aucune mention d'assistant IA (Claude, Anthropic, Claude Code, Codex…), pas de `Co-Authored-By`, pas d'emoji générateur. Un scope technique comme `ai-importer` reste autorisé.
 5. **Git interdit sauf demande explicite** : `--no-verify`, `--no-gpg-sign`, `push --force` sur `main`/`develop`, `reset --hard` sans backup, `rebase -i`.
 
-**Session interactive** (humain dans la boucle) : sur `main`, créer `feat/<slug>` ou `fix/<slug>` **avant la première édition** ; proposer le commit en fin de dev, ne jamais committer sans accord.
+**Commits sans demander, toujours sur une branche dédiée — jamais directement sur `main`.**
 
-**Task Kanban TIMON** (worktree `timon/task/<id>`) : le brief vaut accord. Committer dans la branche du worktree sans demander, ne pas créer de branche `feat/`, laisser le pipeline faire review et merge.
+**Session interactive** : sur `main`, créer `feat/<slug>` ou `fix/<slug>` **avant la première édition**, puis committer librement dans cette branche. Le merge dans `main` reste à la demande.
+
+**Task Kanban TIMON** (worktree `timon/task/<id>`) : committer dans la branche du worktree, ne pas créer de branche `feat/`, laisser le pipeline faire review et merge.
 
 ## 5. Commandes Make
 
