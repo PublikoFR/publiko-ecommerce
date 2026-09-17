@@ -1,6 +1,6 @@
 # AGENTS.md — Instructions projet
 
-> `CLAUDE.md` est un lien symbolique vers ce fichier : n'éditer que `AGENTS.md`.
+> `CLAUDE.md` ne fait qu'importer ce fichier (`@AGENTS.md`) : n'éditer que `AGENTS.md`.
 
 ## Contexte projet
 
@@ -28,7 +28,7 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 | `docs/payments.md`, `docs/shipping.md` | Paiements Stripe, drivers shipping |
 | `docs/packages/<pkg>.md` | **Un fichier par package PKO** (catalog-features, media-core, page-builder, storefront-cms, api-platform, loyalty, ai-*, etc.) |
 | `cahier-des-charges.md` (racine) | Cahier des charges contractuel |
-| `AGENTS.md` (ce fichier, `CLAUDE.md` = lien symbolique) | Instructions comportementales pour les agents uniquement — jamais de choix techniques ici |
+| `AGENTS.md` (ce fichier, importé par `CLAUDE.md`) | Instructions comportementales pour les agents uniquement — jamais de choix techniques ici |
 
 ### Règle de maintenance documentaire — OBLIGATOIRE
 
