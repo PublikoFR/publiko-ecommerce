@@ -44,7 +44,7 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 ### Autres
 
 - [loyalty.md](packages/loyalty.md) — fidélité B2B
-- [mail-templates.md](packages/mail-templates.md) — e-mails transactionnels éditables en back-office (client + équipe) + déclencheurs du parcours commande
+- [mail-templates.md](packages/mail-templates.md) — e-mails transactionnels éditables en back-office (client + équipe) + déclencheurs du parcours commande ; texte par défaut revu → migration `DefaultContentUpgrade`
 - [order-notifications.md](packages/order-notifications.md) — commandes artisan planifiées (panier abandonné, devis, avis, anniversaire) + délai configurable
 - [api-platform.md](packages/api-platform.md) — API Platform 4.3 (lecture seule, auth staff)
 - [admin-nav.md](packages/admin-nav.md) — réorganisation menu Filament + raccourcis Pilotage + on-page tabs

@@ -22,6 +22,12 @@ declare(strict_types=1);
  *
  * Placeholders : `:nom`, déclarés par clé dans MailTemplateRegistry.
  * `enabled => false` : déclencheur câblé, contenu non fourni ou module absent.
+ *
+ * ⚠ MODIFIER UN CONTENU EXISTANT NE SUFFIT PAS : la synchro ne touche pas une
+ * ligne déjà en base, le nouveau texte n'arriverait jamais en production. Dans
+ * le même commit : recopier l'ANCIENNE version dans `upgrades/<date>_<sujet>.php`
+ * et créer une migration qui appelle `DefaultContentUpgrade::applyFile()`.
+ * Procédure : docs/packages/mail-templates.md § « Revoir le contenu par défaut ».
  */
 
 /** @param array<int, array<string, mixed>> $blocks */
