@@ -1,4 +1,6 @@
-# CLAUDE.md — Instructions projet
+# AGENTS.md — Instructions projet
+
+> `CLAUDE.md` est un lien symbolique vers ce fichier : n'éditer que `AGENTS.md`.
 
 ## Contexte projet
 
@@ -26,7 +28,7 @@ Pour toute tâche courte/ciblée (bug fix, petit ajout, question directe), **ne 
 | `docs/payments.md`, `docs/shipping.md` | Paiements Stripe, drivers shipping |
 | `docs/packages/<pkg>.md` | **Un fichier par package PKO** (catalog-features, media-core, page-builder, storefront-cms, api-platform, loyalty, ai-*, etc.) |
 | `cahier-des-charges.md` (racine) | Cahier des charges contractuel |
-| `CLAUDE.md` (ce fichier) | Instructions comportementales pour toi uniquement — jamais de choix techniques ici |
+| `AGENTS.md` (ce fichier, `CLAUDE.md` = lien symbolique) | Instructions comportementales pour les agents uniquement — jamais de choix techniques ici |
 
 ### Règle de maintenance documentaire — OBLIGATOIRE
 
@@ -231,7 +233,8 @@ Détails d'intégration et point de vigilance branding : `design-system/README.m
 ## 4. Workflow de commit
 
 1. **Avant de committer** :
-   - `make test` doit être vert
+   - **Tests ciblés uniquement** : `make test-only T=<chemin>` sur les fichiers/dossiers de tests liés au changement (tests ajoutés + tests existants du package ou de la feature touchés). Doit être vert. Vaut aussi avant un merge.
+   - **Suite complète (`make test`) et tests E2E Playwright (`npm run test:e2e`)** : lancés **uniquement** (a) sur demande explicite de l'utilisateur, ou (b) avant un déploiement **en PRODUCTION**. **Jamais** avant un déploiement dev / pré-prod, jamais avant un commit ou un merge, jamais de sa propre initiative (trop longs : le tool shell coupe avant la fin et une suite interrompue laisse la base `testing` à moitié détruite).
    - `make lint` doit être vert
    - Le fichier `docs/` concerné mis à jour si le commit introduit une décision/dépendance/env var/table/règle (voir §1)
 
@@ -263,7 +266,9 @@ Détails d'intégration et point de vigilance branding : `design-system/README.m
 | `make up` / `make down` | Démarrer / arrêter la stack Docker |
 | `make shell` | Shell interactif dans le conteneur `app` |
 | `make fresh` | `migrate:fresh --seed` (reset DB complet) |
-| `make test` | Suite PHPUnit complète |
+| `make test` | Suite PHPUnit complète — **uniquement sur demande ou avant déploiement PROD** |
+| `make test-only T=...` | Tests ciblés (fichier ou dossier) — **le défaut avant tout commit** |
+| `npm run test:e2e` | Tests E2E Playwright — **uniquement sur demande ou avant déploiement PROD** |
 | `make lint` | Laravel Pint (PSR-12) |
 | `make artisan CMD='...'` | Commande artisan arbitraire |
 | `make composer CMD='...'` | Commande composer arbitraire |

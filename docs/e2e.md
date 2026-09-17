@@ -22,6 +22,8 @@ worktrees PKOS peuvent lancer leurs tests E2E en parallèle sans collision.
 
 ## Commandes
 
+> **Quand** : uniquement sur demande explicite ou avant un déploiement en **production** (jamais dev / pré-prod). Cf. `docs/workflow.md` § « Quand lancer quels tests ».
+
 ```bash
 npm install                  # première fois
 npx playwright install chromium  # première fois
