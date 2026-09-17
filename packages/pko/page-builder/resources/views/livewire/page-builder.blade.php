@@ -24,6 +24,7 @@
         <symbol id="wk-i-layers" viewBox="0 0 24 24" fill="none"><path d="M12 3l9 5-9 5-9-5 9-5ZM3 13l9 5 9-5"/></symbol>
         <symbol id="wk-i-file" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/></symbol>
         <symbol id="wk-i-move" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
+        <symbol id="wk-i-arrow-left" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
         <symbol id="wk-i-eye" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
         <symbol id="wk-i-info" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></symbol>
         <symbol id="wk-i-warning" viewBox="0 0 24 24" fill="none"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3h.01"/></symbol>
@@ -42,7 +43,11 @@
         <div class="wk-topbar">
             <div style="display:flex;align-items:center;gap:14px;min-width:0">
                 <div class="wk-crumb">
-                    <span>Contenus</span>
+                    @if ($indexUrl)
+                        <a href="{{ $indexUrl }}">Contenus</a>
+                    @else
+                        <span>Contenus</span>
+                    @endif
                     <svg class="wk-ico s16"><use href="#wk-i-chevron" style="transform:rotate(-90deg);transform-origin:center"/></svg>
                     <b>Modifier</b>
                 </div>
@@ -55,6 +60,11 @@
                 @endif
             </div>
             <div style="display:flex;align-items:center;gap:10px">
+                @if ($indexUrl)
+                    <a href="{{ $indexUrl }}" class="wk-btn wk-btn-sec sm">
+                        <svg class="wk-ico s16"><use href="#wk-i-arrow-left"/></svg>Retour
+                    </a>
+                @endif
                 <button type="button" class="wk-btn wk-btn-sec sm" x-on:click="previewOpen = true">
                     <svg class="wk-ico s16"><use href="#wk-i-eye"/></svg>Aperçu
                 </button>
