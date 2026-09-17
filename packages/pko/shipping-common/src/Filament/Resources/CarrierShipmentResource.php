@@ -16,6 +16,7 @@ use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource\Pages;
 use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Support\LabelArchive;
 use RuntimeException;
 
@@ -71,6 +72,7 @@ class CarrierShipmentResource extends BaseResource
                 Tables\Columns\TextColumn::make('carrier')
                     ->label('Transporteur')
                     ->badge()
+                    ->formatStateUsing(fn (?string $state): string => CarrierDisplayLabel::carrier($state))
                     ->color(fn (string $state): string => match ($state) {
                         'chronopost' => 'warning',
                         'colissimo' => 'info',
@@ -78,7 +80,8 @@ class CarrierShipmentResource extends BaseResource
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('service_code')
-                    ->label('Service'),
+                    ->label('Service')
+                    ->formatStateUsing(fn (?string $state, CarrierShipment $record): string => CarrierDisplayLabel::service($record->carrier, $state)),
                 Tables\Columns\TextColumn::make('tracking_number')
                     ->label('N° suivi')
                     ->copyable()
@@ -86,6 +89,7 @@ class CarrierShipmentResource extends BaseResource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
                     ->badge()
+                    ->formatStateUsing(fn (?string $state): string => CarrierDisplayLabel::status($state))
                     ->color(fn (string $state): string => match ($state) {
                         CarrierShipment::STATUS_CREATED => 'success',
                         CarrierShipment::STATUS_FAILED => 'danger',
