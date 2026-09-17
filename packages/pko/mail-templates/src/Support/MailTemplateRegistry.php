@@ -205,7 +205,15 @@ final class MailTemplateRegistry
                 'group' => 'loyalty',
                 'audience' => self::AUDIENCE_CUSTOMER,
                 'label' => 'Nouveau palier de fidélité',
-                'placeholders' => ['first_name', 'tier_name', 'tier_benefit', 'total_points'],
+                'placeholders' => [
+                    'first_name',
+                    'tier_name',
+                    'tier_benefit',
+                    'total_points',
+                    'gift_title',
+                    'gift_description',
+                    'gift_image_url',
+                ],
                 'required' => ['tier_name'],
             ],
             'loyalty.tier_unlocked_admin' => [

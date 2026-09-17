@@ -49,6 +49,11 @@ final class MailPreview
             'tier_name' => 'Argent',
             'tier_benefit' => 'la remise fidélité de 3 %',
             'total_points' => '4 250',
+            'gift_title' => 'Visseuse sans fil 18 V',
+            'gift_description' => 'Livrée avec deux batteries et sa mallette de transport.',
+            // Pas d'image d'exemple livrée avec le package : le logo de la
+            // boutique tient lieu de photo pour juger la mise en page.
+            'gift_image_url' => function_exists('brand_logo') && brand_logo() ? url(brand_logo()) : '',
             'duration_label' => '2 ans',
             'new_date' => '18 septembre 2026',
             'carrier_name' => 'Chronopost',

@@ -27,20 +27,38 @@
     @foreach ($sections as $section)
         @php
             $columns = array_values(array_filter(
-                $section['columns'] ?? [],
-                static fn ($column) => ! empty($column['blocks']),
+                array_map(
+                    static fn ($column) => ['blocks' => array_values(array_filter(
+                        $column['blocks'] ?? [],
+                        static fn ($block) => in_array($block['type'] ?? '', $supported, true)
+                            && ! EmailLayout::blockIsEmpty($block),
+                    ))],
+                    $section['columns'] ?? [],
+                ),
+                static fn ($column) => $column['blocks'] !== [],
             ));
             $count = count($columns);
-            $columnWidth = EmailLayout::columnWidth($count);
+
+            // Section encadrée : fond et marge interne réglés dans l'éditeur
+            // (mêmes champs que pour une page web). Sans l'un ou l'autre, le
+            // rendu reste celui d'une section nue, sans table supplémentaire.
+            $background = $section['background_color'] ?? null;
+            $padding = array_map('intval', ($section['padding'] ?? []) + ['t' => 0, 'r' => 0, 'b' => 0, 'l' => 0]);
+            $boxed = $background !== null || array_sum($padding) > 0;
+            $columnWidth = EmailLayout::columnWidth($count, EmailLayout::CONTENT_WIDTH - $padding['l'] - $padding['r']);
         @endphp
 
         @continue($count === 0)
 
+        @if ($boxed)
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:{{ (int) ($section['margin']['t'] ?? 0) }}px 0 {{ max(14, (int) ($section['margin']['b'] ?? 0)) }}px;">
+                <tr>
+                    <td style="{{ $background ? 'background:'.$background.';' : '' }}border-radius:12px;padding:{{ $padding['t'] }}px {{ $padding['r'] }}px {{ $padding['b'] }}px {{ $padding['l'] }}px;">
+        @endif
+
         @if ($count === 1)
             @foreach ($columns[0]['blocks'] as $block)
-                @if (in_array($block['type'] ?? '', $supported, true))
-                    @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
-                @endif
+                @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
             @endforeach
         @else
             {{--
@@ -64,9 +82,7 @@
                     <div style="display:inline-block;width:100%;max-width:{{ $columnWidth }}px;vertical-align:top;font-size:15px;line-height:1.65;color:#16201d;">
                         <div style="padding:0 {{ $loop->last ? 0 : EmailLayout::COLUMN_GAP }}px 0 0;">
                             @foreach ($column['blocks'] as $block)
-                                @if (in_array($block['type'] ?? '', $supported, true))
-                                    @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
-                                @endif
+                                @include('pko-mail-templates::blocks.'.$block['type'], ['block' => $block])
                             @endforeach
                         </div>
                     </div>
@@ -75,6 +91,12 @@
 
                 <!--[if mso]></tr></table><![endif]-->
             </div>
+        @endif
+
+        @if ($boxed)
+                    </td>
+                </tr>
+            </table>
         @endif
     @endforeach
 </x-storefront-cms::mail.layout>

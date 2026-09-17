@@ -27,7 +27,7 @@ final class Placeholders
         'callout' => ['text'],
         'quote' => ['text', 'cite'],
         'list' => ['items'],
-        'image' => ['alt'],
+        'image' => ['url', 'alt'],
     ];
 
     /** Champs dont le rendu n'échappe pas le HTML : les valeurs substituées le sont. */
