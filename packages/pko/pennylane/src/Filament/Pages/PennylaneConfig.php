@@ -13,6 +13,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Lunar\Admin\Support\Pages\BasePage;
+use Pko\Account\Support\OrderStatusLabel;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Secrets\Facades\Secrets;
 use Pko\Secrets\Filament\Forms\SecretsFormSchema;
@@ -55,8 +56,6 @@ class PennylaneConfig extends BasePage implements HasForms
 
     public function form(Form $form): Form
     {
-        $statuses = array_keys(config('lunar.orders.statuses', []));
-
         return $form
             ->schema([
                 SecretsFormSchema::make('pennylane', [
@@ -73,7 +72,7 @@ class PennylaneConfig extends BasePage implements HasForms
 
                 Select::make('trigger_on_status')
                     ->label(__('pko-pennylane::admin.config.trigger_status'))
-                    ->options(array_combine($statuses, $statuses))
+                    ->options(OrderStatusLabel::options())
                     ->helperText(__('pko-pennylane::admin.config.trigger_status_help'))
                     ->searchable(),
 

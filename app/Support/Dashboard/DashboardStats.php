@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Lunar\Models\Collection;
+use Pko\Account\Support\OrderStatusLabel;
 
 /**
  * Agrège les statistiques réelles du tableau de bord Weklo depuis les tables
@@ -773,7 +774,7 @@ final class DashboardStats
 
         return $rows->map(function ($r) use ($meta) {
             $bucket = self::STATUS_BUCKET[$r->status] ?? 'pending';
-            [$label, $tone] = $meta[$bucket];
+            [, $tone] = $meta[$bucket];
             $name = trim((string) ($r->company_name ?: trim(($r->first_name ?? '').' '.($r->last_name ?? '')))) ?: 'Client';
 
             return [
@@ -784,7 +785,7 @@ final class DashboardStats
                 'date' => Carbon::parse($r->placed_at ?? $r->created_at)->locale('fr')->isoFormat('D MMM YYYY'),
                 'status' => $r->status,
                 'statusBucket' => $bucket,
-                'statusLabel' => $label,
+                'statusLabel' => OrderStatusLabel::of((string) $r->status),
                 'tone' => $tone,
                 'total' => $this->eur2((int) $r->total),
             ];

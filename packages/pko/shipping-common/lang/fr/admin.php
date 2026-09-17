@@ -78,6 +78,16 @@ return [
         'save_button' => 'Enregistrer',
     ],
 
+    'carrier' => [
+        'chronopost' => 'Chronopost',
+        'colissimo' => 'Colissimo',
+    ],
+    'shipment_status' => [
+        'pending' => 'En attente',
+        'created' => 'Créé',
+        'failed' => 'Échec',
+    ],
+
     'surcharge' => [
         'nav' => 'Suppléments transport',
         'label' => 'Supplément',

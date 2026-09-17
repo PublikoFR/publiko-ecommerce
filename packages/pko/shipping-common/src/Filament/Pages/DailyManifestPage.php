@@ -25,6 +25,7 @@ use Illuminate\Support\Collection;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Support\ManifestPdf;
 
 /**
@@ -121,9 +122,11 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                     ->searchable(),
                 TextColumn::make('carrier')
                     ->label('Transporteur')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => CarrierDisplayLabel::carrier($state)),
                 TextColumn::make('service_code')
-                    ->label('Service'),
+                    ->label('Service')
+                    ->formatStateUsing(fn (?string $state, CarrierShipment $record): string => CarrierDisplayLabel::service($record->carrier, $state)),
                 TextColumn::make('created_at')
                     ->label('Créé le')
                     ->dateTime('d/m/Y H:i')

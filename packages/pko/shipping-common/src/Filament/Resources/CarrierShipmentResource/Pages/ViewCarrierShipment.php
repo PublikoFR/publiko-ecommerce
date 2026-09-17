@@ -10,6 +10,7 @@ use Filament\Infolists\Infolist;
 use Lunar\Admin\Support\Pages\BaseViewRecord;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 
 class ViewCarrierShipment extends BaseViewRecord
 {
@@ -21,13 +22,17 @@ class ViewCarrierShipment extends BaseViewRecord
             Section::make('Envoi')->schema([
                 TextEntry::make('id')->label('ID'),
                 TextEntry::make('order_id')->label('Commande')->formatStateUsing(fn ($state) => "#{$state}"),
-                TextEntry::make('carrier')->label('Transporteur')->badge(),
-                TextEntry::make('service_code')->label('Service'),
-                TextEntry::make('status')->label('Statut')->badge()->color(fn (string $state): string => match ($state) {
-                    CarrierShipment::STATUS_CREATED => 'success',
-                    CarrierShipment::STATUS_FAILED => 'danger',
-                    default => 'gray',
-                }),
+                TextEntry::make('carrier')->label('Transporteur')->badge()
+                    ->formatStateUsing(fn (?string $state): string => CarrierDisplayLabel::carrier($state)),
+                TextEntry::make('service_code')->label('Service')
+                    ->formatStateUsing(fn (?string $state, CarrierShipment $record): string => CarrierDisplayLabel::service($record->carrier, $state)),
+                TextEntry::make('status')->label('Statut')->badge()
+                    ->formatStateUsing(fn (?string $state): string => CarrierDisplayLabel::status($state))
+                    ->color(fn (string $state): string => match ($state) {
+                        CarrierShipment::STATUS_CREATED => 'success',
+                        CarrierShipment::STATUS_FAILED => 'danger',
+                        default => 'gray',
+                    }),
                 TextEntry::make('tracking_number')->label('N° de suivi')->copyable()->placeholder('—'),
                 TextEntry::make('label_path')->label('Étiquette (chemin)')->placeholder('—'),
                 TextEntry::make('created_at')->label('Créé le')->dateTime('d/m/Y H:i'),
@@ -36,26 +41,26 @@ class ViewCarrierShipment extends BaseViewRecord
             Section::make('Erreur')
                 ->visible(fn (CarrierShipment $record): bool => $record->status === CarrierShipment::STATUS_FAILED)
                 ->schema([
-                    TextEntry::make('error_message')->label('Message')->columnSpanFull(),
-                ]),
+                        TextEntry::make('error_message')->label('Message')->columnSpanFull(),
+                    ]),
             Section::make('Payload envoyé')
                 ->collapsible()
                 ->collapsed()
                 ->schema([
-                    TextEntry::make('payload_sent')
-                        ->hiddenLabel()
-                        ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
-                        ->columnSpanFull(),
-                ]),
+                        TextEntry::make('payload_sent')
+                            ->hiddenLabel()
+                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
+                            ->columnSpanFull(),
+                    ]),
             Section::make('Réponse reçue')
                 ->collapsible()
                 ->collapsed()
                 ->schema([
-                    TextEntry::make('response_received')
-                        ->hiddenLabel()
-                        ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
-                        ->columnSpanFull(),
-                ]),
+                        TextEntry::make('response_received')
+                            ->hiddenLabel()
+                            ->formatStateUsing(fn ($state) => $state ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : '—')
+                            ->columnSpanFull(),
+                    ]),
         ]);
     }
 }

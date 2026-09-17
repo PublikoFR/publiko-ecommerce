@@ -21,6 +21,10 @@ class AccountServiceProvider extends ServiceProvider
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'account');
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'account');
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/account'),
+        ], 'pko-lunar-account-lang');
 
         Livewire::component('account.dashboard', Dashboard::class);
         Livewire::component('account.profile', ProfilePage::class);

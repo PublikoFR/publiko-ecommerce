@@ -31,7 +31,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-neutral-600">{{ optional($order->placed_at)->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-4 py-3">
-                                    <x-ui.badge variant="primary">{{ $order->status }}</x-ui.badge>
+                                    <x-ui.badge variant="primary">{{ order_status_label($order->status) }}</x-ui.badge>
                                 </td>
                                 <td class="px-4 py-3 text-right font-semibold text-neutral-900">
                                     {{ $order->total?->formatted() ?? '—' }}

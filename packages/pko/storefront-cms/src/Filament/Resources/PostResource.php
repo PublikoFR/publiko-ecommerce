@@ -97,7 +97,16 @@ class PostResource extends Resource
                     ->getStateUsing(fn (Post $record) => $record->firstMediaUrl('cover')),
                 TextColumn::make('postType.label')->label('Type')->badge(),
                 TextColumn::make('title')->label('Titre')->searchable()->limit(50),
-                TextColumn::make('status')->label('Statut')->badge()->color(fn ($state) => $state === 'published' ? 'success' : 'gray'),
+                TextColumn::make('status')->label('Statut')->badge()
+                    ->formatStateUsing(function (?string $state): string {
+                        if ($state === null || $state === '') {
+                            return '—';
+                        }
+                        $key = 'pko-storefront-cms::admin.post.status.'.$state;
+
+                        return trans()->has($key) ? (string) __($key) : $state;
+                    })
+                    ->color(fn ($state) => $state === 'published' ? 'success' : 'gray'),
                 TextColumn::make('published_at')->label('Publié le')->dateTime('d/m/Y H:i')->sortable(),
             ])
             ->filters([

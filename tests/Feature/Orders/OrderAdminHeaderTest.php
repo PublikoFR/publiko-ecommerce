@@ -65,6 +65,7 @@ class OrderAdminHeaderTest extends TestCase
         $this->get("/admin/orders/{$order->id}")
             ->assertOk()
             ->assertSee('Résidence Les Pins')
+            ->assertSee('Paiement reçu')
             ->assertDontSee('Chantier : Résidence Les Pins');
     }
 

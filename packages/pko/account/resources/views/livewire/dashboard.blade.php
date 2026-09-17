@@ -38,7 +38,7 @@
                     <li class="py-3 flex items-center justify-between">
                         <div>
                             <p class="font-semibold text-neutral-900">#{{ $order->reference ?? $order->id }}</p>
-                            <p class="text-xs text-neutral-500">{{ optional($order->placed_at)->format('d/m/Y') }} · {{ $order->status }}</p>
+                            <p class="text-xs text-neutral-500">{{ optional($order->placed_at)->format('d/m/Y') }} · {{ order_status_label($order->status) }}</p>
                             @if (filled($order->pko_site_name))
                                 <p class="max-w-xs truncate text-xs text-neutral-500" title="{{ $order->pko_site_name }}">Chantier : {{ $order->pko_site_name }}</p>
                             @endif

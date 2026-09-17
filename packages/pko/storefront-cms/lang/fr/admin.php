@@ -36,6 +36,10 @@ return [
         'nav' => 'Contenus',
         'label' => 'contenu',
         'plural' => 'Contenus',
+        'status' => [
+            'draft' => 'Brouillon',
+            'published' => 'Publié',
+        ],
     ],
     'post_type' => [
         'nav' => 'Types de contenus',

@@ -10,7 +10,8 @@
         "illuminate/database": "^11.0",
         "illuminate/queue": "^11.0",
         "lunarphp/core": "^1.0",
-        "filament/filament": "^3.0"
+        "filament/filament": "^3.0",
+        "pko/lunar-account": "@dev"
     },
     "require-dev": {
         "pestphp/pest": "^3.0",
