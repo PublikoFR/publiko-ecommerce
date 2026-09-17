@@ -204,7 +204,11 @@ log "Étape 1/3 — Build local (composer + assets Vite)"
 log "  composer : ${BUILD_COMPOSER}"
 run_local $BUILD_COMPOSER install --no-dev --optimize-autoloader --no-interaction
 ok "composer install --no-dev --optimize-autoloader"
-run_local $BUILD_NPM ci
+# `--include=dev` : tout l'outillage de build (vite, tailwind, postcss) est en
+# devDependencies. Si le shell appelant exporte NODE_ENV=production (cas des
+# agents lancés depuis une app Electron), `npm ci` les omet et supprime ceux
+# déjà installés → « vite: not found ». Les assets buildés ne les embarquent pas.
+run_local $BUILD_NPM ci --include=dev
 run_local $BUILD_NPM run build
 ok "Assets buildés (public/build)"
 echo
