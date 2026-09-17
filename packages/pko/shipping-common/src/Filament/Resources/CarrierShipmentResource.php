@@ -10,6 +10,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Support\Resources\BaseResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource\Pages;
@@ -64,7 +65,7 @@ class CarrierShipmentResource extends BaseResource
                     ->label('Commande')
                     ->formatStateUsing(fn ($state) => "#{$state}")
                     ->url(fn (CarrierShipment $record): ?string => $record->order_id
-                        ? route('filament.admin.resources.orders.view', ['record' => $record->order_id])
+                        ? OrderResource::getUrl('order', ['record' => $record->order_id])
                         : null)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('carrier')
