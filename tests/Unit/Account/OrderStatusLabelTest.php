@@ -40,8 +40,8 @@ class OrderStatusLabelTest extends TestCase
 
     public function test_le_driver_de_paiement_est_traduit(): void
     {
-        $this->assertSame('Carte bancaire', PaymentDisplayLabel::driver('stripe'));
-        $this->assertSame('Carte bancaire', \payment_driver_label('stripe'));
+        $this->assertSame('Paiement en ligne', PaymentDisplayLabel::driver('stripe'));
+        $this->assertSame('Paiement en ligne', \payment_driver_label('stripe'));
         $this->assertSame('inconnu', \payment_driver_label('inconnu'));
         $this->assertSame('—', \payment_driver_label(null));
     }

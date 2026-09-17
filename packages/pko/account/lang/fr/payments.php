@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'drivers' => [
-        'stripe' => 'Carte bancaire',
+        'stripe' => 'Paiement en ligne',
         'offline' => 'Paiement hors ligne',
         'cash' => 'Espèces',
         'paypal' => 'PayPal',

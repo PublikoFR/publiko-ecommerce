@@ -51,7 +51,7 @@ Helpers globaux (autoload `packages/pko/account/src/helpers.php`) :
 | Helper | Usage |
 |---|---|
 | `order_status_label(?string $status)` | Statut de commande |
-| `payment_driver_label(?string $driver)` | Driver de transaction (`stripe` → « Carte bancaire ») |
+| `payment_driver_label(?string $driver)` | Driver de transaction (`stripe` → « Paiement en ligne ») |
 | `payment_status_label(?string $status)` | Statut de transaction |
 
 Ne pas dupliquer les libellés de statut : toute nouvelle valeur va dans `config/lunar/orders.php`.
