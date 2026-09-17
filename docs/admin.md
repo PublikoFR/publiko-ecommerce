@@ -512,3 +512,4 @@ via le hook `extendOrderSummarySchema`, quand `order->pko_site_name` est renseig
 - **Propagation cart → order** : pipeline `App\Pipelines\Orders\PropagateCartSiteNamePipeline` (ajouté avant `MarkQuoteOrderAwaitingQuote` dans `config/lunar/orders.php`).
 - **Split quote** : `CreateSplitQuoteOrder` copie le champ depuis la commande payante directement dans l'INSERT (bypass pipeline).
 - **Modification client** : `Pko\Account\Livewire\OrderDetailPage::saveSiteName()` — re-guard ownership obligatoire dans la méthode (pas uniquement dans mount).
+- **Affichage client** : ligne « Chantier : <nom> » sous la référence dans la liste « Mes commandes » (`OrdersPage`) et les commandes récentes du tableau de bord (`Dashboard`), uniquement si renseigné.
