@@ -536,7 +536,9 @@ l'état plié est mémorisé par le navigateur, clé = `id` de la section) :
 Colonne latérale (`extendInfolistAsideSchema`) : le nom du client (entrée `customer`) et le
 résumé Lunar (section sans titre) sont remplacés par un bloc unique « vue d'ensemble »
 (`resources/views/filament/orders/order-overview.blade.php`, données de
-`OrderPageLayoutExtension::overview()`) : référence copiable + badge de statut, date FR
+`OrderPageLayoutExtension::overview()`) : référence copiable + badge de statut cliquable
+(`wire:click="mountAction('update_status')"` → modale Lunar de changement de statut, action
+d'en-tête toujours appelable bien que regroupée dans le menu Actions), date FR
 (« Passée le 19/07/2026 à 10:34 »), client (nouveau/récurrent · nombre de commandes passées,
 bouton « Fiche client »), puis Chantier / Réf. client / Canal seulement s'ils sont renseignés
 — Canal masqué tant qu'il n'existe qu'un seul canal. Les hooks `extendOrderSummary*` de Lunar
@@ -551,6 +553,10 @@ pas de la page). Affiche `quantité x prix unitaire` ; Lunar affichait `quantit�
 la ligne`, qui se lit à tort comme un prix unitaire dès que la quantité dépasse 1.
 
 Arbitrages :
+
+- Le groupe d'alertes Lunar (`shouts`) ouvre la colonne principale ; vide, il consomme quand
+  même un espacement de grille et décale la colonne sous la colonne latérale. Il est masqué via
+  le hook `extendsInfolist` (avec un « s ») quand aucune alerte n'est visible.
 
 - Lunar construit la colonne principale dans un ordre fixe (`[0]` expédition, `[1]` lignes,
   `[2]` totaux, `[3]` transactions, `[4]` historique) ; l'extension s'appuie sur ces positions,

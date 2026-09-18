@@ -14,6 +14,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
+use Filament\Infolists\Infolist;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
@@ -47,6 +48,24 @@ use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
  */
 final class OrderPageLayoutExtension extends ResourceExtension
 {
+    /**
+     * Le groupe d'alertes Lunar (« shouts » : capture requise, remboursement) ouvre la
+     * colonne principale. Vide, il occupe quand même un espacement de grille et décale
+     * la colonne vers le bas par rapport à la colonne latérale : on le masque.
+     */
+    public function extendsInfolist(Infolist $infolist): Infolist
+    {
+        foreach ($infolist->getComponents(withHidden: true) as $column) {
+            foreach ($column->getChildComponents() as $child) {
+                if ($child instanceof Group && $child->getKey() === 'shouts') {
+                    $child->hidden(fn (Group $component): bool => $component->getChildComponentContainer()->getComponents() === []);
+                }
+            }
+        }
+
+        return $infolist;
+    }
+
     /**
      * Lunar construit la colonne principale dans un ordre fixe :
      * [0] expédition, [1] lignes, [2] totaux, [3] transactions, [4] historique.

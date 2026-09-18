@@ -228,6 +228,36 @@ class OrderAdminLayoutTest extends TestCase
             ->assertDontSee('Réf. client');
     }
 
+    public function test_le_badge_de_statut_ouvre_la_modale_de_changement_de_statut(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+
+        $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('wire:click="mountAction(&#039;update_status&#039;)"', escape: false);
+
+        Livewire::test(ManageOrder::class, ['record' => $order->getKey()])
+            ->call('mountAction', 'update_status')
+            ->assertActionMounted('update_status');
+    }
+
+    public function test_le_groupe_d_alertes_vide_est_masque(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+
+        $infolist = Livewire::test(ManageOrder::class, ['record' => $order->getKey()])
+            ->instance()
+            ->getInfolist('infolist');
+
+        $shouts = collect($infolist->getFlatComponents(withHidden: true))
+            ->first(fn ($component): bool => $component->getKey() === 'shouts');
+
+        $this->assertNotNull($shouts);
+        $this->assertTrue($shouts->isHidden());
+    }
+
     public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void
     {
         $order = $this->makeOrder(['pko_site_name' => 'Résidence Les Pins', 'customer_reference' => 'BC-2231']);

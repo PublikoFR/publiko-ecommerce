@@ -17,9 +17,22 @@
                     <x-filament::icon icon="heroicon-o-check" class="h-4 w-4 text-success-600" x-show="copied" x-cloak />
                 </button>
             </div>
-            <x-filament::badge :color="$data['status']['color']" class="shrink-0">
-                {{ $data['status']['label'] }}
-            </x-filament::badge>
+            {{-- Ouvre la modale « Mettre à jour le statut » (action d'en-tête Lunar update_status). --}}
+            <button
+                type="button"
+                title="Changer le statut"
+                wire:click="mountAction('update_status')"
+                class="group shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+                <x-filament::badge
+                    :color="$data['status']['color']"
+                    icon="heroicon-m-chevron-down"
+                    icon-position="after"
+                    class="cursor-pointer transition group-hover:opacity-80"
+                >
+                    {{ $data['status']['label'] }}
+                </x-filament::badge>
+            </button>
         </div>
         @if ($data['date'])
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $data['date'] }}</p>
