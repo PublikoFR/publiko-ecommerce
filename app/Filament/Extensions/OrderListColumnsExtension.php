@@ -15,11 +15,12 @@ use Lunar\Models\Order;
 
 /**
  * Colonnes de la liste des commandes admin, dans l'ordre :
- * Date · Référence · Client (raison sociale, nom, e-mail, téléphone) · Statut (statut + nouveau/récurrent) · Total.
+ * Date · Référence · Client (raison sociale, nom) · Coordonnées (e-mail, téléphone)
+ * · Statut (statut + nouveau/récurrent) · Total.
  *
  * Remplace les 11 colonnes Lunar : référence client, étiquettes et code postal
- * disparaissent, e-mail et téléphone rejoignent la cellule client, le type de
- * client passe sous le badge de statut. Filtres, actions et tri par défaut
+ * disparaissent, e-mail et téléphone sont regroupés dans « Coordonnées », le type
+ * de client passe sous le badge de statut. Filtres, actions et tri par défaut
  * (id décroissant) restent ceux de Lunar.
  */
 final class OrderListColumnsExtension extends ResourceExtension
@@ -38,11 +39,16 @@ final class OrderListColumnsExtension extends ResourceExtension
                     ->searchable(),
                 TextColumn::make('billingAddress.fullName')
                     ->label('Client')
-                    // État calculé : une adresse avec raison sociale mais sans nom ne doit
-                    // pas retomber sur le placeholder.
+                    // État calculé : un compte avec raison sociale mais une adresse sans
+                    // nom ne doit pas retomber sur le placeholder.
                     ->state(fn (Order $record): ?HtmlString => self::customerCell($record))
                     ->placeholder('—')
                     ->searchable(query: fn (Builder $query, string $search): Builder => self::searchCustomer($query, $search)),
+                TextColumn::make('billingAddress.contact_email')
+                    ->label('Coordonnées')
+                    ->state(fn (Order $record): ?HtmlString => self::contactCell($record))
+                    ->placeholder('—')
+                    ->searchable(['contact_email', 'contact_phone']),
                 ViewColumn::make('status')
                     ->label('Statut')
                     ->view('filament.orders.list-status-cell'),
@@ -56,29 +62,26 @@ final class OrderListColumnsExtension extends ResourceExtension
     }
 
     /**
-     * Nom, e-mail, téléphone sur l'adresse de facturation ; raison sociale sur le
-     * compte client, seule source affichée (cf. OrderCompanyName).
+     * Raison sociale sur le compte client, seule source affichée (cf. OrderCompanyName) ;
+     * nom sur l'adresse de facturation.
      */
     private static function searchCustomer(Builder $query, string $search): Builder
     {
         $like = '%'.$search.'%';
 
         return $query
-            ->whereHas('billingAddress', fn (Builder $address): Builder => $address->where(
+            ->whereHas('customer', fn (Builder $customer): Builder => $customer->where('company_name', 'like', $like))
+            ->orWhereHas('billingAddress', fn (Builder $address): Builder => $address->where(
                 fn (Builder $address): Builder => $address
                     ->where('first_name', 'like', $like)
-                    ->orWhere('last_name', 'like', $like)
-                    ->orWhere('contact_email', 'like', $like)
-                    ->orWhere('contact_phone', 'like', $like),
-            ))
-            ->orWhereHas('customer', fn (Builder $customer): Builder => $customer->where('company_name', 'like', $like));
+                    ->orWhere('last_name', 'like', $like),
+            ));
     }
 
     private static function customerCell(Order $record): ?HtmlString
     {
-        $address = $record->billingAddress;
         $company = OrderCompanyName::for($record);
-        $name = trim((string) $address?->fullName);
+        $name = trim((string) $record->billingAddress?->fullName);
 
         $lines = [];
 
@@ -90,12 +93,29 @@ final class OrderListColumnsExtension extends ResourceExtension
             $lines[] = '<span'.($company === null ? ' class="font-medium"' : '').'>'.e($name).'</span>';
         }
 
+        return self::stack($lines);
+    }
+
+    private static function contactCell(Order $record): ?HtmlString
+    {
+        $address = $record->billingAddress;
+
+        $lines = [];
+
         foreach ([$address?->contact_email, $address?->contact_phone] as $line) {
             if (filled($line)) {
-                $lines[] = '<span class="text-gray-500 dark:text-gray-400">'.e($line).'</span>';
+                $lines[] = '<span>'.e($line).'</span>';
             }
         }
 
+        return self::stack($lines);
+    }
+
+    /**
+     * @param  list<string>  $lines  fragments HTML déjà échappés
+     */
+    private static function stack(array $lines): ?HtmlString
+    {
         if ($lines === []) {
             return null;
         }

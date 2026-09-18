@@ -19,7 +19,7 @@ use Lunar\Models\OrderAddress;
 use Tests\TestCase;
 
 /**
- * Liste des commandes admin : colonnes Date · Référence · Client · Statut · Total.
+ * Liste des commandes admin : colonnes Date · Référence · Client · Coordonnées · Statut · Total.
  */
 class OrderAdminListTest extends TestCase
 {
@@ -78,10 +78,10 @@ class OrderAdminListTest extends TestCase
 
         $columns = array_keys($component->instance()->getTable()->getColumns());
 
-        $this->assertSame(['placed_at', 'reference', 'billingAddress.fullName', 'status', 'total'], $columns);
+        $this->assertSame(['placed_at', 'reference', 'billingAddress.fullName', 'billingAddress.contact_email', 'status', 'total'], $columns);
     }
 
-    public function test_une_ligne_affiche_date_fr_client_sur_trois_lignes_et_deux_badges(): void
+    public function test_une_ligne_affiche_date_fr_client_coordonnees_et_deux_badges(): void
     {
         $order = $this->makeOrder();
 
@@ -101,11 +101,11 @@ class OrderAdminListTest extends TestCase
         $this->assertNotContains(false, $positions);
         $sorted = $positions;
         sort($sorted);
-        $this->assertSame($sorted, $positions, 'Raison sociale, nom, e-mail puis téléphone.');
+        $this->assertSame($sorted, $positions, 'Client (raison sociale, nom) puis Coordonnées (e-mail, téléphone).');
         $this->assertStringNotContainsString('Adresse Libre SARL', $html);
     }
 
-    public function test_la_recherche_trouve_une_commande_par_email_telephone_ou_raison_sociale(): void
+    public function test_la_recherche_trouve_une_commande_par_email_telephone_nom_ou_raison_sociale(): void
     {
         $order = $this->makeOrder();
         $other = $this->makeOrder(['reference' => 'LIST-0002']);
@@ -124,7 +124,9 @@ class OrderAdminListTest extends TestCase
             ->assertCanSeeTableRecords([$order])
             ->assertCanNotSeeTableRecords([$other])
             ->searchTable('Adresse Libre')
-            ->assertCanNotSeeTableRecords([$order, $other]);
+            ->assertCanNotSeeTableRecords([$order, $other])
+            ->searchTable('Jeanne')
+            ->assertCanSeeTableRecords([$order, $other]);
     }
 
     public function test_une_adresse_sans_nom_affiche_quand_meme_la_raison_sociale(): void
