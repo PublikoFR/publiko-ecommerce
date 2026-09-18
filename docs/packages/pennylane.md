@@ -231,6 +231,24 @@ Exécution : `make test-only T=tests/Unit/Pennylane`. Tous utilisent `Http::fake
 - FK en `nullOnDelete` → survit à une purge Lunar
 - Filament Plugin isolé, ajouté via `->plugin(PennylanePlugin::make())` dans `AppServiceProvider`
 
+## Liens dans la fiche commande (colonne latérale)
+
+`Services\OrderDocuments::forOrder($order)` renvoie la facture et les avoirs de la
+commande (libellé, état `ready`/`pending`/`failed`, lien signé valable 12 h). Il est
+mis en cache le temps de la requête (`once()`), car la fiche l'appelle plusieurs fois.
+Il alimente deux emplacements, gérés par `app/Filament/Extensions/OrderPageLayoutExtension.php` :
+
+- bloc **vue d'ensemble**, sous le client : ligne « Facture F-… » + bouton PDF ;
+- bloc **Transactions** : rappel de la facture et de chaque avoir, avant l'adresse de facturation.
+
+Les liens pointent vers les routes admin (proxy), jamais vers `public_file_url`.
+
+**Garde d'authentification** : les routes `admin/pennylane/*` exigent `auth:staff`,
+c'est-à-dire le garde du back-office Lunar. Le middleware `auth` seul vérifie le garde
+par défaut `web`, celui des clients du site. Avec lui, un admin connecté uniquement au
+back-office était renvoyé vers la connexion, et un client connecté pouvait ouvrir un
+lien signé qui aurait fuité.
+
 ## Bouton de téléchargement sur la page commande
 
 Le bouton natif Lunar `Télécharger le PDF` est **masqué** au profit d'une action Pennylane dédiée, via `OrderInvoiceActionsExtension` (pattern `ResourceExtension` : `headerActions()`). Enregistré dans `AppServiceProvider` sous `LunarPanel::extensions[OrderResource::class]`.

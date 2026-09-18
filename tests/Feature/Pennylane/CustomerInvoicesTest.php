@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
+use Lunar\Admin\Models\Staff;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
@@ -26,6 +27,7 @@ use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
 use Pko\Pennylane\Mail\InvoiceFinalizedMail;
 use Pko\Pennylane\Models\PennylaneInvoice;
 use Pko\Pennylane\Services\InvoicePdfFetcher;
+use Pko\Pennylane\Services\OrderDocuments;
 use Tests\TestCase;
 
 class CustomerInvoicesTest extends TestCase
@@ -140,10 +142,39 @@ class CustomerInvoicesTest extends TestCase
     public function test_admin_signed_download_still_works_and_signature_is_required(): void
     {
         $this->invoice();
-        $response = $this->actingAs($this->user)->get(route('pennylane.invoice.pdf', $this->order->id));
-        $response->assertForbidden();
+        $this->actingAs($this->staff(), 'staff');
+
+        $this->get(route('pennylane.invoice.pdf', $this->order->id))->assertForbidden();
         $this->get(URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id]))
             ->assertOk()->assertDownload('Facture-F-TEST-1.pdf');
+    }
+
+    public function test_admin_download_is_refused_to_a_storefront_customer_even_with_a_valid_signature(): void
+    {
+        $this->invoice();
+        $url = URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id]);
+
+        // Le back-office authentifie sur le garde « staff » : une session client
+        // (garde « web ») ne doit pas suffire, même si un lien signé a fuité.
+        $response = $this->actingAs($this->user)->get($url);
+
+        $this->assertNotSame(200, $response->getStatusCode());
+    }
+
+    public function test_order_documents_expose_signed_admin_links_only(): void
+    {
+        $this->invoice();
+        $transaction = Transaction::withoutEvents(fn () => Transaction::factory()->create(['order_id' => $this->order->id, 'type' => 'refund']));
+        $this->invoice(['type' => 'credit_note', 'transaction_id' => $transaction->id, 'external_reference' => 'refund_'.$transaction->id, 'pennylane_invoice_number' => 'F-TEST-2']);
+
+        $documents = OrderDocuments::forOrder($this->order);
+
+        $this->assertSame('ready', $documents['invoice']['state']);
+        $this->assertStringContainsString('/admin/pennylane/invoice/'.$this->order->id.'/pdf', $documents['invoice']['url']);
+        $this->assertStringContainsString('signature=', $documents['invoice']['url']);
+        $this->assertCount(1, $documents['credit_notes']);
+        $this->assertSame('F-TEST-2', $documents['credit_notes'][0]['number']);
+        $this->assertStringNotContainsString('pennylane.com', json_encode($documents));
     }
 
     public function test_missing_pdf_returns_safe_retryable_response(): void
@@ -252,7 +283,7 @@ class CustomerInvoicesTest extends TestCase
     {
         $transaction = Transaction::withoutEvents(fn () => Transaction::factory()->create(['order_id' => $this->order->id, 'type' => 'refund']));
         $this->invoice(['type' => 'credit_note', 'transaction_id' => $transaction->id]);
-        $this->actingAs($this->user)->get(URL::temporarySignedRoute('pennylane.credit-note.pdf', now()->addMinutes(5), ['transaction' => $transaction->id]))
+        $this->actingAs($this->staff(), 'staff')->get(URL::temporarySignedRoute('pennylane.credit-note.pdf', now()->addMinutes(5), ['transaction' => $transaction->id]))
             ->assertOk()->assertDownload('Avoir-F-TEST-1.pdf');
     }
 
@@ -274,5 +305,16 @@ class CustomerInvoicesTest extends TestCase
         $this->assertNull((new InvoiceFinalizedMail($invoice->id))->send($this->mailer));
         $this->assertNull($invoice->fresh()->emailed_at);
         Http::assertNothingSent();
+    }
+
+    private function staff(): Staff
+    {
+        return Staff::create([
+            'first_name' => 'Compta',
+            'last_name' => 'Admin',
+            'email' => 'compta-'.uniqid().'@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]);
     }
 }

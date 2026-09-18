@@ -67,6 +67,11 @@
         @endif
     </div>
 
+    {{-- Facture Pennylane --}}
+    @if ($data['invoice'] ?? null)
+        @include('filament.orders.partials.document-row', ['document' => $data['invoice'], 'class' => 'py-4'])
+    @endif
+
     {{-- Détails facultatifs --}}
     @if (count($data['details']))
         <dl class="space-y-2 pt-4 text-sm">

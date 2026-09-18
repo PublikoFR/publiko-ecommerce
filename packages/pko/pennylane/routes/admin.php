@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Pko\Pennylane\Http\Controllers\DownloadPennylanePdfController;
 
-Route::middleware(['web', 'auth'])
+Route::middleware(['web', 'auth:staff'])
     ->prefix('admin/pennylane')
     ->name('pennylane.')
     ->group(function (): void {
