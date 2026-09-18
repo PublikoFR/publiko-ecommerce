@@ -13,6 +13,7 @@ use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Extensions\OrderHeaderActionsDropdownExtension;
 use App\Filament\Extensions\OrderLinesTableExtension;
+use App\Filament\Extensions\OrderListColumnsExtension;
 use App\Filament\Extensions\OrderPageLayoutExtension;
 use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
@@ -51,6 +52,7 @@ use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource\Pages\EditCustomerGroup;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\LanguageResource;
+use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\Components\OrderItemsTable;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
@@ -239,6 +241,9 @@ class AppServiceProvider extends ServiceProvider
             ],
             EditCustomerGroup::class => [
                 CustomerGroupDeletionGuardExtension::class,
+            ],
+            OrderResource::class => [
+                OrderListColumnsExtension::class,
             ],
             ManageOrder::class => [
                 OrderDelayActionExtension::class,
