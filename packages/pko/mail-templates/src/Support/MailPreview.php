@@ -27,6 +27,8 @@ final class MailPreview
     public static function sampleValues(string $key): array
     {
         $samples = [
+            'brand_name' => brand_name(),
+            'document_number' => 'F-2026-001',
             'first_name' => 'Camille',
             'company_name' => 'Fermetures du Sud',
             'contact_name' => 'Camille Martin',

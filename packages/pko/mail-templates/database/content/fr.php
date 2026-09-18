@@ -39,6 +39,27 @@ $page = static fn (array $blocks): array => [
 ];
 
 return [
+    'billing.invoice_finalized' => [
+        'subject' => 'Votre facture :document_number — :brand_name',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Votre facture :document_number'],
+            ['type' => 'text', 'html' => '<p>Bonjour :first_name,</p><p>Vous trouverez en pièce jointe la facture :document_number concernant votre commande :order_reference.</p>'],
+            ['type' => 'button', 'label' => 'Consulter mes factures', 'url' => ':account_url', 'variant' => 'primary'],
+            ['type' => 'text', 'html' => '<p>À bientôt,<br>L’équipe :brand_name</p>'],
+        ]),
+    ],
+
+    'billing.credit_note_finalized' => [
+        'subject' => 'Votre avoir :document_number — :brand_name',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Votre avoir :document_number'],
+            ['type' => 'text', 'html' => '<p>Bonjour :first_name,</p><p>Vous trouverez en pièce jointe l’avoir :document_number concernant votre commande :order_reference.</p>'],
+            ['type' => 'button', 'label' => 'Consulter mes factures', 'url' => ':account_url', 'variant' => 'primary'],
+            ['type' => 'text', 'html' => '<p>À bientôt,<br>L’équipe :brand_name</p>'],
+        ]),
+    ],
 
     // 01 — Bienvenue / inscription du compte
     'account.welcome' => [

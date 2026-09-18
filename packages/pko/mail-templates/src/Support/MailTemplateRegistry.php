@@ -33,6 +33,20 @@ final class MailTemplateRegistry
     public static function all(): array
     {
         return [
+            'billing.invoice_finalized' => [
+                'group' => 'order',
+                'audience' => self::AUDIENCE_CUSTOMER,
+                'label' => 'Facture émise',
+                'placeholders' => ['brand_name', 'first_name', 'document_number', 'order_reference', 'account_url'],
+                'required' => ['document_number', 'order_reference'],
+            ],
+            'billing.credit_note_finalized' => [
+                'group' => 'order',
+                'audience' => self::AUDIENCE_CUSTOMER,
+                'label' => 'Avoir émis',
+                'placeholders' => ['brand_name', 'first_name', 'document_number', 'order_reference', 'account_url'],
+                'required' => ['document_number', 'order_reference'],
+            ],
             'account.welcome' => [
                 'group' => 'account',
                 'audience' => self::AUDIENCE_CUSTOMER,

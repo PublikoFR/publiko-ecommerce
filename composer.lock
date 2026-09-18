@@ -8581,11 +8581,11 @@
         },
         {
             "name": "pko/lunar-pennylane",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-feat/pennylane-customer-invoices",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/pennylane",
-                "reference": "a4ea0d40fe5c591291a7a4fc8217574f85fbcc11"
+                "reference": "3d23514bb8b7e02959f0b8900505e44242407c2c"
             },
             "require": {
                 "filament/filament": "^3.0",
@@ -8595,7 +8595,8 @@
                 "illuminate/support": "^11.0",
                 "lunarphp/core": "^1.0",
                 "php": "^8.2",
-                "pko/lunar-account": "@dev"
+                "pko/lunar-account": "@dev",
+                "pko/lunar-mail-templates": "@dev"
             },
             "require-dev": {
                 "orchestra/testbench": "^9.0",

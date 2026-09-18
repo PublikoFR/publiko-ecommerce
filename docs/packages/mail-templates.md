@@ -286,3 +286,14 @@ a été saisi (`PhoneLink::href()`, ignoré si l'URL est vide).
 - **Aucune propriété `readonly` ni `private` dans `TemplatedMail`** (2026-09-17). Un mail en file est restauré par `SerializesModels::__unserialize`, qui réaffecte les propriétés par réflexion depuis la portée de la **classe fille** : PHP refuse d'initialiser une `readonly` déclarée dans le parent (« Cannot initialize readonly property … from scope … »), et ignore les `private` du parent (« must not be accessed before initialization » dans `build()`). Conséquence : les 12 mails en `ShouldQueue` échouaient tous dès qu'une vraie file (redis, database) était branchée. La suite tourne en `QUEUE_CONNECTION=sync` et ne sérialise rien — `QueuedTemplatedMailSerializationTest` fait l'aller-retour `serialize`/`unserialize` pour couvrir ce trou. Les `readonly` déclarées dans les classes filles, elles, ne posent pas de problème.
 - Les montants affichés sont des **HT** (`sub_total`) : les textes client annoncent explicitement « € HT ».
 - Après un changement de format de contenu, penser à `make artisan CMD='migrate'` sur la base de dev : les tests (`RefreshDatabase`) rejouent toutes les migrations et restent verts même si la base de dev est en retard, ce qui masque le décalage jusqu'à l'ouverture de l'écran.
+
+
+## Documents comptables émis
+
+`billing.invoice_finalized` et `billing.credit_note_finalized` sont deux modèles
+client du groupe Commandes. Leur contenu et leur activation sont indépendants ;
+ils utilisent `brand_name`, `first_name`, `document_number`, `order_reference`,
+`account_url`. Le package Pennylane fournit la Mailable en queue, télécharge le PDF
+original au traitement et suit l'envoi dans `pko_pennylane_invoices.emailed_at`.
+L'aperçu de template utilise des valeurs de démonstration et ne joint pas de PDF.
+Le détail des retries et de l'idempotence est dans [pennylane.md](pennylane.md).
