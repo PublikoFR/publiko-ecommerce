@@ -36,6 +36,10 @@ class RecalculateLoyaltyTiersCommand extends Command
             $count = 0;
 
             foreach ($customersPoints as $cp) {
+                if ((int) $cp->points_year !== $manager->currentYear()) {
+                    continue;
+                }
+
                 $eligibleTierIds = LoyaltyTier::query()
                     ->where('active', true)
                     ->where('points_required', '<=', $cp->total_points)
@@ -43,6 +47,7 @@ class RecalculateLoyaltyTiersCommand extends Command
 
                 $alreadyUnlockedTierIds = GiftHistory::query()
                     ->where('customer_id', $cp->customer_id)
+                    ->where('year', $manager->currentYear())
                     ->whereIn('tier_id', $eligibleTierIds)
                     ->pluck('tier_id');
 

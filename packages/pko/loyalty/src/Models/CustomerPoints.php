@@ -16,6 +16,7 @@ class CustomerPoints extends Model
 
     protected $casts = [
         'total_points' => 'integer',
+        'points_year' => 'integer',
         'last_order_at' => 'datetime',
     ];
 

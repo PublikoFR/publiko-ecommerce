@@ -17,6 +17,7 @@ class GiftHistory extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'year' => 'integer',
         'points_at_unlock' => 'integer',
         'admin_viewed' => 'boolean',
         'email_sent' => 'boolean',

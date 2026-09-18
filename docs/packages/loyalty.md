@@ -14,6 +14,10 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 - **Photo du cadeau** : plus de colonne `gift_image_url` (migration `2026_08_31_000000_drop_gift_image_url_from_pko_loyalty_tiers`). `LoyaltyTier` utilise `HasMediaAttachments` (`pko/lunar-media-core`), média rattaché au mediagroup `gift_image` via `MediaPicker` dans `LoyaltyTierResource`. Accesseur `getGiftImageUrlAttribute()` conservé (mappe sur `firstMediaUrl('gift_image')`) pour ne pas casser les usages existants (notifications, vue storefront).
 - **Ordre des paliers** : champ `position` retiré du formulaire admin. Le glisser-déposer (`->reorderable('position', false)`) est désactivé côté UI mais **pas supprimé du code** (économie de compute, réactivable en repassant `true`) — la liste est triée par `points_required` croissant (`->defaultSort('points_required')`), colonne déjà `->sortable()`.
 
+- **Cycle annuel (remise à zéro au 1er janvier)** : `customer_points.points_year` rattache le solde à une année civile. Un solde d'une année passée vaut 0. Double mécanisme : `LoyaltyManager::ensureCurrentYear()` remet à zéro à la volée avant toute écriture (gain ou retrait), et la commande `loyalty:reset-annual` (planifiée **chaque jour** à 00:05, pas `yearlyOn(1, 1)` : rattrape un scheduler arrêté le 1er janvier, no-op le reste de l'année) remet à zéro en base pour que l'admin affiche aussi 0. `getCustomerSnapshot()` renvoie 0 pour un solde d'année passée même si la commande n'est pas encore passée.
+- **Paliers re-débloquables chaque année** : `gift_history.year`, unicité `(customer_id, tier_id, year)` (avant : `(customer_id, tier_id)`). Le snapshot expose `unlocked_tiers` = année en cours (piste Flow) et `gift_history` = tout l'historique (liste « Suivi de vos cadeaux »).
+- **Retrait de points sur remboursement / avoir** : observer `RefundTransactionObserver` sur `Lunar\Models\Transaction` (`saved`, `type=refund`, `success=true`). Les avoirs Pennylane naissent de ces mêmes transactions (`TransactionPennylaneObserver`) → un seul point d'entrée. `revokeForRefunds()` retire **au prorata** : `cible = round(points_earned × Σ remboursé TTC / total TTC)`, plafonnée à `points_earned`, stockée dans `points_history.points_revoked` ; seul l'écart avec la cible précédente est retiré (idempotent, remboursements partiels successifs gérés). Solde plancher 0, `current_tier_id` recalculé. Si le solde repasse sous un palier débloqué **cette année**, le cadeau encore `pending` est supprimé ; `processing`/`sent` conservé. Remboursement d'une commande dont les points ont été gagnés une année passée → ignoré (points déjà remis à zéro). Pas de statut Lunar « annulée » configuré : une annulation passe par un remboursement.
+
 ### Tables (préfixe `pko_loyalty_`)
 - `pko_loyalty_tiers` — paliers (name, points_required, gift_title, gift_description, position, active ; photo via `pko_mediables`)
 - `pko_loyalty_customer_points` — agrégat par client (unique customer_id)
@@ -35,7 +39,7 @@ Portage du module PrestaShop `publikoloyalty` (v1.1.0) vers Lunar. Phase 1 : bac
 - **Couleur du connecteur de progression** : lime (`accent-500`, vert clair de la charte), jamais `primary`/forest — cf. §3.3 règle 4 (accent lime réservé à un seul élément fort par vue, ici le cadeau en cours de déblocage).
 
 ### Backlog phase 2
-- Gestion remboursements / annulations (retrait points).
+- Remboursements / annulations : fait (cf. « Retrait de points sur remboursement »).
 
 ---
 
