@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Extensions;
 
+use App\Support\Orders\OrderCompanyName;
 use Filament\Infolists\Components\Actions;
 use Filament\Infolists\Components\Actions\Action;
 use Filament\Infolists\Components\Component;
@@ -209,6 +210,7 @@ final class OrderPageLayoutExtension extends ResourceExtension
 
         return [
             'reference' => (string) ($order->reference ?: '#'.$order->id),
+            'company' => OrderCompanyName::for($order),
             'status' => [
                 'label' => OrderStatus::getLabel($order->status),
                 'color' => OrderStatus::getColor($order->status),

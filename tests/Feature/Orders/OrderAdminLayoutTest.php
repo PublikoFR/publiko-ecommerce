@@ -291,6 +291,27 @@ class OrderAdminLayoutTest extends TestCase
         $this->assertMatchesRegularExpression('/En attente de paiement.*Paiement reçu/s', $html);
     }
 
+    public function test_la_vue_d_ensemble_affiche_la_raison_sociale_au_dessus_du_client(): void
+    {
+        $this->actingAsStaff();
+        $customer = Customer::factory()->create([
+            'title' => null, 'first_name' => 'Sophie', 'last_name' => 'Girard', 'company_name' => 'Compte SARL',
+        ]);
+        $order = $this->makeOrder(['customer_id' => $customer->id]);
+
+        // Le compte client sert de repli tant que l'adresse n'a pas de raison sociale…
+        $this->assertSame('Compte SARL', OrderPageLayoutExtension::overview($order)['company']);
+
+        // … l'adresse de facturation, qui part sur la facture, fait foi.
+        $this->addAddress($order, 'billing', '34 avenue de la Facturation');
+        $order->billingAddress()->update(['company_name' => 'Facturation SAS']);
+
+        $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSeeInOrder(['Facturation SAS', 'Sophie Girard', 'Fiche client'])
+            ->assertDontSee('Compte SARL');
+    }
+
     public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void
     {
         $order = $this->makeOrder(['pko_site_name' => 'Résidence Les Pins', 'customer_reference' => 'BC-2231']);

@@ -56,6 +56,7 @@ class OrderAdminListTest extends TestCase
         OrderAddress::factory()->create([
             'order_id' => $order->id,
             'type' => 'billing',
+            'company_name' => 'Durand Bâtiment',
             'first_name' => 'Jeanne',
             'last_name' => 'Durand',
             'contact_email' => 'jeanne.durand@example.com',
@@ -79,22 +80,30 @@ class OrderAdminListTest extends TestCase
     {
         $order = $this->makeOrder();
 
-        Livewire::test(ListOrders::class)
+        $component = Livewire::test(ListOrders::class)
             ->loadTable()
             ->assertCanSeeTableRecords([$order])
             ->assertSee('01/09/26 - 16h32')
             ->assertSee('LIST-0001')
-            ->assertSee('Jeanne Durand')
-            ->assertSee('jeanne.durand@example.com')
-            ->assertSee('0612345678')
             ->assertSee('Nouveau');
+
+        // Sur le HTML rendu : la réponse Livewire complète encode les accents en JSON.
+        $html = $component->html();
+        $positions = array_map(
+            fn (string $needle): int|false => mb_strpos($html, $needle),
+            ['Durand Bâtiment', 'Jeanne Durand', 'jeanne.durand@example.com', '0612345678'],
+        );
+        $this->assertNotContains(false, $positions);
+        $sorted = $positions;
+        sort($sorted);
+        $this->assertSame($sorted, $positions, 'Raison sociale, nom, e-mail puis téléphone.');
     }
 
-    public function test_la_recherche_trouve_une_commande_par_email_ou_telephone(): void
+    public function test_la_recherche_trouve_une_commande_par_email_telephone_ou_raison_sociale(): void
     {
         $order = $this->makeOrder();
         $other = $this->makeOrder(['reference' => 'LIST-0002']);
-        $other->billingAddress->update(['contact_email' => 'autre@example.com', 'contact_phone' => '0700000000']);
+        $other->billingAddress->update(['company_name' => 'Autre SARL', 'contact_email' => 'autre@example.com', 'contact_phone' => '0700000000']);
 
         Livewire::test(ListOrders::class)
             ->loadTable()
@@ -103,6 +112,20 @@ class OrderAdminListTest extends TestCase
             ->assertCanNotSeeTableRecords([$other])
             ->searchTable('0700000000')
             ->assertCanSeeTableRecords([$other])
-            ->assertCanNotSeeTableRecords([$order]);
+            ->assertCanNotSeeTableRecords([$order])
+            ->searchTable('Durand Bât')
+            ->assertCanSeeTableRecords([$order])
+            ->assertCanNotSeeTableRecords([$other]);
+    }
+
+    public function test_une_adresse_sans_nom_affiche_quand_meme_la_raison_sociale(): void
+    {
+        $order = $this->makeOrder();
+        $order->billingAddress->update(['first_name' => '', 'last_name' => '']);
+
+        $html = Livewire::test(ListOrders::class)->loadTable()->html();
+
+        $this->assertStringContainsString('Durand Bâtiment', $html);
+        $this->assertStringContainsString('jeanne.durand@example.com', $html);
     }
 }

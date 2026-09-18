@@ -380,9 +380,15 @@ d'accès. Régression couverte par `ProAccessRedirectTest`
 **Date · Référence · Client · Statut · Total**, puis les actions Lunar.
 
 - **Date** : `placed_at` au format `01/09/26 - 16h32` (fuseau `APP_TIMEZONE`), triable.
-- **Client** : nom, e-mail, téléphone de l'adresse de facturation, un par ligne.
-  La recherche porte sur ces quatre champs (`first_name`, `last_name`,
+- **Client** : raison sociale, nom, e-mail, téléphone, un par ligne. La recherche
+  porte sur l'adresse de facturation (`company_name`, `first_name`, `last_name`,
   `contact_email`, `contact_phone`).
+
+**Raison sociale** (liste et bloc « vue d'ensemble » de la fiche) :
+`App\Support\Orders\OrderCompanyName::for()`. L'adresse de facturation fait foi —
+c'est elle qui part sur la facture, le checkout la pré-remplit depuis le compte —,
+`lunar_customers.company_name` ne sert que de repli quand elle n'en a pas. La
+recherche de la liste ne voit que l'adresse, pas ce repli.
 - **Statut** : `ViewColumn` (`resources/views/filament/orders/list-status-cell.blade.php`)
   qui empile le badge de statut et le badge Nouveau / Récurrent — une `TextColumn`
   ne porte qu'une couleur de badge.

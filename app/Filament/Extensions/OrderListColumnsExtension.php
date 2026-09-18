@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Extensions;
 
+use App\Support\Orders\OrderCompanyName;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Table;
@@ -14,7 +15,7 @@ use Lunar\Models\Order;
 
 /**
  * Colonnes de la liste des commandes admin, dans l'ordre :
- * Date · Référence · Client (nom, e-mail, téléphone) · Statut (statut + nouveau/récurrent) · Total.
+ * Date · Référence · Client (raison sociale, nom, e-mail, téléphone) · Statut (statut + nouveau/récurrent) · Total.
  *
  * Remplace les 11 colonnes Lunar : référence client, étiquettes et code postal
  * disparaissent, e-mail et téléphone rejoignent la cellule client, le type de
@@ -37,9 +38,11 @@ final class OrderListColumnsExtension extends ResourceExtension
                     ->searchable(),
                 TextColumn::make('billingAddress.fullName')
                     ->label('Client')
-                    ->formatStateUsing(fn (string $state, Order $record): HtmlString => self::customerCell($state, $record))
+                    // État calculé : une adresse avec raison sociale mais sans nom ne doit
+                    // pas retomber sur le placeholder.
+                    ->state(fn (Order $record): ?HtmlString => self::customerCell($record))
                     ->placeholder('—')
-                    ->searchable(['first_name', 'last_name', 'contact_email', 'contact_phone']),
+                    ->searchable(['company_name', 'first_name', 'last_name', 'contact_email', 'contact_phone']),
                 ViewColumn::make('status')
                     ->label('Statut')
                     ->view('filament.orders.list-status-cell'),
@@ -48,20 +51,34 @@ final class OrderListColumnsExtension extends ResourceExtension
                     ->formatStateUsing(fn ($state): string => $state->formatted),
             ])
             // Remplace le modifyQueryUsing de Lunar (with currency) : on le reprend
-            // et on précharge l'adresse de facturation lue par la cellule client.
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['currency', 'billingAddress']));
+            // et on précharge l'adresse de facturation et le client lus par la cellule client.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['currency', 'billingAddress', 'customer']));
     }
 
-    private static function customerCell(string $name, Order $record): HtmlString
+    private static function customerCell(Order $record): ?HtmlString
     {
         $address = $record->billingAddress;
+        $company = OrderCompanyName::for($record);
+        $name = trim((string) $address?->fullName);
 
-        $lines = ['<span class="font-medium">'.e($name).'</span>'];
+        $lines = [];
+
+        if ($company !== null) {
+            $lines[] = '<span class="font-semibold">'.e($company).'</span>';
+        }
+
+        if ($name !== '') {
+            $lines[] = '<span'.($company === null ? ' class="font-medium"' : '').'>'.e($name).'</span>';
+        }
 
         foreach ([$address?->contact_email, $address?->contact_phone] as $line) {
             if (filled($line)) {
                 $lines[] = '<span class="text-gray-500 dark:text-gray-400">'.e($line).'</span>';
             }
+        }
+
+        if ($lines === []) {
+            return null;
         }
 
         return new HtmlString('<div class="flex flex-col text-sm leading-5">'.implode('', $lines).'</div>');
