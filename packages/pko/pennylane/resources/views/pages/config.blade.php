@@ -34,7 +34,7 @@
                         {{ __('pko-pennylane::admin.config.status.template') }}
                     </dt>
                     <dd class="mt-1 text-sm text-gray-900 dark:text-gray-200">
-                        {{ $this->getTemplateId() ?: __('pko-pennylane::admin.config.status.missing') }}
+                        {{ $this->getTemplateId() ?: __('pko-pennylane::admin.config.status.default_template') }}
                     </dd>
                 </div>
                 <div>

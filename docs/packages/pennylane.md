@@ -28,7 +28,7 @@ packages/pko/pennylane/
     ├── Api/
     │   ├── PennylaneClient.php              # Wrapper HTTP (Bearer, retry 5xx/429)
     │   ├── Resources/
-    │   │   ├── CustomerInvoicesResource.php # create, finalize, get, find, changelog
+    │   │   ├── CustomerInvoicesResource.php # create, finalize, get, find, link_credit_note, delete, changelog
     │   │   └── CustomersResource.php        # create, update, find
     │   └── Exceptions/
     ├── Dto/                                 # CreateInvoiceData, CreateCreditNoteData, InvoiceLineData, CustomerData
@@ -87,13 +87,13 @@ Variables d'environnement (cf. `config/pennylane.php`) :
 ```dotenv
 PENNYLANE_ENABLED=true                  # kill-switch global : à false, aucune requête n'est envoyée
 PENNYLANE_API_TOKEN=...                 # obligatoire
-PENNYLANE_INVOICE_TEMPLATE_ID=42        # ID template facture Pennylane (admin Pennylane → Paramètres)
+PENNYLANE_INVOICE_TEMPLATE_ID=         # optionnel : sans ID, Pennylane applique son modèle par défaut
 PENNYLANE_TRIGGER_STATUS=payment-received  # statut Lunar qui déclenche la facture
 PENNYLANE_AUTO_CREDIT_NOTE=true         # avoir auto sur refund
 PENNYLANE_DEADLINE_DAYS=0               # délai de paiement (facture cash par défaut)
-PENNYLANE_LANG=fr
+PENNYLANE_LANG=fr                       # converti en locale API (fr → fr_FR)
 PENNYLANE_QUEUE=default                 # queue dédiée possible
-PENNYLANE_SANDBOX=false                 # simple flag logique (sandbox = compte séparé côté Pennylane)
+PENNYLANE_SANDBOX=false                 # sans effet : c'est le token qui désigne live ou sandbox (voir « Tester sur la sandbox »)
 PENNYLANE_HTTP_TIMEOUT=15
 PENNYLANE_HTTP_RETRY=3
 ```
@@ -118,6 +118,55 @@ L'API v2 attend le paramètre `filter` comme **chaîne JSON**, pas comme tableau
 l'API renvoie `400 The filter's value (...) should be a string, but we received a
 hash` — le sérialiseur de `Http::get()` produisant `filter[0][field]=...`.
 
+### Contrat API v2 — pièges vérifiés sur la sandbox (2026-09-18)
+
+Le package a d'abord été écrit sans appel réel. Confronté à la spec
+(`https://pennylane.readme.io/openapi/accounting.json`) et à la sandbox, il
+divergeait sur tous les points ci-dessous. La spec OpenAPI fait foi.
+
+| Sujet | Contrat v2 |
+|---|---|
+| Création client | `POST /company_customers` ou `/individual_customers` selon le type (`POST /customers` → 404). Lecture/recherche : `GET /customers`. |
+| Référence client | `external_reference` (pas `source_id`), filtrable en `eq`. |
+| Adresse de facturation | Obligatoire, avec `address`, `postal_code`, `city`, `country_alpha2` tous renseignés. `CustomerData` lève une `PennylaneException` lisible si un champ manque. |
+| Lignes | `invoice_lines` (pas `line_items`). Prix unitaire **HT** dans `raw_currency_unit_price` (string, 6 décimales max, remise déduite). |
+| TVA | `vat_rate` est un **code** (`FR_200`, `FR_100`, `FR_55`, `FR_21`, `exempt`), pas un pourcentage. Voir `Support\VatRate`. |
+| Langue | Locale complète (`fr_FR`). |
+| Finalisation | Lue sur le booléen `draft`. `status` décrit le **paiement** (`upcoming`, `paid`, `late`…) : la valeur `finalized` n'existe pas. |
+| Avoir | Facture à **montants négatifs** créée par le même endpoint, puis `POST /customer_invoices/{facture}/link_credit_note` une fois finalisée. Pas de champ `credit_note` ni `parent_invoice_id` à la création. |
+| Modèle de facture | `customer_invoice_template_id` est optionnel. Le lister demande le scope `customer_invoice_templates:readonly`. |
+| Chronologie | Une facture ne peut pas être finalisée avec une date antérieure à la dernière facture finalisée (422). La facture est donc datée **du jour de la synchro**, pas de la commande ; la référence de commande figure dans l'objet du PDF. Sinon, tout backfill et tout job rejoué après une commande plus récente échoueraient. |
+| Numérotation | La finalisation échoue en 422 (« Configurez d'abord la numérotation des factures ») tant que la numérotation n'est pas configurée dans le compte Pennylane, sandbox compris. |
+
+**Taux de TVA** : `tax_breakdown` est vide sur nos commandes Lunar. Le taux est
+donc déduit de `tax_total / (sub_total - discount_total)` puis rapproché du taux
+légal français le plus proche (tolérance 0,15 point, pour absorber l'arrondi au
+centime). Un taux sans équivalent fait échouer la synchro plutôt que d'émettre une
+facture fausse.
+
+**TVA à 0 % sur toutes les commandes** : ce n'est pas un bug Pennylane. `lunar:install`
+crée une « Default Tax Zone » avec tous les pays et sans taux, et Lunar retient la
+*première* zone active contenant le pays. Tant que la France y figure, la zone
+« France métropolitaine » est ignorée. `PkoTaxSeeder` retire désormais la France des
+autres zones. Sur une base existante, relancer `make artisan CMD='db:seed --class=PkoTaxSeeder'`.
+
+**Port** : quand une commande porte `shipping_total` sans ligne `shipping` (anciennes
+commandes), une ligne « Frais de port » est ajoutée. Sa TVA est celle qui n'est
+imputée à aucune ligne produit.
+
+**Contrôle du total** : après création, `InvoiceSynchronizer` compare le TTC recalculé
+par Pennylane (`currency_amount`) au total de la commande et logue un warning
+au-delà d'un centime d'écart (remise de commande non répartie sur les lignes, par exemple).
+
+### Tester sur la sandbox
+
+Un compte Pennylane active un « Environnement de test » depuis son profil (cela
+demande un abonnement). On obtient alors un second compte, isolé du live. La clé
+API générée depuis ce compte s'utilise telle quelle : l'URL de l'API est la même,
+c'est le token qui fixe l'environnement. `GET /me` renvoie un `reg_no` de la forme
+`sandbox-<id>`, à vérifier avant toute écriture. En dev : enregistrer la clé dans
+Secrets (source `db`), puis `pennylane:resync-order <id> --sync`.
+
 ### Queue
 
 Avec `QUEUE_CONNECTION=sync`, `SyncOrderInvoiceJob` s'exécute **dans la requête de
@@ -133,8 +182,8 @@ tunnel d'achat.
    - `PennylaneInvoice::firstOrCreate(external_reference=order_<id>)` — garde-fou doublon
    - Early return si déjà `finalized`
    - `CustomerMapper::resolveOrCreate` → trouve ou crée le client Pennylane (GET par `external_reference` puis POST si absent, stocke mapping local)
-   - `OrderToInvoiceMapper::build` → DTO avec lines (cents → décimal, TVA depuis `tax_breakdown`)
-   - `CustomerInvoicesResource::create` puis `finalize` (séparation exigée par l'API)
+   - `OrderToInvoiceMapper::build` → DTO avec lignes HT remisées, TVA déduite des montants, port ajouté si besoin
+   - Reprise : facture retrouvée par `external_reference`, sinon `create(draft=false)` ; `finalize` seulement si elle est encore en brouillon
    - Stocke `pennylane_id`, `pennylane_invoice_number`, `status=finalized`, snapshot payload
 
 ## Flux avoir (credit note)
@@ -143,8 +192,8 @@ tunnel d'achat.
 2. **Job** (retries 60/180/600/1800/3600/14400s) :
    - Cherche la facture parent `PennylaneInvoice` (type=invoice, status=finalized, même order_id)
    - Absente → `release(120)` (re-queue), jusqu'à épuisement des tries
-   - Présente : `TransactionToCreditNoteMapper` proratise le montant refund selon la TVA globale de la commande
-   - `CustomerInvoicesResource::create(credit_note=true, parent_invoice_id=...)` puis `finalize`
+   - Présente : `TransactionToCreditNoteMapper` répartit le remboursement TTC au prorata du TTC de chaque taux de TVA de la commande (une ligne négative par taux)
+   - `create` (montants négatifs), `finalize` si besoin, puis `linkCreditNote` sur la facture parent (sauté si `credited_invoice` est déjà renseigné)
 
 ## Commandes CLI
 
@@ -167,10 +216,12 @@ Cluster **Pennylane** (icône `document-currency-euro`, sort 70) avec une Resour
 
 `tests/Unit/Pennylane/` :
 - `PennylaneClientTest` : Bearer, throw sur token manquant, parsing erreurs
-- `CustomerInvoicesResourceTest` : create, finalize (PUT), findByExternalReference (404 → null)
-- `DtoTest` : format currency_amount, stripping des nulls, company vs individual, credit_note
+- `CustomerInvoicesResourceTest` : create, finalize (PUT), findByExternalReference (404 → null), `isFinalized` sur `draft`, link_credit_note
+- `CustomersResourceTest` : endpoint de création par type, filtre `external_reference`
+- `DtoTest` : `raw_currency_unit_price` + code TVA, précision sous le centime, adresse obligatoire, avoir sans champs v1
+- `VatRateTest` : correspondance taux → code, arrondis, taux inconnu rejeté
 
-Exécution : `make test`. Tous utilisent `Http::fake()`, pas de vraie base ni de vrai token.
+Exécution : `make test-only T=tests/Unit/Pennylane`. Tous utilisent `Http::fake()`, pas de vraie base ni de vrai token.
 
 ## Résilience aux upgrades Lunar
 
@@ -195,13 +246,13 @@ Avoirs : rendus dans un `ActionGroup` `Avoirs Pennylane (N)` — une entrée par
 - `GET admin/pennylane/invoice/{order}/pdf` → `pennylane.invoice.pdf` (signée)
 - `GET admin/pennylane/credit-note/{transaction}/pdf` → `pennylane.credit-note.pdf` (signée)
 
-**Streaming** : `DownloadPennylanePdfController` résout `CustomerInvoicesResource::pdfUrl($id)` (cherche `public_file_url` / `file_url` / `pdf_url` / `download_url` dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne un `streamDownload` avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
+**Streaming** : `DownloadPennylanePdfController` résout `CustomerInvoicesResource::pdfUrl($id)` (lit `public_file_url`, URL valable 30 min, dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne un `streamDownload` avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
 
 ## Gotchas
 
 - Les lignes de commande Lunar stockent les montants **en plus petite unité monétaire** (centimes pour EUR). Toute conversion en décimal passe par `$line->unit_price->value / 100`.
 - Pennylane **refuse la modification d'une facture finalisée** → un avoir est obligatoire pour corriger. Le package le fait automatiquement via `TransactionPennylaneObserver`.
-- Pennylane **assigne le numéro à la finalisation**, jamais à la création du draft. Le flux standard est donc `create(draft=false)` puis `finalize()` — équivalent à une création finalisée atomique.
+- Pennylane **assigne le numéro à la finalisation**, jamais à la création du draft. `create(draft=false)` crée directement une facture finalisée ; `finalize()` ne sert qu'à reprendre un brouillon.
 - La numérotation Pennylane est **partagée entre Lunar et Pennylane manuel**. Aucun conflit possible, c'est un compteur unique côté Pennylane.
 
 ## Références

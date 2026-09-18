@@ -39,7 +39,7 @@ final class CustomerMapper
 
         if (! $pennylaneId) {
             try {
-                $created = $this->customers->create($dto->toArray());
+                $created = $this->customers->create($dto->toArray(), $dto->isCompany);
                 $pennylaneId = $created['id'] ?? null;
             } catch (PennylaneApiException $e) {
                 if ($e->status === 409) {
@@ -113,6 +113,7 @@ final class CustomerMapper
             city: $billing?->city,
             countryAlpha2: $billing?->country?->iso2,
             isCompany: $isCompany,
+            language: (string) config('pennylane.default_language', 'fr'),
         );
     }
 

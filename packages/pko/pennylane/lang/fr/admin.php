@@ -33,6 +33,7 @@ return [
             'template' => 'Template facture',
             'source' => 'Source des secrets',
             'missing' => 'Non configuré',
+            'default_template' => 'Modèle par défaut du compte Pennylane',
         ],
     ],
     'invoice' => [

@@ -15,9 +15,4 @@ final class PennylaneNotConfiguredException extends PennylaneException
     {
         return new self('Intégration Pennylane désactivée (PENNYLANE_ENABLED=false). Aucune requête n\'est envoyée.');
     }
-
-    public static function missingTemplate(): self
-    {
-        return new self('Pennylane customer_invoice_template_id manquant. Configurez PENNYLANE_INVOICE_TEMPLATE_ID.');
-    }
 }

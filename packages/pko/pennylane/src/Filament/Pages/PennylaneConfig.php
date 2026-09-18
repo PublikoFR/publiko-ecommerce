@@ -135,9 +135,10 @@ class PennylaneConfig extends BasePage implements HasForms
         return filled($this->getTemplateId());
     }
 
+    /** Le modèle de facture est optionnel : Pennylane applique son modèle par défaut. */
     public function isFullyConfigured(): bool
     {
-        return $this->hasApiToken() && $this->hasTemplate();
+        return $this->hasApiToken();
     }
 
     public function getMaskedToken(?string $value): string

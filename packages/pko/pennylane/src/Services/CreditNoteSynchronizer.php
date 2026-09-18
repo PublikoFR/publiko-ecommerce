@@ -58,23 +58,19 @@ final class CreditNoteSynchronizer
             $pennylaneCustomerId = $this->customerMapper->resolveOrCreate($order);
             $dto = $this->creditMapper->build($refund, $pennylaneCustomerId, (int) $parent->pennylane_id);
 
-            $existing = $this->invoices->findByExternalReference($externalReference);
+            $remote = $this->invoices->findByExternalReference($externalReference)
+                ?? $this->invoices->create($dto->toArray());
 
-            if ($existing) {
-                $pennylaneId = (int) $existing['id'];
-                $status = $existing['status'] ?? 'draft';
-                $invoiceNumber = $existing['invoice_number'] ?? null;
-            } else {
-                $created = $this->invoices->create($dto->toArray());
-                $pennylaneId = (int) $created['id'];
-                $status = $created['status'] ?? 'draft';
-                $invoiceNumber = $created['invoice_number'] ?? null;
+            $pennylaneId = (int) $remote['id'];
+            if (! CustomerInvoicesResource::isFinalized($remote)) {
+                $remote = $this->invoices->finalize($pennylaneId);
             }
+            $invoiceNumber = $remote['invoice_number'] ?? null;
 
-            if ($status !== 'finalized') {
-                $finalized = $this->invoices->finalize($pennylaneId);
-                $invoiceNumber = $finalized['invoice_number'] ?? $invoiceNumber;
-                $status = 'finalized';
+            // Le rattachement n'est possible qu'une fois l'avoir finalisé ; en
+            // reprise, `credited_invoice` indique qu'il a déjà été fait.
+            if (empty($remote['credited_invoice'])) {
+                $this->invoices->linkCreditNote((int) $parent->pennylane_id, $pennylaneId);
             }
 
             $record->update([
