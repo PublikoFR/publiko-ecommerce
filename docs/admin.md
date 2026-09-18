@@ -373,6 +373,25 @@ d'accès. Régression couverte par `ProAccessRedirectTest`
 (`test_customer_keeps_access_after_default_group_is_removed`,
 `test_customer_in_another_group_only_keeps_access`).
 
+## Liste des commandes admin — colonnes personnalisées
+
+`App\Filament\Extensions\OrderListColumnsExtension` (hook `extendTable` sur
+`Lunar\Admin\Filament\Resources\OrderResource`) remplace les 11 colonnes Lunar par :
+**Date · Référence · Client · Statut · Total**, puis les actions Lunar.
+
+- **Date** : `placed_at` au format `01/09/26 - 16h32` (fuseau `APP_TIMEZONE`), triable.
+- **Client** : nom, e-mail, téléphone de l'adresse de facturation, un par ligne.
+  La recherche porte sur ces quatre champs (`first_name`, `last_name`,
+  `contact_email`, `contact_phone`).
+- **Statut** : `ViewColumn` (`resources/views/filament/orders/list-status-cell.blade.php`)
+  qui empile le badge de statut et le badge Nouveau / Récurrent — une `TextColumn`
+  ne porte qu'une couleur de badge.
+- Supprimées : référence client, étiquettes, code postal (les filtres Lunar restent).
+
+Pas de sous-classe de Resource : aucune page n'a besoin d'être redéclarée, le hook
+suffit. Piège : `modifyQueryUsing()` **remplace** celui de Lunar (`with('currency')`),
+l'extension le reprend en ajoutant `billingAddress`.
+
 ## Colonne « Type de client » de la liste des commandes — « Retour » à tort
 
 La colonne affiche `lunar_orders.new_customer`, calculé par le job Lunar
