@@ -16,6 +16,7 @@ use Lunar\Admin\Filament\Resources\OrderResource\Pages\Components\OrderItemsTabl
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Livewire\Components\ActivityLogFeed;
 use Lunar\Admin\Models\Staff;
+use Lunar\Admin\Support\ActivityLog\Orders\StatusUpdate;
 use Lunar\Facades\CartSession;
 use Lunar\Models\Cart;
 use Lunar\Models\Channel;
@@ -272,6 +273,22 @@ class OrderAdminLayoutTest extends TestCase
             ->assertSee('Ajouter un commentaire')
             ->assertSee($expectedDate)
             ->assertDontSee('absolute right-0 mt-2', escape: false);
+    }
+
+    public function test_un_changement_de_statut_affiche_les_deux_libelles_sous_le_titre(): void
+    {
+        $order = $this->makeOrder();
+
+        $log = activity()
+            ->performedOn($order)
+            ->event('status-update')
+            ->withProperties(['previous' => 'awaiting-payment', 'new' => 'payment-received'])
+            ->log('status-update');
+
+        $html = (string) (new StatusUpdate)->render($log)->render();
+
+        $this->assertStringContainsString('flex-wrap', $html);
+        $this->assertMatchesRegularExpression('/En attente de paiement.*Paiement reçu/s', $html);
     }
 
     public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void
