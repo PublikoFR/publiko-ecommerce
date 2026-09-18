@@ -504,10 +504,10 @@ Les tests `callAction('<nom>')` fonctionnent toujours : Filament met en cache le
 
 ### Nom du chantier (`pko_site_name`)
 
-Extension : `App\Filament\Extensions\OrderSiteNameExtension`.
-
-Affiche une ligne « Chantier » dans le résumé de commande (aside), juste sous la référence,
-via le hook `extendOrderSummarySchema`, quand `order->pko_site_name` est renseigné. Champ nullable string(255) sur `lunar_orders`, ajouté par la migration
+Affiché dans le bloc « vue d'ensemble » de la colonne latérale (ligne « Chantier »), uniquement
+quand `order->pko_site_name` est renseigné — cf. `OrderPageLayoutExtension::overview()`.
+L'ancienne `OrderSiteNameExtension` (hook `extendOrderSummarySchema`) a été supprimée : le résumé
+Lunar n'est plus rendu. Champ nullable string(255) sur `lunar_orders`, ajouté par la migration
 `2026_09_12_000001_add_pko_site_name_to_lunar_orders.php`.
 
 - **Saisie** : checkout step 4 (payment), champ optionnel persisté immédiatement dans `cart.meta['pko_site_name']` via `CheckoutPage::updatedSiteName()`.
@@ -533,7 +533,14 @@ l'état plié est mémorisé par le navigateur, clé = `id` de la section) :
    l'adresse de livraison.
 3. **Transactions** (`extendTransactionsInfolist`), suivies de l'adresse de facturation.
 
-Colonne latérale (`extendInfolistAsideSchema`) : les deux adresses en sortent, le bloc
+Colonne latérale (`extendInfolistAsideSchema`) : le nom du client (entrée `customer`) et le
+résumé Lunar (section sans titre) sont remplacés par un bloc unique « vue d'ensemble »
+(`resources/views/filament/orders/order-overview.blade.php`, données de
+`OrderPageLayoutExtension::overview()`) : référence copiable + badge de statut, date FR
+(« Passée le 19/07/2026 à 10:34 »), client (nouveau/récurrent · nombre de commandes passées,
+bouton « Fiche client »), puis Chantier / Réf. client / Canal seulement s'ils sont renseignés
+— Canal masqué tant qu'il n'existe qu'un seul canal. Les hooks `extendOrderSummary*` de Lunar
+ne s'appliquent donc plus. Les deux adresses en sortent, le bloc
 « Étiquettes » (tags Lunar) est supprimé — inutile, et son autocomplétion proposait les tags
 produits — et l'**historique** (`extendTimelineInfolist`, timeline Lunar enveloppée dans une
 section pliable) prend sa place, pour avoir la chronologie à côté du détail.

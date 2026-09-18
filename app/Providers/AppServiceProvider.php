@@ -14,7 +14,6 @@ use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Extensions\OrderHeaderActionsDropdownExtension;
 use App\Filament\Extensions\OrderLinesTableExtension;
 use App\Filament\Extensions\OrderPageLayoutExtension;
-use App\Filament\Extensions\OrderSiteNameExtension;
 use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
 use App\Filament\Pages\TreeManager;
@@ -247,7 +246,6 @@ class AppServiceProvider extends ServiceProvider
                 OrderQuoteActionsExtension::class,
                 OrderShipmentActionsExtension::class,
                 OrderSplitBadgeExtension::class,
-                OrderSiteNameExtension::class,
                 OrderPageLayoutExtension::class,
                 // En dernier : regroupe les actions ajoutées par les extensions ci-dessus.
                 OrderHeaderActionsDropdownExtension::class,

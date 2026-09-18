@@ -20,6 +20,7 @@ use Lunar\Models\Cart;
 use Lunar\Models\Channel;
 use Lunar\Models\Country;
 use Lunar\Models\Currency;
+use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
 use Lunar\Models\OrderLine;
@@ -205,6 +206,35 @@ class OrderAdminLayoutTest extends TestCase
             ManageOrder::getInfolistSchema(),
         );
         $this->assertNotContains(__('lunarpanel::order.infolist.timeline.label'), $main);
+    }
+
+    public function test_la_vue_d_ensemble_regroupe_reference_statut_date_et_client(): void
+    {
+        $this->actingAsStaff();
+        $customer = Customer::factory()->create(['title' => null, 'first_name' => 'Sophie', 'last_name' => 'Girard']);
+        $order = $this->makeOrder([
+            'customer_id' => $customer->id,
+            'reference' => 'TST-OVERVIEW-1',
+            'placed_at' => '2026-07-19 10:34:00',
+            'new_customer' => false,
+            'customer_reference' => null,
+        ]);
+        $this->makeOrder(['customer_id' => $customer->id]);
+
+        $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSeeInOrder(['TST-OVERVIEW-1', 'Paiement reçu', 'Passée le 19/07/2026 à 10:34', 'Sophie Girard', 'Client récurrent · 2 commandes', 'Fiche client'])
+            ->assertDontSee('View customer')
+            ->assertDontSee('Réf. client');
+    }
+
+    public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void
+    {
+        $order = $this->makeOrder(['pko_site_name' => 'Résidence Les Pins', 'customer_reference' => 'BC-2231']);
+
+        $details = OrderPageLayoutExtension::overview($order)['details'];
+
+        $this->assertSame(['Chantier', 'Réf. client'], array_column($details, 'label'));
     }
 
     public function test_les_totaux_n_affichent_le_remboursement_que_s_il_existe(): void

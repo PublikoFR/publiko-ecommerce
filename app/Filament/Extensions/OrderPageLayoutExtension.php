@@ -17,10 +17,13 @@ use Filament\Infolists\Components\ViewEntry;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
+use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Admin\Support\Infolists\Components\Timeline;
+use Lunar\Admin\Support\OrderStatus;
 use Lunar\DataTypes\Price;
+use Lunar\Models\Channel;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
@@ -38,9 +41,9 @@ use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
  *  3. « Transactions », suivies de l'adresse de facturation.
  * Tous ces blocs sont pliables, l'état plié est mémorisé par le navigateur.
  *
- * Colonne latérale : les adresses en sortent (sections Lunar réutilisées telles
- * quelles, action « Modifier » comprise) et l'historique y remplace le bloc
- * « Étiquettes ».
+ * Colonne latérale : nom du client et résumé fusionnés en un bloc « vue d'ensemble »,
+ * les adresses en sortent (sections Lunar réutilisées telles quelles, action
+ * « Modifier » comprise) et l'historique y remplace le bloc « Étiquettes ».
  */
 final class OrderPageLayoutExtension extends ResourceExtension
 {
@@ -88,7 +91,19 @@ final class OrderPageLayoutExtension extends ResourceExtension
 
         $aside = [];
         foreach ($schema as $component) {
+            // Nom du client (entrée isolée) + résumé (section sans titre) fusionnés
+            // en un seul bloc « vue d'ensemble ».
+            if ($component instanceof TextEntry && $component->getName() === 'customer') {
+                continue;
+            }
+
             $heading = $headingOf($component);
+
+            if ($component instanceof Section && blank($heading)) {
+                $aside[] = self::overviewSection();
+
+                continue;
+            }
 
             if (in_array($heading, $movedHeadings, true)) {
                 continue;
@@ -135,6 +150,64 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 // Le titre est porté par la section : on vide celui du composant Lunar.
                 Timeline::make('timeline')->label(''),
             ]);
+    }
+
+    private static function overviewSection(): Section
+    {
+        return Section::make()
+            ->compact()
+            ->schema([
+                ViewEntry::make('pko_order_overview')
+                    ->hiddenLabel()
+                    ->view('filament.orders.order-overview')
+                    ->state(fn (Order $record): array => self::overview($record)),
+            ]);
+    }
+
+    /**
+     * Données du bloc « vue d'ensemble » de la colonne latérale.
+     *
+     * @return array<string, mixed>
+     */
+    public static function overview(Order $order): array
+    {
+        $customer = $order->customer;
+        $placed = $order->placed_at !== null;
+        $date = $order->placed_at ?? $order->created_at;
+
+        $ordersCount = $customer
+            ? Order::query()->where('customer_id', $customer->id)->whereNotNull('placed_at')->count()
+            : 0;
+
+        $details = array_values(array_filter([
+            ['label' => 'Chantier', 'value' => $order->pko_site_name, 'copyable' => false],
+            ['label' => 'Réf. client', 'value' => $order->customer_reference, 'copyable' => true],
+            // Un seul canal : l'information n'apprend rien.
+            Channel::query()->count() > 1
+                ? ['label' => 'Canal', 'value' => $order->channel?->name, 'copyable' => false]
+                : null,
+        ], fn (?array $row): bool => $row !== null && filled($row['value'])));
+
+        return [
+            'reference' => (string) ($order->reference ?: '#'.$order->id),
+            'status' => [
+                'label' => OrderStatus::getLabel($order->status),
+                'color' => OrderStatus::getColor($order->status),
+            ],
+            'date' => $date
+                ? ($placed ? 'Passée le ' : 'Créée le ').$date->format('d/m/Y \à H:i')
+                : null,
+            'customer' => $customer ? [
+                'name' => (string) $customer->fullName,
+                'url' => CustomerResource::getUrl('edit', ['record' => $customer->id]),
+                'type' => $order->new_customer ? 'Nouveau client' : 'Client récurrent',
+                'orders' => $ordersCount.' '.($ordersCount > 1 ? 'commandes' : 'commande'),
+            ] : null,
+            'guest' => $customer ? null : [
+                'name' => (string) ($order->billingAddress?->fullName ?? $order->shippingAddress?->fullName ?? ''),
+            ],
+            'details' => $details,
+        ];
     }
 
     private static function productsSection(Component $lines): Section
