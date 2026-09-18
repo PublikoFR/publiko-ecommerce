@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\Components\OrderItemsTable;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
+use Lunar\Admin\Livewire\Components\ActivityLogFeed;
 use Lunar\Admin\Models\Staff;
 use Lunar\Facades\CartSession;
 use Lunar\Models\Cart;
@@ -256,6 +257,21 @@ class OrderAdminLayoutTest extends TestCase
 
         $this->assertNotNull($shouts);
         $this->assertTrue($shouts->isHidden());
+    }
+
+    public function test_la_chronologie_place_le_bouton_dans_le_flux_et_date_en_francais(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+
+        activity()->performedOn($order)->event('updated')->log('updated');
+
+        $expectedDate = ucfirst(now()->locale('fr')->translatedFormat('l j F Y'));
+
+        Livewire::test(ActivityLogFeed::class, ['subject' => $order])
+            ->assertSee('Ajouter un commentaire')
+            ->assertSee($expectedDate)
+            ->assertDontSee('absolute right-0 mt-2', escape: false);
     }
 
     public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void

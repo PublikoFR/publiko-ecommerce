@@ -571,6 +571,13 @@ Arbitrages :
   dont la clé vaut `{statePath}.{nom}Action` : c'est cette clé qu'attend `callInfolistAction()`
   en test (ex. `.download_label_12Action`), pas la clé du bloc `Actions`.
 - Le menu d'en-tête « Expédition » (`OrderShipmentActionsExtension`) est conservé comme raccourci.
+- Chronologie : deux vues Lunar surchargées dans `resources/views/vendor/lunarpanel/` —
+  `infolists/components/timeline.blade.php` (titre rendu seulement s'il est renseigné : dans la
+  section, un titre vide laissait un espacement) et `livewire/components/activity-log-feed.blade.php`
+  (sans marge haute/latérale, bouton « Ajouter un commentaire » dans le flux au lieu d'`absolute`
+  qui chevauchait la première date, dates et heures en français). La surcharge du fil d'activité
+  s'applique partout où Lunar l'affiche. À re-comparer avec la vue vendor à chaque montée de
+  version de Lunar. `resources/views/vendor/**` est ajouté au `content` Tailwind du thème admin.
 
 ### Notes client (`pko_customer_notes`)
 
