@@ -25,7 +25,8 @@ final class ParcelDimensionsCalculator
 
         $max = ['length' => 0.0, 'width' => 0.0, 'height' => 0.0];
 
-        foreach ($order->lines as $line) {
+        // Lignes produit uniquement : la ligne de port n'a pas de modèle achetable.
+        foreach (WeightCalculator::productLines($order) as $line) {
             $variant = $line->purchasable;
             if ($variant === null) {
                 continue;

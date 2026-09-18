@@ -8,6 +8,8 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Lunar\Models\Cart;
 use Lunar\Models\Order;
+use Lunar\Models\OrderLine;
+use Lunar\Models\ProductVariant;
 
 final class WeightCalculator
 {
@@ -158,7 +160,7 @@ final class WeightCalculator
     {
         $total = 0.0;
 
-        foreach ($order->lines as $line) {
+        foreach (self::productLines($order) as $line) {
             $variant = $line->purchasable;
             if ($variant === null) {
                 continue;
@@ -167,6 +169,23 @@ final class WeightCalculator
         }
 
         return round($total, 3);
+    }
+
+    /**
+     * Lignes produit de la commande, sans la ligne de frais de port.
+     *
+     * Lunar enregistre la ligne de port avec purchasable_type = ShippingOption, un
+     * DataType et non un modèle : lire `$line->purchasable` dessus fait instancier la
+     * classe sans argument par Eloquent et lève une erreur (« Too few arguments to
+     * ShippingOption::__construct() »), ce qui faisait échouer la création d'étiquette.
+     *
+     * @return Collection<int, OrderLine>
+     */
+    public static function productLines(Order $order): Collection
+    {
+        return $order->lines
+            ->filter(fn (OrderLine $line): bool => $line->purchasable_type === ProductVariant::morphName())
+            ->values();
     }
 
     private static function variantWeightKg(mixed $variant): float
