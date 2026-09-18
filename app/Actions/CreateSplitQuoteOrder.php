@@ -51,6 +51,7 @@ final class CreateSplitQuoteOrder
             'discount_breakdown' => '[]',
             'shipping_breakdown' => '[]',
             'pko_site_name' => $payableOrder->pko_site_name,
+            'pko_customer_notes' => $payableOrder->pko_customer_notes,
             'meta' => json_encode([
                 'split_from' => $payableOrder->id,
                 'split_group' => $splitGroup,

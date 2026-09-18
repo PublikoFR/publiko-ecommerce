@@ -160,15 +160,23 @@
                 @if ($currentStep >= $steps['payment'])
                     <div class="bg-white border border-neutral-100 rounded-xl">
                         <div class="flex items-center h-16 px-6 border-b border-neutral-100">
-                            <h3 class="text-lg font-medium">Nom du chantier</h3>
+                            <h3 class="text-lg font-medium">Informations complémentaires</h3>
                         </div>
-                        <div class="p-6">
+                        <div class="p-6 space-y-5">
                             <x-ui.input
                                 wire:model.blur="siteName"
                                 label="Nom du chantier (optionnel)"
                                 hint="Permet d'identifier cette commande dans vos documents (facture, bon de livraison)."
                                 placeholder="Ex. : Résidence Les Acacias — Lot A"
                                 maxlength="255"
+                            />
+                            <x-ui.textarea
+                                wire:model.blur="customerNotes"
+                                label="Note sur la commande (optionnel)"
+                                hint="Une précision pour notre équipe : consignes de livraison, horaires, remarque sur un article…"
+                                placeholder="Ex. : Livraison possible uniquement le matin."
+                                maxlength="2000"
+                                rows="3"
                             />
                         </div>
                     </div>

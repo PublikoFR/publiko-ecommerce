@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Actions\CreateSplitQuoteOrder;
+use App\Pipelines\Orders\PropagateCartCustomerNotesPipeline;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -82,6 +83,12 @@ class CheckoutPage extends Component
     public ?string $siteName = null;
 
     /**
+     * Optional free-text note from the customer (delivery instructions, remarks).
+     * Persisted in cart.meta['pko_customer_notes'] on blur, like $siteName.
+     */
+    public ?string $customerNotes = null;
+
+    /**
      * How to handle a mixed cart (quote + payable lines).
      * 'split'     → pay payable now, quote order sent separately (default)
      * 'quote_all' → group everything into a single quote order
@@ -155,6 +162,7 @@ class CheckoutPage extends Component
             : $this->prefilledAddress();
 
         $this->siteName = $this->cart->meta['pko_site_name'] ?? null;
+        $this->customerNotes = $this->cart->meta['pko_customer_notes'] ?? null;
 
         $this->autoConfirmPrefilledAddress();
 
@@ -352,6 +360,28 @@ class CheckoutPage extends Component
         $currentMeta = (array) ($this->cart->meta ?? []);
         $this->cart->forceFill([
             'meta' => array_merge($currentMeta, ['pko_site_name' => $cleaned]),
+        ])->save();
+
+        $this->cart = CartSession::current();
+    }
+
+    /**
+     * Persist the customer notes to cart.meta on each blur event (see updatedSiteName()).
+     */
+    public function updatedCustomerNotes(): void
+    {
+        if (! $this->cart) {
+            return;
+        }
+
+        $cleaned = filled($this->customerNotes)
+            ? mb_substr(trim(strip_tags((string) $this->customerNotes)), 0, PropagateCartCustomerNotesPipeline::MAX_LENGTH)
+            : null;
+        $this->customerNotes = filled($cleaned) ? $cleaned : null;
+
+        $currentMeta = (array) ($this->cart->meta ?? []);
+        $this->cart->forceFill([
+            'meta' => array_merge($currentMeta, ['pko_customer_notes' => $this->customerNotes]),
         ])->save();
 
         $this->cart = CartSession::current();

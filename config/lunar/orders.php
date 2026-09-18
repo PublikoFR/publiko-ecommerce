@@ -1,5 +1,6 @@
 <?php
 
+use App\Pipelines\Orders\PropagateCartCustomerNotesPipeline;
 use App\Pipelines\Orders\PropagateCartSiteNamePipeline;
 use Lunar\Base\OrderReferenceGenerator;
 use Lunar\Pipelines\Order\Creation\CleanUpOrderLines;
@@ -144,6 +145,7 @@ return [
             CleanUpOrderLines::class,
             MapDiscountBreakdown::class,
             PropagateCartSiteNamePipeline::class,
+            PropagateCartCustomerNotesPipeline::class,
             MarkQuoteOrderAwaitingQuote::class,
         ],
     ],
