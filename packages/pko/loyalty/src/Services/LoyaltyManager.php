@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use Lunar\DataTypes\Price;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
+use Lunar\Models\Transaction;
 use Pko\Loyalty\Enums\GiftStatus;
 use Pko\Loyalty\Mail\TierUnlockedAdminMail;
 use Pko\Loyalty\Mail\TierUnlockedMail;
@@ -26,6 +27,47 @@ class LoyaltyManager
         $ratio = (float) Setting::get('points_ratio', (string) config('loyalty.default_ratio', 1));
 
         return $ratio > 0 ? $ratio : 1.0;
+    }
+
+    /**
+     * Année civile du cycle de points en cours. Les points repartent à zéro
+     * chaque 1er janvier (cf. `ensureCurrentYear()` et `loyalty:reset-annual`).
+     */
+    public function currentYear(): int
+    {
+        return (int) now()->year;
+    }
+
+    /**
+     * Remet le solde à zéro s'il appartient à une année passée. Appelée avant
+     * toute écriture sur le solde : la remise à zéro ne dépend donc pas du seul
+     * passage du scheduler au 1er janvier. Ne sauvegarde pas.
+     */
+    public function ensureCurrentYear(CustomerPoints $cp): void
+    {
+        if ((int) $cp->points_year === $this->currentYear()) {
+            return;
+        }
+
+        $cp->total_points = 0;
+        $cp->current_tier_id = null;
+        $cp->points_year = $this->currentYear();
+    }
+
+    /**
+     * Remise à zéro annuelle de tous les soldes d'une année passée.
+     *
+     * @return int Nombre de soldes remis à zéro.
+     */
+    public function resetExpiredBalances(): int
+    {
+        return CustomerPoints::query()
+            ->where(fn ($q) => $q->whereNull('points_year')->orWhere('points_year', '<', $this->currentYear()))
+            ->update([
+                'total_points' => 0,
+                'current_tier_id' => null,
+                'points_year' => $this->currentYear(),
+            ]);
     }
 
     public function awardForOrder(Order $order): void
@@ -64,12 +106,96 @@ class LoyaltyManager
             ]);
 
             $cp = CustomerPoints::firstOrNew(['customer_id' => $order->customer_id]);
+            $this->ensureCurrentYear($cp);
             $oldTierId = $cp->current_tier_id;
             $cp->total_points = (int) $cp->total_points + $points;
             $cp->last_order_at = now();
             $cp->save();
 
             $this->unlockEligibleTiers($cp, $oldTierId, $order->id);
+        });
+    }
+
+    /**
+     * Retire les points d'une commande au prorata des remboursements réussis
+     * (transactions Lunar `refund`, qui portent aussi les avoirs Pennylane).
+     * Recalcule la cible depuis le cumul remboursé → idempotent, et un second
+     * remboursement partiel ne retire que la différence.
+     *
+     * Une commande dont les points ont été gagnés une année passée est ignorée :
+     * ces points ont déjà disparu avec la remise à zéro du 1er janvier.
+     *
+     * Si le solde repasse sous un palier débloqué cette année, le cadeau encore
+     * en attente est annulé ; un cadeau déjà en préparation ou envoyé est gardé.
+     *
+     * @return int Points retirés par cet appel.
+     */
+    public function revokeForRefunds(Order $order): int
+    {
+        if ($order->customer_id === null) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($order): int {
+            $history = PointsHistory::query()->where('order_id', $order->id)->lockForUpdate()->first();
+
+            if ($history === null || (int) $history->points_earned <= 0) {
+                return 0;
+            }
+
+            if ((int) $history->created_at?->year !== $this->currentYear()) {
+                return 0;
+            }
+
+            $refunded = (int) Transaction::query()
+                ->where('order_id', $order->id)
+                ->where('type', 'refund')
+                ->where('success', true)
+                ->sum('amount');
+
+            if ($refunded <= 0) {
+                return 0;
+            }
+
+            // Montants remboursés en TTC → comparés au total TTC de la commande.
+            $orderTotal = (int) ($order->total instanceof Price
+                ? $order->total->value
+                : ($order->getRawOriginal('total') ?? 0));
+
+            $earned = (int) $history->points_earned;
+            $target = $orderTotal > 0
+                ? min($earned, (int) round($earned * $refunded / $orderTotal))
+                : $earned;
+
+            $delta = $target - (int) $history->points_revoked;
+            if ($delta <= 0) {
+                return 0;
+            }
+
+            $history->update(['points_revoked' => $target]);
+
+            $cp = CustomerPoints::query()->where('customer_id', $order->customer_id)->lockForUpdate()->first();
+            if ($cp === null) {
+                return $delta;
+            }
+
+            $this->ensureCurrentYear($cp);
+            $cp->total_points = max(0, (int) $cp->total_points - $delta);
+            $cp->current_tier_id = LoyaltyTier::query()
+                ->where('active', true)
+                ->where('points_required', '<=', $cp->total_points)
+                ->orderByDesc('points_required')
+                ->value('id');
+            $cp->save();
+
+            GiftHistory::query()
+                ->where('customer_id', $cp->customer_id)
+                ->where('year', $this->currentYear())
+                ->where('status', GiftStatus::Pending)
+                ->whereHas('tier', fn ($q) => $q->where('points_required', '>', $cp->total_points))
+                ->delete();
+
+            return $delta;
         });
     }
 
@@ -102,6 +228,7 @@ class LoyaltyManager
 
         $alreadyUnlockedTierIds = GiftHistory::query()
             ->where('customer_id', $cp->customer_id)
+            ->where('year', $this->currentYear())
             ->whereIn('tier_id', $eligibleTiers->pluck('id'))
             ->pluck('tier_id')
             ->all();
@@ -116,6 +243,7 @@ class LoyaltyManager
             $history = GiftHistory::create([
                 'customer_id' => $cp->customer_id,
                 'tier_id' => $tier->id,
+                'year' => $this->currentYear(),
                 'order_id' => $orderId,
                 'points_at_unlock' => $cp->total_points,
                 'status' => GiftStatus::Pending,
@@ -136,6 +264,10 @@ class LoyaltyManager
      */
     public function recalculateForCustomer(CustomerPoints $cp): int
     {
+        if ((int) $cp->points_year !== $this->currentYear()) {
+            return 0;
+        }
+
         return $this->unlockEligibleTiers($cp, $cp->current_tier_id);
     }
 
@@ -176,7 +308,10 @@ class LoyaltyManager
     public function getCustomerSnapshot(int $customerId): array
     {
         $cp = CustomerPoints::query()->where('customer_id', $customerId)->first();
-        $totalPoints = (int) ($cp->total_points ?? 0);
+        // Solde d'une année passée pas encore remis à zéro en base : il vaut 0.
+        $totalPoints = $cp !== null && (int) $cp->points_year === $this->currentYear()
+            ? (int) $cp->total_points
+            : 0;
 
         $allTiers = LoyaltyTier::query()->where('active', true)->orderBy('points_required')->get();
 
@@ -199,11 +334,15 @@ class LoyaltyManager
             $pointsToNext = (int) $nextTier->points_required - $totalPoints;
         }
 
-        $unlocked = GiftHistory::query()
+        $giftHistory = GiftHistory::query()
             ->with('tier')
             ->where('customer_id', $customerId)
             ->orderByDesc('unlocked_at')
             ->get();
+
+        // Les paliers sont re-débloquables chaque année : seuls ceux de l'année
+        // en cours comptent comme « débloqués » dans la progression.
+        $unlocked = $giftHistory->where('year', $this->currentYear())->values();
 
         $pointsHistory = PointsHistory::query()
             ->where('customer_id', $customerId)
@@ -218,6 +357,8 @@ class LoyaltyManager
             'progress_percent' => round($progress, 1),
             'points_to_next' => $pointsToNext,
             'unlocked_tiers' => $unlocked,
+            'gift_history' => $giftHistory,
+            'points_year' => $this->currentYear(),
             'points_history' => $pointsHistory,
             'total_active_tiers' => $allTiers->count(),
             'all_tiers_unlocked' => $allTiers->isNotEmpty() && $nextTier === null && $totalPoints > 0,

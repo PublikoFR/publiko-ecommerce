@@ -39,6 +39,10 @@ class CustomerPointsHistoryRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('points_earned')
                     ->label('Points gagnés')
                     ->numeric(),
+                Tables\Columns\TextColumn::make('points_revoked')
+                    ->label('Points retirés')
+                    ->numeric()
+                    ->color(fn (int $state) => $state > 0 ? 'danger' : 'gray'),
             ]);
     }
 }

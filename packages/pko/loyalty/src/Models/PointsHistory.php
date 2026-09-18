@@ -17,6 +17,7 @@ class PointsHistory extends Model
 
     protected $casts = [
         'points_earned' => 'integer',
+        'points_revoked' => 'integer',
         'order_total_ht' => 'integer',
     ];
 

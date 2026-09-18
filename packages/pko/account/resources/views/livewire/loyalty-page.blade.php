@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div>
         <h1 class="text-2xl font-display font-bold text-neutral-900">Programme fidélité</h1>
-        <p class="text-neutral-600 mt-1 text-sm">Cumulez des points et débloquez des cadeaux exclusifs.</p>
+        <p class="text-neutral-600 mt-1 text-sm">Cumulez des points et débloquez des cadeaux exclusifs. Vos points sont remis à zéro chaque 1<sup>er</sup> janvier.</p>
     </div>
 
     @if ($snapshot === null)
@@ -15,6 +15,7 @@
             $prevPoints = (int) ($snapshot['prev_points'] ?? 0);
             $upcoming = $snapshot['upcoming_tiers'] ?? collect();
             $unlocked = $snapshot['unlocked_tiers'] ?? collect();
+            $giftHistory = $snapshot['gift_history'] ?? $unlocked;
             $pointsHistory = $snapshot['points_history'] ?? collect();
 
             $g1 = $upcoming[0] ?? null;
@@ -148,7 +149,7 @@
         {{-- Suivi des cadeaux débloqués --}}
         <div>
             <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Suivi de vos cadeaux débloqués</h2>
-            @if ($unlocked->isEmpty())
+            @if ($giftHistory->isEmpty())
                 <x-ui.card padding="lg" class="text-center">
                     <x-ui.icon name="gift" class="w-10 h-10 text-neutral-300 mx-auto mb-2" />
                     <p class="text-neutral-500 text-sm">Vous n'avez pas encore débloqué de cadeau. Continuez à cumuler des points !</p>
@@ -156,7 +157,7 @@
             @else
                 <x-ui.card padding="none">
                     <ul class="divide-y divide-neutral-100">
-                        @foreach ($unlocked as $gift)
+                        @foreach ($giftHistory as $gift)
                             <li class="flex items-center gap-4 px-5 py-4">
                                 <div class="w-10 h-10 rounded-full bg-accent-50 flex items-center justify-center shrink-0">
                                     <x-ui.icon name="gift" class="w-5 h-5 text-primary-700" />
@@ -207,6 +208,9 @@
                                         </td>
                                         <td class="px-4 py-3 text-right font-semibold text-primary-700">
                                             +{{ (int) $entry->points_earned }}
+                                            @if ((int) $entry->points_revoked > 0)
+                                                <span class="block text-xs font-normal text-neutral-500">−{{ (int) $entry->points_revoked }} (remboursement)</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
