@@ -9,20 +9,17 @@ use Lunar\Models\Order;
 /**
  * Raison sociale affichée pour une commande (liste et fiche admin).
  *
- * L'adresse de facturation fait foi : c'est celle qui part sur la facture, et le
- * checkout la pré-remplit depuis le compte client. Le compte client ne sert que de
- * repli, pour les commandes dont l'adresse a été saisie sans raison sociale.
+ * Source unique : le compte client (`lunar_customers.company_name`), renseigné à
+ * l'inscription depuis la vérification SIRET. La raison sociale saisie sur une
+ * adresse est libre et non vérifiée : elle n'est jamais lue ici. Une commande sans
+ * compte client n'a donc pas de raison sociale.
  */
 final class OrderCompanyName
 {
     public static function for(Order $order): ?string
     {
-        foreach ([$order->billingAddress?->company_name, $order->customer?->company_name] as $name) {
-            if (filled($name)) {
-                return trim((string) $name);
-            }
-        }
+        $name = trim((string) $order->customer?->company_name);
 
-        return null;
+        return $name !== '' ? $name : null;
     }
 }

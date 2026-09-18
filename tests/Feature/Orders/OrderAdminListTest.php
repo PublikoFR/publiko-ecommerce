@@ -13,6 +13,7 @@ use Lunar\Admin\Models\Staff;
 use Lunar\Models\Channel;
 use Lunar\Models\Country;
 use Lunar\Models\Currency;
+use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
 use Tests\TestCase;
@@ -42,7 +43,10 @@ class OrderAdminListTest extends TestCase
     {
         $currency = Currency::query()->firstOrFail();
 
+        $customer = Customer::factory()->create(['company_name' => 'Durand Bâtiment']);
+
         $order = Order::factory()->create([
+            'customer_id' => $customer->id,
             'status' => 'payment-received',
             'reference' => 'LIST-0001',
             'new_customer' => true,
@@ -56,7 +60,8 @@ class OrderAdminListTest extends TestCase
         OrderAddress::factory()->create([
             'order_id' => $order->id,
             'type' => 'billing',
-            'company_name' => 'Durand Bâtiment',
+            // Saisie libre sur l'adresse : ne doit jamais être affichée ni recherchée.
+            'company_name' => 'Adresse Libre SARL',
             'first_name' => 'Jeanne',
             'last_name' => 'Durand',
             'contact_email' => 'jeanne.durand@example.com',
@@ -97,13 +102,15 @@ class OrderAdminListTest extends TestCase
         $sorted = $positions;
         sort($sorted);
         $this->assertSame($sorted, $positions, 'Raison sociale, nom, e-mail puis téléphone.');
+        $this->assertStringNotContainsString('Adresse Libre SARL', $html);
     }
 
     public function test_la_recherche_trouve_une_commande_par_email_telephone_ou_raison_sociale(): void
     {
         $order = $this->makeOrder();
         $other = $this->makeOrder(['reference' => 'LIST-0002']);
-        $other->billingAddress->update(['company_name' => 'Autre SARL', 'contact_email' => 'autre@example.com', 'contact_phone' => '0700000000']);
+        $other->customer->update(['company_name' => 'Autre SARL']);
+        $other->billingAddress->update(['contact_email' => 'autre@example.com', 'contact_phone' => '0700000000']);
 
         Livewire::test(ListOrders::class)
             ->loadTable()
@@ -115,7 +122,9 @@ class OrderAdminListTest extends TestCase
             ->assertCanNotSeeTableRecords([$order])
             ->searchTable('Durand Bât')
             ->assertCanSeeTableRecords([$order])
-            ->assertCanNotSeeTableRecords([$other]);
+            ->assertCanNotSeeTableRecords([$other])
+            ->searchTable('Adresse Libre')
+            ->assertCanNotSeeTableRecords([$order, $other]);
     }
 
     public function test_une_adresse_sans_nom_affiche_quand_meme_la_raison_sociale(): void

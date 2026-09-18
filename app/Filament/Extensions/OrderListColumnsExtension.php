@@ -42,7 +42,7 @@ final class OrderListColumnsExtension extends ResourceExtension
                     // pas retomber sur le placeholder.
                     ->state(fn (Order $record): ?HtmlString => self::customerCell($record))
                     ->placeholder('—')
-                    ->searchable(['company_name', 'first_name', 'last_name', 'contact_email', 'contact_phone']),
+                    ->searchable(query: fn (Builder $query, string $search): Builder => self::searchCustomer($query, $search)),
                 ViewColumn::make('status')
                     ->label('Statut')
                     ->view('filament.orders.list-status-cell'),
@@ -53,6 +53,25 @@ final class OrderListColumnsExtension extends ResourceExtension
             // Remplace le modifyQueryUsing de Lunar (with currency) : on le reprend
             // et on précharge l'adresse de facturation et le client lus par la cellule client.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['currency', 'billingAddress', 'customer']));
+    }
+
+    /**
+     * Nom, e-mail, téléphone sur l'adresse de facturation ; raison sociale sur le
+     * compte client, seule source affichée (cf. OrderCompanyName).
+     */
+    private static function searchCustomer(Builder $query, string $search): Builder
+    {
+        $like = '%'.$search.'%';
+
+        return $query
+            ->whereHas('billingAddress', fn (Builder $address): Builder => $address->where(
+                fn (Builder $address): Builder => $address
+                    ->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('contact_email', 'like', $like)
+                    ->orWhere('contact_phone', 'like', $like),
+            ))
+            ->orWhereHas('customer', fn (Builder $customer): Builder => $customer->where('company_name', 'like', $like));
     }
 
     private static function customerCell(Order $record): ?HtmlString

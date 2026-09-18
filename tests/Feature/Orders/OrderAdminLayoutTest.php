@@ -298,18 +298,24 @@ class OrderAdminLayoutTest extends TestCase
             'title' => null, 'first_name' => 'Sophie', 'last_name' => 'Girard', 'company_name' => 'Compte SARL',
         ]);
         $order = $this->makeOrder(['customer_id' => $customer->id]);
-
-        // Le compte client sert de repli tant que l'adresse n'a pas de raison sociale…
-        $this->assertSame('Compte SARL', OrderPageLayoutExtension::overview($order)['company']);
-
-        // … l'adresse de facturation, qui part sur la facture, fait foi.
         $this->addAddress($order, 'billing', '34 avenue de la Facturation');
-        $order->billingAddress()->update(['company_name' => 'Facturation SAS']);
+        // Saisie libre sur l'adresse : seule la raison sociale du compte (vérifiée SIRET) fait foi.
+        $order->billingAddress()->update(['company_name' => 'Adresse Libre SAS']);
+
+        $this->assertSame('Compte SARL', OrderPageLayoutExtension::overview($order->refresh())['company']);
 
         $this->get("/admin/orders/{$order->id}")
             ->assertOk()
-            ->assertSeeInOrder(['Facturation SAS', 'Sophie Girard', 'Fiche client'])
-            ->assertDontSee('Compte SARL');
+            ->assertSeeInOrder(['Compte SARL', 'Sophie Girard', 'Fiche client']);
+    }
+
+    public function test_une_commande_sans_compte_n_a_pas_de_raison_sociale(): void
+    {
+        $order = $this->makeOrder(['customer_id' => null]);
+        $this->addAddress($order, 'billing', '34 avenue de la Facturation');
+        $order->billingAddress()->update(['company_name' => 'Adresse Libre SAS']);
+
+        $this->assertNull(OrderPageLayoutExtension::overview($order->refresh())['company']);
     }
 
     public function test_la_vue_d_ensemble_affiche_les_details_renseignes(): void

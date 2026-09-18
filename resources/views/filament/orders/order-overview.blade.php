@@ -61,9 +61,6 @@
             <div class="flex items-start gap-2.5">
                 <x-filament::icon icon="heroicon-o-user-circle" class="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
                 <div class="min-w-0">
-                    @if (filled($data['company']))
-                        <p class="truncate font-semibold text-gray-950 dark:text-white">{{ $data['company'] }}</p>
-                    @endif
                     @if (filled($data['guest']['name'] ?? null))
                         <p class="truncate font-medium text-gray-950 dark:text-white">{{ $data['guest']['name'] }}</p>
                     @endif
