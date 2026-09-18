@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Pko\Pennylane\Dto;
 
+use Pko\Pennylane\Support\Language;
+
 final class CreateInvoiceData
 {
     /**
-     * @param  array<int, InvoiceLineData>  $lines
+     * @param  array<int,InvoiceLineData>  $lines
      */
     public function __construct(
         public readonly int $pennylaneCustomerId,
-        public readonly int $customerInvoiceTemplateId,
+        public readonly ?int $customerInvoiceTemplateId,
         public readonly string $externalReference,
         public readonly string $date,
         public readonly string $deadline,
@@ -36,12 +38,12 @@ final class CreateInvoiceData
             'date' => $this->date,
             'deadline' => $this->deadline,
             'currency' => $this->currency,
-            'language' => $this->language,
+            'language' => Language::toPennylane($this->language),
             'draft' => $this->draft,
             'pdf_invoice_subject' => $this->subject,
             'pdf_description' => $this->description,
             'pdf_invoice_free_text' => $this->freeText,
-            'line_items' => array_map(fn (InvoiceLineData $l) => $l->toArray(), $this->lines),
+            'invoice_lines' => array_map(fn (InvoiceLineData $l) => $l->toArray(), $this->lines),
         ], fn ($v) => $v !== null && $v !== '');
     }
 }

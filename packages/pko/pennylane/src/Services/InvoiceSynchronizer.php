@@ -40,30 +40,20 @@ final class InvoiceSynchronizer
             $pennylaneCustomerId = $this->customerMapper->resolveOrCreate($order);
             $dto = $this->invoiceMapper->build($order, $pennylaneCustomerId);
 
-            $existing = $this->invoices->findByExternalReference($externalReference);
+            // Reprise : une tentative précédente a pu créer la facture sans que
+            // l'enregistrement local ait été mis à jour.
+            $remote = $this->invoices->findByExternalReference($externalReference)
+                ?? $this->invoices->create($dto->toArray());
 
-            if ($existing) {
-                $pennylaneId = (int) $existing['id'];
-                $status = $existing['status'] ?? 'draft';
-                $invoiceNumber = $existing['invoice_number'] ?? null;
-
-                if ($status !== 'finalized') {
-                    $finalized = $this->invoices->finalize($pennylaneId);
-                    $invoiceNumber = $finalized['invoice_number'] ?? $invoiceNumber;
-                    $status = 'finalized';
-                }
-            } else {
-                $created = $this->invoices->create($dto->toArray());
-                $pennylaneId = (int) $created['id'];
-                $status = $created['status'] ?? 'draft';
-                $invoiceNumber = $created['invoice_number'] ?? null;
-
-                if ($status !== 'finalized') {
-                    $finalized = $this->invoices->finalize($pennylaneId);
-                    $invoiceNumber = $finalized['invoice_number'] ?? $invoiceNumber;
-                    $status = 'finalized';
-                }
+            $pennylaneId = (int) $remote['id'];
+            if (! CustomerInvoicesResource::isFinalized($remote)) {
+                $remote = $this->invoices->finalize($pennylaneId);
             }
+
+            $invoiceNumber = $remote['invoice_number'] ?? null;
+            $status = 'finalized';
+
+            $this->warnOnTotalMismatch($order, $remote);
 
             DB::transaction(function () use ($record, $pennylaneId, $invoiceNumber, $status, $dto): void {
                 $record->update([
@@ -91,6 +81,31 @@ final class InvoiceSynchronizer
             ]);
 
             throw $e;
+        }
+    }
+
+    /**
+     * Pennylane recalcule le total à partir des lignes HT et des taux : un
+     * écart signale une remise ou un taux non repris, à corriger à la main.
+     *
+     * @param  array<string,mixed>  $remote
+     */
+    private function warnOnTotalMismatch(Order $order, array $remote): void
+    {
+        if (! isset($remote['currency_amount'])) {
+            return;
+        }
+
+        $remoteCents = (int) round((float) $remote['currency_amount'] * 100);
+        $orderCents = (int) $order->total->value;
+
+        if (abs($remoteCents - $orderCents) > 1) {
+            Log::warning('Pennylane : total de facture différent de la commande', [
+                'order_id' => $order->id,
+                'order_total_cents' => $orderCents,
+                'pennylane_total_cents' => $remoteCents,
+                'pennylane_id' => $remote['id'] ?? null,
+            ]);
         }
     }
 }

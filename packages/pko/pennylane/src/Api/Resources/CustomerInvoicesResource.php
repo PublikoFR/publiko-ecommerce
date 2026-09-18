@@ -45,6 +45,39 @@ final class CustomerInvoicesResource
     }
 
     /**
+     * Rattache un avoir finalisé à la facture qu'il crédite.
+     *
+     * @return array<string,mixed>
+     */
+    public function linkCreditNote(int $invoiceId, int $creditNoteId): array
+    {
+        $response = $this->client->post(self::ENDPOINT."/{$invoiceId}/link_credit_note", [
+            'credit_note_id' => $creditNoteId,
+        ]);
+
+        return (array) $response->json();
+    }
+
+    /**
+     * La v2 n'expose pas de statut « finalized » : `status` décrit le paiement
+     * (`upcoming`, `paid`, `late`…), la finalisation se lit sur `draft`.
+     *
+     * @param  array<string,mixed>  $invoice
+     */
+    public static function isFinalized(array $invoice): bool
+    {
+        return ($invoice['draft'] ?? true) === false;
+    }
+
+    /**
+     * Supprime un brouillon (une facture finalisée n'est pas supprimable).
+     */
+    public function delete(int $invoiceId): void
+    {
+        $this->client->delete(self::ENDPOINT."/{$invoiceId}");
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     public function findByExternalReference(string $externalReference): ?array

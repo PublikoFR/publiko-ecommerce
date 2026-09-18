@@ -7,10 +7,10 @@ namespace Pko\Pennylane\Services;
 use Illuminate\Support\Carbon;
 use Lunar\Models\Order;
 use Lunar\Models\OrderLine;
-use Pko\Pennylane\Api\Exceptions\PennylaneNotConfiguredException;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Pennylane\Dto\CreateInvoiceData;
 use Pko\Pennylane\Dto\InvoiceLineData;
+use Pko\Pennylane\Support\VatRate;
 
 final class OrderToInvoiceMapper
 {
@@ -19,11 +19,6 @@ final class OrderToInvoiceMapper
     public function build(Order $order, int $pennylaneCustomerId): CreateInvoiceData
     {
         $config = config('pennylane');
-
-        $templateId = (int) ($this->client->resolveTemplateId() ?? 0);
-        if ($templateId <= 0) {
-            throw PennylaneNotConfiguredException::missingTemplate();
-        }
 
         $externalReference = ($config['external_reference_prefix']['invoice'] ?? 'order_').$order->id;
 
@@ -34,19 +29,15 @@ final class OrderToInvoiceMapper
             ->addDays((int) ($config['default_payment_deadline_days'] ?? 0))
             ->toDateString();
 
-        $lines = $order->lines
-            ->map(fn (OrderLine $line) => $this->mapLine($line))
-            ->values()
-            ->all();
-
         return new CreateInvoiceData(
             pennylaneCustomerId: $pennylaneCustomerId,
-            customerInvoiceTemplateId: $templateId,
+            // Optionnel en v2 : sans modèle, Pennylane applique celui par défaut du compte.
+            customerInvoiceTemplateId: $this->client->resolveTemplateId(),
             externalReference: $externalReference,
             date: $date,
             deadline: $deadline,
             currency: strtoupper((string) $order->currency_code),
-            lines: $lines,
+            lines: $this->lines($order),
             subject: $order->reference ? "Commande {$order->reference}" : null,
             description: $order->notes,
             language: (string) ($config['default_language'] ?? 'fr'),
@@ -54,18 +45,59 @@ final class OrderToInvoiceMapper
         );
     }
 
-    private function mapLine(OrderLine $line): InvoiceLineData
+    /**
+     * Lignes HT de la commande, remises déduites, port compris.
+     *
+     * Réutilisé par l'avoir pour proratiser un remboursement par taux de TVA.
+     *
+     * @return array<int,InvoiceLineData>
+     */
+    public function lines(Order $order): array
     {
-        $unitDecimal = $this->priceToDecimal($line->unit_price->value);
-        $vatRate = $this->extractVatRate($line);
+        $lines = [];
+        $lineTaxCents = 0;
+        $hasShippingLine = false;
 
-        return new InvoiceLineData(
-            label: $this->lineLabel($line),
-            quantity: (float) $line->quantity,
-            unitAmount: $unitDecimal,
-            vatRate: $vatRate,
-            unit: $line->type === 'shipping' ? 'service' : 'piece',
-        );
+        foreach ($order->lines as $line) {
+            $lineTaxCents += (int) $line->tax_total->value;
+            $hasShippingLine = $hasShippingLine || $line->type === 'shipping';
+
+            $taxable = $this->taxableCents($line);
+            // Livraison offerte : une ligne à zéro n'apporte rien à la facture.
+            if ($taxable === 0 && $line->type === 'shipping') {
+                continue;
+            }
+
+            $quantity = max(1, (int) $line->quantity);
+
+            $lines[] = new InvoiceLineData(
+                label: $this->lineLabel($line),
+                quantity: (float) $quantity,
+                unitAmount: $taxable / $quantity / 100,
+                vatRate: VatRate::fromAmounts($taxable, (int) $line->tax_total->value),
+                unit: $line->type === 'shipping' ? 'service' : 'piece',
+            );
+        }
+
+        // Les commandes antérieures au checkout actuel portent le port dans
+        // `shipping_total` sans ligne dédiée : l'omettre sous-facturerait.
+        $shippingCents = (int) $order->shipping_total->value;
+        if (! $hasShippingLine && $shippingCents > 0) {
+            $lines[] = new InvoiceLineData(
+                label: 'Frais de port',
+                quantity: 1.0,
+                unitAmount: $shippingCents / 100,
+                vatRate: VatRate::fromAmounts($shippingCents, max(0, (int) $order->tax_total->value - $lineTaxCents)),
+                unit: 'service',
+            );
+        }
+
+        return $lines;
+    }
+
+    private function taxableCents(OrderLine $line): int
+    {
+        return (int) $line->sub_total->value - (int) $line->discount_total->value;
     }
 
     private function lineLabel(OrderLine $line): string
@@ -79,49 +111,5 @@ final class OrderToInvoiceMapper
         }
 
         return $label !== '' ? $label : ($line->identifier ?: 'Ligne');
-    }
-
-    private function extractVatRate(OrderLine $line): float
-    {
-        $breakdown = $line->tax_breakdown;
-
-        $rate = 0.0;
-
-        if (is_iterable($breakdown)) {
-            foreach ($breakdown as $item) {
-                $percentage = $this->extractPercentage($item);
-                if ($percentage !== null) {
-                    $rate = max($rate, $percentage);
-                }
-            }
-        }
-
-        return (float) $rate;
-    }
-
-    private function extractPercentage(mixed $item): ?float
-    {
-        if (is_object($item)) {
-            if (isset($item->percentage)) {
-                return (float) $item->percentage;
-            }
-            if (property_exists($item, 'percentage')) {
-                return (float) $item->percentage;
-            }
-            if (method_exists($item, 'toArray')) {
-                return $this->extractPercentage($item->toArray());
-            }
-        }
-
-        if (is_array($item)) {
-            return isset($item['percentage']) ? (float) $item['percentage'] : null;
-        }
-
-        return null;
-    }
-
-    private function priceToDecimal(int $valueInMinorUnits): float
-    {
-        return round($valueInMinorUnits / 100, 2);
     }
 }

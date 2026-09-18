@@ -54,7 +54,7 @@ final class PennylanePollChangelogCommand extends Command
                     $remote = $invoices->get((int) $pennylaneId);
                     $record->update([
                         'pennylane_invoice_number' => $remote['invoice_number'] ?? $record->pennylane_invoice_number,
-                        'status' => ($remote['status'] ?? 'draft') === 'finalized'
+                        'status' => CustomerInvoicesResource::isFinalized($remote)
                             ? PennylaneInvoice::STATUS_FINALIZED
                             : PennylaneInvoice::STATUS_DRAFT,
                         'synced_at' => Carbon::now(),

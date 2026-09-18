@@ -26,7 +26,7 @@ class CustomerInvoicesResourceTest extends TestCase
     {
         $http = new HttpFactory;
         $http->fake([
-            '*/customer_invoices' => $http::response(['id' => 777, 'status' => 'draft', 'invoice_number' => null], 201),
+            '*/customer_invoices' => $http::response(['id' => 777, 'draft' => true, 'invoice_number' => null], 201),
         ]);
 
         $result = $this->resource($http)->create([
@@ -37,7 +37,7 @@ class CustomerInvoicesResourceTest extends TestCase
         ]);
 
         $this->assertSame(777, $result['id']);
-        $this->assertSame('draft', $result['status']);
+        $this->assertFalse(CustomerInvoicesResource::isFinalized($result));
     }
 
     public function test_finalize_puts_endpoint(): void
@@ -62,7 +62,7 @@ class CustomerInvoicesResourceTest extends TestCase
         $http = new HttpFactory;
         $http->fake([
             '*/customer_invoices*' => $http::response([
-                'items' => [['id' => 555, 'external_reference' => 'order_1', 'status' => 'finalized']],
+                'items' => [['id' => 555, 'external_reference' => 'order_1', 'draft' => false]],
                 'has_more' => false,
             ], 200),
         ]);
@@ -80,5 +80,25 @@ class CustomerInvoicesResourceTest extends TestCase
         ]);
 
         $this->assertNull($this->resource($http)->findByExternalReference('order_404'));
+    }
+
+    public function test_finalization_is_read_from_draft_flag(): void
+    {
+        // v2 : `status` décrit le paiement (upcoming, paid…), jamais « finalized ».
+        $this->assertTrue(CustomerInvoicesResource::isFinalized(['draft' => false, 'status' => 'upcoming']));
+        $this->assertFalse(CustomerInvoicesResource::isFinalized(['draft' => true, 'status' => 'draft']));
+        $this->assertFalse(CustomerInvoicesResource::isFinalized([]));
+    }
+
+    public function test_link_credit_note_posts_credit_note_id(): void
+    {
+        $http = new HttpFactory;
+        $http->fake(['*' => $http::response([], 200)]);
+
+        $this->resource($http)->linkCreditNote(777, 888);
+
+        $http->assertSent(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/customer_invoices/777/link_credit_note')
+            && $request['credit_note_id'] === 888);
     }
 }
