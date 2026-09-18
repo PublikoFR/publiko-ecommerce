@@ -12,6 +12,7 @@ use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Extensions\OrderHeaderActionsDropdownExtension;
+use App\Filament\Extensions\OrderPageLayoutExtension;
 use App\Filament\Extensions\OrderSiteNameExtension;
 use App\Filament\Pages\SireneConfig;
 use App\Filament\Pages\StripeConfig;
@@ -245,6 +246,7 @@ class AppServiceProvider extends ServiceProvider
                 OrderShipmentActionsExtension::class,
                 OrderSplitBadgeExtension::class,
                 OrderSiteNameExtension::class,
+                OrderPageLayoutExtension::class,
                 // En dernier : regroupe les actions ajoutées par les extensions ci-dessus.
                 OrderHeaderActionsDropdownExtension::class,
             ],

@@ -515,3 +515,50 @@ via le hook `extendOrderSummarySchema`, quand `order->pko_site_name` est renseig
 - **Split quote** : `CreateSplitQuoteOrder` copie le champ depuis la commande payante directement dans l'INSERT (bypass pipeline).
 - **Modification client** : `Pko\Account\Livewire\OrderDetailPage::saveSiteName()` — re-guard ownership obligatoire dans la méthode (pas uniquement dans mount).
 - **Affichage client** : ligne « Chantier : <nom> » sous la référence dans la liste « Mes commandes » (`OrdersPage`) et les commandes récentes du tableau de bord (`Dashboard`), uniquement si renseigné.
+
+### Mise en page de la fiche (`OrderPageLayoutExtension`)
+
+Extension : `App\Filament\Extensions\OrderPageLayoutExtension`. Colonne principale réordonnée
+via `extendInfolistSchema`, tous les blocs pliables (`collapsible()` + `persistCollapsed()` :
+l'état plié est mémorisé par le navigateur, clé = `id` de la section) :
+
+1. **Produits dans la commande** — lignes Lunar, puis sur une grille 5 colonnes : notes client
+   (2/5 ≈ 40 %) et totaux (3/5 ≈ 60 %). Les totaux sont rendus par
+   `resources/views/filament/orders/order-totals.blade.php` (ligne sur deux grisée), à partir de
+   `OrderPageLayoutExtension::totalsRows()`. Réduction et remboursement n'apparaissent que s'ils
+   sont non nuls ; « Payé » / « Remboursé » ne comptent que les transactions `success`.
+2. **Livraison** — mode de livraison, instructions de livraison, point relais, un encart par
+   envoi `CarrierShipment` (n° de suivi copiable, statut, étiquette, lien de suivi La Poste
+   — même URL que l'e-mail d'expédition —, fiche de l'envoi), bordereau de remise du jour, et
+   l'adresse de livraison.
+3. **Transactions** (`extendTransactionsInfolist`), suivies de l'adresse de facturation.
+4. **Historique** (`extendTimelineInfolist`, timeline Lunar enveloppée dans une section).
+
+Arbitrages :
+
+- Lunar construit la colonne principale dans un ordre fixe (`[0]` expédition, `[1]` lignes,
+  `[2]` totaux, `[3]` transactions, `[4]` historique) ; l'extension s'appuie sur ces positions,
+  remplace `[0]` et `[2]`, et garde en fin de colonne tout composant ajouté au-delà.
+- Les adresses sont les sections Lunar d'origine (`getShippingAddressInfolist()` /
+  `getBillingAddressInfoList()`), seulement déplacées : l'action « Modifier » est conservée.
+  Elles sont retirées de l'aside par comparaison de leur titre traduit.
+- Totaux en vue Blade plutôt qu'en entrées Filament : les lignes de port et de TVA sont des
+  groupes imbriqués, un `nth-child` CSS ne peut pas alterner les fonds de façon fiable.
+- Les actions d'un bloc `Actions` d'infolist sont chacune enveloppées dans un `ActionContainer`
+  dont la clé vaut `{statePath}.{nom}Action` : c'est cette clé qu'attend `callInfolistAction()`
+  en test (ex. `.download_label_12Action`), pas la clé du bloc `Actions`.
+- Le menu d'en-tête « Expédition » (`OrderShipmentActionsExtension`) est conservé comme raccourci.
+
+### Notes client (`pko_customer_notes`)
+
+Note libre saisie par le client au checkout (bloc « Informations complémentaires », avec le nom
+du chantier). Colonne `text` nullable sur `lunar_orders`
+(`2026_09_18_000001_add_pko_customer_notes_to_lunar_orders.php`), max 2 000 caractères.
+
+- **Pourquoi pas `orders.notes` de Lunar** : `notes` est envoyée telle quelle comme description
+  de la facture Pennylane (`OrderToInvoiceMapper`) ; un message client n'a rien à y faire.
+  `notes` reste affichée sous les notes client, uniquement si renseignée.
+- **Flux** : identique au nom du chantier — `CheckoutPage::updatedCustomerNotes()` (HTML retiré)
+  → `cart.meta['pko_customer_notes']` → `PropagateCartCustomerNotesPipeline` → colonne ;
+  `CreateSplitQuoteOrder` la recopie sur la commande devis.
+- **Affichage admin** : bloc « Produits dans la commande », texte échappé, retours à la ligne conservés.
