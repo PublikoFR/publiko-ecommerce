@@ -532,13 +532,23 @@ l'état plié est mémorisé par le navigateur, clé = `id` de la section) :
    — même URL que l'e-mail d'expédition —, fiche de l'envoi), bordereau de remise du jour, et
    l'adresse de livraison.
 3. **Transactions** (`extendTransactionsInfolist`), suivies de l'adresse de facturation.
-4. **Historique** (`extendTimelineInfolist`, timeline Lunar enveloppée dans une section).
+
+Colonne latérale (`extendInfolistAsideSchema`) : les deux adresses en sortent, le bloc
+« Étiquettes » (tags Lunar) est supprimé — inutile, et son autocomplétion proposait les tags
+produits — et l'**historique** (`extendTimelineInfolist`, timeline Lunar enveloppée dans une
+section pliable) prend sa place, pour avoir la chronologie à côté du détail.
+
+Lignes de commande : `App\Filament\Extensions\OrderLinesTableExtension`, keyée sur
+`OrderItemsTable::class` (hook statique `extendOrderLinesTableColumns` du composant Livewire,
+pas de la page). Affiche `quantité x prix unitaire` ; Lunar affichait `quantité @ sous-total de
+la ligne`, qui se lit à tort comme un prix unitaire dès que la quantité dépasse 1.
 
 Arbitrages :
 
 - Lunar construit la colonne principale dans un ordre fixe (`[0]` expédition, `[1]` lignes,
   `[2]` totaux, `[3]` transactions, `[4]` historique) ; l'extension s'appuie sur ces positions,
-  remplace `[0]` et `[2]`, et garde en fin de colonne tout composant ajouté au-delà.
+  remplace `[0]` et `[2]`, déplace `[4]` dans l'aside, et garde en fin de colonne tout
+  composant ajouté au-delà.
 - Les adresses sont les sections Lunar d'origine (`getShippingAddressInfolist()` /
   `getBillingAddressInfoList()`), seulement déplacées : l'action « Modifier » est conservée.
   Elles sont retirées de l'aside par comparaison de leur titre traduit.

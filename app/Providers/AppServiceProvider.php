@@ -12,6 +12,7 @@ use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Extensions\OrderHeaderActionsDropdownExtension;
+use App\Filament\Extensions\OrderLinesTableExtension;
 use App\Filament\Extensions\OrderPageLayoutExtension;
 use App\Filament\Extensions\OrderSiteNameExtension;
 use App\Filament\Pages\SireneConfig;
@@ -51,6 +52,7 @@ use Lunar\Admin\Filament\Resources\CustomerGroupResource;
 use Lunar\Admin\Filament\Resources\CustomerGroupResource\Pages\EditCustomerGroup;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\LanguageResource;
+use Lunar\Admin\Filament\Resources\OrderResource\Pages\Components\OrderItemsTable;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Filament\Resources\ProductOptionResource;
 use Lunar\Admin\Filament\Resources\ProductResource;
@@ -249,6 +251,10 @@ class AppServiceProvider extends ServiceProvider
                 OrderPageLayoutExtension::class,
                 // En dernier : regroupe les actions ajoutées par les extensions ci-dessus.
                 OrderHeaderActionsDropdownExtension::class,
+            ],
+            // Tableau des lignes de la fiche commande (hook statique keyé sur le composant).
+            OrderItemsTable::class => [
+                OrderLinesTableExtension::class,
             ],
             Dashboard::class => [
                 DisableBrokenChartsExtension::class,

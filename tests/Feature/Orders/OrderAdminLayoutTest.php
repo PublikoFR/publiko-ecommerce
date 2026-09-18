@@ -8,9 +8,11 @@ use App\Filament\Extensions\OrderPageLayoutExtension;
 use App\Livewire\CheckoutPage;
 use App\Pipelines\Orders\PropagateCartCustomerNotesPipeline;
 use Database\Seeders\DatabaseSeeder;
+use Filament\Infolists\Components\Section;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Lunar\Admin\Filament\Resources\OrderResource\Pages\Components\OrderItemsTable;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
 use Lunar\Admin\Models\Staff;
 use Lunar\Facades\CartSession;
@@ -20,6 +22,8 @@ use Lunar\Models\Country;
 use Lunar\Models\Currency;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
+use Lunar\Models\OrderLine;
+use Lunar\Models\ProductVariant;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Tests\TestCase;
 
@@ -163,6 +167,44 @@ class OrderAdminLayoutTest extends TestCase
             ->assertInfolistActionExists($container, "download_label_{$shipment->id}")
             ->callInfolistAction($container, "download_label_{$shipment->id}")
             ->assertFileDownloaded('etiquette-test.pdf');
+    }
+
+    public function test_les_lignes_affichent_quantite_x_prix_unitaire(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+
+        OrderLine::factory()->create([
+            'order_id' => $order->id,
+            'purchasable_type' => ProductVariant::morphName(),
+            'purchasable_id' => ProductVariant::factory()->create()->id,
+            'description' => 'Sachet de visserie',
+            'quantity' => 2,
+            'unit_price' => 324,
+            'sub_total' => 648,
+        ]);
+
+        Livewire::test(OrderItemsTable::class, ['record' => $order])
+            ->assertSee('2 x 3,24')
+            ->assertDontSee('2 @');
+    }
+
+    public function test_l_historique_remplace_les_etiquettes_dans_la_colonne_laterale(): void
+    {
+        $aside = ManageOrder::getInfolistAsideSchema();
+        $headings = array_map(
+            fn ($component): ?string => $component instanceof Section ? (string) $component->getHeading() : null,
+            $aside,
+        );
+
+        $this->assertNotContains(__('lunarpanel::order.infolist.tags.label'), $headings);
+        $this->assertContains(__('lunarpanel::order.infolist.timeline.label'), $headings);
+
+        $main = array_map(
+            fn ($component): ?string => $component instanceof Section ? (string) $component->getHeading() : null,
+            ManageOrder::getInfolistSchema(),
+        );
+        $this->assertNotContains(__('lunarpanel::order.infolist.timeline.label'), $main);
     }
 
     public function test_les_totaux_n_affichent_le_remboursement_que_s_il_existe(): void

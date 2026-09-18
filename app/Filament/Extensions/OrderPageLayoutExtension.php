@@ -35,12 +35,12 @@ use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
  *  1. « Produits dans la commande » : lignes, puis notes client (40 %) et totaux (60 %) ;
  *  2. « Livraison » : mode choisi, point relais, envois transporteur (étiquette,
  *     suivi, bordereau) et adresse de livraison ;
- *  3. « Transactions », suivies de l'adresse de facturation ;
- *  4. l'historique.
+ *  3. « Transactions », suivies de l'adresse de facturation.
  * Tous ces blocs sont pliables, l'état plié est mémorisé par le navigateur.
  *
- * Les adresses quittent donc la colonne latérale : on réutilise les sections Lunar
- * (et leur action « Modifier ») telles quelles, seulement déplacées.
+ * Colonne latérale : les adresses en sortent (sections Lunar réutilisées telles
+ * quelles, action « Modifier » comprise) et l'historique y remplace le bloc
+ * « Étiquettes ».
  */
 final class OrderPageLayoutExtension extends ResourceExtension
 {
@@ -61,11 +61,11 @@ final class OrderPageLayoutExtension extends ResourceExtension
             return $schema;
         }
 
+        // L'historique [4] passe dans la colonne latérale (extendInfolistAsideSchema).
         return [
             self::productsSection($schema[1]),
             self::shippingSection(),
             $schema[3],
-            $schema[4],
             ...array_slice($schema, 5),
         ];
     }
@@ -76,16 +76,36 @@ final class OrderPageLayoutExtension extends ResourceExtension
      */
     public function extendInfolistAsideSchema(array $schema): array
     {
+        $headingOf = fn (Component $component): ?string => $component instanceof Section
+            ? (string) $component->getHeading()
+            : null;
+
         $movedHeadings = [
             __('lunarpanel::order.infolist.shipping_address.label'),
             __('lunarpanel::order.infolist.billing_address.label'),
         ];
+        $tagsHeading = __('lunarpanel::order.infolist.tags.label');
 
-        return array_values(array_filter(
-            $schema,
-            fn (Component $component): bool => ! ($component instanceof Section
-                && in_array($component->getHeading(), $movedHeadings, true)),
-        ));
+        $aside = [];
+        foreach ($schema as $component) {
+            $heading = $headingOf($component);
+
+            if (in_array($heading, $movedHeadings, true)) {
+                continue;
+            }
+
+            // Le bloc « Étiquettes » ne sert pas (et son autocomplétion propose les tags
+            // produits) : l'historique prend sa place, pour une vue d'ensemble à côté du détail.
+            if ($heading === $tagsHeading) {
+                $aside[] = ManageOrder::getTimelineInfolist();
+
+                continue;
+            }
+
+            $aside[] = $component;
+        }
+
+        return $aside;
     }
 
     public function extendTransactionsInfolist(Component $section): Component
