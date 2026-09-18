@@ -6,6 +6,7 @@ namespace Pko\Account;
 
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
+use Pko\Account\Contracts\CustomerInvoices;
 use Pko\Account\Livewire\AddressesPage;
 use Pko\Account\Livewire\CompanyPage;
 use Pko\Account\Livewire\Dashboard;
@@ -14,9 +15,15 @@ use Pko\Account\Livewire\LoyaltyPage;
 use Pko\Account\Livewire\OrderDetailPage;
 use Pko\Account\Livewire\OrdersPage;
 use Pko\Account\Livewire\ProfilePage;
+use Pko\Account\Support\EmptyCustomerInvoices;
 
 class AccountServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        $this->app->bindIf(CustomerInvoices::class, EmptyCustomerInvoices::class);
+    }
+
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'account');

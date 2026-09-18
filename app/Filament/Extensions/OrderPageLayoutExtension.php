@@ -26,6 +26,7 @@ use Lunar\Admin\Support\OrderStatus;
 use Lunar\DataTypes\Price;
 use Lunar\Models\Channel;
 use Lunar\Models\Order;
+use Pko\Pennylane\Services\OrderDocuments;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Models\CarrierShipment;
@@ -151,6 +152,12 @@ final class OrderPageLayoutExtension extends ResourceExtension
         return $section
             ->schema([
                 ...$section->getChildComponents(),
+                // Rappel des documents comptables sous les transactions qui les ont générés.
+                ViewEntry::make('pko_order_documents')
+                    ->hiddenLabel()
+                    ->view('filament.orders.order-documents')
+                    ->state(fn (Order $record): array => OrderDocuments::forOrder($record))
+                    ->visible(fn (Order $record): bool => filled(OrderDocuments::forOrder($record)['invoice'])),
                 ManageOrder::getBillingAddressInfoList(),
             ])
             ->id('order-transactions')
@@ -226,6 +233,7 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 'name' => (string) ($order->billingAddress?->fullName ?? $order->shippingAddress?->fullName ?? ''),
             ],
             'details' => $details,
+            'invoice' => OrderDocuments::forOrder($order)['invoice'],
         ];
     }
 

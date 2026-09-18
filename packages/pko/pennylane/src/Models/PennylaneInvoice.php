@@ -47,6 +47,8 @@ final class PennylaneInvoice extends Model
         'pennylane_id' => 'integer',
         'payload_snapshot' => AsArrayObject::class,
         'synced_at' => 'datetime',
+        'emailed_at' => 'datetime',
+        'email_claimed_at' => 'datetime',
     ];
 
     public function order(): BelongsTo
@@ -62,6 +64,13 @@ final class PennylaneInvoice extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_invoice_id');
+    }
+
+    public function pdfFilename(): string
+    {
+        $number = preg_replace('/[^A-Za-z0-9._-]/', '-', $this->pennylane_invoice_number ?: (string) $this->id);
+
+        return ($this->type === self::TYPE_CREDIT_NOTE ? 'Avoir-' : 'Facture-').$number.'.pdf';
     }
 
     public function isFinalized(): bool

@@ -10,15 +10,20 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
+use Pko\Account\Contracts\CustomerInvoices;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
 use Pko\Pennylane\Api\Resources\CustomersResource;
+use Pko\Pennylane\Console\Commands\EmailInvoiceCommand;
 use Pko\Pennylane\Console\Commands\PennylaneBackfillCommand;
 use Pko\Pennylane\Console\Commands\PennylanePollChangelogCommand;
 use Pko\Pennylane\Console\Commands\PennylaneResyncOrderCommand;
+use Pko\Pennylane\Models\PennylaneInvoice;
+use Pko\Pennylane\Observers\InvoiceEmailObserver;
 use Pko\Pennylane\Observers\OrderPennylaneObserver;
 use Pko\Pennylane\Observers\TransactionPennylaneObserver;
 use Pko\Pennylane\Services\CreditNoteSynchronizer;
+use Pko\Pennylane\Services\CustomerInvoiceListing;
 use Pko\Pennylane\Services\CustomerMapper;
 use Pko\Pennylane\Services\InvoiceSynchronizer;
 use Pko\Pennylane\Services\OrderToInvoiceMapper;
@@ -28,6 +33,8 @@ final class PennylaneServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(CustomerInvoices::class, CustomerInvoiceListing::class);
+
         $this->mergeConfigFrom(__DIR__.'/../config/pennylane.php', 'pennylane');
 
         $this->app->singleton(PennylaneClient::class, function (Application $app): PennylaneClient {
@@ -53,6 +60,7 @@ final class PennylaneServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-pennylane');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'pko-pennylane');
         $this->loadRoutesFrom(__DIR__.'/../routes/admin.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/customer.php');
 
         $this->publishes([
             __DIR__.'/../config/pennylane.php' => config_path('pennylane.php'),
@@ -62,11 +70,14 @@ final class PennylaneServiceProvider extends ServiceProvider
             __DIR__.'/../lang' => $this->app->langPath('vendor/pko-pennylane'),
         ], 'pennylane-lang');
 
+        PennylaneInvoice::observe(InvoiceEmailObserver::class);
+
         Order::observe(OrderPennylaneObserver::class);
         Transaction::observe(TransactionPennylaneObserver::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                EmailInvoiceCommand::class,
                 PennylaneResyncOrderCommand::class,
                 PennylaneBackfillCommand::class,
                 PennylanePollChangelogCommand::class,

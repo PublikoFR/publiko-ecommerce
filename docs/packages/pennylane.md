@@ -231,6 +231,24 @@ Exécution : `make test-only T=tests/Unit/Pennylane`. Tous utilisent `Http::fake
 - FK en `nullOnDelete` → survit à une purge Lunar
 - Filament Plugin isolé, ajouté via `->plugin(PennylanePlugin::make())` dans `AppServiceProvider`
 
+## Liens dans la fiche commande (colonne latérale)
+
+`Services\OrderDocuments::forOrder($order)` renvoie la facture et les avoirs de la
+commande (libellé, état `ready`/`pending`/`failed`, lien signé valable 12 h). Il est
+mis en cache le temps de la requête (`once()`), car la fiche l'appelle plusieurs fois.
+Il alimente deux emplacements, gérés par `app/Filament/Extensions/OrderPageLayoutExtension.php` :
+
+- bloc **vue d'ensemble**, sous le client : ligne « Facture F-… » + bouton PDF ;
+- bloc **Transactions** : rappel de la facture et de chaque avoir, avant l'adresse de facturation.
+
+Les liens pointent vers les routes admin (proxy), jamais vers `public_file_url`.
+
+**Garde d'authentification** : les routes `admin/pennylane/*` exigent `auth:staff`,
+c'est-à-dire le garde du back-office Lunar. Le middleware `auth` seul vérifie le garde
+par défaut `web`, celui des clients du site. Avec lui, un admin connecté uniquement au
+back-office était renvoyé vers la connexion, et un client connecté pouvait ouvrir un
+lien signé qui aurait fuité.
+
 ## Bouton de téléchargement sur la page commande
 
 Le bouton natif Lunar `Télécharger le PDF` est **masqué** au profit d'une action Pennylane dédiée, via `OrderInvoiceActionsExtension` (pattern `ResourceExtension` : `headerActions()`). Enregistré dans `AppServiceProvider` sous `LunarPanel::extensions[OrderResource::class]`.
@@ -246,7 +264,7 @@ Avoirs : rendus dans un `ActionGroup` `Avoirs Pennylane (N)` — une entrée par
 - `GET admin/pennylane/invoice/{order}/pdf` → `pennylane.invoice.pdf` (signée)
 - `GET admin/pennylane/credit-note/{transaction}/pdf` → `pennylane.credit-note.pdf` (signée)
 
-**Streaming** : `DownloadPennylanePdfController` résout `CustomerInvoicesResource::pdfUrl($id)` (lit `public_file_url`, URL valable 30 min, dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne un `streamDownload` avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
+**Streaming** : `DownloadPennylanePdfController` utilise désormais `InvoicePdfFetcher`, qui résout `CustomerInvoicesResource::pdfUrl($id)` (lit `public_file_url`, URL valable 30 min, dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne un `streamDownload` avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
 
 ## Gotchas
 
@@ -260,3 +278,126 @@ Avoirs : rendus dans un `ActionGroup` `Avoirs Pennylane (N)` — une entrée par
 - API v2 : https://pennylane.readme.io/reference/postcustomerinvoices
 - Endpoint finalize : https://pennylane.readme.io/reference/finalizecustomerinvoice
 - Changelog : https://pennylane.readme.io/reference/getcustomerinvoiceschanges
+
+
+## Espace client et e-mails de documents (septembre 2026)
+
+### PDF original, sans copie locale
+
+`InvoicePdfFetcher::fetch()` récupère exclusivement le PDF émis par Pennylane,
+via `CustomerInvoicesResource::pdfUrl()`. Le contenu reste en mémoire pendant
+le téléchargement ou l'envoi SMTP : aucun fichier PDF, URL publique ou binaire
+n'est persisté sur disque, en base ou dans la file. La signature `%PDF-` est
+contrôlée avant de servir le contenu. Une réponse 409 (API ou fichier) ou une URL
+vide lève `InvoicePdfNotReady`; les autres erreurs restent réessayables, avec un
+message qui ne divulgue pas l'URL publique.
+
+`public_file_url` est accessible sans authentification pendant environ 30 minutes.
+Elle ne doit donc jamais apparaître dans une vue, une redirection ou un e-mail.
+Le contrôleur sert le binaire avec `private, no-store` et `nosniff`. Si le PDF est
+encore indisponible, il répond 503 avec `Retry-After: 60`.
+
+### Liste et téléchargement client
+
+- `GET /compte/factures` liste les factures **et avoirs finalisés**, paginés par 10,
+  sans appel réseau. La date vient du snapshot de création (repli sur la date de
+  création locale), le TTC de la commande ou du remboursement Lunar, affiché
+  négativement pour les avoirs. Ce montant local est indicatif en cas d'écart
+  comptable : le PDF reste la référence.
+- `GET /compte/factures/{invoice}/pdf` (`pennylane.customer.pdf`) traverse les mêmes
+  middlewares `web`, `auth`, `pro.customer` que le compte. La requête exige un
+  document finalisé avec ID Pennylane et une commande dont `customer_id` est celui
+  de `AccountContext::customer()`. Document étranger, supprimé ou non finalisé :
+  404, avant tout appel réseau. Invité : redirection vers la connexion.
+- `pko/lunar-account` expose le contrat `CustomerInvoices` et une implémentation
+  vide par défaut. `pko/lunar-pennylane` fournit `CustomerInvoiceListing` et la route
+  de téléchargement. Les lignes transmises à la vue contiennent seulement les
+  données d'affichage et les URL internes, jamais un modèle comptable sérialisé.
+  La dépendance reste **Pennylane → Account**, sans cycle.
+- Les routes admin signées sont conservées. Le contrôleur accepte les modèles
+  `Order` / `Transaction` fournis par le route model binding Laravel ; attendre un
+  entier provoquait une erreur 500 lorsque le binding de commande s'appliquait.
+
+### Envoi asynchrone et reprise
+
+`InvoiceEmailObserver` réagit à la création finalisée ou à la **transition** vers
+`finalized`, y compris via le polling. Il met `InvoiceFinalizedMail` en file après
+commit. Une mise à jour sans transition et l'early return des synchroniseurs ne
+redéclenchent rien. Une panne de mise en file est journalisée sans déclasser le
+document finalisé ; utiliser la commande de reprise ci-dessous.
+
+La Mailable étend `TemplatedMail`, implémente `ShouldQueue` et transporte uniquement
+l'identifiant local et les données de template, jamais le PDF. Au traitement :
+
+1. Relire le document et le template ; abandonner si déjà envoyé, non finalisé,
+   sans commande, ou si le template a été désactivé.
+2. Acquérir **par UPDATE conditionnel avant réseau** une réservation
+   (`email_claimed_at`, `email_claim_token`), uniquement si `emailed_at` est vide.
+   Un second worker ne peut envoyer simultanément. Le bail dure 10 minutes,
+   au-delà du timeout du job (120 secondes) ; un worker tué est récupérable.
+3. Résoudre le destinataire : `billingAddress.contact_email`, puis `order.user.email`,
+   puis le premier utilisateur du customer. Une adresse vide utilise le repli ;
+   une adresse invalide fait échouer l'envoi plutôt que de choisir un autre contact.
+4. Récupérer le PDF et l'attacher (`Facture-<numéro>.pdf` ou `Avoir-<numéro>.pdf`),
+   envoyer puis renseigner `emailed_at` seulement après acceptation par le transport.
+5. Libérer la réservation en vérifiant son token. Sur erreur PDF/SMTP, conserver
+   `emailed_at = null` et laisser le worker réessayer : **6 tentatives**, backoff
+   **60, 180, 600, 1800, 3600 secondes**.
+
+Limite SMTP explicite : il n'existe pas de transaction atomique SMTP + MySQL.
+Un arrêt brutal après acceptation SMTP mais avant l'écriture `emailed_at` peut
+entraîner un doublon à la reprise. Les répétitions normales, jobs dupliqués et
+workers concurrents sont protégés ; `emailed_at` atteste l'acceptation du transport,
+pas la livraison finale en boîte de réception.
+
+Commande de reprise (également utilisable pour les documents historiques) :
+
+```bash
+make artisan CMD='pennylane:email-invoice <id-local>'
+```
+
+Elle ne recrée aucune facture et refuse de renvoyer un document déjà envoyé.
+Les anciens documents ne sont pas envoyés automatiquement par la migration.
+Après épuisement des retries, vérifier la file d'échecs et utiliser cette commande
+après correction. Ne pas effacer `emailed_at` pour contourner l'idempotence.
+
+### Templates et déploiement
+
+La dépendance `pko/lunar-mail-templates` est déclarée dans Pennylane. Deux modèles
+éditables sont ajoutés au registre et aux contenus par défaut :
+`billing.invoice_finalized` et `billing.credit_note_finalized`. Deux clés permettent
+une rédaction et une activation indépendantes, avec une seule Mailable pour
+partager l'envoi et la sécurité. L'ancien modèle SAV `credit_note.available`
+reste distinct. La marque est fournie par `brand_name()`.
+
+Appliquer la migration du package puis synchroniser sans écraser les textes :
+
+```bash
+make artisan CMD='pko:mail-templates:sync --key=billing.invoice_finalized --key=billing.credit_note_finalized'
+```
+
+Le site envoie lui-même le message. L'endpoint Pennylane `send_by_email` n'est
+**jamais appelé**, pour préserver la transmission future via une plateforme agréée
+pour la facturation électronique B2B. Ce flux ajoute une notification client, pas
+une nouvelle émission comptable.
+
+Tests ciblés : `make test-only T=tests/Feature/Pennylane/CustomerInvoicesTest.php`
+et `make test-only T=tests/Unit/Pennylane`. Le test d'envoi utilise le transport
+mémoire (en complément de `Mail::fake()` pour le dispatch) pour contrôler réellement
+le MIME, la pièce jointe, le destinataire et le marquage après succès. Tout HTTP y
+est simulé et les requêtes imprévues sont interdites.
+
+
+### Recette réelle du 18 septembre 2026 (dev / sandbox)
+
+- Route client traversée avec l'utilisateur du customer de la commande 18 :
+  HTTP 200, `Facture-F-2026-09-1.pdf`, 33 976 octets, signature PDF valide.
+- Commande de reprise pour les documents locaux 2 et 3 ; traitement par la file
+  Redis et le worker scheduler existant, réception confirmée par l'API Mailpit.
+- Facture : pièce jointe de 33 976 octets, SHA-256
+  `7b181f5848820136e38687504eec8ccdef0a3555ec046615e23336888ef2e952`, identique
+  à celle du téléchargement client.
+- Avoir F-2026-09-2 : pièce jointe de 33 083 octets, SHA-256
+  `bd0e0adebff27f6e19bbba84691da1d0bb5eb9fbe579fbf05a4d2bad68f01485`.
+- Les deux `emailed_at` sont renseignés, les réservations libérées, aucune URL
+  publique dans le corps des messages. Aucun PDF n'a été écrit sur disque.

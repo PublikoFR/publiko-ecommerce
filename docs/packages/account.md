@@ -20,7 +20,7 @@ Espace personnel du client B2B côté storefront. Expose les pages Livewire suiv
 
 ## Sécurité
 
-Toutes les routes sont protégées par le middleware `pko.pro_access`.  
+Toutes les routes sont protégées par les middlewares `web`, `auth`, `pro.customer`.
 `AccountContext::customer()` → `auth()->user()->customers()->first()` via la table pivot `lunar_customer_user`.
 
 ### Règle obligatoire sur les méthodes d'écriture Livewire
@@ -55,3 +55,14 @@ Helpers globaux (autoload `packages/pko/account/src/helpers.php`) :
 | `payment_status_label(?string $status)` | Statut de transaction |
 
 Ne pas dupliquer les libellés de statut : toute nouvelle valeur va dans `config/lunar/orders.php`.
+
+
+## Factures et avoirs
+
+`InvoicesPage` consomme le contrat `Pko\Account\Contracts\CustomerInvoices`,
+résolu à chaque rendu pour le customer courant. Account fournit une liste vide
+par défaut ; Pennylane branche son fournisseur sans créer de dépendance inverse.
+Le tableau reprend les composants et tokens du design system, inclut les avoirs,
+les montants TTC locaux et les liens de téléchargement internes protégés.
+Voir [pennylane.md](pennylane.md#espace-client-et-e-mails-de-documents-septembre-2026)
+pour le contrôle d'appartenance et le proxy PDF sans stockage.
