@@ -22,8 +22,13 @@ final class OrderToInvoiceMapper
 
         $externalReference = ($config['external_reference_prefix']['invoice'] ?? 'order_').$order->id;
 
-        $date = optional($order->placed_at ?? $order->created_at)->toDateString()
-            ?? Carbon::now()->toDateString();
+        // Date d'émission = jour de la synchro, pas celui de la commande :
+        // Pennylane refuse (422) de finaliser une facture antérieure à la
+        // dernière facture finalisée (chronologie légale de la numérotation).
+        // Dater à la commande bloquerait tout backfill, et toute facture dont
+        // le job passe après celle d'une commande plus récente (retry, worker
+        // en retard). La référence de commande reste dans l'objet du PDF.
+        $date = Carbon::now()->toDateString();
 
         $deadline = Carbon::parse($date)
             ->addDays((int) ($config['default_payment_deadline_days'] ?? 0))

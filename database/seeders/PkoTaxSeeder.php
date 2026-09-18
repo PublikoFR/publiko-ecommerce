@@ -10,6 +10,7 @@ use Lunar\Models\TaxClass;
 use Lunar\Models\TaxRate;
 use Lunar\Models\TaxRateAmount;
 use Lunar\Models\TaxZone;
+use Lunar\Models\TaxZoneCountry;
 
 class PkoTaxSeeder extends Seeder
 {
@@ -28,6 +29,15 @@ class PkoTaxSeeder extends Seeder
         );
 
         $taxZone->countries()->firstOrCreate(['country_id' => $france->id]);
+
+        // `lunar:install` crée une « Default Tax Zone » contenant tous les pays,
+        // sans aucun taux. Lunar retient la première zone active qui contient le
+        // pays (GetTaxZoneCountry::first()) : tant que la France y reste, toutes
+        // les commandes françaises sont calculées à 0 % de TVA.
+        TaxZoneCountry::query()
+            ->where('country_id', $france->id)
+            ->where('tax_zone_id', '!=', $taxZone->id)
+            ->delete();
 
         $standardClass = TaxClass::query()->updateOrCreate(
             ['name' => 'TVA 20%'],

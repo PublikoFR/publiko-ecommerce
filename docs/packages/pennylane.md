@@ -135,6 +135,7 @@ divergeait sur tous les points ci-dessous. La spec OpenAPI fait foi.
 | Finalisation | Lue sur le booléen `draft`. `status` décrit le **paiement** (`upcoming`, `paid`, `late`…) : la valeur `finalized` n'existe pas. |
 | Avoir | Facture à **montants négatifs** créée par le même endpoint, puis `POST /customer_invoices/{facture}/link_credit_note` une fois finalisée. Pas de champ `credit_note` ni `parent_invoice_id` à la création. |
 | Modèle de facture | `customer_invoice_template_id` est optionnel. Le lister demande le scope `customer_invoice_templates:readonly`. |
+| Chronologie | Une facture ne peut pas être finalisée avec une date antérieure à la dernière facture finalisée (422). La facture est donc datée **du jour de la synchro**, pas de la commande ; la référence de commande figure dans l'objet du PDF. Sinon, tout backfill et tout job rejoué après une commande plus récente échoueraient. |
 | Numérotation | La finalisation échoue en 422 (« Configurez d'abord la numérotation des factures ») tant que la numérotation n'est pas configurée dans le compte Pennylane, sandbox compris. |
 
 **Taux de TVA** : `tax_breakdown` est vide sur nos commandes Lunar. Le taux est
@@ -142,6 +143,12 @@ donc déduit de `tax_total / (sub_total - discount_total)` puis rapproché du ta
 légal français le plus proche (tolérance 0,15 point, pour absorber l'arrondi au
 centime). Un taux sans équivalent fait échouer la synchro plutôt que d'émettre une
 facture fausse.
+
+**TVA à 0 % sur toutes les commandes** : ce n'est pas un bug Pennylane. `lunar:install`
+crée une « Default Tax Zone » avec tous les pays et sans taux, et Lunar retient la
+*première* zone active contenant le pays. Tant que la France y figure, la zone
+« France métropolitaine » est ignorée. `PkoTaxSeeder` retire désormais la France des
+autres zones. Sur une base existante, relancer `make artisan CMD='db:seed --class=PkoTaxSeeder'`.
 
 **Port** : quand une commande porte `shipping_total` sans ligne `shipping` (anciennes
 commandes), une ligne « Frais de port » est ajoutée. Sa TVA est celle qui n'est
