@@ -17,15 +17,29 @@
         </div>
     </div>
     @if ($document['url'])
+        <div class="flex shrink-0 items-center gap-2">
+        @if ($document['view_url'] ?? null)
+            <x-filament::button
+                tag="a"
+                :href="$document['view_url']"
+                target="_blank"
+                rel="noopener noreferrer"
+                color="gray"
+                size="xs"
+                icon="heroicon-m-eye"
+            >
+                Voir
+            </x-filament::button>
+        @endif
         <x-filament::button
             tag="a"
             :href="$document['url']"
             color="gray"
             size="xs"
             icon="heroicon-m-arrow-down-tray"
-            class="shrink-0"
         >
             PDF
         </x-filament::button>
+        </div>
     @endif
 </div>

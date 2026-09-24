@@ -238,7 +238,7 @@ commande (libellé, état `ready`/`pending`/`failed`, lien signé valable 12 h).
 mis en cache le temps de la requête (`once()`), car la fiche l'appelle plusieurs fois.
 Il alimente deux emplacements, gérés par `app/Filament/Extensions/OrderPageLayoutExtension.php` :
 
-- bloc **vue d'ensemble**, sous le client : ligne « Facture F-… » + bouton PDF ;
+- bloc **vue d'ensemble**, sous le client : ligne « Facture F-… » + boutons Voir et PDF ;
 - bloc **Transactions** : rappel de la facture et de chaque avoir, avant l'adresse de facturation.
 
 Les liens pointent vers les routes admin (proxy), jamais vers `public_file_url`.
@@ -264,7 +264,9 @@ Avoirs : rendus dans un `ActionGroup` `Avoirs Pennylane (N)` — une entrée par
 - `GET admin/pennylane/invoice/{order}/pdf` → `pennylane.invoice.pdf` (signée)
 - `GET admin/pennylane/credit-note/{transaction}/pdf` → `pennylane.credit-note.pdf` (signée)
 
-**Streaming** : `DownloadPennylanePdfController` utilise désormais `InvoicePdfFetcher`, qui résout `CustomerInvoicesResource::pdfUrl($id)` (lit `public_file_url`, URL valable 30 min, dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne un `streamDownload` avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
+**Streaming** : `DownloadPennylanePdfController` utilise désormais `InvoicePdfFetcher`, qui résout `CustomerInvoicesResource::pdfUrl($id)` (lit `public_file_url`, URL valable 30 min, dans la réponse `GET /customer_invoices/{id}`), télécharge le PDF côté serveur, retourne le PDF avec filename `Facture-F20260001.pdf` / `Avoir-F20260002.pdf`.
+
+**Affichage dans le navigateur** : `?inline=1` sur les trois routes PDF (admin et client) renvoie `Content-Disposition: inline` au lieu de `attachment` ; les boutons « Voir » ouvrent ce lien dans un nouvel onglet. Le paramètre ne touche à aucun contrôle d'accès. Côté admin, il est **inclus dans l'URL signée** (`OrderDocuments::url(..., inline: true)`) : l'ajouter à un lien de téléchargement signé invalide la signature (403). Le PDF est servi en mémoire (`response()` et non `streamDownload`), avec `private, no-store`, `nosniff` et `Referrer-Policy: no-referrer`.
 
 ## Gotchas
 
