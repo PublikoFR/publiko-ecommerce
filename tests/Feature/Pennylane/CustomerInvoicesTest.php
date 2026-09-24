@@ -139,6 +139,15 @@ class CustomerInvoicesTest extends TestCase
         Livewire::test(InvoicesPage::class)->assertSee('Aucune facture disponible');
     }
 
+    public function test_invoices_page_is_rendered_without_account_sidebar(): void
+    {
+        $this->actingAs($this->user);
+
+        $this->get(route('account.invoices'))->assertOk()
+            ->assertSee('Mes factures')->assertDontSee('Connecté·e en tant que');
+        $this->get(route('account.orders'))->assertOk()->assertSee('Connecté·e en tant que');
+    }
+
     public function test_admin_signed_download_still_works_and_signature_is_required(): void
     {
         $this->invoice();

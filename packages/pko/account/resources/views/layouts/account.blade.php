@@ -13,11 +13,13 @@ $navItems = [
 $current = request()->route()?->getName();
 $user = auth()->user();
 $customer = $user?->customers()->first();
+$sidebar ??= true;
 @endphp
 
 <x-layout.storefront>
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
+        <div @class(['grid grid-cols-1 gap-8', 'lg:grid-cols-[260px_1fr]' => $sidebar])>
+            @if ($sidebar)
             <aside class="lg:sticky lg:top-24 lg:self-start">
                 <x-ui.card padding="md" class="lg:mb-0 mb-4">
                     <div class="pb-4 mb-4 border-b border-neutral-100">
@@ -47,6 +49,7 @@ $customer = $user?->customers()->first();
                     </nav>
                 </x-ui.card>
             </aside>
+            @endif
 
             <div>
                 {{ $slot }}
