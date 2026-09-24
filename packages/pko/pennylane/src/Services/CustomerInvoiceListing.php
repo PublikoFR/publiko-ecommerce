@@ -36,6 +36,7 @@ final class CustomerInvoiceListing implements CustomerInvoices
                     'type' => $credit ? 'Avoir' : 'Facture',
                     'total' => $total,
                     'download_url' => route('pennylane.customer.pdf', $invoice->id),
+                    'view_url' => route('pennylane.customer.pdf', ['invoice' => $invoice->id, 'inline' => 1]),
                 ];
             });
     }

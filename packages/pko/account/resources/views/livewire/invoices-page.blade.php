@@ -34,7 +34,12 @@
                                 <td class="px-4 py-3"><a href="{{ $invoice['order_url'] }}" class="text-primary-600 underline underline-offset-2">#{{ $invoice['order_reference'] }}</a></td>
                                 <td class="px-4 py-3"><x-ui.badge variant="primary">{{ $invoice['type'] }}</x-ui.badge></td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap font-mono text-neutral-900">{{ $invoice['total'] }}</td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-4 py-3 text-right whitespace-nowrap">
+                                    @if ($invoice['view_url'] ?? null)
+                                        <a href="{{ $invoice['view_url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 mr-4 text-primary-600 font-semibold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" aria-label="Voir {{ $invoice['type'] }} {{ $invoice['number'] }} dans un nouvel onglet">
+                                            <x-ui.icon name="eye" class="w-4 h-4" /> Voir
+                                        </a>
+                                    @endif
                                     <a href="{{ $invoice['download_url'] }}" class="inline-flex items-center gap-2 whitespace-nowrap text-primary-600 font-semibold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" aria-label="Télécharger {{ $invoice['type'] }} {{ $invoice['number'] }} en PDF">
                                         <x-ui.icon name="download" class="w-4 h-4" /> PDF
                                     </a>

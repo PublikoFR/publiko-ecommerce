@@ -94,7 +94,7 @@ class CustomerInvoicesTest extends TestCase
         $invoice = $this->invoice();
         $response = $this->actingAs($this->user)->get(route('pennylane.customer.pdf', $invoice->id));
         $response->assertOk()->assertDownload('Facture-F-TEST-1.pdf')->assertHeader('Content-Type', 'application/pdf');
-        $this->assertSame(self::PDF, $response->streamedContent());
+        $this->assertSame(self::PDF, $response->getContent());
         $this->assertStringNotContainsString('encrypted_id', (string) $response->headers);
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
     }
@@ -128,7 +128,8 @@ class CustomerInvoicesTest extends TestCase
         Livewire::test(InvoicesPage::class)->assertSee('F-TEST-1')->assertSee('A-TEST-2')
             ->assertSee('123,45 EUR')->assertSee('−23,45 EUR')->assertSee('Avoir')
             ->assertDontSee('DRAFT-HIDDEN')->assertDontSee('FOREIGN-HIDDEN')
-            ->assertDontSee('encrypted_id')->assertDontSee('pennylane.com');
+            ->assertDontSee('encrypted_id')->assertDontSee('pennylane.com')
+            ->assertSee(route('pennylane.customer.pdf', ['invoice' => $credit->id, 'inline' => 1]), false);
         Http::assertNothingSent();
         $this->get(route('pennylane.customer.pdf', $credit->id))->assertDownload('Avoir-A-TEST-2.pdf');
     }
@@ -147,6 +148,52 @@ class CustomerInvoicesTest extends TestCase
         $this->get(route('pennylane.invoice.pdf', $this->order->id))->assertForbidden();
         $this->get(URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id]))
             ->assertOk()->assertDownload('Facture-F-TEST-1.pdf');
+    }
+
+    public function test_customer_can_view_own_invoice_inline(): void
+    {
+        $invoice = $this->invoice();
+
+        $response = $this->actingAs($this->user)->get(route('pennylane.customer.pdf', ['invoice' => $invoice->id, 'inline' => 1]));
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('inline;', $response->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('Facture-F-TEST-1.pdf', $response->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->assertSame(self::PDF, $response->getContent());
+    }
+
+    public function test_inline_view_keeps_customer_access_rules(): void
+    {
+        $foreign = Order::withoutEvents(fn () => Order::factory()->create(['customer_id' => Customer::factory()->create()->id]));
+        $foreignInvoice = $this->invoice(['order_id' => $foreign->id]);
+        $own = $this->invoice();
+
+        $this->get(route('pennylane.customer.pdf', ['invoice' => $own->id, 'inline' => 1]))->assertRedirect();
+        $this->actingAs($this->user)->get(route('pennylane.customer.pdf', ['invoice' => $foreignInvoice->id, 'inline' => 1]))->assertNotFound();
+        Http::assertNothingSent();
+    }
+
+    public function test_admin_inline_view_requires_a_signature_covering_the_inline_flag(): void
+    {
+        $this->invoice();
+        $this->actingAs($this->staff(), 'staff');
+
+        $inline = URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id, 'inline' => 1]);
+        $response = $this->get($inline)->assertOk();
+        $this->assertStringStartsWith('inline;', $response->headers->get('Content-Disposition'));
+
+        // Ajouter le paramètre à un lien de téléchargement signé casse la signature.
+        $download = URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id]);
+        $this->get($download.'&inline=1')->assertForbidden();
+    }
+
+    public function test_admin_inline_view_is_refused_to_a_storefront_customer(): void
+    {
+        $this->invoice();
+        $url = URL::temporarySignedRoute('pennylane.invoice.pdf', now()->addMinutes(5), ['order' => $this->order->id, 'inline' => 1]);
+
+        $this->assertNotSame(200, $this->actingAs($this->user)->get($url)->getStatusCode());
     }
 
     public function test_admin_download_is_refused_to_a_storefront_customer_even_with_a_valid_signature(): void
@@ -172,6 +219,8 @@ class CustomerInvoicesTest extends TestCase
         $this->assertSame('ready', $documents['invoice']['state']);
         $this->assertStringContainsString('/admin/pennylane/invoice/'.$this->order->id.'/pdf', $documents['invoice']['url']);
         $this->assertStringContainsString('signature=', $documents['invoice']['url']);
+        $this->assertStringContainsString('inline=1', $documents['invoice']['view_url']);
+        $this->assertStringContainsString('signature=', $documents['invoice']['view_url']);
         $this->assertCount(1, $documents['credit_notes']);
         $this->assertSame('F-TEST-2', $documents['credit_notes'][0]['number']);
         $this->assertStringNotContainsString('pennylane.com', json_encode($documents));

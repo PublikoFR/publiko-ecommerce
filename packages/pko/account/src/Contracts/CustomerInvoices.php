@@ -8,6 +8,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface CustomerInvoices
 {
-    /** Rows contain date, number, order_reference, order_url, type, total and download_url. No provider URL. */
+    /** Rows contain date, number, order_reference, order_url, type, total, download_url and view_url. No provider URL. */
     public function forCustomer(int $customerId): LengthAwarePaginator;
 }

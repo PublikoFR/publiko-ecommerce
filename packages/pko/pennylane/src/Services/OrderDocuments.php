@@ -10,7 +10,7 @@ use Pko\Pennylane\Models\PennylaneInvoice;
 
 /**
  * Documents Pennylane d'une commande, prêts à afficher dans la fiche admin :
- * facture et avoirs, avec un lien de téléchargement signé.
+ * facture et avoirs, avec des liens signés de téléchargement et d'affichage.
  *
  * Les liens pointent vers nos routes admin (proxy authentifié staff), jamais
  * vers `public_file_url` : ce lien Pennylane est public, il ne doit pas fuiter.
@@ -68,15 +68,21 @@ final class OrderDocuments
                 default => 'pending',
             },
             'url' => $ready ? self::url($record, $order) : null,
+            'view_url' => $ready ? self::url($record, $order, inline: true) : null,
         ];
     }
 
-    private static function url(PennylaneInvoice $record, Order $order): string
+    /**
+     * `inline` est signé avec le reste de l'URL : il ne peut pas être ajouté
+     * ou retiré après coup sans invalider la signature.
+     */
+    private static function url(PennylaneInvoice $record, Order $order, bool $inline = false): string
     {
         $expires = now()->addHours(self::LINK_TTL_HOURS);
+        $query = $inline ? ['inline' => 1] : [];
 
         return $record->type === PennylaneInvoice::TYPE_CREDIT_NOTE
-            ? URL::temporarySignedRoute('pennylane.credit-note.pdf', $expires, ['transaction' => $record->transaction_id])
-            : URL::temporarySignedRoute('pennylane.invoice.pdf', $expires, ['order' => $order->id]);
+            ? URL::temporarySignedRoute('pennylane.credit-note.pdf', $expires, ['transaction' => $record->transaction_id, ...$query])
+            : URL::temporarySignedRoute('pennylane.invoice.pdf', $expires, ['order' => $order->id, ...$query]);
     }
 }
