@@ -25,7 +25,7 @@ class InvoicesPage extends Component
             : new LengthAwarePaginator([], 0, 10);
     }
 
-    #[Layout('account::layouts.account', ['sidebar' => false])]
+    #[Layout('account::layouts.account')]
     public function render(): View
     {
         return view('account::livewire.invoices-page');
