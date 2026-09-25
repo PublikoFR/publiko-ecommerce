@@ -34,7 +34,7 @@ use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Support\CarrierLabelUrl;
-use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 
 /**
  * Mise en page de la fiche commande admin.
@@ -503,7 +503,7 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 ->label('Suivre le colis')
                 ->icon('heroicon-o-arrow-top-right-on-square')
                 ->link()
-                ->url(LaPosteTrackingClient::PUBLIC_TRACKING_URL.urlencode($tracking), shouldOpenInNewTab: true));
+                ->url(CarrierTrackingUrl::for($shipment->carrier, $tracking), shouldOpenInNewTab: true));
         }
 
         // Ouverture dans un onglet (impression directe), lien signé comme les PDF Pennylane.
