@@ -9,10 +9,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Channel;
 use Lunar\Models\Currency;
+use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 use Pko\ShippingCommon\Support\LabelArchive;
 use Pko\ShippingCommon\Support\ManifestPdf;
 use RuntimeException;
@@ -149,6 +153,28 @@ class DailyManifestTest extends TestCase
         $response->assertDontSee('LT-AUJOURDHUI');
 
         $this->assertNotNull($today->tracking_number);
+    }
+
+    public function test_chaque_ligne_ouvre_la_commande_letiquette_et_le_suivi(): void
+    {
+        $withLabel = $this->makeShipment('LT-AVEC-ETIQUETTE', ['zip' => '75001', 'city' => 'Paris', 'country' => 'FR']);
+        Storage::disk('local')->put('labels/x/chronopost.pdf', '%PDF-1.4 fake');
+        $withLabel->update(['label_path' => 'labels/x/chronopost.pdf']);
+        $withoutLabel = $this->makeShipment('LT-SANS-ETIQUETTE', ['zip' => '75002', 'city' => 'Paris', 'country' => 'FR']);
+
+        $this->actingAs(Staff::create([
+            'first_name' => 'Test',
+            'last_name' => 'Admin',
+            'email' => 'bordereau-liens@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]), 'staff');
+
+        Livewire::test(DailyManifestPage::class)
+            ->assertSee(OrderResource::getUrl('order', ['record' => $withLabel->order_id]), escape: false)
+            ->assertTableActionVisible('label', $withLabel)
+            ->assertTableActionHidden('label', $withoutLabel)
+            ->assertTableActionHasUrl('tracking', CarrierTrackingUrl::for('chronopost', 'LT-SANS-ETIQUETTE'), $withoutLabel);
     }
 
     /**

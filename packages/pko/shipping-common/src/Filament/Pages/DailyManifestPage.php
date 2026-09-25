@@ -11,6 +11,9 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\SubNavigationPosition;
+use Filament\Support\Enums\FontFamily;
+use Filament\Support\Enums\FontWeight;
+use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -22,10 +25,13 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 use Pko\ShippingCommon\Support\ManifestPdf;
 
 /**
@@ -110,15 +116,23 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                 CarrierShipment::query()
                     ->where('status', CarrierShipment::STATUS_CREATED)
                     ->whereNotNull('tracking_number')
+                    ->with('order.shippingAddress')
             )
+            ->recordUrl(fn (CarrierShipment $record): ?string => self::orderUrl($record))
             ->columns([
                 TextColumn::make('tracking_number')
                     ->label('N° de LT')
+                    ->weight(FontWeight::Medium)
+                    ->fontFamily(FontFamily::Mono)
                     ->copyable()
+                    ->copyMessage('N° de LT copié')
                     ->searchable(),
                 TextColumn::make('order_id')
                     ->label('Commande')
-                    ->formatStateUsing(fn ($state) => "#{$state}")
+                    ->formatStateUsing(fn ($state, CarrierShipment $record): string => $record->order?->reference ?: "#{$state}")
+                    ->description(fn (CarrierShipment $record): ?string => self::recipient($record))
+                    ->url(fn (CarrierShipment $record): ?string => self::orderUrl($record))
+                    ->color('primary')
                     ->searchable(),
                 TextColumn::make('carrier')
                     ->label('Transporteur')
@@ -160,6 +174,18 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                         'colissimo' => 'Colissimo',
                     ]),
             ])
+            ->actions([
+                TableAction::make('label')
+                    ->label('Étiquette')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn (CarrierShipment $record): ?string => CarrierLabelUrl::for($record), shouldOpenInNewTab: true)
+                    ->visible(fn (CarrierShipment $record): bool => CarrierLabelUrl::exists($record)),
+                TableAction::make('tracking')
+                    ->label('Suivi')
+                    ->icon('heroicon-o-map-pin')
+                    ->color('gray')
+                    ->url(fn (CarrierShipment $record): string => CarrierTrackingUrl::for($record->carrier, (string) $record->tracking_number), shouldOpenInNewTab: true),
+            ])
             ->bulkActions([
                 BulkAction::make('print_manifest')
                     ->label('Éditer le bordereau')
@@ -170,6 +196,29 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('Aucun colis remis')
             ->emptyStateDescription('Les envois apparaissent ici dès que leur étiquette a été générée.');
+    }
+
+    private static function orderUrl(CarrierShipment $record): ?string
+    {
+        return $record->order_id
+            ? OrderResource::getUrl('order', ['record' => $record->order_id])
+            : null;
+    }
+
+    /**
+     * Destinataire du colis, pour reconnaître la ligne sans ouvrir la commande.
+     */
+    private static function recipient(CarrierShipment $record): ?string
+    {
+        $address = $record->order?->shippingAddress;
+        if (! $address) {
+            return null;
+        }
+
+        $name = trim($address->first_name.' '.$address->last_name);
+        $who = $address->company_name ?: $name;
+
+        return trim(implode(' · ', array_filter([$who, $address->city]))) ?: null;
     }
 
     /**
