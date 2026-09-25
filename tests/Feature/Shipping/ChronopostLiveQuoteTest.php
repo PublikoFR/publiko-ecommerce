@@ -114,4 +114,22 @@ class ChronopostLiveQuoteTest extends TestCase
 
         $this->assertSame([['99', 3.0, '69007', '75001']], $this->calls);
     }
+
+    public function test_live_cache_is_keyed_by_price_base(): void
+    {
+        // Un seul client, cache conservé entre les devis : seul price_base change.
+        $client = $this->client();
+
+        Cache::put(self::SETTINGS_CACHE_KEY, ['shipping.tax.price_base' => 'ttc']);
+        $this->assertSame(1200, $client->quote($this->request())[0]->priceCents);
+
+        Cache::put(self::SETTINGS_CACHE_KEY, ['shipping.tax.price_base' => 'ht']);
+        $this->assertSame(1000, $client->quote($this->request())[0]->priceCents);
+
+        Cache::put(self::SETTINGS_CACHE_KEY, ['shipping.tax.price_base' => 'ttc']);
+        $this->assertSame(1200, $client->quote($this->request())[0]->priceCents);
+
+        // ttc et ht appelés une fois chacun ; le 3e devis (ttc) sort du cache.
+        $this->assertCount(2, $this->calls);
+    }
 }
