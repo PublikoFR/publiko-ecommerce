@@ -13,6 +13,8 @@ final class ShipmentRequest
      * @param  array<string, mixed>  $recipient  keys: name, company, street, zip, city, country, phone, email
      * @param  array<string, mixed>  $shipper  same keys as $recipient
      * @param  array{length: float, width: float, height: float}|null  $dimensionsCm
+     * @param  string|null  $carrierService  Code service transporteur (Chronopost `<service>` : `0` semaine,
+     *                                       `6` samedi). NULL = défaut du transporteur. Non exposé au checkout.
      */
     public function __construct(
         public readonly int $orderId,
@@ -25,6 +27,7 @@ final class ShipmentRequest
         public readonly ?string $carrierProductCode = null,
         public readonly ?array $dimensionsCm = null,
         public readonly int $parcelCount = 1,
+        public readonly ?string $carrierService = null,
     ) {}
 
     /**
