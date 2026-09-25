@@ -163,6 +163,18 @@ Revirement de la décision initiale « grilles statiques uniquement » (§5.2) :
 - `Pko\ShippingCommon\Pricing\PricingModeResolver` — lit/écrit `shipping.{carrier}.pricing_mode` dans `pko_storefront_settings`.
 - Canal log `shipping-quickcost` (daily, 30 j) — `storage/logs/shipping-quickcost.log`.
 
+**Contrat QuickCost réel (2026-09-25, doc Web Services VL3.25.10.10 §2.7.4 + WSDL + appels sur le compte de test)** — corrige les hypothèses d'origine :
+
+- **Opération `quickCostV3`** (la seule documentée). Même requête que `quickCost` v1, réponse sur-ensemble (ajoute `cap` = surcharges carburant) : bascule sans risque, vérifiée à l'identique sur le WS réel.
+- **Requête** : `accountNumber`, `password`, `depCode`, `arrCode`, `weight`, `productCode`, `type=M`. `depCode`/`arrCode` = code postal, ou **code pays ISO-2** à l'international. Les anciens `depCountry`/`arrCountry` n'existent pas dans le type WSDL (ignorés par le serveur) → retirés.
+- **`productCode` = code produit Chronopost** (`1`, `86`, `17`, `44`…), traduit depuis le slug interne par `CarrierProductCodeResolver` — comme pour les étiquettes (§5.21.B). Avant : le slug `chrono13` partait tel quel.
+- **Réponse** : `amount` = **HT**, `amountTTC`, `amountTVA`, `zone`, `service[]` (suppléments : participation éco-responsable 0,22 € HT, samedi, Corse, domicile privé, douane…), `assurance`, `cap`. Ni `currency` ni `productCode` (EUR implicite). Les anciens champs `reservedAmount*`/`amountHT` n'existent pas → retirés. Les suppléments **ne sont pas additionnés** : à confirmer sur le compte réel s'ils sont inclus ou non dans `amount`.
+- **Prix contrat marchand** (tarif négocié du compte appelant), **pas un prix public**.
+- **Montant injecté = même nature que les grilles** : `ChronopostClient::quote()` injecte `priceCentsHT` en base `shipping.tax.price_base = ht` (défaut), `priceCentsTTC` en base `ttc`. Avant, le TTC était injecté puis `ShippingCalculator` ajoutait la TVA → **double TVA** latente dès le passage en live.
+- **Montant nul = erreur** : le compte de test répond `errorCode=0` avec `amount=0.0` (aucun tarif associé). Un 0 deviendrait un port offert : `QuickCostException::amountNotFound()` → grille (`live_with_fallback`) ou service masqué (`live_only`). Conséquence : le mode live **n'est pas testable sur le compte de test**, seulement sur un compte contrat tarifé.
+- **Erreurs 1–5** (§4.3.6 : système, paramètre manquant, mot de passe, produit incohérent avec la destination, tarif introuvable) → message explicite + code dans `QuickCostException::getCode()`.
+- Tests : `tests/Unit/Shipping/QuickCostSoapClientTest` (réponse réaliste), `tests/Feature/Shipping/ChronopostLiveQuoteTest` (HT/TTC injecté, code produit).
+
 **Colissimo** reste en mode `grid` uniquement (pas d'API tarifaire publique). Bouton **Charger les tarifs publics 2026** dans la page Config via `Pko\ShippingColissimo\Data\PublicTariffs2026`.
 
 **Pourquoi ce choix** : cache agressif → 99% cache-hit à latence nulle ; fallback grille → jamais de checkout cassé ; prix frais à 24 h près via l'API. Meilleur compromis perf/fraîcheur/robustesse.
