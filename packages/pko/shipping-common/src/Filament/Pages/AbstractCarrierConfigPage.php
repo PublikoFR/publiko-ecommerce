@@ -44,11 +44,9 @@ abstract class AbstractCarrierConfigPage extends BasePage implements HasForms
 
     protected static ?string $cluster = Shipping::class;
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';
-
-    protected static ?string $navigationGroup = 'Transporteurs';
 
     /**
      * @var array<string, mixed>

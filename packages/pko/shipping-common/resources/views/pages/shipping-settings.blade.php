@@ -8,4 +8,7 @@
             </x-filament::button>
         </div>
     </form>
+
+    {{-- Enregistré ligne par ligne (modale / bascule), indépendamment du bouton ci-dessus. --}}
+    {{ $this->table }}
 </x-filament-panels::page>

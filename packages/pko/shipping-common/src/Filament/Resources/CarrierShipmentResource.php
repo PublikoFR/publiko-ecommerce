@@ -26,7 +26,7 @@ class CarrierShipmentResource extends BaseResource
 
     protected static ?string $cluster = Shipping::class;
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?int $navigationSort = 10;
 

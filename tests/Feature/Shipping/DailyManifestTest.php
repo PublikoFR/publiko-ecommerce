@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace Tests\Feature\Shipping;
 
 use Database\Seeders\DatabaseSeeder;
+use Filament\Pages\SubNavigationPosition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Channel;
 use Lunar\Models\Currency;
+use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
+use Pko\ShippingCommon\Filament\Pages\ShippingSettingsPage;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 use Pko\ShippingCommon\Support\LabelArchive;
 use Pko\ShippingCommon\Support\ManifestPdf;
 use RuntimeException;
@@ -149,6 +155,51 @@ class DailyManifestTest extends TestCase
         $response->assertDontSee('LT-AUJOURDHUI');
 
         $this->assertNotNull($today->tracking_number);
+    }
+
+    public function test_les_onglets_expedition_se_limitent_a_parametres_bordereaux_et_transporteurs(): void
+    {
+        $this->actingAs(Staff::create([
+            'first_name' => 'Test',
+            'last_name' => 'Admin',
+            'email' => 'bordereau-onglets@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]), 'staff');
+
+        $this->assertSame(SubNavigationPosition::Top, (new DailyManifestPage)->getSubNavigationPosition());
+
+        $this->get('/admin/expedition/bordereau')
+            ->assertOk()
+            ->assertSeeInOrder(['Paramètres', 'Bordereaux', 'Chronopost'])
+            ->assertDontSee('Suppléments transport');
+
+        // Les suppléments sont une section de la page Paramètres.
+        $this->get(ShippingSettingsPage::getUrl())
+            ->assertOk()
+            ->assertSee('Suppléments transport');
+    }
+
+    public function test_chaque_ligne_ouvre_la_commande_letiquette_et_le_suivi(): void
+    {
+        $withLabel = $this->makeShipment('LT-AVEC-ETIQUETTE', ['zip' => '75001', 'city' => 'Paris', 'country' => 'FR']);
+        Storage::disk('local')->put('labels/x/chronopost.pdf', '%PDF-1.4 fake');
+        $withLabel->update(['label_path' => 'labels/x/chronopost.pdf']);
+        $withoutLabel = $this->makeShipment('LT-SANS-ETIQUETTE', ['zip' => '75002', 'city' => 'Paris', 'country' => 'FR']);
+
+        $this->actingAs(Staff::create([
+            'first_name' => 'Test',
+            'last_name' => 'Admin',
+            'email' => 'bordereau-liens@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]), 'staff');
+
+        Livewire::test(DailyManifestPage::class)
+            ->assertSee(OrderResource::getUrl('order', ['record' => $withLabel->order_id]), escape: false)
+            ->assertTableActionVisible('label', $withLabel)
+            ->assertTableActionHidden('label', $withoutLabel)
+            ->assertTableActionHasUrl('tracking', CarrierTrackingUrl::for('chronopost', 'LT-SANS-ETIQUETTE'), $withoutLabel);
     }
 
     /**
