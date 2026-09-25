@@ -17,7 +17,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use Filament\Support\Enums\IconPosition;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
@@ -33,6 +32,7 @@ use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
 
 /**
@@ -444,16 +444,13 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 ->url(LaPosteTrackingClient::PUBLIC_TRACKING_URL.urlencode($tracking), shouldOpenInNewTab: true));
         }
 
-        if (self::hasLabel($shipment)) {
-            array_unshift($actions, Action::make("download_label_{$id}")
-                ->label('Télécharger l\'étiquette')
-                ->icon('heroicon-o-arrow-down-tray')
+        // Ouverture dans un onglet (impression directe), lien signé comme les PDF Pennylane.
+        if ($labelUrl = CarrierLabelUrl::for($shipment)) {
+            array_unshift($actions, Action::make("view_label_{$id}")
+                ->label('Voir l\'étiquette')
+                ->icon('heroicon-o-printer')
                 ->link()
-                ->action(fn () => response()->streamDownload(
-                    fn () => print (Storage::disk('local')->get((string) $shipment->label_path)),
-                    basename((string) $shipment->label_path),
-                    ['Content-Type' => 'application/pdf'],
-                )));
+                ->url($labelUrl, shouldOpenInNewTab: true));
         }
 
         $service = CarrierDisplayLabel::service($shipment->carrier, $shipment->service_code);
@@ -527,12 +524,5 @@ final class OrderPageLayoutExtension extends ResourceExtension
         $point = $meta['pickup_point'] ?? null;
 
         return is_array($point) && $point !== [] ? $point : null;
-    }
-
-    private static function hasLabel(CarrierShipment $shipment): bool
-    {
-        return is_string($shipment->label_path)
-            && $shipment->label_path !== ''
-            && Storage::disk('local')->exists($shipment->label_path);
     }
 }

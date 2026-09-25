@@ -151,9 +151,15 @@ class OrderShipmentObserverTest extends TestCase
             ->assertOk()
             ->assertSee('Créer l&#039;étiquette Chronopost', false);
 
-        Livewire::test(ManageOrder::class, ['record' => $order->id])
+        $component = Livewire::test(ManageOrder::class, ['record' => $order->id])
             ->callAction('create_label_weklo')
             ->assertNotified('Étiquette créée');
+
+        // L'étiquette s'ouvre aussitôt dans un nouvel onglet, via le lien signé.
+        $js = json_encode($component->effects['xjs'] ?? []);
+        $this->assertStringContainsString('window.open', $js);
+        $this->assertStringContainsString('etiquettes', $js);
+        $this->assertStringContainsString('signature=', $js);
 
         $this->assertSame(
             'XN000000001FR',

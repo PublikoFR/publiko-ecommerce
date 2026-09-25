@@ -6,13 +6,13 @@ namespace Pko\ShippingCommon\Filament\Extensions;
 
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Illuminate\Support\Facades\Storage;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
 
 /**
  * Raccourcis d'expédition sur la fiche commande.
@@ -74,15 +74,11 @@ final class OrderShipmentActionsExtension extends ResourceExtension
         foreach ($shipments as $shipment) {
             $suffix = $shipments->count() > 1 ? ' — '.ucfirst((string) $shipment->carrier) : '';
 
-            if ($this->hasLabel($shipment)) {
-                $items[] = Action::make("download_label_{$shipment->id}")
-                    ->label('Télécharger l\'étiquette'.$suffix)
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->action(fn () => response()->streamDownload(
-                        fn () => print (Storage::disk('local')->get($shipment->label_path)),
-                        basename((string) $shipment->label_path),
-                        ['Content-Type' => 'application/pdf'],
-                    ));
+            if ($labelUrl = CarrierLabelUrl::for($shipment)) {
+                $items[] = Action::make("view_label_{$shipment->id}")
+                    ->label('Voir l\'étiquette'.$suffix)
+                    ->icon('heroicon-o-printer')
+                    ->url($labelUrl, shouldOpenInNewTab: true);
             }
 
             $items[] = Action::make("view_shipment_{$shipment->id}")
@@ -125,13 +121,6 @@ final class OrderShipmentActionsExtension extends ResourceExtension
         $point = $meta['pickup_point'] ?? null;
 
         return is_array($point) && $point !== [] ? $point : null;
-    }
-
-    private function hasLabel(CarrierShipment $shipment): bool
-    {
-        return is_string($shipment->label_path)
-            && $shipment->label_path !== ''
-            && Storage::disk('local')->exists($shipment->label_path);
     }
 
     private function resolveOrder(): ?Order

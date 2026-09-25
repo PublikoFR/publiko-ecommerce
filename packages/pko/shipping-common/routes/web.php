@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Pko\ShippingCommon\Http\Controllers\QuotePaymentController;
+use Pko\ShippingCommon\Http\Controllers\ShowCarrierLabelController;
 
 // `web` group is required so SubstituteBindings resolves the {order} model
 // (loadRoutesFrom registers routes without a middleware group otherwise).
@@ -19,3 +20,10 @@ Route::middleware('web')->group(function (): void {
     Route::get('/paiement-devis/{order}/confirmation', [QuotePaymentController::class, 'confirm'])
         ->name('pko.quote.pay.confirm');
 });
+
+// Étiquette transporteur affichée dans le navigateur. Double garde, comme les PDF
+// Pennylane : session staff + URL signée temporaire (CarrierLabelUrl).
+Route::middleware(['web', 'auth:staff'])
+    ->get('/admin/expedition/etiquettes/{shipment}/pdf', ShowCarrierLabelController::class)
+    ->whereNumber('shipment')
+    ->name('pko.shipping.label.pdf');

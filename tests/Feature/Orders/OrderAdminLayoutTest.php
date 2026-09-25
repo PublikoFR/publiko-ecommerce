@@ -28,6 +28,7 @@ use Lunar\Models\OrderAddress;
 use Lunar\Models\OrderLine;
 use Lunar\Models\ProductVariant;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Tests\TestCase;
 
 /**
@@ -146,7 +147,7 @@ class OrderAdminLayoutTest extends TestCase
             ->assertSee('Bordereau de remise du '.now()->format('d/m/Y'));
     }
 
-    public function test_l_etiquette_se_telecharge_depuis_le_bloc_livraison(): void
+    public function test_l_etiquette_s_ouvre_dans_un_onglet_via_un_lien_signe(): void
     {
         Storage::fake('local');
         Storage::disk('local')->put('labels/etiquette-test.pdf', '%PDF-test');
@@ -162,14 +163,48 @@ class OrderAdminLayoutTest extends TestCase
             'status' => CarrierShipment::STATUS_CREATED,
         ]);
 
-        // Filament enveloppe chaque action d'un bloc Actions dans un ActionContainer
-        // dont la clé vaut « {statePath}.{nom}Action » (state path vide ici).
-        $container = ".download_label_{$shipment->id}Action";
+        $html = $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('Voir l&#039;étiquette', escape: false)
+            ->getContent();
 
-        Livewire::test(ManageOrder::class, ['record' => $order->getKey()])
-            ->assertInfolistActionExists($container, "download_label_{$shipment->id}")
-            ->callInfolistAction($container, "download_label_{$shipment->id}")
-            ->assertFileDownloaded('etiquette-test.pdf');
+        // Lien signé vers l'étiquette, ouvert dans un nouvel onglet.
+        $this->assertMatchesRegularExpression(
+            '#href="[^"]*/admin/expedition/etiquettes/'.$shipment->id.'/pdf\?[^"]*signature=[^"]*"[^>]*target="_blank"#s',
+            $html,
+        );
+
+        $url = CarrierLabelUrl::for($shipment);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertStringStartsWith('inline;', (string) $this->get($url)->headers->get('Content-Disposition'));
+    }
+
+    public function test_le_lien_d_etiquette_exige_signature_et_session_staff(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('labels/etiquette-test.pdf', '%PDF-test');
+
+        $shipment = CarrierShipment::create([
+            'order_id' => $this->makeOrder()->id,
+            'carrier' => 'colissimo',
+            'label_path' => 'labels/etiquette-test.pdf',
+            'status' => CarrierShipment::STATUS_CREATED,
+        ]);
+
+        $url = CarrierLabelUrl::for($shipment);
+
+        // Sans session staff : pas de PDF, même avec un lien signé valide.
+        $this->get($url)->assertRedirect();
+
+        $this->actingAsStaff();
+
+        // Session staff mais lien non signé ou altéré.
+        $this->get("/admin/expedition/etiquettes/{$shipment->id}/pdf")->assertForbidden();
+        $this->get(str_replace("/{$shipment->id}/", '/'.($shipment->id + 1).'/', (string) $url))->assertForbidden();
     }
 
     public function test_les_lignes_affichent_quantite_x_prix_unitaire(): void

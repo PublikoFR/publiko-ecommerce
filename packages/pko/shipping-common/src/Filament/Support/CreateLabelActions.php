@@ -7,11 +7,14 @@ namespace Pko\ShippingCommon\Filament\Support;
 use Filament\Actions\Action as PageAction;
 use Filament\Actions\MountableAction;
 use Filament\Infolists\Components\Actions\Action as InfolistAction;
+use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
+use Livewire\Component;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Throwable;
 
 /**
@@ -20,6 +23,9 @@ use Throwable;
  * Deux emplacements, même comportement : le menu « Actions » de l'en-tête
  * (action de page) et la section « Livraison » (action d'infolist). Un bouton
  * par origine de stock dont l'étiquette reste à créer.
+ *
+ * Une fois créée, l'étiquette s'ouvre dans un nouvel onglet (lien signé, cf.
+ * CarrierLabelUrl) pour être imprimée directement.
  */
 final class CreateLabelActions
 {
@@ -77,13 +83,13 @@ final class CreateLabelActions
                 ->modalHeading($label)
                 ->modalDescription(self::confirmation($origin, $carrierLabel))
                 ->modalSubmitActionLabel('Créer l\'étiquette')
-                ->action(fn () => self::run($order, $origin));
+                ->action(fn (Component $livewire) => self::run($order, $origin, $livewire));
         }
 
         return $actions;
     }
 
-    private static function run(Order $order, string $origin): void
+    private static function run(Order $order, string $origin, Component $livewire): void
     {
         try {
             $shipment = app(ShipmentLabelService::class)->createLabel($order, $origin);
@@ -98,11 +104,25 @@ final class CreateLabelActions
             return;
         }
 
-        Notification::make()
+        $url = CarrierLabelUrl::for($shipment);
+
+        $notification = Notification::make()
             ->title('Étiquette créée')
             ->body('N° de suivi : '.$shipment->tracking_number)
-            ->success()
-            ->send();
+            ->success();
+
+        if ($url !== null) {
+            // Repli si le navigateur bloque l'ouverture automatique de l'onglet.
+            $notification->actions([
+                NotificationAction::make('open_label')
+                    ->label('Ouvrir l\'étiquette')
+                    ->url($url, shouldOpenInNewTab: true),
+            ]);
+
+            $livewire->js('window.open('.json_encode($url).", '_blank', 'noopener')");
+        }
+
+        $notification->send();
     }
 
     private static function confirmation(string $origin, string $carrierLabel): string
