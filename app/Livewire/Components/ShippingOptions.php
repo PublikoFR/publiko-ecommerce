@@ -6,6 +6,7 @@ namespace App\Livewire\Components;
 
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Component;
 use Lunar\DataTypes\Price;
 use Lunar\DataTypes\ShippingOption;
@@ -19,6 +20,7 @@ use Pko\ShippingCommon\Modifiers\UnifiedShippingModifier;
 use Pko\ShippingCommon\Pricing\ShippingCalculator;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\ShippingCommon\Support\PortModeResolver;
+use Pko\ShippingCommon\Support\WeightCalculator;
 
 class ShippingOptions extends Component
 {
@@ -183,10 +185,11 @@ class ShippingOptions extends Component
 
         $provider = app(PickupPointProvider::class);
 
-        // Pass null as serviceCode: the internal identifier 'chronopost.chrono_relais'
-        // is not a valid Chronopost productCode — the WS returns all nearby relay
-        // points when productCode is empty, which is the correct V1 behaviour.
-        $points = $provider->search($postcode, $country, null, $city !== '' ? $city : null);
+        // serviceCode null : l'identifiant interne 'chronopost.chrono_relais' n'est
+        // pas un productCode Chronopost ; le client SOAP pose lui-même le produit
+        // Chrono Relais (86). Le poids du panier écarte les points qui ne peuvent
+        // pas recevoir le colis (poidsMaxi).
+        $points = $provider->search($postcode, $country, null, $city !== '' ? $city : null, $this->cartWeightGrams());
 
         $this->pickupPoints = array_map(
             fn (PickupPoint $point) => $point->toArray(),
@@ -200,6 +203,26 @@ class ShippingOptions extends Component
         // « Rechercher » paraissait inerte.
         $this->pickupServiceUnavailable = $this->pickupPoints === []
             && $provider->lastSearchError() !== null;
+    }
+
+    /**
+     * Poids du panier en grammes, ou null s'il est inconnu (panier absent, poids
+     * nul, unité de poids non gérée) — le filtre poidsMaxi est alors ignoré.
+     */
+    private function cartWeightGrams(): ?int
+    {
+        $cart = CartSession::current();
+        if ($cart === null) {
+            return null;
+        }
+
+        try {
+            $grams = (int) round(WeightCalculator::fromCart($cart) * 1000);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return $grams > 0 ? $grams : null;
     }
 
     /**

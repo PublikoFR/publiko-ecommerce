@@ -218,8 +218,19 @@
                                             @if (! empty($point['distance_km']))
                                                 <p class="text-xs text-neutral-400">À {{ number_format((float) $point['distance_km'], 1, ',', ' ') }} km</p>
                                             @endif
-                                            @if (! empty($point['opening_hours']))
-                                                <p class="text-xs text-neutral-400 mt-0.5">{{ $point['opening_hours'] }}</p>
+                                            {{-- free_access : consigne sans contrainte horaire (aucun
+                                                 horaire renvoyé par le transporteur), à ne pas confondre
+                                                 avec des horaires inconnus (rien d'affiché). --}}
+                                            @if (! empty($point['free_access']))
+                                                <p class="flex items-start gap-1 text-xs text-neutral-500 mt-0.5">
+                                                    <x-ui.icon name="clock" class="w-3.5 h-3.5 mt-px shrink-0" />
+                                                    <span>Accès libre, sans horaires</span>
+                                                </p>
+                                            @elseif (! empty($point['opening_hours']))
+                                                <p class="flex items-start gap-1 text-xs text-neutral-500 mt-0.5">
+                                                    <x-ui.icon name="clock" class="w-3.5 h-3.5 mt-px shrink-0" />
+                                                    <span>{{ $point['opening_hours'] }}</span>
+                                                </p>
                                             @endif
                                         </div>
                                     </label>

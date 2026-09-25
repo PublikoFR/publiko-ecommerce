@@ -507,12 +507,12 @@ Les grilles transporteur sont stockées en **HT** (cents) — cf. §5.9. La base
 Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point relais** devient obligatoire avant de continuer.
 
 **Abstraction** (`packages/pko/shipping-common`) :
-- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null): array` (liste de `PickupPoint`) + `lastSearchError(): ?string` (cf. plus bas).
-- DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, distanceKm, latitude, longitude, openingHours) + `toArray()` / `fromArray()`. Coordonnées GPS optionnelles pour la carte.
+- Contrat `Pko\ShippingCommon\Contracts\PickupPointProvider` — `search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null, ?int $weightGrams = null): array` (liste de `PickupPoint`) + `lastSearchError(): ?string` (cf. plus bas).
+- DTO neutre `Pko\ShippingCommon\Dto\PickupPoint` (id, name, address1, postcode, city, countryCode, distanceKm, latitude, longitude, openingHours, openingSchedule, maxWeightKg) + `toArray()` / `fromArray()`, `hasFreeAccess()`, `acceptsWeightGrams()`. Coordonnées GPS optionnelles pour la carte. `toArray()` expose aussi `free_access` (dérivé, pour la vue).
 - Implémentation fallback : `Pko\ShippingCommon\Pickup\ManualPickupPointProvider` (retourne `[]`), liée dans `ShippingCommonServiceProvider`. Si le package Chronopost n'est pas chargé, le front bascule sur une **saisie manuelle simplifiée**.
 
 **Client SOAP point relais** (`packages/pko/shipping-chronopost`) :
-- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS`. `serviceCode = null` (productCode vide = tous types de points).
+- `Pko\ShippingChronopost\Services\PickupPointSoapClient` — appelle `recherchePointChronopostInter` sur `PointRelaisServiceWS`. `serviceCode = null` → `productCode = 86` (Chrono Relais 13H, champ obligatoire selon la doc WS VL3.25.10.10 ; il était vide jusqu'au 2026-09-25).
 
   **Endpoint (corrigé le 2026-07-31)** : `https://ws.chronopost.fr/recherchebt-ws-cxf/PointRelaisServiceWS?wsdl`. L'ancienne valeur `recherchebt-wsdl/…` répondait **404** — le `SoapClient` échouait à la construction, donc avant même d'utiliser les identifiants. Aucune recherche de point relais n'avait jamais pu aboutir.
 
@@ -527,7 +527,28 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
   **Piège `city` > `zipCode`** : quand les deux divergent, **la ville gagne** — `zipCode=75001` + `city=Béziers` renvoie les points de Béziers. Conséquence : ne jamais transmettre une ville périmée après que le client a changé le code postal. `ShippingOptions::runPickupSearch()` ne passe la ville de l'adresse que si le code postal recherché est encore celui de l'adresse ; sinon `null`, et le client SOAP remplit alors `city` avec le **code postal lui-même** — valeur acceptée qui laisse la géolocalisation suivre le code postal (vérifié sur 34500 / 75001 / 69003 / 33000 / 59000 / 06000). La ville entre dans la clé de cache du provider, puisqu'elle change le résultat.
 
   **Compte de test** : Chronopost ne délivre pas de clé API en libre-service. Les comptes de démo publics `19869502` / `255562` et `68944403` / `501104` permettent d'exercer la recherche de points relais en dev (`CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD` dans `.env`, non versionné). Ils ne valent que pour la consultation — pas pour créer de vraies étiquettes. Timeout 8 s (`connection_timeout` pour le TCP handshake + `stream_context.http.timeout` pour la phase de lecture — les deux sont bornés à la même valeur). `WSDL_CACHE_BOTH`. En cas de timeout ou d'erreur SOAP, `PickupPointException` est levée et capturée par `ChronopostPickupPointProvider` → repli sur `[]`, jamais de 500 au checkout.
-- `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal, retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
+- `Pko\ShippingChronopost\Services\ChronopostPickupPointProvider` — implémente le contrat, cache les résultats 3 h par code postal + ville (clé **versionnée** `chronopost_pickup:v2:…` — incrémenter `CACHE_FORMAT_VERSION` à chaque changement de forme des tableaux renvoyés par le client SOAP), retourne `[]` sur erreur SOAP (jamais de rethrow), canal log `shipping-pickup`.
+
+  **Alignement sur la doc officielle (2026-09-25)** — doc WS VL3.25.10.10 §2.4.2 + exemple requête/réponse Chrono Relais 13H fournis par Chronopost :
+
+  | Point | Avant | Maintenant |
+  |---|---|---|
+  | `productCode` | vide | `86` |
+  | `shippingDate` (obligatoire, `JJ/MM/AAAA`) | vide | date du jour |
+  | `weight` (grammes, 5 chiffres max) | vide | poids du panier (`WeightCalculator::fromCart()` × 1000) quand il est connu ; non transmis s'il est nul ou > 99 999 g |
+  | `qualiteReponse` | ignoré | `0` (« résultat à ignorer ») → `PickupPointException` → `[]` + `lastSearchError()` renseigné. `1` (recherche sur le code postal) et `2` (sur l'adresse) sont acceptés |
+  | `actif` | ignoré | point `actif=false` écarté |
+  | `poidsMaxi` (toujours 20 kg) | ignoré | `maxWeightKg` ; le provider écarte les points dont la limite est dépassée |
+  | Horaires | lus sur `listeHoraire->ouvertureMatin/fermetureApresMidi`, **champs inexistants** → `opening_hours = null` partout, jamais affichés | cf. ci-dessous |
+
+  Appel réel au compte test le 2026-09-25 (33000, Béziers) : `productCode 86` + date + poids renvoient **exactement** le même jeu de points qu'avant — les découvertes empiriques ci-dessus (`type P`, `service L`, `city` prime sur `zipCode`) restent valables. **Le WS ne filtre pas sur `weight`** : 25 000 g renvoie les mêmes 20 points, tous à `poidsMaxi = 20`. D'où le filtre côté provider, appliqué **après** lecture du cache (le poids n'entre pas dans la clé de cache). Zéro point restant après ce filtre n'est pas une panne : `lastSearchError()` reste `null` et le front affiche « aucun point relais trouvé ».
+
+  **Horaires** — structure réelle : un `listeHoraireOuverture` par jour **ouvert** (`jour` 1 = lundi … 7 = dimanche, `horairesAsString` « 08:15-12:00 12:00-17:00 », plages `listeHoraireOuverture{debut, fin}`), renvoyés dans le désordre (du samedi au lundi dans l'exemple). SoapClient rend un **objet** et non un tableau quand il n'y a qu'un élément, aux deux niveaux. `parseOpeningSchedule()` trie par jour, lit `horairesAsString` avec repli sur `debut`/`fin`, et produit :
+  - `opening_schedule` : `list<{day, label, hours}>` (jour absent = fermé, rien d'inventé) ;
+  - `opening_hours` : résumé lisible où les jours **consécutifs aux horaires identiques** sont regroupés — `Lun–Ven 08:15-12:00 12:00-17:00 · Sam 08:15-12:00` (point `8339S` de l'exemple). Plus compact qu'un jour par segment dans une liste de 20 points ;
+  - aucun horaire du tout → `opening_schedule = []` = **accès libre** (la doc : « si aucune contrainte horaire n'est indiquée, il n'y en a pas, pour des consignes en libre service »). La vue affiche « Accès libre, sans horaires ». Horaires présents mais illisibles → `null` (rien d'affiché) : ne jamais annoncer un accès libre par défaut.
+
+  **`type = P` inclut les consignes** (casiers automatiques, « Consigne Pickup … » dans les résultats) — `C` = relais sans consigne. Pas de changement de comportement : les consignes restent proposées. À savoir côté exploitation : en consigne le colis reste en instance **3 jours** (au lieu de 7 en relais) et **tous les gabarits ne sont pas éligibles** (à valider avec le commercial Chronopost avant de proposer du volumineux en relais). Passer à `C` écarterait les consignes si ces contraintes posent problème.
 - Credentials : `secret('chronopost.account')` / `secret('chronopost.password')` (pko/lunar-secrets) avec fallback `config('chronopost.credentials.*')`.
 - Binding : `ShippingChronopostServiceProvider::boot()` lie `PickupPointProvider → ChronopostPickupPointProvider` (boot garantit que ce binding écrase celui de `ShippingCommonServiceProvider::register()`).
 
@@ -552,7 +573,7 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - Bloc relais affiché uniquement si `requiresPickupPoint` (service = `chronopost.chrono_relais`).
 - **Préchargement automatique (2026-07-31)** : la liste et la carte se chargent sans clic, sur le code postal de l'adresse de livraison — au `mount()` si un relais est déjà retenu, et via `updatedChosenOption()` dès que le client sélectionne Chrono Relais. Le champ code postal + « Rechercher » ne servent plus qu'à élargir/déplacer la zone. `autoSearchPickupPoints()` est silencieux (pas d'erreur de validation si le code postal est vide) et ne relance rien si une recherche a déjà eu lieu (`$pickupSearched`).
 - Le champ code postal porte `wire:keydown.enter.prevent="searchPickupPoints"` : le bloc vit dans le `<form wire:submit="save">` de l'étape, valider au clavier soumettait sinon l'étape entière.
-- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne). Résultats → carte + liste radios. Si aucun résultat → saisie manuelle simplifiée.
+- Champ code postal + bouton « Rechercher » → `searchPickupPoints()` interroge le provider (serviceCode = `null`, pas le slug interne — le client SOAP pose `86` ; poids du panier en grammes transmis pour le filtre poidsMaxi). Résultats → carte + liste radios. Si aucun résultat → saisie manuelle simplifiée.
 
 **Distinguer « zone non couverte » de « service en panne »** — `PickupPointProvider::lastSearchError(): ?string` :
 
@@ -570,7 +591,7 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - C'est l'**adresse destinataire** qui route le colis vers le point relais. `CreateCarrierShipmentJob::applyPickupPoint()` substitue l'adresse du point (nom du point en `company`, rue/CP/ville du point) tout en conservant nom, téléphone et e-mail du client — même approche que le module PrestaShop officiel, qui crée une `Address` dédiée au relais à la validation de commande.
 - ❌ **Ancienne analyse erronée** : le champ `recipientRelaisPointChronoId` n'existe ni dans `recipientValue` du WSDL Chronopost, ni dans le SDK. Le fork du SDK envisagé ici était donc inutile — la ligne a été supprimée du payload.
 
-Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, purge) + `ChronopostPickupPointProviderTest` (succès, erreur → [], cache, points sans id) + `PickupPointSoapClientTest` (parse réponse unique/multiple, erreur API, SoapFault, credentials manquants).
+Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, purge, rendu horaires / accès libre) + `ChronopostPickupPointProviderTest` (succès, erreur → [], cache, cache versionné, filtre poidsMaxi, qualiteReponse=0, points sans id) + `PickupPointSoapClientTest` (parse réponse unique/multiple, erreur API, SoapFault, credentials manquants, horaires réels du point `8339S` construits d'après l'exemple officiel, jour unique en objet, sans horaires, qualiteReponse 0/1, point inactif, requête conforme à la doc).
 
 ### 5.7 Hors scope shipping
 
