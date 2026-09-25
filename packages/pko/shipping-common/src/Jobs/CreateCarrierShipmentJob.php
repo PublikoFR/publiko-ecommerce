@@ -121,11 +121,11 @@ class CreateCarrierShipmentJob implements ShouldQueue
     /**
      * Livraison en point relais : le destinataire de la LT est le point relais, pas le client.
      *
-     * Les WS transporteurs n'exposent aucun champ « identifiant du point relais » dans le
-     * bloc destinataire (vérifié sur `recipientValue` du ShippingServiceWS Chronopost) —
-     * c'est l'adresse elle-même qui route le colis. On conserve le nom, le téléphone et
-     * l'e-mail du client pour que le point relais et les notifications identifient bien
-     * le destinataire final.
+     * Le point est désigné par son identifiant (`ShipmentRequest::$pickupPointId`, transmis
+     * par Chronopost dans `refValue.idRelais`) ET par son adresse, comme dans l'exemple
+     * officiel « Chrono RELAIS 13H » : nom du point en raison sociale, rue/CP/ville du
+     * point. On conserve le nom, le téléphone et l'e-mail du client pour que le point
+     * relais et les notifications identifient bien le destinataire final.
      *
      * @param  array<string, mixed>  $recipient
      * @param  array<string, mixed>|null  $pickupPoint

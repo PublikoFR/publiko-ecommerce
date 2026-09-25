@@ -35,17 +35,22 @@ return [
         'country' => env('SHIPPER_COUNTRY', 'FR'),
         'phone' => env('SHIPPER_PHONE', ''),
         'email' => env('SHIPPER_EMAIL', ''),
+        // Civilité exigée par shippingMultiParcelV4 (shipperCivility / customerCivility) :
+        // E = Madame, L = Mademoiselle, M = Monsieur.
+        'civility' => env('SHIPPER_CIVILITY', 'M'),
     ],
 
     /*
      * Correspondance code de service interne → code produit Chronopost, utilisée en
      * secours quand `pko_carrier_services.carrier_product_code` est vide (tests, install
-     * neuve). Valeurs issues du module PrestaShop officiel v7.5.6 (compte standard).
+     * neuve). Codes à DEUX caractères (doc Web Services VL3.25.10.10) : `1` / `2`, repris
+     * du module PrestaShop, sont refusés par le WS (erreur 33) et par la regex du SDK.
+     * Chrono 10 et Chrono 18 ne font pas partie du contrat (services désactivés en base).
      */
     'product_codes' => [
         'chrono_relais' => '86',
-        'chrono13' => '1',
-        'chrono10' => '2',
+        'chrono13' => '01',
+        'chrono10' => '02',
         'chrono18' => '16',
         'chrono_classic' => '44',
     ],

@@ -372,7 +372,7 @@ Mapping statique dans `ShippingOptions::getServiceLabelsProperty()` :
 |---|---|---|
 | `chronopost.chrono_relais` | Livraison économique — Chrono Relais | Point relais Pickup, jusqu'à 20 kg. |
 | `chronopost.chrono13` | Livraison standard — Chrono 13 | Livraison le lendemain avant 13h. |
-| `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. |
+| `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. **Hors contrat, service désactivé depuis le 2026-09-25 (§5.24).** |
 
 #### Récap ventilé
 
@@ -554,9 +554,9 @@ Quand le client choisit `chronopost.chrono_relais`, la sélection d'un **point r
 - `FillOrderFromCart` (pipeline Lunar) copie l'intégralité de `cart.meta` → `order.meta` : la propagation du point relais est donc automatique, sans pipeline custom.
 
 **Propagation vers l'expédition** (`CreateCarrierShipmentJob`) — **corrigé le 2026-07-31, cf. §5.21** :
-- `ShipmentRequest.pickupPointId` (optionnel, null = pas de relais) est alimenté depuis `order.meta['pickup_point']['id']`. Il ne sert que de trace : **aucun WS transporteur n'expose de champ « identifiant du point relais »**.
-- C'est l'**adresse destinataire** qui route le colis vers le point relais. `CreateCarrierShipmentJob::applyPickupPoint()` substitue l'adresse du point (nom du point en `company`, rue/CP/ville du point) tout en conservant nom, téléphone et e-mail du client — même approche que le module PrestaShop officiel, qui crée une `Address` dédiée au relais à la validation de commande.
-- ❌ **Ancienne analyse erronée** : le champ `recipientRelaisPointChronoId` n'existe ni dans `recipientValue` du WSDL Chronopost, ni dans le SDK. Le fork du SDK envisagé ici était donc inutile — la ligne a été supprimée du payload.
+- `ShipmentRequest.pickupPointId` (optionnel, null = pas de relais) est alimenté depuis `order.meta['pickup_point']['id']` et **transmis à Chronopost dans `refValue.idRelais`** (clé SDK `idRelai`), cf. §5.24. *(Corrigé le 2026-09-25 : on affirmait ici qu'aucun champ « identifiant du point relais » n'existait — faux, `shippingMultiParcelV4` utilise le type `refValueV2` qui le porte.)*
+- L'**adresse destinataire** est aussi celle du point relais, comme dans l'exemple officiel « Chrono RELAIS 13H ». `CreateCarrierShipmentJob::applyPickupPoint()` substitue l'adresse du point (nom du point en `company`, rue/CP/ville du point) tout en conservant nom, téléphone et e-mail du client — même approche que le module PrestaShop officiel, qui crée une `Address` dédiée au relais à la validation de commande.
+- ❌ **Ancienne analyse erronée** : le champ `recipientRelaisPointChronoId` n'existe pas dans `recipientValue`. L'identifiant du point vit dans `refValue.idRelais` (§5.24).
 
 Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, purge) + `ChronopostPickupPointProviderTest` (succès, erreur → [], cache, points sans id) + `PickupPointSoapClientTest` (parse réponse unique/multiple, erreur API, SoapFault, credentials manquants).
 
@@ -566,7 +566,6 @@ Tests : `tests/Feature/Shipping/ShippingOptionsTest` (validation, persistance, p
 - Retour / annulation d'envoi (`cancelSkybill`)
 - Livraison hors France métropolitaine (DOM, étranger) — Corse couverte via SurchargeModifier (L5)
 - Sendcloud (alternative SaaS écartée pour coût)
-- Transmission effective du code point relais au SOAP Chronopost (limitation SDK — cf. §5.13.B, lot 7)
 
 ### 5.14 Refonte modèle produit expédition — 6 réglages → 3 + héritage fournisseur (Lot L3, 2026-07)
 
@@ -828,8 +827,8 @@ Notre code de service interne (`chrono13`, `chrono_relais`, `chrono10`) était e
 
 | Service interne | Code produit Chronopost |
 |---|---|
-| `chrono13` | `1` |
-| `chrono10` | `2` |
+| `chrono13` | `01` *(était `1`, refusé — §5.24)* |
+| `chrono10` | `02` *(hors contrat, désactivé)* |
 | `chrono_relais` | `86` |
 | `chrono18` | `16` |
 | `chrono_classic` | `44` |
@@ -870,7 +869,7 @@ Le bordereau reste **journalier par nature** — il atteste d'une remise groupé
 #### F) Ce qui reste à faire avant une mise en production
 
 1. **Credentials réels** — `.env` porte le compte de démo `19869502`, valable pour la recherche de points relais uniquement. Aucune LT réelle ne peut être émise tant que le compte de production n'est pas saisi (Back-office → Expédition → Chronopost, ou `CHRONOPOST_ACCOUNT` / `CHRONOPOST_PASSWORD`). *(2026-08-31 : mail envoyé au commercial Chronopost pour obtenir le compte prod — en attente.)*
-2. ~~Vérifier le format des codes produits sur le compte réel~~ — **résolu (2026-08-31)**. Comparaison avec le module PrestaShop officiel (`MDE Prestashop/modules/chronopost/chronopost.php`, tableau `$carriersDefinitions`) : le service d'émission de LT (skybill) utilise exclusivement le champ `product_code` (`1`, `2`, `86`, `16`…), jamais `product_code_bal` (forme à deux chiffres, définie mais non lue ailleurs dans le module — code mort côté PrestaShop). Nos codes dans `packages/pko/shipping-chronopost/config/chronopost.php` (`chrono_relais=86`, `chrono13=1`, `chrono10=2`, `chrono18=16`, `chrono_classic=44`) correspondent exactement. Rien à corriger.
+2. ~~Vérifier le format des codes produits sur le compte réel~~ — **conclusion de 2026-08-31 FAUSSE, corrigée le 2026-09-25 (§5.24)** : le WS exige deux caractères (`01`, pas `1`). Ancienne analyse conservée pour mémoire : Comparaison avec le module PrestaShop officiel (`MDE Prestashop/modules/chronopost/chronopost.php`, tableau `$carriersDefinitions`) : le service d'émission de LT (skybill) utilise exclusivement le champ `product_code` (`1`, `2`, `86`, `16`…), jamais `product_code_bal` (forme à deux chiffres, définie mais non lue ailleurs dans le module — code mort côté PrestaShop). Nos codes dans `packages/pko/shipping-chronopost/config/chronopost.php` (`chrono_relais=86`, `chrono13=1`, `chrono10=2`, `chrono18=16`, `chrono_classic=44`) correspondent exactement. Rien à corriger.
 3. **Dimensions par variante** — tant que les variantes ne portent pas leurs dimensions, tous les colis partent au carton par défaut. Fonctionnalité inutilisée pour l'instant (catalogue sans variantes), mais `ParcelDimensionsCalculator` lit déjà les dimensions de variante si présentes (repli sur le carton par défaut sinon) : le jour où des variantes dimensionnées seront ajoutées, elles seront prises en compte automatiquement, sans changement de code.
 
 #### G) Écarts assumés avec le module PrestaShop
@@ -939,3 +938,27 @@ Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, comm
 **Fiche commande** : `OrderShipmentActionsExtension` affiche désormais le point relais retenu (nom + identifiant, adresse en infobulle) même quand aucune étiquette n'existe encore, et signale explicitement « Aucune étiquette générée » avec le renvoi vers `make queue-logs`. L'information n'était lisible que dans le dump brut de `meta` du bloc « Informations supplémentaires », généré automatiquement par Lunar et non modifiable sans toucher à `vendor/`.
 
 Tests : `OrderShipmentObserverTest` (dispatch à la transition, pas de doublon, absence d'option, rattrapage et son idempotence), `OrderShipmentActionsTest` (point relais lisible sans étiquette).
+
+---
+
+### 5.24 Étiquettes `shippingMultiParcelV4` conformes à la doc officielle (2026-09-25)
+
+Source : doc Chronopost Web Services **VL3.25.10.10** + exemples requête/réponse du contrat (reçus le 2026-09-25). Contrat : Chrono 13H `01`, Chrono Relais 13H `86`, Chrono Express `17`, Chrono Classic `44`. **Pas de Chrono 10 ni 18.**
+
+**Ce qui empêchait toute étiquette Chrono 13** : `productCode = '1'` (repris du module PrestaShop). Le WS exige deux caractères (erreur 33) et la regex du SDK (`wsregex::__reg_ProductCodes`) refusait `1` **en silence** — le SDK était instancié avec `useExceptions = false` → `productCode` jamais posé → `RFLcheck()` faux → « RFL or SOAP error » sans détail. Au passage, `customerCivility` (obligatoire pour le `RFLcheck` du SDK) n'était pas envoyé non plus.
+
+Correctifs (`ChronopostClient::createShipment()` / `buildLabelsData()`) :
+
+- Migration `2026_09_25_100000_align_chronopost_product_codes_on_contract` (idempotente, ne touche pas un code saisi à la main) : `chrono13 → 01`, `chrono10 → 02`, `chrono10` et `chrono18` **désactivés** (lignes gardées pour les grilles et l'historique). `config/chronopost.php` `product_codes` aligné. Filet : un code à un chiffre encore en base est complété à gauche (`1` → `01`).
+- **Point relais** : `refValue.idRelais` = `ShipmentRequest::$pickupPointId` pour les produits relais (`ChronopostClient::RELAY_PRODUCT_CODES = ['86']`). Clé SDK **`idRelai`** (sans « s »). Identifiant absent ou mal formé → `RuntimeException` explicite, pas d'étiquette vers une adresse sans point.
+  - **Piège** : la doc et la regex SDK annoncent `[0-9]{4}[A-Za-z]` (ex. `3847U`), mais `recherchePointChronopostInter` renvoie aussi des points `999AA` (ex. `611BX`, 34 points sur 60 à Bordeaux/Paris/Lyon). Le SDK est donc contourné par `Pko\ShippingChronopost\Sdk\Shipment` / `Sdk\RefValue` (validation `^[0-9A-Z]{5}$`), injectés dans `chronopost::$shipment`. Vérifié en réel sur les deux formats.
+  - Destinataire en relais : adresse du point, `recipientName` = nom du point, `recipientName2` = client, `recipientPhone` + `recipientMobilePhone` = téléphone client (SMS), `recipientEmail` client, `recipientType = 2`. Hors relais : raison sociale / contact, `recipientType = 1`.
+- `shipperType = 1` (professionnel). `shipperCivility` / `customerCivility` depuis `config('chronopost.shipper.civility')` (env `SHIPPER_CIVILITY`, défaut `M`, valeurs `E|L|M`). `customerValue` = l'expéditeur (titulaire du contrat).
+- `service = 0` via `ChronopostClient::skybillService()` — point d'extension pour le samedi (`6`), hors périmètre.
+- **SDK en `useExceptions = true`** : tout champ refusé lève avec son nom et sa regex, visible dans `pko_carrier_shipments.error_message`. Conséquence : le payload est **normalisé** au format du WS (`[a-zA-Z0-9 ]` — translittération ASCII, ponctuation → espace, adresse coupée en 2 × 38 caractères, CP alphanumérique, téléphones en chiffres `0…`/`+CC…`, entiers pour `accountNumber`/`subAccount`/montants/dimensions, `shipDate` en `Y-m-d`). Clés sans setter SDK retirées (`evtCode`, `as`) ; `version` omise (le SDK refuse « 2.0 », qui est le défaut du WS). Téléphones : un numéro déjà international est conservé tel quel (certains pays gardent un 0 significatif après l'indicatif, ex. Italie `+39 06…`) ; le 0 national n'est retiré que s'il est identifié sans ambiguïté — notation `(0)` après l'indicatif (`+33 (0)6…` → `+336…`) ou `+330…` pour la France — jamais par une règle générique. Téléphone destinataire invalide → erreur explicite ; e-mail destinataire absent → e-mail expéditeur.
+- **Message d'erreur métier** : le SDK construit le sien par `"… $response->return->errorCode"`, ce que PHP n'interpole pas (« Object of class stdClass could not be converted to string »). `makeSdk()` injecte donc un `SoapClient` tracé dans la propriété privée `shippingSC`, et `describeFailure()` relit `errorCode` / `errorMessage` dans la réponse brute → ex. `erreur 38 — No routing found for country [FR] postCode [00000]`. Le mot de passe n'apparaît dans aucun message.
+- **PDF déjà en base64** : `getReservedSkybillWithTypeAndMode` renvoie l'étiquette encodée (`JVBER…`). L'ancien code la ré-encodait → le `.pdf` stocké contenait du texte base64. Encodé seulement si la chaîne commence par `%PDF`.
+
+**Vérification réelle** (compte test `19869502`, 2026-09-25) : Chrono 13H `01` → LT `XN450139241FR` ; Relais 13H `86` → `XS486816620FR` (point `611BX`) et `XS486816633FR` (point `7159X`). PDF d'une page, adresse du relais imprimée.
+
+Tests : `tests/Unit/Shipping/ChronopostCreateShipmentTest` (payload 13H / relais, `idRelai` présent ou absent, types, civilités, normalisation, passage du `RFLcheck` SDK en mode exceptions, PDF non ré-encodé, erreur WS lisible sans mot de passe — SoapClient factice), `CarrierProductCodeResolverTest` (codes `01`/`02`, services hors contrat désactivés), `ShippingCasesTest` (Chrono 10 n'est plus proposé).

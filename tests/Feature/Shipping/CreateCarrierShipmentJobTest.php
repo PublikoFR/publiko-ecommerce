@@ -118,8 +118,8 @@ class CreateCarrierShipmentJobTest extends TestCase
 
         // Le slug interne reste sur la ligne (grilles, suivi) mais le WS reçoit le code produit.
         $this->assertSame('chrono13', $capturedRequest->serviceCode);
-        $this->assertSame('1', $capturedRequest->carrierProductCode);
-        $this->assertSame('1', $capturedRequest->productCode());
+        $this->assertSame('01', $capturedRequest->carrierProductCode);
+        $this->assertSame('01', $capturedRequest->productCode());
     }
 
     public function test_chrono_relais_substitue_ladresse_du_point_relais(): void
