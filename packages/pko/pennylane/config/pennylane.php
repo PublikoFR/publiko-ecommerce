@@ -15,6 +15,15 @@ return [
     'base_url' => env('PENNYLANE_BASE_URL', 'https://app.pennylane.com/api/external/v2'),
     'sandbox' => env('PENNYLANE_SANDBOX', false),
 
+    /*
+     * Lien « Ouvrir dans Pennylane » de la fiche facture admin. L'API ne
+     * renvoie aucune URL de l'application web : on la construit depuis ce
+     * gabarit, `{id}` étant l'identifiant Pennylane du document. Copier l'URL
+     * d'une facture ouverte dans Pennylane et remplacer son id par `{id}`.
+     * Vide → le bouton ouvre simplement l'application Pennylane.
+     */
+    'app_invoice_url' => env('PENNYLANE_APP_INVOICE_URL'),
+
     'customer_invoice_template_id' => env('PENNYLANE_INVOICE_TEMPLATE_ID'),
     'default_payment_deadline_days' => (int) env('PENNYLANE_DEADLINE_DAYS', 0),
     'default_language' => env('PENNYLANE_LANG', 'fr'),
