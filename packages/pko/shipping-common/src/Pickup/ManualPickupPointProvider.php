@@ -23,8 +23,7 @@ final class ManualPickupPointProvider implements PickupPointProvider
         ?string $serviceCode = null,
         ?string $city = null,
         ?int $weightGrams = null,
-    ): array
-    {
+    ): array {
         return [];
     }
 

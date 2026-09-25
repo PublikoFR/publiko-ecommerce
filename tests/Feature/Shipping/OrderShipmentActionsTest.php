@@ -98,7 +98,7 @@ class OrderShipmentActionsTest extends TestCase
 
     public function test_le_point_relais_est_lisible_meme_sans_etiquette(): void
     {
-        // Cas courant tant que le worker de queue n'a pas consommé le job :
+        // Cas courant tant que l'admin n'a pas créé l'étiquette :
         // la commande désigne un relais mais aucun envoi n'existe encore.
         $orderId = $this->makeOrderId([
             'pickup_point' => [
@@ -114,7 +114,6 @@ class OrderShipmentActionsTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Point relais : POKE STORE (056DL)');
-        $response->assertSee('Aucune étiquette générée');
     }
 
     /**

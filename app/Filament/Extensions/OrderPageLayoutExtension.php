@@ -17,7 +17,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use Filament\Support\Enums\IconPosition;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Lunar\Admin\Filament\Resources\CustomerResource;
 use Lunar\Admin\Filament\Resources\OrderResource\Pages\ManageOrder;
@@ -30,9 +29,12 @@ use Lunar\Models\Order;
 use Pko\Pennylane\Services\OrderDocuments;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
+use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
-use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 
 /**
  * Mise en page de la fiche commande admin.
@@ -40,7 +42,7 @@ use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
  * Colonne principale, dans l'ordre :
  *  1. « Produits dans la commande » : lignes, puis notes client (40 %) et totaux (60 %) ;
  *  2. « Livraison » : mode choisi, point relais, envois transporteur (étiquette,
- *     suivi, bordereau) et adresse de livraison ;
+ *     suivi, bordereau), bouton « Créer l'étiquette » et adresse de livraison ;
  *  3. « Transactions », suivies de l'adresse de facturation.
  * Tous ces blocs sont pliables, l'état plié est mémorisé par le navigateur.
  *
@@ -236,7 +238,68 @@ final class OrderPageLayoutExtension extends ResourceExtension
             ],
             'details' => $details,
             'invoice' => OrderDocuments::forOrder($order)['invoice'],
+            'labels' => self::labelRows($order),
         ];
+    }
+
+    /**
+     * Raccourcis étiquette du bloc « vue d'ensemble », sous la facture : voir /
+     * télécharger une étiquette créée, ou la créer (même action que le menu Actions).
+     *
+     * @return list<array{title: string, subtitle: string, tone: string, view_url: ?string, download_url: ?string, create_action: ?string}>
+     */
+    public static function labelRows(Order $order): array
+    {
+        $service = app(ShipmentLabelService::class);
+        $option = $service->carrierOption($order);
+
+        if ($option === null) {
+            return [];
+        }
+
+        $shipments = CarrierShipment::query()
+            ->where('order_id', $order->id)
+            ->where('carrier', $option[0])
+            ->whereIn('origin', ShipmentLabelService::LABELLED_ORIGINS)
+            ->get()
+            ->keyBy('origin');
+
+        $origins = array_values(array_unique([...$shipments->keys()->all(), ...$service->originsAwaitingLabel($order)]));
+        $title = 'Étiquette '.CarrierDisplayLabel::carrier($option[0]);
+        $rows = [];
+
+        foreach ($origins as $origin) {
+            $shipment = $shipments->get($origin);
+            $suffix = count($origins) > 1
+                ? ($origin === CarrierShipment::ORIGIN_SUPPLIER_VIA_WEKLO ? ' — fournisseur' : ' — stock')
+                : '';
+
+            if ($shipment?->status === CarrierShipment::STATUS_CREATED) {
+                $rows[] = [
+                    'title' => $title.$suffix,
+                    'subtitle' => 'N° '.$shipment->tracking_number,
+                    'tone' => 'default',
+                    'view_url' => CarrierLabelUrl::for($shipment),
+                    'download_url' => CarrierLabelUrl::for($shipment, download: true),
+                    'create_action' => null,
+                ];
+
+                continue;
+            }
+
+            $failed = $shipment?->status === CarrierShipment::STATUS_FAILED;
+
+            $rows[] = [
+                'title' => $title.$suffix,
+                'subtitle' => $failed ? 'Création en échec' : 'À créer',
+                'tone' => $failed ? 'danger' : 'default',
+                'view_url' => null,
+                'download_url' => null,
+                'create_action' => "create_label_{$origin}",
+            ];
+        }
+
+        return $rows;
     }
 
     private static function productsSection(Component $lines): Section
@@ -375,6 +438,10 @@ final class OrderPageLayoutExtension extends ResourceExtension
             ->orderBy('created_at')
             ->get();
 
+        // L'étiquette n'est jamais créée automatiquement : c'est ici (ou via le menu
+        // « Actions ») que l'admin la crée, une fois le colis prêt.
+        $createLabel = CreateLabelActions::forInfolist($order);
+
         if ($shipments->isEmpty()) {
             // Sans mode de livraison (devis, retrait), l'absence d'étiquette est normale.
             if ($order->shippingLines->isNotEmpty()) {
@@ -382,8 +449,11 @@ final class OrderPageLayoutExtension extends ResourceExtension
                     ->label('Envoi transporteur')
                     ->state('Aucune étiquette générée')
                     ->icon('heroicon-o-exclamation-triangle')
-                    ->color('warning')
-                    ->helperText("La création d'étiquette est mise en file à l'encaissement : vérifier que le worker de queue tourne.");
+                    ->color('warning');
+            }
+
+            if ($createLabel !== []) {
+                $components[] = Actions::make($createLabel);
             }
 
             return $components;
@@ -391,6 +461,10 @@ final class OrderPageLayoutExtension extends ResourceExtension
 
         foreach ($shipments as $shipment) {
             $components[] = self::shipmentFieldset($shipment);
+        }
+
+        if ($createLabel !== []) {
+            $components[] = Actions::make($createLabel);
         }
 
         // Le bordereau de remise est journalier : il regroupe tous les colis remis au
@@ -429,19 +503,16 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 ->label('Suivre le colis')
                 ->icon('heroicon-o-arrow-top-right-on-square')
                 ->link()
-                ->url(LaPosteTrackingClient::PUBLIC_TRACKING_URL.urlencode($tracking), shouldOpenInNewTab: true));
+                ->url(CarrierTrackingUrl::for($shipment->carrier, $tracking), shouldOpenInNewTab: true));
         }
 
-        if (self::hasLabel($shipment)) {
-            array_unshift($actions, Action::make("download_label_{$id}")
-                ->label('Télécharger l\'étiquette')
-                ->icon('heroicon-o-arrow-down-tray')
+        // Ouverture dans un onglet (impression directe), lien signé comme les PDF Pennylane.
+        if ($labelUrl = CarrierLabelUrl::for($shipment)) {
+            array_unshift($actions, Action::make("view_label_{$id}")
+                ->label('Voir l\'étiquette')
+                ->icon('heroicon-o-printer')
                 ->link()
-                ->action(fn () => response()->streamDownload(
-                    fn () => print (Storage::disk('local')->get((string) $shipment->label_path)),
-                    basename((string) $shipment->label_path),
-                    ['Content-Type' => 'application/pdf'],
-                )));
+                ->url($labelUrl, shouldOpenInNewTab: true));
         }
 
         $service = CarrierDisplayLabel::service($shipment->carrier, $shipment->service_code);
@@ -515,12 +586,5 @@ final class OrderPageLayoutExtension extends ResourceExtension
         $point = $meta['pickup_point'] ?? null;
 
         return is_array($point) && $point !== [] ? $point : null;
-    }
-
-    private static function hasLabel(CarrierShipment $shipment): bool
-    {
-        return is_string($shipment->label_path)
-            && $shipment->label_path !== ''
-            && Storage::disk('local')->exists($shipment->label_path);
     }
 }

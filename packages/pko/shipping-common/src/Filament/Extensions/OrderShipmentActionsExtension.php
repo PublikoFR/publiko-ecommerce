@@ -6,12 +6,13 @@ namespace Pko\ShippingCommon\Filament\Extensions;
 
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Illuminate\Support\Facades\Storage;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
+use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Support\CarrierLabelUrl;
 
 /**
  * Raccourcis d'expédition sur la fiche commande.
@@ -21,6 +22,9 @@ use Pko\ShippingCommon\Models\CarrierShipment;
  * au bordereau de remise du jour où le colis a été remis (le bordereau est par
  * nature journalier : il regroupe tous les colis d'une même remise au chauffeur,
  * pas ceux d'une seule commande).
+ *
+ * L'étiquette n'est jamais créée automatiquement : le bouton « Créer l'étiquette »
+ * ouvre le groupe tant qu'un envoi reste sans étiquette.
  */
 final class OrderShipmentActionsExtension extends ResourceExtension
 {
@@ -41,7 +45,8 @@ final class OrderShipmentActionsExtension extends ResourceExtension
             ->orderBy('created_at')
             ->get();
 
-        $items = [];
+        // En tête du groupe : c'est l'action attendue tant que l'étiquette manque.
+        $items = CreateLabelActions::forHeader($order);
 
         // Point relais : lisible d'un coup d'œil, plutôt que d'aller le déchiffrer
         // dans le dump brut de `meta` du bloc « Informations supplémentaires ».
@@ -62,37 +67,18 @@ final class OrderShipmentActionsExtension extends ResourceExtension
                 )));
         }
 
-        if ($shipments->isEmpty()) {
-            if ($items === []) {
-                return $actions;
-            }
-
-            $items[] = Action::make('no_shipment_yet')
-                ->label('Aucune étiquette générée')
-                ->icon('heroicon-o-exclamation-triangle')
-                ->disabled()
-                ->tooltip("La création d'étiquette est mise en file à l'encaissement. Vérifier que le worker de queue tourne (make queue-logs).");
-
-            $actions[] = ActionGroup::make($items)
-                ->label('Expédition')
-                ->icon('heroicon-o-truck')
-                ->button();
-
+        if ($shipments->isEmpty() && $items === []) {
             return $actions;
         }
 
         foreach ($shipments as $shipment) {
             $suffix = $shipments->count() > 1 ? ' — '.ucfirst((string) $shipment->carrier) : '';
 
-            if ($this->hasLabel($shipment)) {
-                $items[] = Action::make("download_label_{$shipment->id}")
-                    ->label('Télécharger l\'étiquette'.$suffix)
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->action(fn () => response()->streamDownload(
-                        fn () => print (Storage::disk('local')->get($shipment->label_path)),
-                        basename((string) $shipment->label_path),
-                        ['Content-Type' => 'application/pdf'],
-                    ));
+            if ($labelUrl = CarrierLabelUrl::for($shipment)) {
+                $items[] = Action::make("view_label_{$shipment->id}")
+                    ->label('Voir l\'étiquette'.$suffix)
+                    ->icon('heroicon-o-printer')
+                    ->url($labelUrl, shouldOpenInNewTab: true);
             }
 
             $items[] = Action::make("view_shipment_{$shipment->id}")
@@ -135,13 +121,6 @@ final class OrderShipmentActionsExtension extends ResourceExtension
         $point = $meta['pickup_point'] ?? null;
 
         return is_array($point) && $point !== [] ? $point : null;
-    }
-
-    private function hasLabel(CarrierShipment $shipment): bool
-    {
-        return is_string($shipment->label_path)
-            && $shipment->label_path !== ''
-            && Storage::disk('local')->exists($shipment->label_path);
     }
 
     private function resolveOrder(): ?Order

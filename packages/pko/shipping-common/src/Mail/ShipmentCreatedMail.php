@@ -7,7 +7,7 @@ namespace Pko\ShippingCommon\Mail;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Pko\MailTemplates\Mail\TemplatedMail;
 use Pko\ShippingCommon\Models\CarrierShipment;
-use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
+use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 
 /**
  * E-mail 06 « Commande expédiée ».
@@ -22,7 +22,7 @@ class ShipmentCreatedMail extends TemplatedMail implements ShouldQueue
         parent::__construct('order.shipped', [
             'first_name' => self::firstName($shipment),
             'order_reference' => (string) ($shipment->order?->reference ?? $shipment->order_id),
-            'tracking_url' => LaPosteTrackingClient::PUBLIC_TRACKING_URL.$shipment->tracking_number,
+            'tracking_url' => CarrierTrackingUrl::for($shipment->carrier, (string) $shipment->tracking_number),
             'carrier_name' => ucfirst((string) $shipment->carrier),
         ]);
     }
