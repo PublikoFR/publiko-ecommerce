@@ -30,6 +30,7 @@ use Lunar\Models\Order;
 use Pko\Pennylane\Services\OrderDocuments;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
+use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
@@ -40,7 +41,7 @@ use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
  * Colonne principale, dans l'ordre :
  *  1. « Produits dans la commande » : lignes, puis notes client (40 %) et totaux (60 %) ;
  *  2. « Livraison » : mode choisi, point relais, envois transporteur (étiquette,
- *     suivi, bordereau) et adresse de livraison ;
+ *     suivi, bordereau), bouton « Créer l'étiquette » et adresse de livraison ;
  *  3. « Transactions », suivies de l'adresse de facturation.
  * Tous ces blocs sont pliables, l'état plié est mémorisé par le navigateur.
  *
@@ -375,6 +376,10 @@ final class OrderPageLayoutExtension extends ResourceExtension
             ->orderBy('created_at')
             ->get();
 
+        // L'étiquette n'est jamais créée automatiquement : c'est ici (ou via le menu
+        // « Actions ») que l'admin la crée, une fois le colis prêt.
+        $createLabel = CreateLabelActions::forInfolist($order);
+
         if ($shipments->isEmpty()) {
             // Sans mode de livraison (devis, retrait), l'absence d'étiquette est normale.
             if ($order->shippingLines->isNotEmpty()) {
@@ -382,8 +387,11 @@ final class OrderPageLayoutExtension extends ResourceExtension
                     ->label('Envoi transporteur')
                     ->state('Aucune étiquette générée')
                     ->icon('heroicon-o-exclamation-triangle')
-                    ->color('warning')
-                    ->helperText("La création d'étiquette est mise en file à l'encaissement : vérifier que le worker de queue tourne.");
+                    ->color('warning');
+            }
+
+            if ($createLabel !== []) {
+                $components[] = Actions::make($createLabel);
             }
 
             return $components;
@@ -391,6 +399,10 @@ final class OrderPageLayoutExtension extends ResourceExtension
 
         foreach ($shipments as $shipment) {
             $components[] = self::shipmentFieldset($shipment);
+        }
+
+        if ($createLabel !== []) {
+            $components[] = Actions::make($createLabel);
         }
 
         // Le bordereau de remise est journalier : il regroupe tous les colis remis au

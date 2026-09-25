@@ -47,7 +47,7 @@ port passe intégralement par `UnifiedShippingModifier`.
 2. **Zone** : `ZoneResolver::isMetropole()` filtre France métropolitaine uniquement (skip Corse `20*`, DOM `971`–`978`, étranger).
 3. **Poids** : `WeightCalculator::fromCart()` / `fromOrder()` normalise en **kg** (accepte `kg`/`g`/`lb`, throw sur unité inconnue).
 4. **Post-paiement — multi-expédition (L6)** : `OrderShipmentObserver::updated()` observe `Order::payment_status` → transition vers `paid` → charge les lignes avec `purchasable.product`, construit une map de `Supplier` par `pko_supplier_id`, puis délègue à `ShipmentSplitter::split(Collection $lines, Collection $suppliers)` qui retourne des `ShipmentGroup[]` (un par origine). Pour chaque groupe :
-   - `weklo` (pas de `pko_supplier_id`) → dispatche `CreateCarrierShipmentJob(order_id, carrier, service_code, 'weklo')` comme avant.
+   - `weklo` (pas de `pko_supplier_id`) → ~~dispatche `CreateCarrierShipmentJob`~~ enregistre un `CarrierShipment` `pending` ; l'étiquette est créée à la main (§5.26).
    - `supplier_direct` (supplier `bl_neutre=true`) → crée `CarrierShipment` directement (status `pending`), **pas d'appel API**.
    - `supplier_via_weklo` (supplier `bl_neutre=false`) → idem, enregistrement pour suivi futur, **pas d'appel API immédiat**.
 5. **Job async** : `$tries = 5`, `$backoff = [60, 300, 900, 3600, 14400]`. Résout le `CarrierClient` via `app("pko.shipping.carrier.{$carrier}")`, persiste le `CarrierShipment` (table `pko_carrier_shipments`, clé unique `(order_id, carrier, origin)`), sauvegarde le PDF dans `storage/app/labels/{order_id}/{carrier}-{tracking}.pdf`. Après 5 échecs → `status = 'failed'` + `error_message`.
@@ -848,6 +848,8 @@ Audit de bout en bout de « qu'est-ce qui part réellement chez Chronopost à ch
 
 #### A) La chaîne existante (rappel)
 
+> **Remplacé le 2026-09-25 : plus aucune création automatique, cf. §5.26.**
+
 `OrderShipmentObserver` (statut `paid` / `payment-received`) → `ShipmentSplitter` → `CreateCarrierShipmentJob` (queue redis, 5 tentatives) → `CarrierClient::createShipment()` → PDF dans `storage/app/labels/{order_id}/`, n° de suivi, commande en `dispatched`, e-mail client. Les lignes fournisseur (`supplier_direct`, `supplier_via_weklo`) sont enregistrées en `pending` **sans** appel transporteur.
 
 #### B) Bloquant corrigé — `productCode` (aucune étiquette n'était créable)
@@ -943,6 +945,8 @@ Tests : `tests/Feature/Shipping/PickupPointOrderAddressTest` (substitution, comm
 
 ### 5.23 Aucune étiquette générée en dev : il manquait un worker de queue (2026-07-31)
 
+> **Remplacé le 2026-09-25 : plus aucune création automatique, cf. §5.26.**
+
 **Symptôme** : commandes bien en `payment-received`, `shipping_option` correctement posée, mais **zéro ligne dans `pko_carrier_shipments`** — donc aucun n° de suivi, aucun raccourci « Expédition » sur la fiche commande, aucun bordereau possible.
 
 **Diagnostic** : `OrderShipmentObserver` fonctionne — reproduit en conditions réelles, le job part bien. Mais `QUEUE_CONNECTION=redis` et **aucun service worker n'existait** dans `compose.yaml` : 675 jobs s'étaient accumulés dans `queues:default`, dont 6 `CreateCarrierShipmentJob`. Rien n'échoue, rien ne s'affiche, les jobs attendent simplement un consommateur qui n'existe pas.
@@ -1014,3 +1018,18 @@ Chronopost ne délivre les identifiants de production qu'**après validation des
 Premier kit (compte test, vendredi 2026-09-25) : Chrono 13H `XN450178188FR` (semaine) / `XN450178191FR` (samedi), Relais 13H `XS486826613FR` / `XS486826627FR` (point `611BX`, Bordeaux). PDF de ~55 Ko, une page.
 
 Tests : `tests/Feature/Shipping/ChronopostValidationKitCommandTest` (4 combinaisons envoyées, `idRelais` du point trouvé, PDF / README / traces écrits, mot de passe absent des XML, base64 tronqué, erreur WS consignée, refus d'un compte non test sans `--force`, `service = 6` transmis au skybill — SoapClient factice, aucun appel réseau).
+
+### 5.26 Étiquette créée à la main depuis la fiche commande (2026-09-25)
+
+**Décision** : l'étiquette transporteur n'est **plus jamais créée automatiquement** à l'encaissement. L'admin la crée quand le colis est prêt.
+
+**Pourquoi** : créée d'office, l'étiquette partait avant la préparation (voire avant l'arrivée de la marchandise fournisseur en `supplier_via_weklo`), passait la commande en `dispatched` et envoyait au client l'e-mail d'expédition avec un suivi vide pendant des heures. Et un envoi `supplier_via_weklo` restait `pending` pour toujours : aucun mécanisme ne créait son étiquette « plus tard ».
+
+**Fonctionnement** (`Pko\ShippingCommon\Shipping\ShipmentLabelService`) :
+- À l'encaissement, `OrderShipmentObserver` appelle `recordPending()` : un `CarrierShipment` `pending` par origine (`weklo`, `supplier_direct`, `supplier_via_weklo`), **sans appel transporteur**. `shipping:backfill-shipments` fait de même pour les commandes déjà payées.
+- Deux boutons **« Créer l'étiquette <transporteur> »** sur la fiche commande (`Pko\ShippingCommon\Filament\Support\CreateLabelActions`) : dans le menu **Actions** de l'en-tête (groupe Expédition, `OrderShipmentActionsExtension`) et dans la section **Livraison** (`OrderPageLayoutExtension`). Un bouton par origine dont l'étiquette manque (`originsAwaitingLabel()`, calcul sans écriture) ; libellé « Recréer » après un échec ; suffixe « stock » / « marchandise fournisseur » si la commande mélange les deux. `supplier_direct` n'a jamais de bouton (le fournisseur expédie).
+- Le clic appelle `createLabel()` : exécution **synchrone** de `CreateCarrierShipmentJob::handle()` (même code qu'avant : appel transporteur, PDF, `dispatched`, e-mail client). Succès → notification avec le n° de suivi ; échec → `failed()` trace le motif sur l'envoi (`status=failed`, `error_message`) et une notification persistante l'affiche.
+- Le job reste `ShouldQueue` : les actions « Relancer » de la liste des envois le mettent toujours en file.
+
+Tests : `OrderShipmentObserverTest` (envoi `pending` sans job à l'encaissement et au rattrapage, idempotence, création manuelle, échec tracé, bouton du menu Actions et bouton de la section Livraison via Livewire). Faux transporteur partagé : `tests/Stubs/FakeCarrierClient.php` (hors classe de test, sinon Pint renomme `testCredentials()`).
+

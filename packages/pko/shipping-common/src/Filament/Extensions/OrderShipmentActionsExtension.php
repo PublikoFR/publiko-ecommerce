@@ -11,6 +11,7 @@ use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
+use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
 
 /**
@@ -21,6 +22,9 @@ use Pko\ShippingCommon\Models\CarrierShipment;
  * au bordereau de remise du jour où le colis a été remis (le bordereau est par
  * nature journalier : il regroupe tous les colis d'une même remise au chauffeur,
  * pas ceux d'une seule commande).
+ *
+ * L'étiquette n'est jamais créée automatiquement : le bouton « Créer l'étiquette »
+ * ouvre le groupe tant qu'un envoi reste sans étiquette.
  */
 final class OrderShipmentActionsExtension extends ResourceExtension
 {
@@ -41,7 +45,8 @@ final class OrderShipmentActionsExtension extends ResourceExtension
             ->orderBy('created_at')
             ->get();
 
-        $items = [];
+        // En tête du groupe : c'est l'action attendue tant que l'étiquette manque.
+        $items = CreateLabelActions::forHeader($order);
 
         // Point relais : lisible d'un coup d'œil, plutôt que d'aller le déchiffrer
         // dans le dump brut de `meta` du bloc « Informations supplémentaires ».
@@ -62,22 +67,7 @@ final class OrderShipmentActionsExtension extends ResourceExtension
                 )));
         }
 
-        if ($shipments->isEmpty()) {
-            if ($items === []) {
-                return $actions;
-            }
-
-            $items[] = Action::make('no_shipment_yet')
-                ->label('Aucune étiquette générée')
-                ->icon('heroicon-o-exclamation-triangle')
-                ->disabled()
-                ->tooltip("La création d'étiquette est mise en file à l'encaissement. Vérifier que le worker de queue tourne (make queue-logs).");
-
-            $actions[] = ActionGroup::make($items)
-                ->label('Expédition')
-                ->icon('heroicon-o-truck')
-                ->button();
-
+        if ($shipments->isEmpty() && $items === []) {
             return $actions;
         }
 

@@ -6,31 +6,31 @@ namespace Pko\ShippingCommon\Console\Commands;
 
 use Illuminate\Console\Command;
 use Lunar\Models\Order;
-use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 
 /**
- * Crée les envois transporteur manquants pour les commandes déjà payées.
+ * Enregistre les envois transporteur « en attente » manquants des commandes payées.
  *
  * `OrderShipmentObserver` ne réagit qu'à une transition de statut : une commande
  * importée, saisie en back-office ou reprise dans un état déjà payé n'a jamais
- * d'étiquette. Même chose pour toute commande passée pendant que le worker de
- * queue était arrêté et dont le job a été perdu (purge de la file, par exemple).
+ * d'envoi. Aucune étiquette n'est créée ici — ni appel transporteur : l'admin la
+ * crée ensuite depuis la fiche commande.
  *
- * Idempotent : les commandes portant déjà un envoi sont ignorées, et le job
- * lui-même repose sur un `firstOrCreate`.
+ * Idempotent : les commandes portant déjà un envoi sont ignorées, et
+ * l'enregistrement repose sur un `firstOrCreate`.
  */
 class BackfillShipmentsCommand extends Command
 {
     protected $signature = 'shipping:backfill-shipments
-                            {--dry-run : Affiche ce qui serait créé sans rien dispatcher}
+                            {--dry-run : Affiche ce qui serait créé sans rien écrire}
                             {--limit=100 : Nombre maximum de commandes traitées}';
 
-    protected $description = 'Crée les envois transporteur manquants sur les commandes payées';
+    protected $description = 'Enregistre les envois transporteur en attente manquants sur les commandes payées';
 
     private const PAID_STATUSES = ['paid', 'payment-received', 'dispatched'];
 
-    public function handle(): int
+    public function handle(ShipmentLabelService $labels): int
     {
         $orders = Order::query()
             ->whereIn('status', self::PAID_STATUSES)
@@ -56,7 +56,7 @@ class BackfillShipmentsCommand extends Command
 
             $this->line(sprintf(
                 '%s commande #%d (%s) → %s / %s',
-                $dryRun ? '[dry-run]' : 'Dispatch',
+                $dryRun ? '[dry-run]' : 'Envoi en attente',
                 $order->id,
                 $order->reference,
                 $carrier,
@@ -64,11 +64,11 @@ class BackfillShipmentsCommand extends Command
             ));
 
             if (! $dryRun) {
-                CreateCarrierShipmentJob::dispatch($order->id, $carrier, $serviceCode);
+                $labels->recordPending($order);
             }
         }
 
-        $this->info(sprintf('%d commande(s) %s.', $orders->count(), $dryRun ? 'à rattraper' : 'mises en file'));
+        $this->info(sprintf('%d commande(s) %s.', $orders->count(), $dryRun ? 'à rattraper' : 'rattrapée(s)'));
 
         return self::SUCCESS;
     }
