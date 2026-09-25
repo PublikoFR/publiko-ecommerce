@@ -112,7 +112,7 @@ class ShippingOptionsTest extends TestCase
         {
             public function __construct(private array $points, private ?string $error) {}
 
-            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
+            public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null, ?int $weightGrams = null): array
             {
                 return $this->points;
             }
@@ -403,6 +403,45 @@ class ShippingOptionsTest extends TestCase
             ->assertSet('pickupSearchPostcode', '34500')
             ->assertCount('pickupPoints', 1)
             ->assertSet('pickupServiceUnavailable', false);
+    }
+
+    /**
+     * Horaires Chronopost affichés dans la liste ; une consigne sans horaire est
+     * signalée en accès libre, un point aux horaires inconnus n'affiche rien.
+     */
+    public function test_liste_affiche_horaires_et_acces_libre(): void
+    {
+        $this->makeCartWithAddress('33000');
+
+        $this->bindManifestWith([
+            $this->makeOption('chronopost.chrono13', 1890),
+            $this->makeOption('chronopost.chrono_relais', 1490),
+        ]);
+
+        $this->bindPickupProviderWith([
+            new PickupPoint(
+                id: '8339S',
+                name: 'Relais avec horaires',
+                address1: '5 rue père dieuzaide',
+                postcode: '33000',
+                city: 'Bordeaux',
+                openingHours: 'Lun–Ven 08:15-12:00 12:00-17:00 · Sam 08:15-12:00',
+                openingSchedule: [['day' => 6, 'label' => 'Sam', 'hours' => '08:15-12:00']],
+            ),
+            new PickupPoint(
+                id: '611BX',
+                name: 'Consigne libre-service',
+                address1: '1 rue Test',
+                postcode: '33000',
+                city: 'Bordeaux',
+                openingSchedule: [],
+            ),
+        ]);
+
+        Livewire::test(ShippingOptions::class)
+            ->set('chosenOption', 'chronopost.chrono_relais')
+            ->assertSee('Lun–Ven 08:15-12:00 12:00-17:00 · Sam 08:15-12:00')
+            ->assertSee('Accès libre, sans horaires');
     }
 
     /**

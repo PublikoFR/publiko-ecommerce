@@ -41,14 +41,16 @@ class ChronopostPickupPointProviderTest extends TestCase
                 'distance_km' => 0.4,
                 'latitude' => 48.8698,
                 'longitude' => 2.3304,
-                'opening_hours' => 'Lun: 08:00-19:00',
+                'opening_hours' => 'Lun–Ven 08:00-19:00',
+                'opening_schedule' => [['day' => 1, 'label' => 'Lun', 'hours' => '08:00-19:00']],
+                'max_weight_kg' => 20.0,
             ],
         ];
 
         $soapClient = $this->makeSoapClientMock();
         $soapClient->expects('search')
             ->once()
-            ->with('75001', 'FR', null, 'Paris')
+            ->with('75001', 'FR', null, 'Paris', null)
             ->andReturn($rawPoints);
 
         $provider = new ChronopostPickupPointProvider($soapClient);
@@ -60,6 +62,80 @@ class ChronopostPickupPointProviderTest extends TestCase
         $this->assertSame('Tabac du Centre', $result[0]->name);
         $this->assertSame(48.8698, $result[0]->latitude);
         $this->assertSame(2.3304, $result[0]->longitude);
+        $this->assertSame('Lun–Ven 08:00-19:00', $result[0]->openingHours);
+        $this->assertSame(20.0, $result[0]->maxWeightKg);
+        $this->assertFalse($result[0]->hasFreeAccess());
+    }
+
+    /**
+     * qualiteReponse = 0 (« résultat à ignorer ») : le client SOAP lève, le provider
+     * rend [] ET un motif explicite — le front ne doit pas afficher de faux points.
+     */
+    public function test_reponse_de_mauvaise_qualite_rend_vide_avec_motif(): void
+    {
+        Cache::flush();
+
+        $soapClient = $this->makeSoapClientMock();
+        $soapClient->expects('search')
+            ->once()
+            ->andThrow(new PickupPointException('Chronopost pickup: low quality response (qualiteReponse=0), result ignored'));
+
+        $provider = new ChronopostPickupPointProvider($soapClient);
+
+        $this->assertSame([], $provider->search('33000', 'FR', null));
+        $this->assertStringContainsString('qualiteReponse=0', (string) $provider->lastSearchError());
+    }
+
+    /**
+     * Le WS ne filtre pas sur le poids (vérifié sur le compte test) : c'est le
+     * provider qui écarte les points dont poidsMaxi est dépassé, y compris sur une
+     * lecture en cache faite avec un autre poids.
+     */
+    public function test_points_dont_le_poids_maxi_est_depasse_sont_exclus(): void
+    {
+        Cache::flush();
+
+        $rawPoints = [
+            ['id' => 'PR020', 'name' => 'Relais 20 kg', 'max_weight_kg' => 20.0],
+            ['id' => 'PR999', 'name' => 'Limite inconnue', 'max_weight_kg' => null],
+        ];
+
+        $soapClient = $this->makeSoapClientMock();
+        $soapClient->expects('search')
+            ->once()
+            ->with('33000', 'FR', null, null, 5000)
+            ->andReturn($rawPoints);
+
+        $provider = new ChronopostPickupPointProvider($soapClient);
+
+        $light = $provider->search('33000', 'FR', null, null, 5000);
+        $this->assertSame(['PR020', 'PR999'], array_map(fn (PickupPoint $p) => $p->id, $light));
+
+        // Même recherche servie par le cache, colis de 20,5 kg.
+        $heavy = $provider->search('33000', 'FR', null, null, 20500);
+        $this->assertSame(['PR999'], array_map(fn (PickupPoint $p) => $p->id, $heavy));
+        $this->assertNull($provider->lastSearchError());
+
+        // Pile à la limite : accepté.
+        $this->assertCount(2, $provider->search('33000', 'FR', null, null, 20000));
+    }
+
+    /**
+     * Les anciennes entrées de cache (format sans horaires structurés) ne doivent
+     * pas être relues : la clé est versionnée.
+     */
+    public function test_cle_de_cache_versionnee_ignore_l_ancien_format(): void
+    {
+        Cache::flush();
+        Cache::put('chronopost_pickup:33000:FR:', [['id' => 'OLD', 'name' => 'Ancien format']], 10800);
+
+        $soapClient = $this->makeSoapClientMock();
+        $soapClient->expects('search')->once()->andReturn([['id' => 'NEW', 'name' => 'Nouveau format']]);
+
+        $provider = new ChronopostPickupPointProvider($soapClient);
+        $result = $provider->search('33000', 'FR', null);
+
+        $this->assertSame('NEW', $result[0]->id);
     }
 
     public function test_retourne_tableau_vide_sur_erreur_soap(): void
