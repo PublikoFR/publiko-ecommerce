@@ -16,6 +16,7 @@ use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
 use Pko\Pennylane\Api\Resources\CustomersResource;
 use Pko\Pennylane\Console\Commands\EmailInvoiceCommand;
 use Pko\Pennylane\Console\Commands\PennylaneBackfillCommand;
+use Pko\Pennylane\Console\Commands\PennylaneCompleteSirenCommand;
 use Pko\Pennylane\Console\Commands\PennylanePollChangelogCommand;
 use Pko\Pennylane\Console\Commands\PennylaneResyncOrderCommand;
 use Pko\Pennylane\Models\PennylaneInvoice;
@@ -80,6 +81,7 @@ final class PennylaneServiceProvider extends ServiceProvider
                 EmailInvoiceCommand::class,
                 PennylaneResyncOrderCommand::class,
                 PennylaneBackfillCommand::class,
+                PennylaneCompleteSirenCommand::class,
                 PennylanePollChangelogCommand::class,
             ]);
 

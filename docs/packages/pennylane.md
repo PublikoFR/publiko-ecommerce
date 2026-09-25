@@ -50,6 +50,7 @@ packages/pko/pennylane/
     ├── Console/Commands/
     │   ├── PennylaneResyncOrderCommand.php       # pennylane:resync-order {id}
     │   ├── PennylaneBackfillCommand.php          # pennylane:backfill --since=YYYY-MM-DD
+    │   ├── PennylaneCompleteSirenCommand.php     # pennylane:complete-siren
     │   └── PennylanePollChangelogCommand.php     # scheduled every 15min
     └── Filament/
         ├── PennylanePlugin.php                   # enregistre cluster + resource
@@ -129,6 +130,7 @@ divergeait sur tous les points ci-dessous. La spec OpenAPI fait foi.
 |---|---|
 | Création client | `POST /company_customers` ou `/individual_customers` selon le type (`POST /customers` → 404). Lecture/recherche : `GET /customers`. |
 | Référence client | `external_reference` (pas `source_id`), filtrable en `eq`. |
+| SIREN client | `reg_no` = **SIREN (9 chiffres)**, pas le SIRET. Sans lui, la fiche client est marquée incomplète et l'adresse de facturation électronique reste inaccessible. `CustomerData::sirenFrom()` le déduit des 9 premiers chiffres du SIRET, lu dans `Customer.meta['siret']` (posé à l'inscription pro), `account_ref` en repli. Un client entreprise déjà synchronisé sans SIREN est complété par `PUT /company_customers/{id}` (corps partiel accepté) à sa prochaine facture, ou d'un coup via `pennylane:complete-siren`. |
 | Adresse de facturation | Obligatoire, avec `address`, `postal_code`, `city`, `country_alpha2` tous renseignés. `CustomerData` lève une `PennylaneException` lisible si un champ manque. |
 | Lignes | `invoice_lines` (pas `line_items`). Prix unitaire **HT** dans `raw_currency_unit_price` (string, 6 décimales max, remise déduite). |
 | TVA | `vat_rate` est un **code** (`FR_200`, `FR_100`, `FR_55`, `FR_21`, `exempt`), pas un pourcentage. Voir `Support\VatRate`. |
@@ -203,6 +205,7 @@ tunnel d'achat.
 | `make artisan CMD='pennylane:resync-order 42'` | Resynchroniser une commande (dispatch job) |
 | `make artisan CMD='pennylane:resync-order 42 --sync'` | Synchrone (debug) |
 | `make artisan CMD='pennylane:backfill --since=2026-01-01'` | Créer factures pour commandes existantes |
+| `make artisan CMD='pennylane:complete-siren'` | Renseigner le SIREN des clients entreprise déjà créés sans lui |
 | `make artisan CMD='pennylane:poll-changelog'` | Ingérer changelog Pennylane (scheduled toutes les 15 min) |
 
 ## Filament

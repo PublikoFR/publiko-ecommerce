@@ -45,7 +45,7 @@ final class CustomerData
 
         if ($this->isCompany) {
             $payload['name'] = $this->name;
-            $payload['reg_no'] = $this->siret;
+            $payload['reg_no'] = self::sirenFrom($this->siret);
             $payload['vat_number'] = $this->vatNumber;
         } else {
             // Les deux champs sont obligatoires côté API : à défaut de prénom
@@ -55,6 +55,23 @@ final class CustomerData
         }
 
         return array_filter($payload, fn ($v) => $v !== null && $v !== [] && $v !== '');
+    }
+
+    /**
+     * `reg_no` attend le SIREN (9 chiffres) : sans lui, Pennylane marque la
+     * fiche client incomplète et ne peut pas résoudre l'adresse de facturation
+     * électronique. Un SIRET (14 chiffres) commence toujours par le SIREN.
+     * Toute autre valeur est ignorée plutôt qu'envoyée et refusée en 422.
+     */
+    public static function sirenFrom(?string $siretOrSiren): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $siretOrSiren) ?? '';
+
+        return match (strlen($digits)) {
+            9 => $digits,
+            14 => substr($digits, 0, 9),
+            default => null,
+        };
     }
 
     /**

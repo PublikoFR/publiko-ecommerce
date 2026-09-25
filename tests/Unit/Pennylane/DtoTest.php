@@ -105,6 +105,23 @@ class DtoTest extends TestCase
         $this->assertArrayNotHasKey('vat_number', $arr);
     }
 
+    public function test_reg_no_is_the_siren_derived_from_the_siret(): void
+    {
+        $this->assertSame('981043979', CustomerData::sirenFrom('981 043 979 00021'));
+        $this->assertSame('981043979', CustomerData::sirenFrom('981043979'));
+        $this->assertNull(CustomerData::sirenFrom('12345'));
+        $this->assertNull(CustomerData::sirenFrom(null));
+
+        $company = new CustomerData(
+            externalReference: 'c_4', name: 'Acme SA', firstName: null, lastName: null,
+            email: null, vatNumber: null, siret: '98104397900021',
+            phone: null, addressLine1: '1 rue', addressLine2: null,
+            postalCode: '75000', city: 'Paris', countryAlpha2: 'FR', isCompany: true,
+        );
+
+        $this->assertSame('981043979', $company->toArray()['reg_no']);
+    }
+
     public function test_customer_data_rejects_incomplete_billing_address(): void
     {
         $customer = new CustomerData(
