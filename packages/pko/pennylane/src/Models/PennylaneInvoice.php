@@ -73,6 +73,23 @@ final class PennylaneInvoice extends Model
         return ($this->type === self::TYPE_CREDIT_NOTE ? 'Avoir-' : 'Facture-').$number.'.pdf';
     }
 
+    /**
+     * Lien vers le document dans l'application web Pennylane, à partir du
+     * gabarit `pennylane.app_invoice_url`. Sans gabarit, l'accueil de l'app.
+     */
+    public function pennylaneAppUrl(): ?string
+    {
+        if ($this->pennylane_id === null) {
+            return null;
+        }
+
+        $template = (string) config('pennylane.app_invoice_url');
+
+        return $template !== ''
+            ? str_replace('{id}', (string) $this->pennylane_id, $template)
+            : 'https://app.pennylane.com/';
+    }
+
     public function isFinalized(): bool
     {
         return $this->status === self::STATUS_FINALIZED;

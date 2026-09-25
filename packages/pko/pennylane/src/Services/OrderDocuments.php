@@ -40,10 +40,10 @@ final class OrderDocuments
         $invoice = $records->firstWhere('type', PennylaneInvoice::TYPE_INVOICE);
 
         return [
-            'invoice' => $invoice ? self::row($invoice, $order) : null,
+            'invoice' => $invoice ? self::row($invoice) : null,
             'credit_notes' => $records
                 ->where('type', PennylaneInvoice::TYPE_CREDIT_NOTE)
-                ->map(fn (PennylaneInvoice $record): array => self::row($record, $order))
+                ->map(fn (PennylaneInvoice $record): array => self::row($record))
                 ->values()
                 ->all(),
         ];
@@ -52,7 +52,7 @@ final class OrderDocuments
     /**
      * @return array<string,mixed>
      */
-    private static function row(PennylaneInvoice $record, Order $order): array
+    private static function row(PennylaneInvoice $record): array
     {
         $isCredit = $record->type === PennylaneInvoice::TYPE_CREDIT_NOTE;
         $ready = $record->isFinalized() && $record->pennylane_id !== null;
@@ -67,22 +67,33 @@ final class OrderDocuments
                 $record->status === PennylaneInvoice::STATUS_FAILED => 'failed',
                 default => 'pending',
             },
-            'url' => $ready ? self::url($record, $order) : null,
-            'view_url' => $ready ? self::url($record, $order, inline: true) : null,
+            'url' => $ready ? self::pdfUrl($record) : null,
+            'view_url' => $ready ? self::pdfUrl($record, inline: true) : null,
         ];
     }
 
     /**
-     * `inline` est signé avec le reste de l'URL : il ne peut pas être ajouté
-     * ou retiré après coup sans invalider la signature.
+     * Lien signé vers le PDF d'un document finalisé, `null` tant qu'il n'est
+     * pas prêt. `inline` est signé avec le reste de l'URL : il ne peut pas être
+     * ajouté ou retiré après coup sans invalider la signature.
      */
-    private static function url(PennylaneInvoice $record, Order $order, bool $inline = false): string
+    public static function pdfUrl(PennylaneInvoice $record, bool $inline = false): ?string
     {
+        if (! $record->isFinalized() || $record->pennylane_id === null) {
+            return null;
+        }
+
         $expires = now()->addHours(self::LINK_TTL_HOURS);
         $query = $inline ? ['inline' => 1] : [];
 
-        return $record->type === PennylaneInvoice::TYPE_CREDIT_NOTE
-            ? URL::temporarySignedRoute('pennylane.credit-note.pdf', $expires, ['transaction' => $record->transaction_id, ...$query])
-            : URL::temporarySignedRoute('pennylane.invoice.pdf', $expires, ['order' => $order->id, ...$query]);
+        if ($record->type === PennylaneInvoice::TYPE_CREDIT_NOTE) {
+            return $record->transaction_id
+                ? URL::temporarySignedRoute('pennylane.credit-note.pdf', $expires, ['transaction' => $record->transaction_id, ...$query])
+                : null;
+        }
+
+        return $record->order_id
+            ? URL::temporarySignedRoute('pennylane.invoice.pdf', $expires, ['order' => $record->order_id, ...$query])
+            : null;
     }
 }

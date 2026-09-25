@@ -96,6 +96,7 @@ PENNYLANE_QUEUE=default                 # queue dédiée possible
 PENNYLANE_SANDBOX=false                 # sans effet : c'est le token qui désigne live ou sandbox (voir « Tester sur la sandbox »)
 PENNYLANE_HTTP_TIMEOUT=15
 PENNYLANE_HTTP_RETRY=3
+PENNYLANE_APP_INVOICE_URL=             # gabarit du bouton « Ouvrir dans Pennylane » ({id} = id Pennylane) ; vide → accueil app.pennylane.com
 ```
 
 ### Kill-switch `PENNYLANE_ENABLED`
@@ -211,6 +212,13 @@ Cluster **Pennylane** (icône `document-currency-euro`, sort 70) avec une Resour
 - Filtres : type (facture/avoir), statut
 - Action ligne : `Resynchroniser` (dispatch job)
 - Pas de création manuelle (`canCreate() => false`)
+
+Fiche d'un document (`ViewPennylaneInvoice`) : infolist en deux colonnes, pas de formulaire désactivé.
+- Colonne principale : erreur de sync (si `last_error`), tableau des lignes + totaux HT/TVA/TTC, payload brut replié en JSON.
+- Colonne latérale : document (n°, type, statut, date, échéance, montant), rattachements (commande cliquable, client, facture d'origine d'un avoir, référence externe, id Pennylane), suivi (sync, envoi e-mail).
+- Actions : *Voir le PDF* (onglet, `inline`) et *Télécharger* via `OrderDocuments::pdfUrl()` — même proxy signé que la fiche commande, jamais `public_file_url` ; *Ouvrir dans Pennylane* ; *Resynchroniser* (facture ou avoir).
+- Les lignes et totaux sont relus depuis `payload_snapshot` par `Support\InvoicePayload` (cents, `FR_200` → 20 %). C'est ce qui a été **envoyé**, pas le montant recalculé par Pennylane : écart possible de quelques centimes d'arrondi.
+- L'API v2 ne renvoie aucune URL de l'application web (seulement des URLs d'API et `public_file_url`) : le lien Pennylane vient du gabarit `PENNYLANE_APP_INVOICE_URL` (`{id}` remplacé par `pennylane_id`). Sans gabarit, il ouvre l'accueil de l'app.
 
 ## Tests
 
