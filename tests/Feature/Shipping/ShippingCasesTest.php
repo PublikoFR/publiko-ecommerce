@@ -127,14 +127,18 @@ class ShippingCasesTest extends TestCase
 
     // ── 1 à 3. Tranches de grille ────────────────────────────────────────────
 
-    public function test_scenario_01_produit_leger_propose_les_trois_services(): void
+    /**
+     * Chrono 10 n'est pas au contrat Chronopost : sa ligne reste en base (grille,
+     * historique) mais le service est désactivé et n'est plus proposé.
+     */
+    public function test_scenario_01_produit_leger_propose_les_deux_services_du_contrat(): void
     {
         $quote = $this->quoteFor(['TX-01' => 1]);
 
-        $this->assertCount(3, $quote->options);
+        $this->assertCount(2, $quote->options);
         $this->assertSame(1890, $this->service($quote, 'chrono13')?->totalPriceCents());
         $this->assertSame(1490, $this->service($quote, 'chrono_relais')?->totalPriceCents());
-        $this->assertSame(2490, $this->service($quote, 'chrono10')?->totalPriceCents());
+        $this->assertNull($this->service($quote, 'chrono10'));
     }
 
     public function test_scenario_02_borne_20kg_conserve_le_point_relais(): void
@@ -153,7 +157,7 @@ class ShippingCasesTest extends TestCase
         $quote = $this->quoteFor(['TX-05' => 1]); // 25 kg
 
         $this->assertNull($this->service($quote, 'chrono_relais'));
-        $this->assertCount(2, $quote->options);
+        $this->assertCount(1, $quote->options);
         $this->assertSame(5490, $this->service($quote, 'chrono13')?->totalPriceCents());
     }
 
@@ -179,7 +183,7 @@ class ShippingCasesTest extends TestCase
     {
         $quote = $this->quoteFor(['TX-08' => 1]); // 600 € HT
 
-        foreach (['chrono13', 'chrono_relais', 'chrono10'] as $serviceCode) {
+        foreach (['chrono13', 'chrono_relais'] as $serviceCode) {
             $option = $this->service($quote, $serviceCode);
             $this->assertTrue($option?->franco, "{$serviceCode} doit être offert");
             $this->assertSame(0, $option->totalPriceCents());
@@ -216,7 +220,7 @@ class ShippingCasesTest extends TestCase
     {
         $quote = $this->quoteFor(['TX-10' => 1]); // forfait 25 € HT, 12 kg
 
-        $this->assertCount(3, $quote->options);
+        $this->assertCount(2, $quote->options);
 
         $chrono13 = $this->service($quote, 'chrono13');
         $this->assertSame(0, $chrono13?->gridPriceCents, 'Aucun poids taxable → pas de prix de grille');
