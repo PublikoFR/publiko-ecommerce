@@ -351,12 +351,23 @@ class ChronopostClient implements CarrierClient
     }
 
     /**
-     * Code service du skybill : `0` = livraison en semaine. La livraison le samedi
-     * (`6` pour Chrono 13H et Relais 13H) passera par ici — hors périmètre pour l'instant.
+     * Code service du skybill : `0` = livraison en semaine (défaut), `6` = samedi pour
+     * Chrono 13H / Relais 13H (colis remis le vendredi). Le samedi n'est pas proposé au
+     * checkout : seul le kit de validation (`chronopost:validation-kit`) le demande.
      */
     protected function skybillService(ShipmentRequest $request): string
     {
-        return '0';
+        $service = trim((string) $request->carrierService);
+
+        if ($service === '') {
+            return '0';
+        }
+
+        if (preg_match('/^[0-9]{1,3}$/', $service) !== 1) {
+            throw new RuntimeException(sprintf('Chronopost : code service « %s » invalide.', $service));
+        }
+
+        return $service;
     }
 
     /**
@@ -384,14 +395,22 @@ class ChronopostClient implements CarrierClient
 
     protected function makeShippingSoapClient(): SoapClient
     {
-        return new SoapClient(self::SHIPPING_WSDL, [
+        return new SoapClient(self::SHIPPING_WSDL, $this->shippingSoapOptions());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function shippingSoapOptions(): array
+    {
+        return [
             'soap_version' => SOAP_1_2,
             'encoding' => 'UTF-8',
             'trace' => true,
             'exceptions' => true,
             'connection_timeout' => 10,
             'cache_wsdl' => WSDL_CACHE_BOTH,
-        ]);
+        ];
     }
 
     /**

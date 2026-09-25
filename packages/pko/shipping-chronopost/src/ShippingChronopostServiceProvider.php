@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\ShippingChronopost;
 
 use Illuminate\Support\ServiceProvider;
+use Pko\ShippingChronopost\Console\ChronopostValidationKitCommand;
 use Pko\ShippingChronopost\Filament\Pages\ChronopostConfig;
 use Pko\ShippingChronopost\Services\ChronopostClient;
 use Pko\ShippingChronopost\Services\ChronopostPickupPointProvider;
@@ -86,6 +87,10 @@ class ShippingChronopostServiceProvider extends ServiceProvider
                 soapClient: $app->make(PickupPointSoapClient::class),
             );
         });
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ChronopostValidationKitCommand::class]);
+        }
 
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'pko-shipping-chronopost');
         $this->publishes([
