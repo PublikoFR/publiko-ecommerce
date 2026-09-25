@@ -42,8 +42,8 @@ class PickupPointSoapClient
     private const SERVICE_CODE = 'L';
 
     /**
-     * Produit Chronopost lié à la recherche : `86` = Chrono Relais 13H (contrat
-     * Weklo, doc WS VL3.25.10.10 §2.4.2.a — champ obligatoire). Vérifié sur le
+     * Produit Chronopost lié à la recherche : `86` = Chrono Relais 13H (doc WS
+     * VL3.25.10.10 §2.4.2.a — champ obligatoire). Vérifié sur le
      * compte test le 2026-09-25 : même jeu de points qu'avec l'ancienne valeur vide.
      */
     private const PRODUCT_CODE_RELAIS = '86';
