@@ -75,6 +75,41 @@
         @include('filament.orders.partials.document-row', ['document' => $data['invoice'], 'class' => 'py-4'])
     @endif
 
+    {{-- Étiquette transporteur : voir / télécharger, ou créer --}}
+    @foreach ($data['labels'] ?? [] as $label)
+        <div class="flex items-start justify-between gap-3 py-4">
+            <div class="flex min-w-0 items-start gap-2.5">
+                <x-filament::icon icon="heroicon-o-truck" class="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                <div class="min-w-0">
+                    <p class="truncate font-medium text-gray-950 dark:text-white">{{ $label['title'] }}</p>
+                    <p @class([
+                        'text-sm',
+                        'text-danger-600 dark:text-danger-400' => $label['tone'] === 'danger',
+                        'text-gray-500 dark:text-gray-400' => $label['tone'] !== 'danger',
+                    ])>{{ $label['subtitle'] }}</p>
+                </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+                @if ($label['view_url'])
+                    <x-filament::button tag="a" :href="$label['view_url']" target="_blank" rel="noopener noreferrer" color="gray" size="xs" icon="heroicon-m-eye">
+                        Voir
+                    </x-filament::button>
+                @endif
+                @if ($label['download_url'])
+                    <x-filament::button tag="a" :href="$label['download_url']" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">
+                        PDF
+                    </x-filament::button>
+                @endif
+                @if ($label['create_action'])
+                    {{-- Même action (et même confirmation) que « Créer l'étiquette » du menu Actions. --}}
+                    <x-filament::button color="gray" size="xs" icon="heroicon-m-printer" wire:click="mountAction('{{ $label['create_action'] }}')">
+                        Créer
+                    </x-filament::button>
+                @endif
+            </div>
+        </div>
+    @endforeach
+
     {{-- Détails facultatifs --}}
     @if (count($data['details']))
         <dl class="space-y-2 pt-4 text-sm">

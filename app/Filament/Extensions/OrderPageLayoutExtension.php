@@ -31,6 +31,7 @@ use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
 use Pko\ShippingCommon\Filament\Support\CreateLabelActions;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
@@ -237,7 +238,68 @@ final class OrderPageLayoutExtension extends ResourceExtension
             ],
             'details' => $details,
             'invoice' => OrderDocuments::forOrder($order)['invoice'],
+            'labels' => self::labelRows($order),
         ];
+    }
+
+    /**
+     * Raccourcis étiquette du bloc « vue d'ensemble », sous la facture : voir /
+     * télécharger une étiquette créée, ou la créer (même action que le menu Actions).
+     *
+     * @return list<array{title: string, subtitle: string, tone: string, view_url: ?string, download_url: ?string, create_action: ?string}>
+     */
+    public static function labelRows(Order $order): array
+    {
+        $service = app(ShipmentLabelService::class);
+        $option = $service->carrierOption($order);
+
+        if ($option === null) {
+            return [];
+        }
+
+        $shipments = CarrierShipment::query()
+            ->where('order_id', $order->id)
+            ->where('carrier', $option[0])
+            ->whereIn('origin', ShipmentLabelService::LABELLED_ORIGINS)
+            ->get()
+            ->keyBy('origin');
+
+        $origins = array_values(array_unique([...$shipments->keys()->all(), ...$service->originsAwaitingLabel($order)]));
+        $title = 'Étiquette '.CarrierDisplayLabel::carrier($option[0]);
+        $rows = [];
+
+        foreach ($origins as $origin) {
+            $shipment = $shipments->get($origin);
+            $suffix = count($origins) > 1
+                ? ($origin === CarrierShipment::ORIGIN_SUPPLIER_VIA_WEKLO ? ' — fournisseur' : ' — stock')
+                : '';
+
+            if ($shipment?->status === CarrierShipment::STATUS_CREATED) {
+                $rows[] = [
+                    'title' => $title.$suffix,
+                    'subtitle' => 'N° '.$shipment->tracking_number,
+                    'tone' => 'default',
+                    'view_url' => CarrierLabelUrl::for($shipment),
+                    'download_url' => CarrierLabelUrl::for($shipment, download: true),
+                    'create_action' => null,
+                ];
+
+                continue;
+            }
+
+            $failed = $shipment?->status === CarrierShipment::STATUS_FAILED;
+
+            $rows[] = [
+                'title' => $title.$suffix,
+                'subtitle' => $failed ? 'Création en échec' : 'À créer',
+                'tone' => $failed ? 'danger' : 'default',
+                'view_url' => null,
+                'download_url' => null,
+                'create_action' => "create_label_{$origin}",
+            ];
+        }
+
+        return $rows;
     }
 
     private static function productsSection(Component $lines): Section

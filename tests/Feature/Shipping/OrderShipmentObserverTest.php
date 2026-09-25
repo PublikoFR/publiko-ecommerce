@@ -186,6 +186,34 @@ class OrderShipmentObserverTest extends TestCase
         );
     }
 
+    public function test_le_raccourci_etiquette_du_bloc_commande(): void
+    {
+        $this->fakeCarrier();
+        $order = $this->makeOrder('payment-received');
+        $this->actingAsStaff();
+
+        // Avant création : « À créer » + bouton relié à l'action du menu Actions.
+        $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('Étiquette Chronopost')
+            ->assertSee('À créer')
+            ->assertSee("mountAction('create_label_weklo')", false);
+
+        Livewire::test(ManageOrder::class, ['record' => $order->id])
+            ->mountAction('create_label_weklo')
+            ->callMountedAction()
+            ->assertNotified('Étiquette créée');
+
+        // Après création : n° de suivi, « Voir » (onglet) et « PDF » (téléchargement), signés.
+        $html = $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('N° XN000000001FR')
+            ->assertDontSee('À créer')
+            ->getContent();
+
+        $this->assertMatchesRegularExpression('#/admin/expedition/etiquettes/\d+/pdf\?download=1&(amp;)?expires=\d+&(amp;)?signature=#', $html);
+    }
+
     private function fakeCarrier(?Throwable $failure = null): FakeCarrierClient
     {
         $client = new FakeCarrierClient($failure);

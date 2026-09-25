@@ -11,7 +11,8 @@ use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Sert l'étiquette PDF d'un envoi, affichée dans le navigateur (impression directe).
+ * Sert l'étiquette PDF d'un envoi : affichée dans le navigateur (impression directe),
+ * ou téléchargée avec `download=1` (paramètre couvert par la signature).
  *
  * Même garde que les PDF Pennylane : session staff (middleware de la route) ET
  * signature temporaire, vérifiée ici. Le fichier vit sur le disque privé `local`,
@@ -33,7 +34,10 @@ final class ShowCarrierLabelController
 
         return response($body, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $filename),
+            'Content-Disposition' => HeaderUtils::makeDisposition(
+                $request->boolean('download') ? HeaderUtils::DISPOSITION_ATTACHMENT : HeaderUtils::DISPOSITION_INLINE,
+                $filename,
+            ),
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy' => 'no-referrer',

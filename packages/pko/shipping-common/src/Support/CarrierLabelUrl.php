@@ -9,14 +9,17 @@ use Illuminate\Support\Facades\URL;
 use Pko\ShippingCommon\Models\CarrierShipment;
 
 /**
- * Lien signé et temporaire vers l'étiquette PDF d'un envoi (ouverture dans le navigateur).
+ * Lien signé et temporaire vers l'étiquette PDF d'un envoi.
+ *
+ * Par défaut le PDF s'ouvre dans le navigateur ; `download` le télécharge. Le
+ * paramètre est signé avec le reste de l'URL : impossible de le basculer après coup.
  */
 final class CarrierLabelUrl
 {
     /** Même durée que les liens PDF Pennylane : la fiche commande peut rester ouverte. */
     private const TTL_HOURS = 12;
 
-    public static function for(CarrierShipment $shipment): ?string
+    public static function for(CarrierShipment $shipment, bool $download = false): ?string
     {
         if (! self::exists($shipment)) {
             return null;
@@ -25,7 +28,7 @@ final class CarrierLabelUrl
         return URL::temporarySignedRoute(
             'pko.shipping.label.pdf',
             now()->addHours(self::TTL_HOURS),
-            ['shipment' => $shipment->id],
+            ['shipment' => $shipment->id, ...($download ? ['download' => 1] : [])],
         );
     }
 

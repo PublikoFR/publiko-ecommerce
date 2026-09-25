@@ -181,6 +181,12 @@ class OrderAdminLayoutTest extends TestCase
             ->assertHeader('Content-Type', 'application/pdf')
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->assertStringStartsWith('inline;', (string) $this->get($url)->headers->get('Content-Disposition'));
+
+        // Variante « PDF » : même lien signé, mais en téléchargement.
+        $this->assertStringStartsWith(
+            'attachment;',
+            (string) $this->get(CarrierLabelUrl::for($shipment, download: true))->headers->get('Content-Disposition'),
+        );
     }
 
     public function test_le_lien_d_etiquette_exige_signature_et_session_staff(): void
