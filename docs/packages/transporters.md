@@ -269,7 +269,7 @@ Enregistrée dans le panel via `TransportersPlugin::register()` (`$panel->resour
 
 ### ShippingSurchargeResource
 
-CRUD Filament pour `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSurcharge`). Cluster **Expédition**, `navigationSort = 30`.
+CRUD Filament pour `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSurcharge`). Cluster **Expédition**, hors onglets (`shouldRegisterNavigation() = false`) : accès par le bouton « Suppléments transport » de la page Paramètres. Les onglets du cluster (sous-navigation `Top`) sont limités à Paramètres, Bordereaux et un onglet par transporteur actif.
 
 Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebill`), `amount_cents` (nullable), `rule` (JSON, nullable), `enabled`.
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Shipping;
 
 use Database\Seeders\DatabaseSeeder;
+use Filament\Pages\SubNavigationPosition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ use Lunar\Admin\Models\Staff;
 use Lunar\Models\Channel;
 use Lunar\Models\Currency;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
+use Pko\ShippingCommon\Filament\Pages\ShippingSettingsPage;
+use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Support\CarrierTrackingUrl;
 use Pko\ShippingCommon\Support\LabelArchive;
@@ -153,6 +156,29 @@ class DailyManifestTest extends TestCase
         $response->assertDontSee('LT-AUJOURDHUI');
 
         $this->assertNotNull($today->tracking_number);
+    }
+
+    public function test_les_onglets_expedition_se_limitent_a_parametres_bordereaux_et_transporteurs(): void
+    {
+        $this->actingAs(Staff::create([
+            'first_name' => 'Test',
+            'last_name' => 'Admin',
+            'email' => 'bordereau-onglets@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]), 'staff');
+
+        $this->assertSame(SubNavigationPosition::Top, (new DailyManifestPage)->getSubNavigationPosition());
+
+        $this->get('/admin/expedition/bordereau')
+            ->assertOk()
+            ->assertSeeInOrder(['Paramètres', 'Bordereaux', 'Chronopost'])
+            ->assertDontSee('Suppléments transport');
+
+        // Les suppléments restent accessibles depuis la page Paramètres.
+        $this->get(ShippingSettingsPage::getUrl())
+            ->assertOk()
+            ->assertSee(ShippingSurchargeResource::getUrl(), escape: false);
     }
 
     public function test_chaque_ligne_ouvre_la_commande_letiquette_et_le_suivi(): void

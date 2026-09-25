@@ -20,9 +20,18 @@ class ShippingSurchargeResource extends BaseResource
 
     protected static ?string $cluster = Shipping::class;
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?int $navigationSort = 30;
+
+    /**
+     * Hors des onglets Expédition (limités à Paramètres, Bordereaux et
+     * transporteurs) : on y accède depuis la page Paramètres.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationLabel(): string
     {

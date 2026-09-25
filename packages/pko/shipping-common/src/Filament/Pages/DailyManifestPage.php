@@ -52,11 +52,11 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
 
     protected static ?string $cluster = Shipping::class;
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 15;
 
     protected static string $view = 'pko-shipping-common::pages.daily-manifest';
 
@@ -64,7 +64,7 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
 
     public static function getNavigationLabel(): string
     {
-        return 'Bordereau de remise';
+        return 'Bordereaux';
     }
 
     public function getTitle(): string|Htmlable

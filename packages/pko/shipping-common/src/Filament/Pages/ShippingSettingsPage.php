@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\ShippingCommon\Filament\Pages;
 
+use Filament\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -17,6 +18,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
+use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
 use Pko\ShippingCommon\Models\CarrierService;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\StorefrontCms\Models\Setting;
@@ -27,7 +29,7 @@ class ShippingSettingsPage extends BasePage implements HasForms
 
     protected static ?string $cluster = Shipping::class;
 
-    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::End;
+    protected static SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
@@ -48,6 +50,17 @@ class ShippingSettingsPage extends BasePage implements HasForms
     public function getTitle(): string|Htmlable
     {
         return __('pko-shipping-common::admin.settings.title');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('surcharges')
+                ->label(__('pko-shipping-common::admin.surcharge.nav'))
+                ->icon('heroicon-o-banknotes')
+                ->color('gray')
+                ->url(ShippingSurchargeResource::getUrl()),
+        ];
     }
 
     public function mount(): void
