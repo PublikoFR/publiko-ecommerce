@@ -267,11 +267,13 @@ Champs : `name`, `bl_neutre` (toggle "BL neutre / livraison directe fournisseur 
 
 Enregistrée dans le panel via `TransportersPlugin::register()` (`$panel->resources([...])`) — pas besoin de toucher `AppServiceProvider`. Le **placement dans le menu** est piloté par `pko/lunar-admin-nav`.
 
-### ShippingSurchargeResource
+### Suppléments transport (section de la page Paramètres)
 
-CRUD Filament pour `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSurcharge`). Cluster **Expédition**, hors onglets (`shouldRegisterNavigation() = false`) : accès par le bouton « Suppléments transport » de la page Paramètres. Les onglets du cluster (sous-navigation `Top`) sont limités à Paramètres, Bordereaux et un onglet par transporteur actif.
+CRUD de `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSurcharge`) intégré à `ShippingSettingsPage` comme table Filament : création et édition en modale, bascule `enabled` directement dans la liste, chaque action enregistrée immédiatement (indépendante du bouton « Enregistrer » des réglages franco/TVA). Plus de Resource dédiée : une dizaine de lignes réglées en même temps que le franco ne justifiait pas un écran à part. La `ShippingSurchargePolicy` générée par Shield continue de s'appliquer aux actions de la table.
 
-Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebill`), `amount_cents` (nullable), `rule` (JSON, nullable), `enabled`.
+Les onglets du cluster **Expédition** (sous-navigation `Top`) sont limités à Paramètres, Bordereaux et un onglet par transporteur actif.
+
+Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebill`), `amount_cents` (nullable — **saisi en euros** dans la modale, stocké en cents), `rule` (JSON, nullable), `enabled`.
 
 **Données de référence** (seedées par `PkoShippingSurchargesSeeder`) :
 

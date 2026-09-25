@@ -10,7 +10,6 @@ use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Filament\Pages\DailyManifestPage;
 use Pko\ShippingCommon\Filament\Pages\ShippingSettingsPage;
 use Pko\ShippingCommon\Filament\Resources\CarrierShipmentResource;
-use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
 use Pko\ShippingCommon\Filament\Resources\SupplierResource;
 
 /**
@@ -32,7 +31,6 @@ class TransportersPlugin implements Plugin
         $panel->resources([
             CarrierShipmentResource::class,
             SupplierResource::class,
-            ShippingSurchargeResource::class,
         ]);
 
         $registry = app(CarrierRegistry::class);

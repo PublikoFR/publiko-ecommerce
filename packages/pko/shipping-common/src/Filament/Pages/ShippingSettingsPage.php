@@ -4,28 +4,40 @@ declare(strict_types=1);
 
 namespace Pko\ShippingCommon\Filament\Pages;
 
-use Filament\Actions\Action;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\SubNavigationPosition;
+use Filament\Tables\Actions\CreateAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Lunar\Admin\Support\Pages\BasePage;
 use Pko\ShippingCommon\Carriers\CarrierRegistry;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
-use Pko\ShippingCommon\Filament\Resources\ShippingSurchargeResource;
 use Pko\ShippingCommon\Models\CarrierService;
+use Pko\ShippingCommon\Models\ShippingSurcharge;
 use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\StorefrontCms\Models\Setting;
 
-class ShippingSettingsPage extends BasePage implements HasForms
+class ShippingSettingsPage extends BasePage implements HasForms, HasTable
 {
     use InteractsWithForms;
+    use InteractsWithTable;
 
     protected static ?string $cluster = Shipping::class;
 
@@ -50,17 +62,6 @@ class ShippingSettingsPage extends BasePage implements HasForms
     public function getTitle(): string|Htmlable
     {
         return __('pko-shipping-common::admin.settings.title');
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('surcharges')
-                ->label(__('pko-shipping-common::admin.surcharge.nav'))
-                ->icon('heroicon-o-banknotes')
-                ->color('gray')
-                ->url(ShippingSurchargeResource::getUrl()),
-        ];
     }
 
     public function mount(): void
@@ -140,6 +141,117 @@ class ShippingSettingsPage extends BasePage implements HasForms
                     ]),
             ])
             ->statePath('data');
+    }
+
+    /**
+     * Section « Suppléments transport » : CRUD en modale, sous les réglages.
+     * Pas de Resource dédiée — une liste courte (une dizaine de lignes) que
+     * l'on règle en même temps que le franco.
+     */
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(ShippingSurcharge::query())
+            ->heading(__('pko-shipping-common::admin.surcharge.nav'))
+            ->description(__('pko-shipping-common::admin.surcharge.section_help'))
+            ->columns([
+                TextColumn::make('label')
+                    ->label(__('pko-shipping-common::admin.surcharge.label_field'))
+                    ->description(fn (ShippingSurcharge $record): string => (string) $record->code)
+                    ->searchable(['label', 'code']),
+                TextColumn::make('mode')
+                    ->label(__('pko-shipping-common::admin.surcharge.mode'))
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'auto' => 'Auto',
+                        'rebill' => 'Refacturé',
+                        default => 'Sur devis',
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'auto' => 'success',
+                        'rebill' => 'info',
+                        default => 'warning',
+                    }),
+                TextColumn::make('amount_cents')
+                    ->label(__('pko-shipping-common::admin.surcharge.amount_cents'))
+                    ->formatStateUsing(fn (?int $state): string => $state !== null
+                        ? number_format($state / 100, 2, ',', ' ').' €'
+                        : '—')
+                    ->placeholder('—'),
+                ToggleColumn::make('enabled')
+                    ->label(__('pko-shipping-common::admin.surcharge.enabled')),
+            ])
+            ->defaultSort('code')
+            ->paginated(false)
+            ->headerActions([
+                CreateAction::make()
+                    ->label(__('pko-shipping-common::admin.surcharge.create'))
+                    ->model(ShippingSurcharge::class)
+                    ->form(self::surchargeFormSchema()),
+            ])
+            ->actions([
+                EditAction::make()->form(self::surchargeFormSchema()),
+                DeleteAction::make(),
+            ])
+            ->emptyStateHeading(__('pko-shipping-common::admin.surcharge.empty'));
+    }
+
+    /**
+     * @return array<int, Component>
+     */
+    public static function surchargeFormSchema(): array
+    {
+        return [
+            TextInput::make('code')
+                ->label(__('pko-shipping-common::admin.surcharge.code'))
+                ->required()
+                ->unique(ShippingSurcharge::class, 'code', ignoreRecord: true)
+                ->maxLength(64)
+                ->helperText('Identifiant technique (snake_case, unique).'),
+
+            TextInput::make('label')
+                ->label(__('pko-shipping-common::admin.surcharge.label_field'))
+                ->required()
+                ->maxLength(255),
+
+            Select::make('mode')
+                ->label(__('pko-shipping-common::admin.surcharge.mode'))
+                ->options([
+                    'auto' => __('pko-shipping-common::admin.surcharge.mode_auto'),
+                    'quote' => __('pko-shipping-common::admin.surcharge.mode_quote'),
+                    'rebill' => __('pko-shipping-common::admin.surcharge.mode_rebill'),
+                ])
+                ->required()
+                ->default('quote')
+                ->helperText(fn (Get $get): string => match ($get('mode')) {
+                    'auto' => __('pko-shipping-common::admin.surcharge.mode_auto_help'),
+                    'rebill' => __('pko-shipping-common::admin.surcharge.mode_rebill_help'),
+                    default => __('pko-shipping-common::admin.surcharge.mode_quote_help'),
+                })
+                ->live(),
+
+            TextInput::make('amount_cents')
+                ->label(__('pko-shipping-common::admin.surcharge.amount_cents'))
+                ->numeric()
+                ->minValue(0)
+                ->step(0.01)
+                ->suffix('€')
+                ->nullable()
+                // Saisi en euros, stocké en cents.
+                ->formatStateUsing(fn ($state): ?string => $state !== null ? number_format((int) $state / 100, 2, '.', '') : null)
+                ->dehydrateStateUsing(fn ($state): ?int => filled($state) ? (int) round((float) $state * 100) : null)
+                ->helperText('Laisser vide si le montant est variable.'),
+
+            Textarea::make('rule')
+                ->label(__('pko-shipping-common::admin.surcharge.rule'))
+                ->rows(3)
+                ->nullable()
+                ->helperText('Critères d\'application en JSON (optionnel).'),
+
+            Toggle::make('enabled')
+                ->label(__('pko-shipping-common::admin.surcharge.enabled'))
+                ->default(true),
+        ];
     }
 
     /**
