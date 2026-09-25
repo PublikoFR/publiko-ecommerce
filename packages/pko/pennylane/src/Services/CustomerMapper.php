@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\Pennylane\Services;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
@@ -29,6 +30,8 @@ final class CustomerMapper
             : PennylaneCustomer::where('external_reference', $externalReference)->first();
 
         if ($mapping && $mapping->pennylane_customer_id) {
+            $this->completeRegNoQuietly($mapping);
+
             return (int) $mapping->pennylane_customer_id;
         }
 
@@ -70,6 +73,55 @@ final class CustomerMapper
         return (int) $pennylaneId;
     }
 
+    /**
+     * Complète le SIREN (`reg_no`) d'un client entreprise déjà créé dans
+     * Pennylane sans lui : les fiches créées avant la lecture de
+     * `meta['siret']` sont restées incomplètes. Retourne true si mis à jour.
+     */
+    public function completeRegNo(PennylaneCustomer $mapping): bool
+    {
+        $siren = CustomerData::sirenFrom($this->siretOf($mapping->customer));
+        $snapshot = $mapping->payload_snapshot?->getArrayCopy() ?? [];
+
+        // `name` n'existe que dans le payload entreprise : un particulier n'a pas de SIREN.
+        if ($siren === null
+            || ! $mapping->pennylane_customer_id
+            || ! isset($snapshot['name'])
+            || ($snapshot['reg_no'] ?? null) === $siren) {
+            return false;
+        }
+
+        $this->customers->update((int) $mapping->pennylane_customer_id, ['reg_no' => $siren], true);
+
+        $snapshot['reg_no'] = $siren;
+        $mapping->payload_snapshot = $snapshot;
+        $mapping->synced_at = Carbon::now();
+        $mapping->save();
+
+        return true;
+    }
+
+    /** Un SIREN manquant ne doit jamais bloquer l'émission d'une facture. */
+    private function completeRegNoQuietly(PennylaneCustomer $mapping): void
+    {
+        try {
+            $this->completeRegNo($mapping);
+        } catch (\Throwable $e) {
+            Log::warning('Pennylane : échec de la mise à jour du SIREN client', [
+                'pennylane_customer_id' => $mapping->pennylane_customer_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /** Le SIRET est posé dans `meta` à l'inscription pro ; `account_ref` en repli (saisie back-office). */
+    private function siretOf(?Customer $customer): ?string
+    {
+        $siret = $customer?->meta['siret'] ?? null;
+
+        return filled($siret) ? (string) $siret : ($customer?->account_ref ?: null);
+    }
+
     private function externalReference(Order $order): string
     {
         $prefix = (string) config('pennylane.external_reference_prefix.customer', 'lunar_cust_');
@@ -105,7 +157,7 @@ final class CustomerMapper
             lastName: $lastName,
             email: $billing?->contact_email ?: $this->userEmail($order),
             vatNumber: $customer?->tax_identifier ?? $billing?->tax_identifier,
-            siret: $customer?->account_ref ?? null,
+            siret: $this->siretOf($customer),
             phone: $billing?->contact_phone,
             addressLine1: $billing?->line_one,
             addressLine2: $billing?->line_two,
