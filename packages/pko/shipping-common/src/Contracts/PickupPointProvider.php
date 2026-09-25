@@ -26,9 +26,18 @@ interface PickupPointProvider
      * passer que s'il correspond bien au code postal recherché (cf. le piège
      * documenté dans PickupPointSoapClient, où la ville prime sur le code postal).
      *
+     * $weightGrams est le poids du colis, en grammes, quand il est connu : les
+     * points qui ne peuvent pas le recevoir sont exclus du résultat.
+     *
      * @return list<PickupPoint>
      */
-    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array;
+    public function search(
+        string $postcode,
+        string $countryCode = 'FR',
+        ?string $serviceCode = null,
+        ?string $city = null,
+        ?int $weightGrams = null,
+    ): array;
 
     /**
      * Motif technique du dernier échec de search(), ou null si la dernière

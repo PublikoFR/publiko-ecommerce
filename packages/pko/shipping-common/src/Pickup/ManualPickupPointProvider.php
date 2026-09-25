@@ -17,7 +17,13 @@ use Pko\ShippingCommon\Contracts\PickupPointProvider;
  */
 final class ManualPickupPointProvider implements PickupPointProvider
 {
-    public function search(string $postcode, string $countryCode = 'FR', ?string $serviceCode = null, ?string $city = null): array
+    public function search(
+        string $postcode,
+        string $countryCode = 'FR',
+        ?string $serviceCode = null,
+        ?string $city = null,
+        ?int $weightGrams = null,
+    ): array
     {
         return [];
     }

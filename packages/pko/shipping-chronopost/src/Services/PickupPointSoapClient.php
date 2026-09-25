@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\ShippingChronopost\Services;
 
+use Illuminate\Support\Carbon;
 use Pko\ShippingChronopost\Exceptions\PickupPointException;
 use SoapClient;
 use SoapFault;
@@ -41,6 +42,23 @@ class PickupPointSoapClient
     private const SERVICE_CODE = 'L';
 
     /**
+     * Produit Chronopost lié à la recherche : `86` = Chrono Relais 13H (contrat
+     * Weklo, doc WS VL3.25.10.10 §2.4.2.a — champ obligatoire). Vérifié sur le
+     * compte test le 2026-09-25 : même jeu de points qu'avec l'ancienne valeur vide.
+     */
+    private const PRODUCT_CODE_RELAIS = '86';
+
+    /**
+     * Champ `weight` : grammes, 5 chiffres au plus (`[0-9](0,5)`).
+     */
+    private const MAX_WEIGHT_GRAMS = 99999;
+
+    /**
+     * Abréviations des jours, indexées sur le `jour` du WS (1 = lundi … 7 = dimanche).
+     */
+    private const DAY_LABELS = [1 => 'Lun', 2 => 'Mar', 3 => 'Mer', 4 => 'Jeu', 5 => 'Ven', 6 => 'Sam', 7 => 'Dim'];
+
+    /**
      * @param  array{account?: string, password?: string}  $credentials
      */
     public function __construct(
@@ -55,7 +73,9 @@ class PickupPointSoapClient
      *     id: string, name: string, address1: string, postcode: string, city: string,
      *     country_code: string, distance_km: float|null,
      *     latitude: float|null, longitude: float|null,
-     *     opening_hours: string|null
+     *     opening_hours: string|null,
+     *     opening_schedule: list<array{day: int, label: string, hours: string}>|null,
+     *     max_weight_kg: float|null
      * }>
      *
      * @throws PickupPointException
@@ -65,6 +85,7 @@ class PickupPointSoapClient
         string $countryCode = 'FR',
         ?string $serviceCode = null,
         ?string $city = null,
+        ?int $weightGrams = null,
     ): array {
         $account = (string) ($this->credentials['account'] ?? '');
         $password = (string) ($this->credentials['password'] ?? '');
@@ -91,10 +112,17 @@ class PickupPointSoapClient
                 'city' => ($city !== null && trim($city) !== '') ? $city : $postcode,
                 'countryCode' => $countryCode,
                 'type' => self::POINT_TYPE,
-                'productCode' => $serviceCode ?? '',
+                'productCode' => $serviceCode ?? self::PRODUCT_CODE_RELAIS,
                 'service' => self::SERVICE_CODE,
-                'weight' => '',
-                'shippingDate' => '',
+                // Transmis quand il est connu, mais le WS ne filtre PAS dessus : un
+                // poids de 25 kg renvoie les mêmes points (tous à poidsMaxi = 20).
+                // Le filtre effectif est fait par ChronopostPickupPointProvider.
+                'weight' => ($weightGrams !== null && $weightGrams > 0 && $weightGrams <= self::MAX_WEIGHT_GRAMS)
+                    ? $weightGrams
+                    : '',
+                // Obligatoire selon la doc (JJ/MM/AAAA). Date du jour : le colis
+                // part au plus tôt aujourd'hui.
+                'shippingDate' => Carbon::now()->format('d/m/Y'),
                 'maxPointChronopost' => 20,
                 'maxDistanceSearch' => 20,
                 'holidayTolerant' => 1,
@@ -142,6 +170,13 @@ class PickupPointSoapClient
             throw new PickupPointException("Chronopost pickup API error [{$errorCode}]: {$message}");
         }
 
+        // 0 = « mauvaise qualité, résultat à ignorer » (doc §2.4.2.b). 1 = recherche
+        // faite sur le code postal, 2 = sur l'adresse. Absent = ancien format, on
+        // garde le résultat.
+        if (isset($payload->qualiteReponse) && (string) $payload->qualiteReponse === '0') {
+            throw new PickupPointException('Chronopost pickup: low quality response (qualiteReponse=0), result ignored');
+        }
+
         $rawPoints = $payload->listePointRelais ?? [];
 
         if (is_object($rawPoints)) {
@@ -154,6 +189,17 @@ class PickupPointSoapClient
 
         $points = [];
         foreach ($rawPoints as $point) {
+            if (! is_object($point)) {
+                continue;
+            }
+
+            // Point désactivé côté Chronopost : ne jamais le proposer au client.
+            if (isset($point->actif) && ($point->actif === false || $point->actif === 'false')) {
+                continue;
+            }
+
+            $schedule = $this->parseOpeningSchedule($point);
+
             $points[] = [
                 'id' => (string) ($point->identifiant ?? ''),
                 'name' => (string) ($point->nom ?? ''),
@@ -170,39 +216,127 @@ class PickupPointSoapClient
                 'longitude' => isset($point->coordGeolocalisationLongitude)
                     ? (float) str_replace(',', '.', (string) $point->coordGeolocalisationLongitude)
                     : null,
-                'opening_hours' => $this->parseOpeningHours($point),
+                'opening_hours' => $schedule !== null ? $this->formatOpeningHours($schedule) : null,
+                'opening_schedule' => $schedule,
+                'max_weight_kg' => isset($point->poidsMaxi) && is_numeric($point->poidsMaxi)
+                    ? (float) $point->poidsMaxi
+                    : null,
             ];
         }
 
         return $points;
     }
 
-    private function parseOpeningHours(object $point): ?string
+    /**
+     * Horaires d'ouverture, triés du lundi au dimanche.
+     *
+     * Structure réelle (doc §2.4.2.b) : un `listeHoraireOuverture` par jour ouvert,
+     * portant `jour` (1 = lundi … 7 = dimanche), `horairesAsString`
+     * (« 08:15-12:00 12:00-17:00 ») et des plages `listeHoraireOuverture{debut, fin}`.
+     * SoapClient rend un objet au lieu d'un tableau quand il n'y a qu'un élément,
+     * aux deux niveaux. Un jour absent est un jour fermé.
+     *
+     * Retour :
+     * - `[]`   → aucune contrainte horaire : consigne en accès libre (cf. doc) ;
+     * - `null` → horaires présents mais illisibles (on n'affiche rien plutôt que
+     *   d'annoncer à tort un accès libre) ;
+     * - sinon la liste des jours ouverts.
+     *
+     * @return list<array{day: int, label: string, hours: string}>|null
+     */
+    private function parseOpeningSchedule(object $point): ?array
     {
-        $horaires = $point->listeHoraireOuverture ?? null;
-        if (! $horaires) {
-            return null;
+        $days = $this->asList($point->listeHoraireOuverture ?? null);
+        if ($days === []) {
+            return [];
         }
 
-        if (is_object($horaires)) {
-            $horaires = [$horaires];
-        }
-
-        if (! is_array($horaires)) {
-            return null;
-        }
-
-        $lines = [];
-        foreach ($horaires as $h) {
-            $day = (string) ($h->jour ?? '');
-            $open = (string) ($h->listeHoraire->ouvertureMatin ?? '');
-            $close = (string) ($h->listeHoraire->fermetureApresMidi ?? '');
-
-            if ($day !== '' && $open !== '' && $close !== '') {
-                $lines[] = "{$day}: {$open}-{$close}";
+        $schedule = [];
+        foreach ($days as $entry) {
+            if (! is_object($entry)) {
+                continue;
             }
+
+            $day = (int) ($entry->jour ?? 0);
+            if (! isset(self::DAY_LABELS[$day])) {
+                continue;
+            }
+
+            $hours = trim((string) preg_replace('/\s+/', ' ', (string) ($entry->horairesAsString ?? '')));
+            if ($hours === '') {
+                $slots = [];
+                foreach ($this->asList($entry->listeHoraireOuverture ?? null) as $slot) {
+                    $start = trim((string) ($slot->debut ?? ''));
+                    $end = trim((string) ($slot->fin ?? ''));
+                    if ($start !== '' && $end !== '') {
+                        $slots[] = "{$start}-{$end}";
+                    }
+                }
+                $hours = implode(' ', $slots);
+            }
+
+            if ($hours === '') {
+                continue;
+            }
+
+            $schedule[$day] = ['day' => $day, 'label' => self::DAY_LABELS[$day], 'hours' => $hours];
         }
 
-        return $lines ? implode(', ', $lines) : null;
+        if ($schedule === []) {
+            return null;
+        }
+
+        ksort($schedule);
+
+        return array_values($schedule);
+    }
+
+    /**
+     * Résumé lisible : les jours consécutifs aux horaires identiques sont regroupés
+     * (« Lun–Ven 08:15-12:00 12:00-17:00 · Sam 08:15-12:00 »).
+     *
+     * @param  list<array{day: int, label: string, hours: string}>  $schedule
+     */
+    private function formatOpeningHours(array $schedule): ?string
+    {
+        if ($schedule === []) {
+            return null;
+        }
+
+        /** @var list<array{first: array{day: int, label: string}, last: array{day: int, label: string}, hours: string}> $groups */
+        $groups = [];
+        foreach ($schedule as $entry) {
+            $lastIndex = count($groups) - 1;
+            if ($lastIndex >= 0
+                && $groups[$lastIndex]['hours'] === $entry['hours']
+                && $groups[$lastIndex]['last']['day'] === $entry['day'] - 1
+            ) {
+                $groups[$lastIndex]['last'] = $entry;
+
+                continue;
+            }
+
+            $groups[] = ['first' => $entry, 'last' => $entry, 'hours' => $entry['hours']];
+        }
+
+        return implode(' · ', array_map(function (array $group): string {
+            $span = $group['first']['day'] === $group['last']['day']
+                ? $group['first']['label']
+                : $group['first']['label'].'–'.$group['last']['label'];
+
+            return "{$span} {$group['hours']}";
+        }, $groups));
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function asList(mixed $value): array
+    {
+        if (is_object($value)) {
+            return [$value];
+        }
+
+        return is_array($value) ? array_values($value) : [];
     }
 }
