@@ -16,6 +16,8 @@ use Pko\ShippingCommon\Dto\ShipmentResponse;
 use Pko\ShippingCommon\Pricing\LivePricingResolver;
 use Pko\ShippingCommon\Pricing\PricingMode;
 use Pko\ShippingCommon\Pricing\PricingModeResolver;
+use Pko\ShippingCommon\Settings\ShippingSettings;
+use Pko\ShippingCommon\Support\CarrierProductCodeResolver;
 use RuntimeException;
 use SoapClient;
 use Throwable;
@@ -68,12 +70,22 @@ class ChronopostClient implements CarrierClient
                     carrier: 'chronopost',
                     request: $request,
                     livePricer: function (string $service, float $weightKg, string $dep, string $arr) {
-                        $resp = $this->liveClient->quickCost($service, $weightKg, $dep, $arr);
+                        // QuickCost attend le code produit Chronopost (1, 86…), pas notre
+                        // slug interne (chrono13…) — même traduction que pour les étiquettes.
+                        $productCode = app(CarrierProductCodeResolver::class)->resolve('chronopost', $service);
+                        $resp = $this->liveClient->quickCost($productCode, $weightKg, $dep, $arr);
+
+                        // Le montant injecté doit avoir la même nature que les grilles :
+                        // ShippingCalculator ajoute la TVA en base `ht` (défaut) et la
+                        // ventile en base `ttc`. Injecter le TTC en base `ht` = double TVA.
+                        $priceCents = ShippingSettings::taxPriceBase() === 'ttc'
+                            ? $resp->priceCentsTTC
+                            : $resp->priceCentsHT;
 
                         return new QuoteResponse(
-                            serviceCode: $resp->serviceCode,
-                            serviceLabel: $this->serviceLabel($resp->serviceCode),
-                            priceCents: $resp->priceCentsTTC,
+                            serviceCode: $service,
+                            serviceLabel: $this->serviceLabel($service),
+                            priceCents: $priceCents,
                             currencyCode: $resp->currency,
                         );
                     },

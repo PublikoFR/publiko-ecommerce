@@ -13,6 +13,7 @@ use Pko\ShippingCommon\Dto\QuoteRequest;
 use Pko\ShippingCommon\Dto\QuoteResponse;
 use Pko\ShippingCommon\Repositories\CarrierGridRepository;
 use Pko\ShippingCommon\Repositories\CarrierServiceRepository;
+use Pko\ShippingCommon\Settings\ShippingSettings;
 use Throwable;
 
 /**
@@ -27,6 +28,13 @@ class LivePricingResolver
     public const CACHE_PREFIX = 'pko.shipping.';
 
     public const LOCK_SECONDS = 10;
+
+    /**
+     * Version du format de la clé de cache live. À incrémenter dès que la nature
+     * du QuoteResponse mis en cache change, pour ne jamais relire l'ancien format.
+     * v2 : le montant dépend de `shipping.tax.price_base` (HT ou TTC injecté).
+     */
+    public const CACHE_FORMAT_VERSION = 'v2';
 
     public function __construct(
         protected CarrierRegistry $carriers,
@@ -176,7 +184,12 @@ class LivePricingResolver
     ): QuoteResponse {
         $weightBucket = (int) ceil(max(0.01, $request->weightKg));
         $arrPrefix = substr(preg_replace('/\D/', '', $request->destinationPostcode) ?? '', 0, 2);
-        $cacheKey = self::CACHE_PREFIX.$carrier.'.quickcost.'.$service['code'].'.'.$depZip.'.'.$arrPrefix.'.'.$weightBucket;
+        // La base fiscale fait partie de l'identité : le livePricer injecte un montant
+        // HT ou TTC selon `shipping.tax.price_base`. Sans elle, un basculement de base
+        // relirait pendant 24 h un montant de l'autre nature (TVA doublée ou perdue).
+        $priceBase = ShippingSettings::taxPriceBase();
+        $cacheKey = self::CACHE_PREFIX.$carrier.'.quickcost.'.self::CACHE_FORMAT_VERSION.'.'.$priceBase.'.'
+            .$service['code'].'.'.$depZip.'.'.$arrPrefix.'.'.$weightBucket;
 
         $store = $this->cacheStore($carrier);
 
