@@ -158,6 +158,9 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
 | `wholesale_price` | `cost_price_cents` | **×100 puis `(int) round()`** (prix d'achat euros → cents) |
 
+Les casts ci-dessus passent par `Support\NumberParser` : vide → clé ignorée (jamais 0),
+illisible → clé ignorée + warning. Détail en §7.quinquies.16.1.
+
 ### 7.quinquies.10 Actions disponibles (21 + 7 alias legacy)
 
 | Type | Rôle |
@@ -700,5 +703,24 @@ toucher au réseau (no-op sûr).
   Une colonne `llm_transform` y reste volontairement présente pour prouver le no-op,
   sous `Http::fake()` + `assertNothingSent()` + aucun `LlmConfig` actif.
 
----
+### 7.quinquies.16 Correctifs critiques (audit 2026-10-01)
+
+#### 7.quinquies.16.1 Valeurs numériques vides ou décimales FR
+
+**Problème** : `price_tex` vide ou `"12,50"` donnait `price_cents = 0`, upserté → le prix
+existant était écrasé à 0 (update_mode `all`/`price`). Même chose pour `stock` (`''` → 0),
+`min_quantity`, dimensions, `cost_price_cents`.
+
+**Décision** : un helper unique `Pko\AiImporter\Support\NumberParser` parse tout champ
+numérique du writer (`LunarProductWriter::NUMERIC_FIELDS` + `price_tex`/`wholesale_price`) :
+
+| Valeur source | Effet |
+|---|---|
+| `null`, `''`, espaces | clé **retirée** : rien n'est écrit, la valeur en base est conservée |
+| `12,50`, `1 234,50`, `1.234,50`, `1,234.50`, `12.50 €` | parsée (virgule décimale FR, espaces/insécables de milliers) |
+| non parsable (`sur devis`, `N/C`, `1,2,3`) | clé retirée + `ImportLog` **warning** « Valeur(s) numérique(s) illisible(s) » ; la ligne reste importée |
+
+À la **création** d'un produit, un stock absent vaut toujours 0 et `min_quantity` 1 (défauts
+Lunar) ; seul l'update préserve l'existant. Tests : `LunarProductWriterNormalizationTest`,
+`WriterOptionsTest` (`test_blank_*`, `test_french_decimal_price_is_parsed`).
 

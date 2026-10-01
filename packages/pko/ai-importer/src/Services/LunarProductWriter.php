@@ -22,6 +22,7 @@ use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Enums\UpdateMode;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
+use Pko\AiImporter\Support\NumberParser;
 use Pko\CatalogFeatures\Facades\Features;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\LunarMediaCore\Services\MediaLibraryImporter;
@@ -92,10 +93,31 @@ use Pko\ShippingCommon\Models\Supplier;
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
  *   - `wholesale_price` (euros, float) → `cost_price_cents` (int, ×100 rounded).
  *
+ * Champs numériques (prix, stock, min_quantity, dimensions) : parsés via
+ * `NumberParser` (virgule décimale FR, espaces de milliers acceptés). Une valeur
+ * vide n'est JAMAIS convertie en 0 : la clé est ignorée et la valeur en base
+ * conservée. Une valeur illisible est ignorée avec un warning `ImportLog`.
+ *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
 final class LunarProductWriter
 {
+    /**
+     * Champs numériques canoniques et leur type cible.
+     * Parsés via NumberParser — vide = ignoré, illisible = ignoré + warning.
+     */
+    private const NUMERIC_FIELDS = [
+        'price_cents' => 'int',
+        'compare_price_cents' => 'int',
+        'cost_price_cents' => 'int',
+        'stock' => 'int',
+        'min_quantity' => 'int',
+        'weight_value' => 'float',
+        'length_value' => 'float',
+        'width_value' => 'float',
+        'height_value' => 'float',
+    ];
+
     /** @var array<string, int> */
     private array $brandCache = [];
 
@@ -203,8 +225,11 @@ final class LunarProductWriter
             ? $record->data->getArrayCopy()
             : (array) $record->data;
 
-        $data = self::normalizeLegacyKeys($data);
+        $numericWarnings = [];
+        $data = self::normalizeLegacyKeys($data, $numericWarnings);
+        $data = self::sanitizeNumericFields($data, $numericWarnings);
         $data = $this->filterImportColumns($data);
+        $this->logNumericWarnings($record, $numericWarnings);
 
         $sku = trim((string) ($data['reference'] ?? ''));
         if ($sku === '') {
@@ -264,7 +289,7 @@ final class LunarProductWriter
                 'mpn' => $data['mpn'] ?? null,
                 'stock' => (int) ($data['stock'] ?? 0),
                 'unit_quantity' => 1,
-                'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : 1,
+                'min_quantity' => isset($data['min_quantity']) ? max(1, $data['min_quantity']) : 1,
                 'quantity_increment' => 1,
                 'shippable' => true,
                 'purchasable' => 'always',
@@ -292,8 +317,8 @@ final class LunarProductWriter
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
                     'mpn' => $data['mpn'] ?? null,
-                    'stock' => isset($data['stock']) ? (int) $data['stock'] : null,
-                    'min_quantity' => isset($data['min_quantity']) ? max(1, (int) $data['min_quantity']) : null,
+                    'stock' => $data['stock'] ?? null,
+                    'min_quantity' => isset($data['min_quantity']) ? max(1, $data['min_quantity']) : null,
                     ...$this->dimensions($data),
                 ], static fn ($v) => $v !== null));
 
@@ -306,7 +331,7 @@ final class LunarProductWriter
                     $this->applyCostPrice($variant, $data);
                 }
                 if ($this->updateMode->writesStock() && isset($data['stock'])) {
-                    $variant->update(['stock' => (int) $data['stock']]);
+                    $variant->update(['stock' => $data['stock']]);
                 }
             }
         }
@@ -376,8 +401,8 @@ final class LunarProductWriter
 
         $this->upsertPrice(
             $variant,
-            (int) $data['price_cents'],
-            isset($data['compare_price_cents']) ? (int) $data['compare_price_cents'] : null,
+            $data['price_cents'],
+            $data['compare_price_cents'] ?? null,
         );
     }
 
@@ -395,7 +420,7 @@ final class LunarProductWriter
             return;
         }
 
-        $variant->pko_cost_price = (int) $data['cost_price_cents'];
+        $variant->pko_cost_price = $data['cost_price_cents'];
         $variant->save();
     }
 
@@ -836,12 +861,12 @@ final class LunarProductWriter
     {
         $out = [];
         if (isset($data['weight_value'])) {
-            $out['weight_value'] = (float) $data['weight_value'];
+            $out['weight_value'] = $data['weight_value'];
             $out['weight_unit'] = 'kg';
         }
         foreach (['length', 'width', 'height'] as $axis) {
             if (isset($data[$axis.'_value'])) {
-                $out[$axis.'_value'] = (float) $data[$axis.'_value'];
+                $out[$axis.'_value'] = $data[$axis.'_value'];
                 $out[$axis.'_unit'] = 'cm';
             }
         }
@@ -970,6 +995,32 @@ final class LunarProductWriter
         $message = "[{$sku}] handle(s) introuvable(s) — ".implode(', ', $parts).' ignoré(s).';
         $context = array_filter($unresolved, static fn (array $v) => $v !== []);
 
+        $this->logWarning($record, $message, $context);
+    }
+
+    /**
+     * @param  array<string, string>  $warnings  clé source → valeur brute non parsable
+     */
+    private function logNumericWarnings(StagingRecord $record, array $warnings): void
+    {
+        if ($warnings === []) {
+            return;
+        }
+
+        $fields = implode(', ', array_map(
+            static fn (string $key, string $raw): string => "{$key} « {$raw} »",
+            array_keys($warnings),
+            $warnings,
+        ));
+
+        $this->logWarning($record, "Valeur(s) numérique(s) illisible(s), champ(s) ignoré(s) : {$fields}.", $warnings);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logWarning(StagingRecord $record, string $message, array $context): void
+    {
         if ($this->jobId !== 0) {
             $this->addLog(LogLevel::Warning, $message, $context);
         } else {
@@ -1104,10 +1155,14 @@ final class LunarProductWriter
      * wins when both are present. Conversions (€→cents, dimension axes) are
      * applied only when the canonical target is empty.
      *
+     * Une valeur legacy vide ou illisible ne produit AUCUNE clé canonique (elle
+     * n'est jamais convertie en 0) ; les illisibles sont reportées dans `$warnings`.
+     *
      * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $warnings  clé source → valeur brute non parsable
      * @return array<string, mixed>
      */
-    public static function normalizeLegacyKeys(array $data): array
+    public static function normalizeLegacyKeys(array $data, array &$warnings = []): array
     {
         $aliases = [
             'ean13' => 'ean',
@@ -1134,24 +1189,64 @@ final class LunarProductWriter
             unset($data[$legacy]);
         }
 
-        // price_tex (PrestaShop, in euros — float or string) → price_cents (int cents).
-        if (array_key_exists('price_tex', $data)) {
-            if (! array_key_exists('price_cents', $data) || $data['price_cents'] === null || $data['price_cents'] === '') {
-                $euros = is_numeric($data['price_tex']) ? (float) $data['price_tex'] : 0.0;
-                $data['price_cents'] = (int) round($euros * 100);
+        // price_tex (prix HT en euros) → price_cents ; wholesale_price (prix d'achat
+        // en euros) → cost_price_cents. Vide → rien ; illisible → warning, rien.
+        foreach (['price_tex' => 'price_cents', 'wholesale_price' => 'cost_price_cents'] as $legacy => $canonical) {
+            if (! array_key_exists($legacy, $data)) {
+                continue;
             }
-            unset($data['price_tex']);
-        }
-
-        // wholesale_price (PrestaShop, prix d'achat en euros) → cost_price_cents (int cents).
-        if (array_key_exists('wholesale_price', $data)) {
-            if (! array_key_exists('cost_price_cents', $data) || $data['cost_price_cents'] === null || $data['cost_price_cents'] === '') {
-                $euros = is_numeric($data['wholesale_price']) ? (float) $data['wholesale_price'] : 0.0;
-                $data['cost_price_cents'] = (int) round($euros * 100);
+            if (NumberParser::isBlank($data[$canonical] ?? null) && ! NumberParser::isBlank($data[$legacy])) {
+                $cents = NumberParser::eurosToCents($data[$legacy]);
+                if ($cents !== null) {
+                    $data[$canonical] = $cents;
+                } else {
+                    $warnings[$legacy] = self::stringify($data[$legacy]);
+                }
             }
-            unset($data['wholesale_price']);
+            unset($data[$legacy]);
         }
 
         return $data;
+    }
+
+    /**
+     * Normalise les champs numériques canoniques en int/float. Une valeur vide
+     * est retirée (le champ n'est pas écrit, la valeur en base est conservée) ;
+     * une valeur illisible est retirée ET reportée dans `$warnings`.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $warnings
+     * @return array<string, mixed>
+     */
+    public static function sanitizeNumericFields(array $data, array &$warnings = []): array
+    {
+        foreach (self::NUMERIC_FIELDS as $key => $type) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $raw = $data[$key];
+            unset($data[$key]);
+
+            if (NumberParser::isBlank($raw)) {
+                continue;
+            }
+
+            $value = $type === 'int' ? NumberParser::toInt($raw) : NumberParser::toFloat($raw);
+            if ($value === null) {
+                $warnings[$key] = self::stringify($raw);
+
+                continue;
+            }
+
+            $data[$key] = $value;
+        }
+
+        return $data;
+    }
+
+    private static function stringify(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : (string) json_encode($value);
     }
 }
