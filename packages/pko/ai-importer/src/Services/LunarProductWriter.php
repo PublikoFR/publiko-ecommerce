@@ -403,6 +403,7 @@ final class LunarProductWriter
             $variant,
             $data['price_cents'],
             $data['compare_price_cents'] ?? null,
+            array_key_exists('compare_price_cents', $data),
         );
     }
 
@@ -1063,7 +1064,11 @@ final class LunarProductWriter
         $this->pendingLogs = [];
     }
 
-    private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents): void
+    /**
+     * `$writeCompare` = false : le prix barré existant est conservé (colonne
+     * absente ou vide dans la source → rien n'est écrit, cf. NumberParser).
+     */
+    private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents, bool $writeCompare = true): void
     {
         // Passer par la relation morphMany : elle pose le `priceable_type` avec
         // l'ALIAS morph de Lunar (`product_variant`), pas le FQCN. Sinon la
@@ -1075,10 +1080,10 @@ final class LunarProductWriter
                 'customer_group_id' => null,
                 'min_quantity' => 1,
             ],
-            [
+            array_filter([
                 'price' => $priceCents,
                 'compare_price' => $comparePriceCents,
-            ],
+            ], static fn (string $column): bool => $column === 'price' || $writeCompare, ARRAY_FILTER_USE_KEY),
         );
     }
 

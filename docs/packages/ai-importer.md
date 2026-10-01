@@ -720,6 +720,9 @@ numérique du writer (`LunarProductWriter::NUMERIC_FIELDS` + `price_tex`/`wholes
 | `12,50`, `1 234,50`, `1.234,50`, `1,234.50`, `12.50 €` | parsée (virgule décimale FR, espaces/insécables de milliers) |
 | non parsable (`sur devis`, `N/C`, `1,2,3`) | clé retirée + `ImportLog` **warning** « Valeur(s) numérique(s) illisible(s) » ; la ligne reste importée |
 
+Le prix barré suit la même règle : `compare_price_cents` vide ou absent → le prix barré
+existant est conservé lors de la mise à jour du prix de base.
+
 À la **création** d'un produit, un stock absent vaut toujours 0 et `min_quantity` 1 (défauts
 Lunar) ; seul l'update préserve l'existant. Tests : `LunarProductWriterNormalizationTest`,
 `WriterOptionsTest` (`test_blank_*`, `test_french_decimal_price_is_parsed`).

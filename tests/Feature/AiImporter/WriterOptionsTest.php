@@ -280,4 +280,25 @@ class WriterOptionsTest extends TestCase
             ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%price_tex%')->exists()
         );
     }
+
+    public function test_blank_compare_price_keeps_existing_compare_price(): void
+    {
+        $job = $this->job();
+        (new LunarProductWriter)->write($this->record($job, [
+            'reference' => 'SKU-COMPARE',
+            'name' => 'Original',
+            'price_cents' => 1000,
+            'compare_price_cents' => 1500,
+        ]));
+
+        (new LunarProductWriter)->write($this->record($job, [
+            'reference' => 'SKU-COMPARE',
+            'price_cents' => 1200,
+            'compare_price_cents' => '',
+        ], 2));
+
+        $price = ProductVariant::where('sku', 'SKU-COMPARE')->firstOrFail()->prices()->first();
+        $this->assertSame(1200, (int) $price->price->value);
+        $this->assertSame(1500, (int) $price->compare_price->value);
+    }
 }
