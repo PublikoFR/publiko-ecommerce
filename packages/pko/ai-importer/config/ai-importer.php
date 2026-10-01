@@ -45,11 +45,12 @@ return [
     // Connexion : une variante « -long » de la connexion par défaut, dont le
     // `retry_after` (config/queue.php) dépasse le timeout des jobs — sinon un job
     // encore en cours serait réservé une seconde fois et exécuté en double.
-    // null = connexion par défaut (cas `sync` : exécution en ligne).
+    // null = connexion par défaut (cas `sync` : exécution en ligne). Le repli sur
+    // `database` reprend celui de config/queue.php : les deux doivent rester alignés.
     'queues' => [
         'parse' => env('AI_IMPORTER_PARSE_QUEUE', 'ai-importer-parse'),
         'import' => env('AI_IMPORTER_IMPORT_QUEUE', 'ai-importer-import'),
-        'connection' => env('AI_IMPORTER_QUEUE_CONNECTION') ?: match (env('QUEUE_CONNECTION', 'sync')) {
+        'connection' => env('AI_IMPORTER_QUEUE_CONNECTION') ?: match (env('QUEUE_CONNECTION', 'database')) {
             'database' => 'database-long',
             'redis' => 'redis-long',
             default => null,
