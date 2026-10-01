@@ -6,8 +6,13 @@ namespace Tests\Feature\AiImporter;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Scout\Jobs\MakeSearchable;
 use Lunar\FieldTypes\TranslatedText;
+use Lunar\Models\Cart;
+use Lunar\Models\CartLine;
+use Lunar\Models\Channel;
 use Lunar\Models\Collection;
 use Lunar\Models\CollectionGroup;
 use Lunar\Models\Currency;
@@ -15,6 +20,7 @@ use Lunar\Models\Language;
 use Lunar\Models\Product;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
+use Lunar\Models\Tag;
 use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\StagingStatus;
@@ -23,6 +29,11 @@ use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Services\LunarProductWriter;
+use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Models\FeatureValue;
+use Pko\LunarMediaCore\Models\Mediable;
+use Pko\ProductDocuments\Models\ProductDocument;
+use Pko\ProductVideos\Models\ProductVideo;
 use Tests\TestCase;
 
 /**
@@ -208,5 +219,104 @@ class LunarBackupManagerTest extends TestCase
         app(LunarBackupManager::class)->restore($job->fresh());
 
         $this->assertSame(0, $variant->prices()->count());
+    }
+
+    private function media(Product $owner, string $name): int
+    {
+        return (int) $owner->addMediaFromString("contenu {$name}")
+            ->usingFileName("{$name}.pdf")
+            ->toMediaCollection('test-library', 'local')
+            ->id;
+    }
+
+    private function runImport(ImportJob $job): void
+    {
+        (new ImportStagingToLunarJob($job->id))->handle(app(LunarProductWriter::class), app(LunarBackupManager::class));
+    }
+
+    public function test_rollback_restores_tags_features_media_documents_and_videos_exactly(): void
+    {
+        $product = $this->seedExisting()->product;
+
+        $tagOld = Tag::create(['value' => 'ANCIEN']);
+        $tagNew = Tag::create(['value' => 'NOUVEAU']);
+        $family = FeatureFamily::create(['handle' => 'couleur', 'name' => 'Couleur']);
+        $fvOld = FeatureValue::create(['feature_family_id' => $family->id, 'handle' => 'rouge', 'name' => 'Rouge']);
+        $fvNew = FeatureValue::create(['feature_family_id' => $family->id, 'handle' => 'bleu', 'name' => 'Bleu']);
+        [$mediaA, $mediaB, $mediaC] = [$this->media($product, 'a'), $this->media($product, 'b'), $this->media($product, 'c')];
+
+        $product->tags()->sync([$tagOld->id]);
+        $product->featureValues()->sync([$fvOld->id]);
+        Mediable::create(['media_id' => $mediaA, 'mediable_type' => Product::modelClass(), 'mediable_id' => $product->id, 'mediagroup' => 'product', 'position' => 0]);
+        $doc = ProductDocument::create(['product_id' => $product->id, 'media_id' => $mediaB, 'sort_order' => 0]);
+        $video = ProductVideo::create(['product_id' => $product->id, 'url' => 'https://youtu.be/ancienne', 'provider' => 'youtube', 'title' => 'Ancienne']);
+
+        $job = $this->job();
+        $this->stage($job, ['reference' => 'EXIST-1'], 1);
+        app(LunarBackupManager::class)->snapshot($job);
+
+        // Effets d'un import : remplacement (tags, caractéristiques), ajouts,
+        // modification d'un lien existant, et un lien disparu entre-temps.
+        $product->tags()->sync([$tagNew->id]);
+        $product->featureValues()->sync([$fvNew->id]);
+        Mediable::create(['media_id' => $mediaC, 'mediable_type' => Product::modelClass(), 'mediable_id' => $product->id, 'mediagroup' => 'product', 'position' => 1]);
+        $doc->update(['sort_order' => 5]);
+        ProductDocument::create(['product_id' => $product->id, 'media_id' => $mediaC, 'sort_order' => 1]);
+        $video->delete();
+        ProductVideo::create(['product_id' => $product->id, 'url' => 'https://youtu.be/nouvelle', 'provider' => 'youtube', 'title' => 'Nouvelle']);
+
+        app(LunarBackupManager::class)->restore($job->fresh());
+
+        $product = $product->fresh();
+        $this->assertSame([$tagOld->id], $product->tags()->pluck('lunar_tags.id')->all());
+        $this->assertSame([$fvOld->id], $product->featureValues()->pluck('pko_feature_values.id')->all());
+        $this->assertSame(
+            [$mediaA],
+            Mediable::where('mediable_type', Product::modelClass())->where('mediable_id', $product->id)->pluck('media_id')->map(fn ($id): int => (int) $id)->all(),
+        );
+        $docs = ProductDocument::where('product_id', $product->id)->get();
+        $this->assertSame([$mediaB], $docs->pluck('media_id')->map(fn ($id): int => (int) $id)->all());
+        $this->assertSame(0, (int) $docs->first()->sort_order);
+        $videos = ProductVideo::where('product_id', $product->id)->get();
+        $this->assertSame([$video->id], $videos->pluck('id')->all());
+        $this->assertSame('Ancienne', $videos->first()->title);
+    }
+
+    public function test_created_product_already_in_a_cart_is_set_to_draft_not_deleted(): void
+    {
+        $job = $this->job();
+        $created = $this->stage($job, ['reference' => 'NEW-CART', 'name' => 'Déjà en panier', 'price_cents' => 500], 1);
+        $this->runImport($job);
+
+        $variant = ProductVariant::where('sku', 'NEW-CART')->firstOrFail();
+        $channel = Channel::firstOrCreate(['handle' => 'webstore'], ['name' => 'Web', 'default' => true, 'url' => 'http://localhost']);
+        $cart = Cart::create(['currency_id' => Currency::where('code', 'EUR')->value('id'), 'channel_id' => $channel->id]);
+        CartLine::create(['cart_id' => $cart->id, 'purchasable_type' => $variant->getMorphClass(), 'purchasable_id' => $variant->id, 'quantity' => 1]);
+
+        app(LunarBackupManager::class)->restore($job->fresh());
+
+        $product = Product::find($variant->product_id);
+        $this->assertNotNull($product);
+        $this->assertSame('draft', $product->status);
+        $created->refresh();
+        $this->assertSame(StagingStatus::Pending, $created->status);
+        $this->assertSame($product->id, $created->lunar_product_id);
+        $this->assertStringContainsString('brouillon', (string) $created->error_message);
+    }
+
+    public function test_restored_products_are_reindexed(): void
+    {
+        $product = $this->seedExisting()->product;
+
+        $job = $this->job();
+        $this->stage($job, ['reference' => 'EXIST-1', 'name' => 'Nom importé'], 1);
+        $this->runImport($job);
+
+        config(['scout.queue' => true]);
+        Queue::fake();
+
+        app(LunarBackupManager::class)->restore($job->fresh());
+
+        Queue::assertPushed(MakeSearchable::class, fn (MakeSearchable $job): bool => $job->models->contains('id', $product->id));
     }
 }

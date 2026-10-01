@@ -832,11 +832,24 @@ n'étaient pas restaurées.
   peut être réimporté proprement. `error` et `skipped` inchangés.
 - **Ancien backup (v1)** : `attribute_data` aplati n'est **pas** réécrit (warning
   `ImportLog`), le reste est restauré.
-- **Non restauré** : tags, caractéristiques, images, documents et vidéos que l'import a
-  **ajoutés** à des produits existants (le writer les ajoute sans retirer l'existant ; aucun
-  état antérieur n'est capturé). Pas de réindexation Scout explicite après les updates builder.
+- **Relations restaurées à l'identique** pour chaque produit sauvegardé (le writer peut
+  aussi bien ajouter que **remplacer** : `syncTags` et `Features::syncByHandles` écrasent) :
+  - tags (`lunar_taggables`) et caractéristiques (`pko_feature_value_product`) → `sync()` exact ;
+  - liens médias (`pko_mediables`, `mediable_type` = `Product::modelClass()`, le FQCN posé
+    par le writer), documents (`pko_product_documents`), vidéos (`pko_product_videos`) →
+    lignes ajoutées supprimées, lignes modifiées remises, lignes disparues réinsérées avec
+    leur id. Un lien vers un média **supprimé** de la médiathèque depuis la sauvegarde
+    n'est pas réinséré (FK) : warning `ImportLog`.
+  - Les fichiers médias importés restent dans la médiathèque : seuls les liens sont annulés.
+  - Une sauvegarde v2 prise avant l'ajout de ces clés ne touche pas à ces relations
+    (clé absente ≠ liste vide).
+- **Réindexation Scout** : les updates du builder ne déclenchent aucun événement modèle →
+  après commit, `searchable()` sur les produits restaurés. Un moteur de recherche
+  indisponible ne fait pas échouer le rollback (warning `ImportLog`). Les produits supprimés
+  sortent de l'index via l'événement `deleted` du `forceDelete()`.
 
 Test : `tests/Feature/AiImporter/LunarBackupManagerTest` (vrai `ImportStagingToLunarJob` :
 création + mise à jour puis restore — nom lisible via le cast, prix, stock, MPN, dimensions,
 prix d'achat, pivot exact, produit créé supprimé, statuts staging ; jointure EAN ; prix ajouté
-par l'import supprimé).
+par l'import supprimé ; tags / caractéristiques / médias / documents / vidéos remis à
+l'identique ; produit créé déjà en panier passé en brouillon ; réindexation Scout).

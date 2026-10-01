@@ -198,10 +198,11 @@ Exemple de pipeline :
 
 - Bouton **Rollback** sur un job `imported` → restore en transaction : produits mis à jour remis à
   l'identique (nom/descriptions, marque, fournisseur, mode de port, prix, prix d'achat, stock,
-  EAN/MPN, quantité minimale, dimensions, collections), **produits créés par l'import supprimés**
-  (ou passés en brouillon s'ils ont déjà été commandés ou mis en panier), lignes staging remises
-  en `pending`.
-- Non annulé : tags, caractéristiques, images, documents et vidéos **ajoutés** à un produit existant.
+  EAN/MPN, quantité minimale, dimensions, collections, tags, caractéristiques, images, documents,
+  vidéos), **produits créés par l'import supprimés** (ou passés en brouillon s'ils ont déjà été
+  commandés ou mis en panier), lignes staging remises en `pending`, recherche réindexée.
+- Les fichiers images/documents téléchargés par l'import restent dans la médiathèque (seuls leurs
+  liens aux produits sont annulés).
 - Les backups restent sur disque tant que tu ne les supprimes pas à la main — prévoir un nettoyage périodique si ça s'accumule.
 - Le format est volontairement lisible : tu peux l'inspecter avec `zcat storage/app/ai-importer/backups/job_xxx.json.gz | jq .` avant de déclencher un rollback.
 

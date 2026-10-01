@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Pko\AiImporter\Services;
 
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Lunar\Models\CartLine;
 use Lunar\Models\OrderLine;
@@ -19,6 +21,9 @@ use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\LunarMediaCore\Models\Mediable;
+use Pko\ProductDocuments\Models\ProductDocument;
+use Pko\ProductVideos\Models\ProductVideo;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Snapshots Lunar rows that are about to be touched by a job, gzipped as JSON.
@@ -36,8 +41,12 @@ use Pko\LunarMediaCore\Models\Mediable;
  * force-deleted through Lunar models when nothing references the variants
  * (order / cart lines), set to `draft` otherwise.
  *
- * Not restored : tags, catalog features, images, documents and videos ADDED
- * to existing products by the import (the writer only appends them).
+ * Product relations the writer touches are restored EXACTLY for snapshotted
+ * products : collections, tags, catalog features, media links
+ * (`pko_mediables`), documents and videos. A v2 backup taken before these
+ * keys existed leaves the missing relations untouched (absent ≠ empty).
+ * Restored products are re-indexed in Scout after commit (builder updates
+ * fire no model event).
  *
  * The format is intentionally dumb JSON so a staff member can inspect a
  * backup in a text editor before triggering a rollback.
@@ -95,7 +104,24 @@ final class LunarBackupManager
                 ->whereIn('product_id', $ids)
                 ->get(['collection_id', 'product_id', 'position']))
                 ->map(fn (object $row): array => (array) $row)->values()->all(),
+            'tags' => $this->chunked($productIds, fn (array $ids) => DB::table($prefix.'taggables')
+                ->where('taggable_type', (new Product)->getMorphClass())
+                ->whereIn('taggable_id', $ids)
+                ->get(['tag_id', 'taggable_id']))
+                ->map(fn (object $row): array => (array) $row)->values()->all(),
         ];
+
+        if (Schema::hasTable('pko_feature_value_product')) {
+            $payload['feature_values'] = $this->chunked($productIds, fn (array $ids) => DB::table('pko_feature_value_product')
+                ->whereIn('product_id', $ids)
+                ->get(['feature_value_id', 'product_id']))
+                ->map(fn (object $row): array => (array) $row)->values()->all();
+        }
+
+        foreach ($this->ownedTables() as $key => [$model, $column, $scope]) {
+            $payload[$key] = $this->chunked($productIds, fn (array $ids) => $scope($model::query())->whereIn($column, $ids)->get())
+                ->map(fn (Model $row): array => $row->getRawOriginal())->values()->all();
+        }
 
         $path = config('ai-importer.storage.backups_path', 'ai-importer/backups')
             .'/job_'.$job->uuid.'_'.now()->format('YmdHis').'.json.gz';
@@ -134,6 +160,12 @@ final class LunarBackupManager
             $this->restoreVariants($payload['variants'] ?? []);
             $this->restorePrices($payload['variants'] ?? [], $payload['prices'] ?? []);
             $this->restoreCollections($payload['products'] ?? [], $payload['collection_product'] ?? []);
+            $this->restoreTagsAndFeatures($payload);
+            foreach ($this->ownedTables() as $key => [$model, $column, $scope]) {
+                if (array_key_exists($key, $payload)) {
+                    $this->restoreOwnedRows($job, $model, $column, $scope, $payload['products'] ?? [], $payload[$key]);
+                }
+            }
             $this->removeCreatedProducts($job);
 
             // Les lignes réellement écrites redeviennent importables.
@@ -144,6 +176,134 @@ final class LunarBackupManager
 
             $job->update(['rollback_completed' => true]);
         });
+
+        $this->reindex($job, array_column($payload['products'] ?? [], 'id'));
+    }
+
+    /**
+     * Tables « possédées » par un produit, restaurées ligne à ligne.
+     * Clé payload → [modèle, colonne produit, restriction de requête].
+     *
+     * @return array<string, array{0: class-string<Model>, 1: string, 2: \Closure}>
+     */
+    private function ownedTables(): array
+    {
+        $none = static fn ($query) => $query;
+        $tables = [];
+
+        if (Schema::hasTable('pko_mediables')) {
+            // Le writer pose le FQCN du modèle (pas l'alias morph) dans mediable_type.
+            $tables['mediables'] = [Mediable::class, 'mediable_id', static fn ($query) => $query->where('mediable_type', Product::modelClass())];
+        }
+        if (class_exists(ProductDocument::class) && Schema::hasTable('pko_product_documents')) {
+            $tables['documents'] = [ProductDocument::class, 'product_id', $none];
+        }
+        if (class_exists(ProductVideo::class) && Schema::hasTable('pko_product_videos')) {
+            $tables['videos'] = [ProductVideo::class, 'product_id', $none];
+        }
+
+        return $tables;
+    }
+
+    /**
+     * Tags et caractéristiques : `syncTags` / `syncByHandles` du writer peuvent
+     * REMPLACER l'existant, d'où un sync exact par produit sauvegardé.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function restoreTagsAndFeatures(array $payload): void
+    {
+        $hasTags = array_key_exists('tags', $payload);
+        $hasFeatures = array_key_exists('feature_values', $payload) && Schema::hasTable('pko_feature_value_product');
+        if (! $hasTags && ! $hasFeatures) {
+            return;
+        }
+
+        $tags = [];
+        foreach ($payload['tags'] ?? [] as $row) {
+            $tags[(int) $row['taggable_id']][] = (int) $row['tag_id'];
+        }
+        $features = [];
+        foreach ($payload['feature_values'] ?? [] as $row) {
+            $features[(int) $row['product_id']][] = (int) $row['feature_value_id'];
+        }
+
+        foreach ($payload['products'] ?? [] as $row) {
+            $product = Product::query()->find($row['id']);
+            if ($product === null) {
+                continue;
+            }
+            if ($hasTags) {
+                $product->tags()->sync($tags[(int) $row['id']] ?? []);
+            }
+            if ($hasFeatures) {
+                $product->featureValues()->sync($features[(int) $row['id']] ?? []);
+            }
+        }
+    }
+
+    /**
+     * Remet une table possédée par les produits sauvegardés dans son état
+     * d'avant import : lignes ajoutées supprimées (via le modèle), lignes
+     * modifiées remises, lignes retirées réinsérées (si le média existe encore).
+     *
+     * @param  class-string<Model>  $model
+     * @param  array<int, array<string, mixed>>  $products
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function restoreOwnedRows(ImportJob $job, string $model, string $column, \Closure $scope, array $products, array $rows): void
+    {
+        $snapshot = [];
+        foreach ($rows as $row) {
+            $snapshot[$row['id']] = $row;
+        }
+
+        $current = $this->chunked(array_column($products, 'id'), fn (array $ids) => $scope($model::query())->whereIn($column, $ids)->get());
+        foreach ($current as $existing) {
+            /** @var Model $existing */
+            if (! isset($snapshot[$existing->getKey()])) {
+                // Builder (pas $model->delete()) : Mediable est un MorphPivot,
+                // dont delete() vise les clés de pivot et non l'id.
+                $model::query()->whereKey($existing->getKey())->delete();
+            }
+        }
+
+        foreach ($snapshot as $id => $row) {
+            if ($model::query()->whereKey($id)->exists()) {
+                $model::query()->whereKey($id)->update(collect($row)->except(['id'])->all());
+
+                continue;
+            }
+            if (isset($row['media_id']) && ! Media::query()->whereKey($row['media_id'])->exists()) {
+                $this->log($job, LogLevel::Warning, "Média #{$row['media_id']} supprimé depuis la sauvegarde : lien ".class_basename($model)." #{$id} non restauré.");
+
+                continue;
+            }
+            $model::query()->insert($row);
+        }
+    }
+
+    /**
+     * Les updates du builder ne déclenchent aucun événement : Scout ne voit
+     * pas la restauration, on réindexe explicitement (après commit). Un moteur
+     * de recherche indisponible ne doit pas faire échouer un rollback déjà
+     * validé : simple warning.
+     *
+     * @param  array<int, int|string>  $productIds
+     */
+    private function reindex(ImportJob $job, array $productIds): void
+    {
+        if ($productIds === [] || ! method_exists(Product::class, 'searchable')) {
+            return;
+        }
+
+        try {
+            foreach (array_chunk($productIds, self::CHUNK) as $chunk) {
+                Product::query()->whereIn('id', $chunk)->get()->searchable();
+            }
+        } catch (\Throwable $e) {
+            $this->log($job, LogLevel::Warning, 'Réindexation recherche après rollback échouée : '.$e->getMessage());
+        }
     }
 
     /**
@@ -323,7 +483,7 @@ final class LunarBackupManager
             }
 
             Mediable::query()
-                ->where('mediable_type', $product::class)
+                ->where('mediable_type', Product::modelClass())
                 ->where('mediable_id', $product->id)
                 ->delete();
             $product->forceDelete();
