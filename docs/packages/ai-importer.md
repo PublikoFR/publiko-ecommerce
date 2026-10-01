@@ -77,7 +77,7 @@ Header action **« Importer un CSV préparé »** sur la page `CreateImportJob` 
 - **`attribute_data`** assemblé comme Collection de `Lunar\FieldTypes\TranslatedText` pour `name`, `description`, `description_short`, `meta_title`, `meta_description`, `meta_keywords` + `Text` pour `url_key`. Préserve les traductions existantes sur update (merge par langue).
 - **Prix** : `Price::updateOrCreate` keyé sur `(priceable_type, priceable_id, currency_id, customer_group_id=null, min_quantity=1)`, valeur en cents entiers. Support `compare_price_cents`.
 - **Features catalogue** : `Pko\CatalogFeatures\Facades\Features::syncByHandles()` via `class_exists` guard (le writer reste utilisable même si catalog-features est désinstallé).
-- **`Services/LunarBackupManager`** : snapshot avant import. Collecte les SKUs présents en staging → récupère les `ProductVariant` correspondants + leurs produits + prix + pivot `lunar_collection_product`. Stockage `storage/app/ai-importer/backups/job_{uuid}_{datetime}.json.gz` (gzip level 6, typiquement 70-80% compression). Format JSON brut, lisible à l'œil. `restore()` replay en transaction.
+- **`Services/LunarBackupManager`** : snapshot avant import. Collecte les SKUs présents en staging → récupère les `ProductVariant` correspondants + leurs produits + prix + pivot `lunar_collection_product`. Stockage `storage/app/ai-importer/backups/job_{uuid}_{datetime}.json.gz` (gzip level 6, typiquement 70-80% compression). Format JSON brut, lisible à l'œil. `restore()` replay en transaction. **Format v2 et règles de restauration : §7.quinquies.16.4.**
 - **Logs granulaires import** : `LunarProductWriter` émet des `ImportLog` niveau Debug à chaque étape par ligne (`Début importRow`, `Recherche produit existant (joinColumn: X)`, `valeur clé = …`, `Produit trouvé id=…` / `Création produit`, `Mode update: …`, et logs image `Image téléchargée` / `Image déjà existante, ignorée`). Activé via `$writer->setJobId($jobId)` (appelé depuis `ImportStagingToLunarJob::handle()`). Les logs sont accumulés dans un buffer interne (`pendingLogs[]`) et **flushés en batch** une fois par `write()` dans un `finally` (1 INSERT par ligne, quel que soit le nombre d'étapes).
 - **`Jobs/ImportStagingToLunarJob`** (réel) : boucle `chunkById(200)` sur staging (statuts `pending|validated|warning`), appelle le writer par row, gère les 3 politiques d'erreur :
   - `ignore` → log + continue
@@ -787,3 +787,52 @@ La clé `ai-importer.queues.connection` n'était jamais lue.
 
 Tests : `RunScheduledImportsCommandTest` (file + connexion via `Queue::fake()`, `retry_after`
 > timeout, worker dédié présent dans le planning et distinct du worker `default`).
+
+#### 7.quinquies.16.4 Rollback fiable (`LunarBackupManager`, format v2)
+
+**Problèmes** : le snapshot passait par `toArray()`, qui **aplatit** `attribute_data`
+(`{"name":"…"}`) ; `restore()` réécrivait ce format → le cast Lunar `AsAttributeData` ne
+pouvait plus lire les produits restaurés. Les prix étaient filtrés sur le FQCN alors que
+Lunar stocke l'alias morph `product_variant` → aucun prix sauvegardé. Le pivot
+collections était capturé mais jamais restauré, les produits créés par l'import restaient,
+la jointure EAN n'était pas couverte, et dimensions / MPN / `min_quantity` / colonnes `pko_`
+n'étaient pas restaurées.
+
+**Décisions** :
+
+- **Capture brute** : `getRawOriginal()` pour produits, variantes et prix (`attribute_data`
+  reste la chaîne JSON Lunar), clé `version: 2` dans le payload. `whereIn` découpés par 1000
+  (plafond de placeholders MySQL sur les gros fichiers).
+- **Périmètre** : variantes trouvées par SKU (`reference`) **et** par EAN (`ean`/`ean13`
+  normalisés comme dans le writer), quelle que soit `join_column`. Prix filtrés sur
+  `(new ProductVariant)->getMorphClass()`.
+- **Restauration** (une transaction) : colonnes produit `brand_id`, `product_type_id`,
+  `status`, `attribute_data`, `pko_supplier_id`, `pko_port_mode` ; colonnes variante `sku`,
+  `ean`, `mpn`, `stock`, `min_quantity`, `pko_cost_price`, `{weight,length,width,height}_{value,unit}`
+  — via le builder Eloquent (`whereKey()->update()`), qui n'applique ni cast ni `$fillable` :
+  le JSON brut et les colonnes `pko_` non fillables sont réécrits tels quels. Prix remis à
+  l'identique, et les prix **ajoutés** par l'import aux variantes sauvegardées supprimés.
+  Collections : `sync()` exact par produit sauvegardé (positions comprises ; un produit sans
+  collection avant l'import repart sans collection).
+- **Produits créés par l'import** (staging `created` + `lunar_product_id`) : **suppression
+  définitive** (`forceDelete()` du modèle Lunar — l'observer purge variantes, prix, URLs,
+  collections, tags, canaux ; les FK en cascade purgent documents, vidéos et
+  caractéristiques ; les liens `pko_mediables` sont supprimés via le modèle `Mediable`).
+  Rejeté : passer systématiquement en brouillon — le SKU resterait occupé et un réimport
+  retrouverait le produit fantôme au lieu d'en créer un propre. **Exception** : si une ligne
+  de commande ou de panier pointe sur une variante, le produit passe en `draft` (supprimer
+  casserait l'historique de commande), avec `error_message` sur la ligne staging et un
+  warning `ImportLog`. Les fichiers médias restent dans la médiathèque (hors transaction).
+- **Staging après rollback** : `created` / `updated` / `imported` → `pending`,
+  `imported_at = null`, `lunar_product_id = null` pour les produits supprimés → le job
+  peut être réimporté proprement. `error` et `skipped` inchangés.
+- **Ancien backup (v1)** : `attribute_data` aplati n'est **pas** réécrit (warning
+  `ImportLog`), le reste est restauré.
+- **Non restauré** : tags, caractéristiques, images, documents et vidéos que l'import a
+  **ajoutés** à des produits existants (le writer les ajoute sans retirer l'existant ; aucun
+  état antérieur n'est capturé). Pas de réindexation Scout explicite après les updates builder.
+
+Test : `tests/Feature/AiImporter/LunarBackupManagerTest` (vrai `ImportStagingToLunarJob` :
+création + mise à jour puis restore — nom lisible via le cast, prix, stock, MPN, dimensions,
+prix d'achat, pivot exact, produit créé supprimé, statuts staging ; jointure EAN ; prix ajouté
+par l'import supprimé).
