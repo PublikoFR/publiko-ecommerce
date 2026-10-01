@@ -312,6 +312,12 @@ Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
 `--max-time=55` garde le processus sous la minute pour ne pas chevaucher le tick
 suivant ; `withoutOverlapping()` couvre le cas résiduel.
 
+Ce worker n'écoute que la file `default`. Les imports IA (jobs de 1 à 2 h) ont
+**leur propre worker planifié**, sur les files `ai-importer-parse,ai-importer-import`
+et une connexion « longue » (`database-long` / `redis-long`, `retry_after` 7500 s).
+Ne jamais ajouter ces files au worker `default` : un import de 2 h y bloquerait
+factures, mails et étiquettes. Détail : `docs/packages/ai-importer.md` §7.quinquies.16.3.
+
 ### `QUEUE_CONNECTION` — implications
 
 `sync` (valeur actuelle sur dev) **n'est pas une file d'attente** : chaque

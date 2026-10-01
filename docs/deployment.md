@@ -69,8 +69,13 @@ opérations manuelles, à faire une fois, dans l'ordre.
 ### 3. Bascule de la queue — l'ordre est impératif
 
 1. Déployer le code (le worker est déjà dans `routes/console.php`).
-2. Vérifier que le cron tourne : `php artisan schedule:list` doit lister
-   `queue:work --stop-when-empty`.
+2. Vérifier que le cron tourne : `php artisan schedule:list` doit lister **deux**
+   workers : `queue:work --stop-when-empty` (file `default`) et
+   `queue:work database-long --queue=ai-importer-parse,ai-importer-import`
+   (imports IA). Le second n'apparaît sur `database-long` qu'une fois le `.env` en
+   `database` + `config:cache` : la connexion est dérivée de `QUEUE_CONNECTION`
+   (`database` → `database-long`, `redis` → `redis-long`), surchargeable par
+   `AI_IMPORTER_QUEUE_CONNECTION`. Relancer `schedule:list` après l'étape 3.
 3. **Puis seulement** passer `QUEUE_CONNECTION=database` dans le `.env`, suivi de
    `php artisan config:cache`.
 
@@ -104,6 +109,9 @@ l'échec est un faux négatif — utiliser un vrai job de l'application.
   docker compose -p ecom-laravel exec -T -u sail app composer install
   ```
 - `php artisan queue:failed` → vide.
+- Imports IA : un fichier préparé depuis le back-office doit passer `pending` →
+  `parsing` → `parsed` en moins de 3 min (tick `ai-importer:run-scheduled` + worker
+  dédié). Bloqué en `parsing` sans log = worker dédié absent de `schedule:list`.
 
 ## Domaine de dev local
 

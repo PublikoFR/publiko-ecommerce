@@ -47,7 +47,16 @@ class ParseFileToStagingJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public function __construct(public readonly int $importJobId) {}
+    /**
+     * File et connexion fixées ici pour TOUS les points de dispatch : la file
+     * dédiée est consommée par le worker planifié séparé (routes/console.php),
+     * la connexion « longue » a un `retry_after` supérieur au timeout du job.
+     */
+    public function __construct(public readonly int $importJobId)
+    {
+        $this->onConnection(config('ai-importer.queues.connection'));
+        $this->onQueue(config('ai-importer.queues.parse', 'ai-importer-parse'));
+    }
 
     public function handle(SpreadsheetParser $parser, ActionPipeline $pipeline): void
     {
@@ -71,10 +80,11 @@ class ParseFileToStagingJob implements ShouldQueue
             $absolutePath = $disk->path($job->input_file_path);
 
             $config = $job->config->config_data->getArrayCopy();
-            // Stream XLSX/XLS past 10k rows; CSV is always streamed by PhpSpreadsheet anyway.
+            // Stream XLSX/XLS au-delà du seuil (5 Mo par défaut) ; CSV toujours lu en entier.
             $fileSize = @filesize($absolutePath) ?: 0;
             $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
-            if (in_array($ext, ['xlsx', 'xls'], true) && $fileSize > 5 * 1024 * 1024) {
+            $streamThreshold = (int) config('ai-importer.defaults.stream_threshold_bytes', 5 * 1024 * 1024);
+            if (in_array($ext, ['xlsx', 'xls'], true) && $fileSize > $streamThreshold) {
                 $parser->loadStreamed($absolutePath, $config, (int) ($job->chunk_size ?: 2000));
             } else {
                 $parser->load($absolutePath, $config);
@@ -113,12 +123,14 @@ class ParseFileToStagingJob implements ShouldQueue
             $stagingCount = (int) $job->staging_count;
             $errors = 0;
             $stopped = false;
+            $limited = false;
 
             /** @var array<int, array<string, mixed>> Batch de logs INFO à insérer en bloc. */
             $logBatch = [];
 
             foreach ($parser->iterateRows($primary, $startAfter) as $rowNumber => $row) {
                 if ($rowLimit !== null && $processed >= $rowLimit) {
+                    $limited = true;
                     break;
                 }
 
@@ -232,8 +244,16 @@ class ParseFileToStagingJob implements ShouldQueue
                 return;
             }
 
+            // Fichier lu jusqu'au bout : le nombre réel de lignes est connu. En
+            // mode streamé, `countRows()` (listWorksheetInfo) peut compter des
+            // lignes vides mais formatées en fin de feuille — on recale.
+            if (! $limited) {
+                $total = $processed;
+            }
+
             $job->update([
                 'status' => JobStatus::Parsed,
+                'total_rows' => $total,
                 'processed_rows' => $processed,
                 'staging_count' => $stagingCount,
                 'last_processed_row' => $processed,

@@ -196,7 +196,13 @@ Exemple de pipeline :
 
 À chaque import, un **snapshot JSON gzippé** est stocké dans `storage/app/ai-importer/backups/`. Il contient l'état *avant* import des produits touchés (+ leurs variants, prix, pivots collections).
 
-- Bouton **Rollback** sur un job `imported` → restore en transaction.
+- Bouton **Rollback** sur un job `imported` → restore en transaction : produits mis à jour remis à
+  l'identique (nom/descriptions, marque, fournisseur, mode de port, prix, prix d'achat, stock,
+  EAN/MPN, quantité minimale, dimensions, collections, tags, caractéristiques, images, documents,
+  vidéos), **produits créés par l'import supprimés** (ou passés en brouillon s'ils ont déjà été
+  commandés ou mis en panier), lignes staging remises en `pending`, recherche réindexée.
+- Les fichiers images/documents téléchargés par l'import restent dans la médiathèque (seuls leurs
+  liens aux produits sont annulés).
 - Les backups restent sur disque tant que tu ne les supprimes pas à la main — prévoir un nettoyage périodique si ça s'accumule.
 - Le format est volontairement lisible : tu peux l'inspecter avec `zcat storage/app/ai-importer/backups/job_xxx.json.gz | jq .` avant de déclencher un rollback.
 
@@ -211,7 +217,7 @@ Exemple de pipeline :
 | Features non associées au produit | Vérifier que les **handles** produits par `feature_build` existent dans Tree Manager *avant* l'import |
 | Prix affichés divisés par 100 | Oublié de multiplier par 100 dans le pipeline pour passer en cents |
 | Images pas téléchargées | Vérifier que les URLs sont HTTPS valides + que le serveur peut sortir (firewall / proxy) |
-| Progress bar bloquée à 0 % | Vérifier que le worker queue tourne : `make shell` puis `php artisan queue:work ai-importer-parse` |
+| Progress bar bloquée à 0 % | Vérifier que le worker dédié est planifié (`make artisan CMD='schedule:list'` doit lister `queue:work … --queue=ai-importer-parse,ai-importer-import`), ou le lancer à la main : `make artisan CMD='queue:work --queue=ai-importer-parse,ai-importer-import --stop-when-empty'` |
 | Parse OOM sur gros XLSX | Augmenter `chunk_size` du job à 2000+ (le parser bascule en mode streaming dès qu'un XLSX dépasse 5 Mo) |
 
 ---
@@ -229,7 +235,8 @@ make artisan CMD='ai-importer:import-ps-config /tmp/ps-config.json --name=somfy 
 make artisan CMD='ai-importer:run-scheduled --dry'   # liste ce qui tournerait
 make artisan CMD='ai-importer:run-scheduled'         # exécute
 
-# Workers queue (dans le conteneur app)
-php artisan queue:work ai-importer-parse
-php artisan queue:work ai-importer-import
+# Worker queue des imports (dans le conteneur app) — normalement lancé par le
+# scheduler chaque minute ; la connexion vaut `database-long` / `redis-long`
+# selon QUEUE_CONNECTION (cf. config('ai-importer.queues.connection'))
+php artisan queue:work redis-long --queue=ai-importer-parse,ai-importer-import --stop-when-empty --timeout=7200
 ```

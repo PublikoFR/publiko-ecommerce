@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Pko\AiImporter\Services;
 
 use Generator;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\BaseReader;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -19,7 +22,17 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *  - `load($path, $config)` — full workbook in memory. Fine up to ~50k rows.
  *  - `loadStreamed($path, $config, $chunkSize = 2000)` — activates
  *    `ChunkReadFilter` so each yielded row-window loads only that window
- *    from disk. Cap peak memory on 100k+ row workbooks.
+ *    of the primary sheet from disk. Cap peak memory on 100k+ row workbooks.
+ *    The secondary sheets declared in `config.sheets` are loaded IN FULL at
+ *    `loadStreamed()` (joins need them entirely) ; row counts come from the
+ *    reader's `listWorksheetInfo()` (no full load).
+ *
+ * Both modes must yield the same rows : trailing empty rows are dropped
+ * (same as `getHighestDataRow()` in full mode), empty rows in the middle kept.
+ *
+ * Cell values : formulas yield their computed value (cached value written by
+ * Excel as a fallback when the calculation fails — a row never crashes on a
+ * formula), rich text yields its plain text.
  *
  * Secondary sheets are pre-indexed by `join_key` on first access (lazy)
  * so `multiline_aggregate` actions can resolve 1-N rows in O(1). Note
@@ -34,6 +47,12 @@ final class SpreadsheetParser
     private ?string $streamingPath = null;
 
     private int $streamingChunkSize = 2000;
+
+    /** @var array<string, int> sheet name → last row (streamed mode, from listWorksheetInfo). */
+    private array $streamingLastRows = [];
+
+    /** Excel error codes a failed calculation can return as a string. */
+    private const EXCEL_ERRORS = ['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#CALC!', '#SPILL!'];
 
     /** @var array<string, array<string, array<int, array<string, mixed>>>> */
     private array $indexes = [];
@@ -64,11 +83,36 @@ final class SpreadsheetParser
         $this->indexes = [];
         $this->streamingPath = $path;
         $this->streamingChunkSize = max(100, $chunkSize);
-        // Load once with a filter covering just row 1 (for headers + sheet discovery).
-        $reader = IOFactory::createReaderForFile($path);
-        $reader->setReadDataOnly(true);
-        $reader->setReadFilter(new ChunkReadFilter(1, 1));
+
+        $reader = $this->streamingReader();
+
+        // Row counts without loading data (Xlsx: XMLReader scan of each sheet).
+        $this->streamingLastRows = [];
+        foreach ($reader->listWorksheetInfo($path) as $info) {
+            $this->streamingLastRows[(string) $info['worksheetName']] = (int) $info['totalRows'];
+        }
+
+        $sheetNames = array_keys($this->streamingLastRows);
+        $primary = (string) ($config['primary_sheet'] ?? ($sheetNames[0] ?? ''));
+        $secondaries = array_values(array_filter(
+            array_map('strval', array_keys((array) ($config['sheets'] ?? []))),
+            static fn (string $name): bool => $name !== $primary && in_array($name, $sheetNames, true),
+        ));
+
+        // One load : header row of the primary + secondary sheets in full.
+        $reader->setReadFilter(new ChunkReadFilter(1, 1, true, $primary, $secondaries));
         $this->spreadsheet = $reader->load($path);
+    }
+
+    private function streamingReader(): BaseReader
+    {
+        $reader = IOFactory::createReaderForFile((string) $this->streamingPath);
+        if (! $reader instanceof BaseReader) {
+            throw new \RuntimeException('Streamed mode requires a PhpSpreadsheet BaseReader.');
+        }
+        $reader->setReadDataOnly(true);
+
+        return $reader;
     }
 
     public function primarySheetName(): string
@@ -87,10 +131,21 @@ final class SpreadsheetParser
 
     public function countRows(string $sheetName): int
     {
-        $sheet = $this->getSheet($sheetName);
         $hasHeader = (bool) (($this->config['sheets'][$sheetName]['skip_first_row'] ?? true));
+        $lastRow = $this->streamingPath !== null
+            ? $this->streamingLastRow($sheetName)
+            : $this->getSheet($sheetName)->getHighestDataRow();
 
-        return max(0, $sheet->getHighestDataRow() - ($hasHeader ? 1 : 0));
+        return max(0, $lastRow - ($hasHeader ? 1 : 0));
+    }
+
+    private function streamingLastRow(string $sheetName): int
+    {
+        if (! array_key_exists($sheetName, $this->streamingLastRows)) {
+            throw new \RuntimeException("Sheet not found: {$sheetName}");
+        }
+
+        return $this->streamingLastRows[$sheetName];
     }
 
     /**
@@ -133,17 +188,18 @@ final class SpreadsheetParser
         $hasHeader = (bool) (($this->config['sheets'][$sheetName]['skip_first_row'] ?? true));
         $firstDataRow = ($hasHeader ? 2 : 1) + $startAfterRow;
 
-        // Cheap one-shot full load to find the real last row. If that proves too heavy
-        // on huge files, swap in a reader-level scan (PhpSpreadsheet Xlsx reader supports
-        // `sheetInfo()` with row counts without loading data).
-        $reader = IOFactory::createReaderForFile($this->streamingPath);
-        $reader->setReadDataOnly(true);
-        $probe = $reader->load($this->streamingPath)->getSheetByName($sheetName);
-        $lastRow = $probe ? $probe->getHighestDataRow() : 0;
-        unset($probe);
+        // Last row from listWorksheetInfo() (computed at loadStreamed, no full load).
+        // It may include formatted-but-empty trailing rows : those are buffered
+        // below and dropped, so both modes yield the same rows.
+        $lastRow = $this->streamingLastRow($sheetName);
 
-        $filter = new ChunkReadFilter(1, 1);
+        $reader = $this->streamingReader();
+        $reader->setLoadSheetsOnly([$sheetName]);
+        $filter = new ChunkReadFilter(1, 1, true, $sheetName);
         $reader->setReadFilter($filter);
+
+        /** @var array<int, array<string, mixed>> Empty rows held until a non-empty row follows. */
+        $pendingEmpty = [];
 
         for ($start = $firstDataRow; $start <= $lastRow; $start += $this->streamingChunkSize) {
             $end = min($start + $this->streamingChunkSize - 1, $lastRow);
@@ -155,7 +211,17 @@ final class SpreadsheetParser
             }
 
             for ($rowIndex = $start; $rowIndex <= $end; $rowIndex++) {
-                yield $rowIndex => $this->readRow($chunkSheet, $rowIndex, $headers);
+                $row = $this->readRow($chunkSheet, $rowIndex, $headers);
+                if ($this->isEmptyRow($row)) {
+                    $pendingEmpty[$rowIndex] = $row;
+
+                    continue;
+                }
+                foreach ($pendingEmpty as $emptyIndex => $emptyRow) {
+                    yield $emptyIndex => $emptyRow;
+                }
+                $pendingEmpty = [];
+                yield $rowIndex => $row;
             }
 
             // Release the chunk workbook before loading the next one — this is what
@@ -237,7 +303,7 @@ final class SpreadsheetParser
         for ($c = 1; $c <= $highestColIndex; $c++) {
             $letter = Coordinate::stringFromColumnIndex($c);
             if ($hasHeader) {
-                $val = (string) ($sheet->getCell($letter.'1')->getValue() ?? '');
+                $val = (string) ($this->cellValue($sheet->getCell($letter.'1')) ?? '');
                 $headers[$c] = $val !== '' ? $val : $letter;
             } else {
                 $headers[$c] = $letter;
@@ -256,12 +322,80 @@ final class SpreadsheetParser
         $row = [];
         foreach ($headers as $colIndex => $name) {
             $letter = Coordinate::stringFromColumnIndex($colIndex);
-            $row[$name] = $sheet->getCell($letter.$rowIndex)->getValue();
+            $row[$name] = $this->cellValue($sheet->getCell($letter.$rowIndex));
             // Alias by column letter too, so configs with `col: "M"` keep working
             $row[$letter] ??= $row[$name];
         }
 
         return $row;
+    }
+
+    /**
+     * Valeur exploitable d'une cellule : jamais un objet non sérialisable,
+     * jamais le texte d'une formule.
+     */
+    private function cellValue(Cell $cell): mixed
+    {
+        $value = $cell->getValue();
+
+        if ($value instanceof RichText) {
+            return $value->getPlainText();
+        }
+
+        if (! $cell->isFormula()) {
+            return $value;
+        }
+
+        $cached = $cell->getOldCalculatedValue();
+
+        // Streamed mode : only a window of rows is loaded, a formula pointing
+        // outside it would be computed against empty cells. Trust Excel's cache.
+        if ($this->streamingPath !== null && $cached !== null) {
+            return $this->plain($cached);
+        }
+
+        try {
+            $computed = $cell->getCalculatedValue();
+        } catch (\Throwable) {
+            $computed = null;
+        }
+
+        if ($computed === null || (is_string($computed) && in_array($computed, self::EXCEL_ERRORS, true))) {
+            return $this->plain($cached ?? $computed);
+        }
+
+        return $this->plain($computed);
+    }
+
+    private function plain(mixed $value): mixed
+    {
+        if ($value instanceof RichText) {
+            return $value->getPlainText();
+        }
+
+        // Formule matricielle : on garde la première valeur scalaire.
+        while (is_array($value)) {
+            $value = reset($value);
+            if ($value === false) {
+                return null;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function isEmptyRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if ($value !== null && $value !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function getSheet(string $name): Worksheet

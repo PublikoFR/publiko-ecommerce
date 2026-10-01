@@ -13,6 +13,7 @@ use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\LunarProductWriter;
 use Tests\TestCase;
@@ -215,5 +216,89 @@ class WriterOptionsTest extends TestCase
         $rec->refresh();
         $this->assertSame(StagingStatus::Created, $rec->status);
         $this->assertSame(99, ProductVariant::where('sku', 'SKU-CREATE')->value('stock'));
+    }
+
+    public function test_blank_price_tex_keeps_existing_price(): void
+    {
+        $job = $this->job();
+        $this->seedProduct($job, 'SKU-BLANK-PRICE');
+
+        foreach (['all', 'price'] as $i => $mode) {
+            (new LunarProductWriter)->configure(['update_mode' => $mode])->write($this->record($job, [
+                'reference' => 'SKU-BLANK-PRICE',
+                'price_tex' => '',
+                'wholesale_price' => null,
+            ], 2 + $i));
+
+            $this->assertSame(1000, $this->priceCentsOf('SKU-BLANK-PRICE'), "update_mode={$mode}");
+        }
+    }
+
+    public function test_blank_stock_keeps_existing_stock(): void
+    {
+        $job = $this->job();
+        $this->seedProduct($job, 'SKU-BLANK-STOCK');
+
+        foreach (['all', 'stock'] as $i => $mode) {
+            (new LunarProductWriter)->configure(['update_mode' => $mode])->write($this->record($job, [
+                'reference' => 'SKU-BLANK-STOCK',
+                'stock' => '',
+                'min_quantity' => '',
+                'width_value' => '',
+            ], 2 + $i));
+
+            $variant = ProductVariant::where('sku', 'SKU-BLANK-STOCK')->firstOrFail();
+            $this->assertSame(10, $variant->stock, "update_mode={$mode}");
+            $this->assertSame(1, $variant->min_quantity);
+        }
+    }
+
+    public function test_french_decimal_price_is_parsed(): void
+    {
+        $job = $this->job();
+        $this->seedProduct($job, 'SKU-FR-PRICE');
+
+        (new LunarProductWriter)->write($this->record($job, [
+            'reference' => 'SKU-FR-PRICE',
+            'price_tex' => '12,50',
+        ], 2));
+
+        $this->assertSame(1250, $this->priceCentsOf('SKU-FR-PRICE'));
+    }
+
+    public function test_unparsable_price_is_ignored_with_warning(): void
+    {
+        $job = $this->job();
+        $this->seedProduct($job, 'SKU-NC-PRICE');
+
+        $rec = $this->record($job, ['reference' => 'SKU-NC-PRICE', 'price_tex' => 'sur devis'], 2);
+        (new LunarProductWriter)->write($rec);
+
+        $this->assertSame(StagingStatus::Updated, $rec->refresh()->status);
+        $this->assertSame(1000, $this->priceCentsOf('SKU-NC-PRICE'));
+        $this->assertTrue(
+            ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%price_tex%')->exists()
+        );
+    }
+
+    public function test_blank_compare_price_keeps_existing_compare_price(): void
+    {
+        $job = $this->job();
+        (new LunarProductWriter)->write($this->record($job, [
+            'reference' => 'SKU-COMPARE',
+            'name' => 'Original',
+            'price_cents' => 1000,
+            'compare_price_cents' => 1500,
+        ]));
+
+        (new LunarProductWriter)->write($this->record($job, [
+            'reference' => 'SKU-COMPARE',
+            'price_cents' => 1200,
+            'compare_price_cents' => '',
+        ], 2));
+
+        $price = ProductVariant::where('sku', 'SKU-COMPARE')->firstOrFail()->prices()->first();
+        $this->assertSame(1200, (int) $price->price->value);
+        $this->assertSame(1500, (int) $price->compare_price->value);
     }
 }

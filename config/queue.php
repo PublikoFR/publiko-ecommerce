@@ -44,6 +44,30 @@ return [
             'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
         ],
 
+        /*
+         * Connexions « longues » des imports IA (pko/ai-importer) : même stockage
+         * que leur jumelle, mais un `retry_after` supérieur au timeout des jobs
+         * d'import (7200 s). Avec 90 s, un job encore en cours serait re-réservé
+         * par le worker suivant et exécuté en double.
+         */
+        'database-long' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'ai-importer-import',
+            'retry_after' => (int) env('QUEUE_LONG_RETRY_AFTER', 7500),
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
+        ],
+
+        'redis-long' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'ai-importer-import',
+            'retry_after' => (int) env('QUEUE_LONG_RETRY_AFTER', 7500),
+            'block_for' => null,
+            'after_commit' => (bool) env('QUEUE_AFTER_COMMIT', true),
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

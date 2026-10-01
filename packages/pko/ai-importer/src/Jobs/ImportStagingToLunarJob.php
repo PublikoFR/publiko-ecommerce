@@ -44,7 +44,16 @@ class ImportStagingToLunarJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public readonly int $importJobId) {}
+    /**
+     * File et connexion fixées ici pour TOUS les points de dispatch : la file
+     * dédiée est consommée par le worker planifié séparé (routes/console.php),
+     * la connexion « longue » a un `retry_after` supérieur au timeout du job.
+     */
+    public function __construct(public readonly int $importJobId)
+    {
+        $this->onConnection(config('ai-importer.queues.connection'));
+        $this->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
+    }
 
     public function handle(LunarProductWriter $writer, LunarBackupManager $backup): void
     {

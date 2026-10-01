@@ -88,8 +88,7 @@ class RunScheduledImportsCommand extends Command
             // Sortie de l'état éligible avant dispatch : la requête ne cible que
             // `pending`, donc un tick ultérieur ne re-parsera pas ce job.
             $job->update(['status' => JobStatus::Parsing]);
-            ParseFileToStagingJob::dispatch($job->id)
-                ->onQueue(config('ai-importer.queues.parse', 'ai-importer-parse'));
+            ParseFileToStagingJob::dispatch($job->id);
         }
 
         return $due->count();
@@ -126,8 +125,7 @@ class RunScheduledImportsCommand extends Command
             // re-matchera plus ce job même si le worker queue prend du retard. Évite
             // le double dispatch (et donc le double import des produits).
             $job->update(['import_status' => ImportStatus::Queued]);
-            ImportStagingToLunarJob::dispatch($job->id)
-                ->onQueue(config('ai-importer.queues.import', 'ai-importer-import'));
+            ImportStagingToLunarJob::dispatch($job->id);
         }
 
         return $due->count();

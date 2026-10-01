@@ -77,7 +77,7 @@ Header action **« Importer un CSV préparé »** sur la page `CreateImportJob` 
 - **`attribute_data`** assemblé comme Collection de `Lunar\FieldTypes\TranslatedText` pour `name`, `description`, `description_short`, `meta_title`, `meta_description`, `meta_keywords` + `Text` pour `url_key`. Préserve les traductions existantes sur update (merge par langue).
 - **Prix** : `Price::updateOrCreate` keyé sur `(priceable_type, priceable_id, currency_id, customer_group_id=null, min_quantity=1)`, valeur en cents entiers. Support `compare_price_cents`.
 - **Features catalogue** : `Pko\CatalogFeatures\Facades\Features::syncByHandles()` via `class_exists` guard (le writer reste utilisable même si catalog-features est désinstallé).
-- **`Services/LunarBackupManager`** : snapshot avant import. Collecte les SKUs présents en staging → récupère les `ProductVariant` correspondants + leurs produits + prix + pivot `lunar_collection_product`. Stockage `storage/app/ai-importer/backups/job_{uuid}_{datetime}.json.gz` (gzip level 6, typiquement 70-80% compression). Format JSON brut, lisible à l'œil. `restore()` replay en transaction.
+- **`Services/LunarBackupManager`** : snapshot avant import. Collecte les SKUs présents en staging → récupère les `ProductVariant` correspondants + leurs produits + prix + pivot `lunar_collection_product`. Stockage `storage/app/ai-importer/backups/job_{uuid}_{datetime}.json.gz` (gzip level 6, typiquement 70-80% compression). Format JSON brut, lisible à l'œil. `restore()` replay en transaction. **Format v2 et règles de restauration : §7.quinquies.16.4.**
 - **Logs granulaires import** : `LunarProductWriter` émet des `ImportLog` niveau Debug à chaque étape par ligne (`Début importRow`, `Recherche produit existant (joinColumn: X)`, `valeur clé = …`, `Produit trouvé id=…` / `Création produit`, `Mode update: …`, et logs image `Image téléchargée` / `Image déjà existante, ignorée`). Activé via `$writer->setJobId($jobId)` (appelé depuis `ImportStagingToLunarJob::handle()`). Les logs sont accumulés dans un buffer interne (`pendingLogs[]`) et **flushés en batch** une fois par `write()` dans un `finally` (1 INSERT par ligne, quel que soit le nombre d'étapes).
 - **`Jobs/ImportStagingToLunarJob`** (réel) : boucle `chunkById(200)` sur staging (statuts `pending|validated|warning`), appelle le writer par row, gère les 3 politiques d'erreur :
   - `ignore` → log + continue
@@ -157,6 +157,9 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `category` | `collections` | passe array ou CSV inchangé |
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
 | `wholesale_price` | `cost_price_cents` | **×100 puis `(int) round()`** (prix d'achat euros → cents) |
+
+Les casts ci-dessus passent par `Support\NumberParser` : vide → clé ignorée (jamais 0),
+illisible → clé ignorée + warning. Détail en §7.quinquies.16.1.
 
 ### 7.quinquies.10 Actions disponibles (21 + 7 alias legacy)
 
@@ -700,5 +703,153 @@ toucher au réseau (no-op sûr).
   Une colonne `llm_transform` y reste volontairement présente pour prouver le no-op,
   sous `Http::fake()` + `assertNothingSent()` + aucun `LlmConfig` actif.
 
----
+### 7.quinquies.16 Correctifs critiques (audit 2026-10-01)
 
+#### 7.quinquies.16.1 Valeurs numériques vides ou décimales FR
+
+**Problème** : `price_tex` vide ou `"12,50"` donnait `price_cents = 0`, upserté → le prix
+existant était écrasé à 0 (update_mode `all`/`price`). Même chose pour `stock` (`''` → 0),
+`min_quantity`, dimensions, `cost_price_cents`.
+
+**Décision** : un helper unique `Pko\AiImporter\Support\NumberParser` parse tout champ
+numérique du writer (`LunarProductWriter::NUMERIC_FIELDS` + `price_tex`/`wholesale_price`) :
+
+| Valeur source | Effet |
+|---|---|
+| `null`, `''`, espaces | clé **retirée** : rien n'est écrit, la valeur en base est conservée |
+| `12,50`, `1 234,50`, `1.234,50`, `1,234.50`, `12.50 €` | parsée (virgule décimale FR, espaces/insécables de milliers) |
+| non parsable (`sur devis`, `N/C`, `1,2,3`) | clé retirée + `ImportLog` **warning** « Valeur(s) numérique(s) illisible(s) » ; la ligne reste importée |
+
+Le prix barré suit la même règle : `compare_price_cents` vide ou absent → le prix barré
+existant est conservé lors de la mise à jour du prix de base.
+
+À la **création** d'un produit, un stock absent vaut toujours 0 et `min_quantity` 1 (défauts
+Lunar) ; seul l'update préserve l'existant. Tests : `LunarProductWriterNormalizationTest`,
+`WriterOptionsTest` (`test_blank_*`, `test_french_decimal_price_is_parsed`).
+
+
+#### 7.quinquies.16.2 Parser : formules, texte riche, mode streamé
+
+**Problèmes** : `readRow()` lisait `getValue()` → une formule arrivait en staging sous la
+forme `"=C2*1.2"` ; une cellule texte riche (objet `RichText`) était stockée `{}` ; en mode
+streamé (`loadStreamed()`, XLSX/XLS > 5 Mo) le classeur initial n'était chargé qu'avec la
+ligne 1 de chaque feuille → `countRows()` = 0 et **feuilles secondaires vides** (aucune
+jointure) ; la « sonde » d'`iterateStreamed()` rechargeait tout le classeur.
+
+**Décisions** (`Services/SpreadsheetParser.php`, `Services/ChunkReadFilter.php`) :
+
+- **Valeur de cellule** (`cellValue()`) : `RichText` → `getPlainText()` ; formule →
+  `getCalculatedValue()`, repli sur la valeur en cache écrite par Excel
+  (`getOldCalculatedValue()`) si le calcul lève ou renvoie une erreur Excel (`#REF!`…).
+  En mode streamé seule une fenêtre de lignes est chargée : une formule visant une autre
+  ligne serait calculée contre des cellules vides, donc **la valeur en cache est
+  prioritaire** quand elle existe. Une formule ne fait jamais planter la ligne.
+- **Mode streamé** : un seul chargement initial avec `ChunkReadFilter(windowSheet:
+  primaire, fullSheets: feuilles de config.sheets)` → en-têtes de la primaire + feuilles
+  secondaires **intégrales** (jointures identiques au mode complet). Les fenêtres
+  suivantes ne chargent que la feuille primaire (`setLoadSheetsOnly`).
+- **Nombre de lignes** : `listWorksheetInfo()` du reader (scan XMLReader, sans charger
+  les données) ; plus de rechargement complet. Ce compte inclut les lignes vides mais
+  **formatées** en fin de feuille : il sert d'estimation pendant le parse, puis
+  `ParseFileToStagingJob` **recale `total_rows`** sur le nombre de lignes réellement
+  parcourues quand le fichier a été lu jusqu'au bout (pas de `row_limit` atteint).
+  L'itération écarte ces lignes (vides finales bufferisées puis jetées, comme
+  `getHighestDataRow()` en mode complet).
+- **Seuil du mode streamé** : `ai-importer.defaults.stream_threshold_bytes`
+  (`AI_IMPORTER_STREAM_THRESHOLD_BYTES`, défaut 5 Mo), auparavant codé en dur.
+
+Test : `tests/Unit/AiImporter/Services/SpreadsheetParserTest` (xlsx 2 feuilles généré :
+mêmes lignes, même `countRows`, mêmes jointures dans les deux modes ; formule ; texte riche).
+
+#### 7.quinquies.16.3 Queue : worker dédié et connexion « longue »
+
+**Problème** : les jobs partaient sur `ai-importer-parse` / `ai-importer-import`, mais le
+seul worker planifié (`routes/console.php`) n'écoutait que `default` → dès que
+`QUEUE_CONNECTION ≠ sync`, imports bloqués sans erreur. De plus `retry_after` (90 s) <
+timeout des jobs (3600/7200 s) → un job en cours aurait été re-réservé et exécuté en double.
+La clé `ai-importer.queues.connection` n'était jamais lue.
+
+**Décisions** :
+
+- **Worker planifié séparé** (`routes/console.php`) : `queue:work <connexion>
+  --queue=ai-importer-parse,ai-importer-import --stop-when-empty --max-time=55
+  --timeout=7200 --tries=1`, chaque minute, `withoutOverlapping(130)` (verrou propre, expiré
+  après 130 min > timeout du job d'import si le process meurt). Les files d'import ne
+  sont **pas** ajoutées au worker `default` : un import de 2 h y bloquerait
+  factures/mails/étiquettes. `--tries=1` est surchargé par `$tries` de chaque job (3 pour
+  le parse, 1 pour l'import).
+- **Connexions dédiées** `database-long` et `redis-long` (`config/queue.php`) : même
+  stockage que leur jumelle, `retry_after` = `QUEUE_LONG_RETRY_AFTER` (défaut 7500 s, >
+  7200 s). Rejeté : relever `retry_after` de `database`/`redis` — un job court planté
+  mettrait alors 2 h à être retenté.
+- **Choix de la connexion** : `ai-importer.queues.connection` = `AI_IMPORTER_QUEUE_CONNECTION`
+  sinon dérivée de `QUEUE_CONNECTION` (`database` → `database-long`, `redis` →
+  `redis-long`, autre/`sync` → `null` = connexion par défaut).
+- **Routage centralisé** : file et connexion sont posées dans le **constructeur** de
+  `ParseFileToStagingJob` / `ImportStagingToLunarJob` (`onConnection()` + `onQueue()`),
+  donc tout point de dispatch (commande planifiée, bouton « Relancer le parse ») en hérite.
+
+Tests : `RunScheduledImportsCommandTest` (file + connexion via `Queue::fake()`, `retry_after`
+> timeout, worker dédié présent dans le planning et distinct du worker `default`).
+
+#### 7.quinquies.16.4 Rollback fiable (`LunarBackupManager`, format v2)
+
+**Problèmes** : le snapshot passait par `toArray()`, qui **aplatit** `attribute_data`
+(`{"name":"…"}`) ; `restore()` réécrivait ce format → le cast Lunar `AsAttributeData` ne
+pouvait plus lire les produits restaurés. Les prix étaient filtrés sur le FQCN alors que
+Lunar stocke l'alias morph `product_variant` → aucun prix sauvegardé. Le pivot
+collections était capturé mais jamais restauré, les produits créés par l'import restaient,
+la jointure EAN n'était pas couverte, et dimensions / MPN / `min_quantity` / colonnes `pko_`
+n'étaient pas restaurées.
+
+**Décisions** :
+
+- **Capture brute** : `getRawOriginal()` pour produits, variantes et prix (`attribute_data`
+  reste la chaîne JSON Lunar), clé `version: 2` dans le payload. `whereIn` découpés par 1000
+  (plafond de placeholders MySQL sur les gros fichiers).
+- **Périmètre** : variantes trouvées par SKU (`reference`) **et** par EAN (`ean`/`ean13`
+  normalisés comme dans le writer), quelle que soit `join_column`. Prix filtrés sur
+  `(new ProductVariant)->getMorphClass()`.
+- **Restauration** (une transaction) : colonnes produit `brand_id`, `product_type_id`,
+  `status`, `attribute_data`, `pko_supplier_id`, `pko_port_mode` ; colonnes variante `sku`,
+  `ean`, `mpn`, `stock`, `min_quantity`, `pko_cost_price`, `{weight,length,width,height}_{value,unit}`
+  — via le builder Eloquent (`whereKey()->update()`), qui n'applique ni cast ni `$fillable` :
+  le JSON brut et les colonnes `pko_` non fillables sont réécrits tels quels. Prix remis à
+  l'identique, et les prix **ajoutés** par l'import aux variantes sauvegardées supprimés.
+  Collections : `sync()` exact par produit sauvegardé (positions comprises ; un produit sans
+  collection avant l'import repart sans collection).
+- **Produits créés par l'import** (staging `created` + `lunar_product_id`) : **suppression
+  définitive** (`forceDelete()` du modèle Lunar — l'observer purge variantes, prix, URLs,
+  collections, tags, canaux ; les FK en cascade purgent documents, vidéos et
+  caractéristiques ; les liens `pko_mediables` sont supprimés via le modèle `Mediable`).
+  Rejeté : passer systématiquement en brouillon — le SKU resterait occupé et un réimport
+  retrouverait le produit fantôme au lieu d'en créer un propre. **Exception** : si une ligne
+  de commande ou de panier pointe sur une variante, le produit passe en `draft` (supprimer
+  casserait l'historique de commande), avec `error_message` sur la ligne staging et un
+  warning `ImportLog`. Les fichiers médias restent dans la médiathèque (hors transaction).
+- **Staging après rollback** : `created` / `updated` / `imported` → `pending`,
+  `imported_at = null`, `lunar_product_id = null` pour les produits supprimés → le job
+  peut être réimporté proprement. `error` et `skipped` inchangés.
+- **Ancien backup (v1)** : `attribute_data` aplati n'est **pas** réécrit (warning
+  `ImportLog`), le reste est restauré.
+- **Relations restaurées à l'identique** pour chaque produit sauvegardé (le writer peut
+  aussi bien ajouter que **remplacer** : `syncTags` et `Features::syncByHandles` écrasent) :
+  - tags (`lunar_taggables`) et caractéristiques (`pko_feature_value_product`) → `sync()` exact ;
+  - liens médias (`pko_mediables`, `mediable_type` = `Product::modelClass()`, le FQCN posé
+    par le writer), documents (`pko_product_documents`), vidéos (`pko_product_videos`) →
+    lignes ajoutées supprimées, lignes modifiées remises, lignes disparues réinsérées avec
+    leur id. Un lien vers un média **supprimé** de la médiathèque depuis la sauvegarde
+    n'est pas réinséré (FK) : warning `ImportLog`.
+  - Les fichiers médias importés restent dans la médiathèque : seuls les liens sont annulés.
+  - Une sauvegarde v2 prise avant l'ajout de ces clés ne touche pas à ces relations
+    (clé absente ≠ liste vide).
+- **Réindexation Scout** : les updates du builder ne déclenchent aucun événement modèle →
+  après commit, `searchable()` sur les produits restaurés. Un moteur de recherche
+  indisponible ne fait pas échouer le rollback (warning `ImportLog`). Les produits supprimés
+  sortent de l'index via l'événement `deleted` du `forceDelete()`.
+
+Test : `tests/Feature/AiImporter/LunarBackupManagerTest` (vrai `ImportStagingToLunarJob` :
+création + mise à jour puis restore — nom lisible via le cast, prix, stock, MPN, dimensions,
+prix d'achat, pivot exact, produit créé supprimé, statuts staging ; jointure EAN ; prix ajouté
+par l'import supprimé ; tags / caractéristiques / médias / documents / vidéos remis à
+l'identique ; produit créé déjà en panier passé en brouillon ; réindexation Scout).
