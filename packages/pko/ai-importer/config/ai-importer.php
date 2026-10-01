@@ -39,10 +39,21 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    // Les jobs d'import tournent jusqu'à 1 h (parse) / 2 h (import). Ils partent
+    // sur des files dédiées, consommées par un worker planifié SÉPARÉ du worker
+    // `default` (routes/console.php) : un long import ne bloque ni factures ni mails.
+    // Connexion : une variante « -long » de la connexion par défaut, dont le
+    // `retry_after` (config/queue.php) dépasse le timeout des jobs — sinon un job
+    // encore en cours serait réservé une seconde fois et exécuté en double.
+    // null = connexion par défaut (cas `sync` : exécution en ligne).
     'queues' => [
         'parse' => env('AI_IMPORTER_PARSE_QUEUE', 'ai-importer-parse'),
         'import' => env('AI_IMPORTER_IMPORT_QUEUE', 'ai-importer-import'),
-        'connection' => env('AI_IMPORTER_QUEUE_CONNECTION', null),
+        'connection' => env('AI_IMPORTER_QUEUE_CONNECTION') ?: match (env('QUEUE_CONNECTION', 'sync')) {
+            'database' => 'database-long',
+            'redis' => 'redis-long',
+            default => null,
+        },
     ],
 
     /*

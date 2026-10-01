@@ -152,8 +152,7 @@ class ViewImportJob extends ViewRecord
                 ->visible(fn (): bool => in_array($this->record->status, [JobStatus::Paused, JobStatus::Error], true))
                 ->requiresConfirmation()
                 ->action(function (): void {
-                    ParseFileToStagingJob::dispatch($this->record->id)
-                        ->onQueue(config('ai-importer.queues.parse', 'ai-importer-parse'));
+                    ParseFileToStagingJob::dispatch($this->record->id);
                     Notification::make()->success()->title('Parse relancé en file d\'attente')->send();
                 }),
             Actions\Action::make('editOptions')

@@ -753,3 +753,34 @@ jointure) ; la « sonde » d'`iterateStreamed()` rechargeait tout le classeur.
 
 Test : `tests/Unit/AiImporter/Services/SpreadsheetParserTest` (xlsx 2 feuilles généré :
 mêmes lignes, même `countRows`, mêmes jointures dans les deux modes ; formule ; texte riche).
+
+#### 7.quinquies.16.3 Queue : worker dédié et connexion « longue »
+
+**Problème** : les jobs partaient sur `ai-importer-parse` / `ai-importer-import`, mais le
+seul worker planifié (`routes/console.php`) n'écoutait que `default` → dès que
+`QUEUE_CONNECTION ≠ sync`, imports bloqués sans erreur. De plus `retry_after` (90 s) <
+timeout des jobs (3600/7200 s) → un job en cours aurait été re-réservé et exécuté en double.
+La clé `ai-importer.queues.connection` n'était jamais lue.
+
+**Décisions** :
+
+- **Worker planifié séparé** (`routes/console.php`) : `queue:work <connexion>
+  --queue=ai-importer-parse,ai-importer-import --stop-when-empty --max-time=55
+  --timeout=7200 --tries=1`, chaque minute, `withoutOverlapping(130)` (verrou propre, expiré
+  après 130 min > timeout du job d'import si le process meurt). Les files d'import ne
+  sont **pas** ajoutées au worker `default` : un import de 2 h y bloquerait
+  factures/mails/étiquettes. `--tries=1` est surchargé par `$tries` de chaque job (3 pour
+  le parse, 1 pour l'import).
+- **Connexions dédiées** `database-long` et `redis-long` (`config/queue.php`) : même
+  stockage que leur jumelle, `retry_after` = `QUEUE_LONG_RETRY_AFTER` (défaut 7500 s, >
+  7200 s). Rejeté : relever `retry_after` de `database`/`redis` — un job court planté
+  mettrait alors 2 h à être retenté.
+- **Choix de la connexion** : `ai-importer.queues.connection` = `AI_IMPORTER_QUEUE_CONNECTION`
+  sinon dérivée de `QUEUE_CONNECTION` (`database` → `database-long`, `redis` →
+  `redis-long`, autre/`sync` → `null` = connexion par défaut).
+- **Routage centralisé** : file et connexion sont posées dans le **constructeur** de
+  `ParseFileToStagingJob` / `ImportStagingToLunarJob` (`onConnection()` + `onQueue()`),
+  donc tout point de dispatch (commande planifiée, bouton « Relancer le parse ») en hérite.
+
+Tests : `RunScheduledImportsCommandTest` (file + connexion via `Queue::fake()`, `retry_after`
+> timeout, worker dédié présent dans le planning et distinct du worker `default`).

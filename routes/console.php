@@ -28,6 +28,22 @@ Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Worker DÉDIÉ aux imports IA (files `ai-importer-parse` / `ai-importer-import`),
+// séparé du worker `default` : un import peut durer 2 h, il ne doit pas bloquer
+// factures, mails et étiquettes. Il tourne sur la connexion « longue »
+// (`ai-importer.queues.connection`, retry_after > timeout des jobs) et a son propre
+// verrou : tant qu'un import tourne, les ticks suivants sont sautés. Verrou expiré
+// après 130 min (> timeout 7200 s du job d'import) si le process meurt.
+Schedule::command(sprintf(
+    'queue:work %s --queue=%s,%s --stop-when-empty --max-time=55 --timeout=7200 --tries=1',
+    config('ai-importer.queues.connection') ?: config('queue.default'),
+    config('ai-importer.queues.parse', 'ai-importer-parse'),
+    config('ai-importer.queues.import', 'ai-importer-import'),
+))
+    ->everyMinute()
+    ->withoutOverlapping(130)
+    ->runInBackground();
+
 // Shipping: interroge l'API Suivi La Poste pour tous les envois non terminaux
 Schedule::command('shipping:poll-tracking')
     ->hourly()

@@ -211,7 +211,7 @@ Exemple de pipeline :
 | Features non associées au produit | Vérifier que les **handles** produits par `feature_build` existent dans Tree Manager *avant* l'import |
 | Prix affichés divisés par 100 | Oublié de multiplier par 100 dans le pipeline pour passer en cents |
 | Images pas téléchargées | Vérifier que les URLs sont HTTPS valides + que le serveur peut sortir (firewall / proxy) |
-| Progress bar bloquée à 0 % | Vérifier que le worker queue tourne : `make shell` puis `php artisan queue:work ai-importer-parse` |
+| Progress bar bloquée à 0 % | Vérifier que le worker dédié est planifié (`make artisan CMD='schedule:list'` doit lister `queue:work … --queue=ai-importer-parse,ai-importer-import`), ou le lancer à la main : `make artisan CMD='queue:work --queue=ai-importer-parse,ai-importer-import --stop-when-empty'` |
 | Parse OOM sur gros XLSX | Augmenter `chunk_size` du job à 2000+ (le parser bascule en mode streaming dès qu'un XLSX dépasse 5 Mo) |
 
 ---
@@ -229,7 +229,8 @@ make artisan CMD='ai-importer:import-ps-config /tmp/ps-config.json --name=somfy 
 make artisan CMD='ai-importer:run-scheduled --dry'   # liste ce qui tournerait
 make artisan CMD='ai-importer:run-scheduled'         # exécute
 
-# Workers queue (dans le conteneur app)
-php artisan queue:work ai-importer-parse
-php artisan queue:work ai-importer-import
+# Worker queue des imports (dans le conteneur app) — normalement lancé par le
+# scheduler chaque minute ; la connexion vaut `database-long` / `redis-long`
+# selon QUEUE_CONNECTION (cf. config('ai-importer.queues.connection'))
+php artisan queue:work redis-long --queue=ai-importer-parse,ai-importer-import --stop-when-empty --timeout=7200
 ```
