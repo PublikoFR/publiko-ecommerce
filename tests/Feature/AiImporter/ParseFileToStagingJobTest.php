@@ -6,6 +6,8 @@ namespace Tests\Feature\AiImporter;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ActionRegistry;
 use Pko\AiImporter\Actions\ExecutionContext;
@@ -243,5 +245,44 @@ class ParseFileToStagingJobTest extends TestCase
             app(SpreadsheetParser::class),
             app(ActionPipeline::class),
         );
+    }
+
+    public function test_streamed_parse_recounts_total_rows_without_trailing_formatted_rows(): void
+    {
+        Storage::fake('local');
+        config(['ai-importer.defaults.stream_threshold_bytes' => 0]); // force le mode streamé
+
+        $book = new Spreadsheet;
+        $sheet = $book->getActiveSheet()->setTitle('Produits');
+        $sheet->fromArray([['reference', 'name'], ['SKU-1', 'Un'], ['SKU-2', 'Deux'], ['SKU-3', 'Trois']]);
+        // Lignes vides mais formatées en fin de feuille : listWorksheetInfo les compte.
+        $sheet->getStyle('A20:B20')->getFont()->setBold(true);
+        $tmp = tempnam(sys_get_temp_dir(), 'stream').'.xlsx';
+        (new Xlsx($book))->save($tmp);
+        Storage::disk('local')->put('ai-importer/inputs/stream.xlsx', (string) file_get_contents($tmp));
+        @unlink($tmp);
+
+        $config = ImporterConfig::create([
+            'name' => 'test-stream',
+            'config_data' => [
+                'primary_sheet' => 'Produits',
+                'sheets' => ['Produits' => ['skip_first_row' => true]],
+                'mapping' => ['reference' => ['col' => 'reference'], 'name' => ['col' => 'name']],
+            ],
+        ]);
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/stream.xlsx',
+            'status' => JobStatus::Pending,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+        ]);
+
+        $this->runParse($job);
+        $job->refresh();
+
+        $this->assertSame(JobStatus::Parsed, $job->status);
+        $this->assertSame(3, $job->stagingRecords()->count());
+        $this->assertSame(3, $job->total_rows);
     }
 }

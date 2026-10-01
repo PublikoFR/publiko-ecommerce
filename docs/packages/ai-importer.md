@@ -749,10 +749,14 @@ jointure) ; la « sonde » d'`iterateStreamed()` rechargeait tout le classeur.
   secondaires **intégrales** (jointures identiques au mode complet). Les fenêtres
   suivantes ne chargent que la feuille primaire (`setLoadSheetsOnly`).
 - **Nombre de lignes** : `listWorksheetInfo()` du reader (scan XMLReader, sans charger
-  les données) ; plus de rechargement complet. Limite connue : une feuille avec des
-  lignes vides mais **formatées** en fin de fichier compte ces lignes dans `total_rows`
-  (progression seulement) ; l'itération, elle, les écarte (lignes vides finales bufferisées
-  puis jetées, comme `getHighestDataRow()` en mode complet).
+  les données) ; plus de rechargement complet. Ce compte inclut les lignes vides mais
+  **formatées** en fin de feuille : il sert d'estimation pendant le parse, puis
+  `ParseFileToStagingJob` **recale `total_rows`** sur le nombre de lignes réellement
+  parcourues quand le fichier a été lu jusqu'au bout (pas de `row_limit` atteint).
+  L'itération écarte ces lignes (vides finales bufferisées puis jetées, comme
+  `getHighestDataRow()` en mode complet).
+- **Seuil du mode streamé** : `ai-importer.defaults.stream_threshold_bytes`
+  (`AI_IMPORTER_STREAM_THRESHOLD_BYTES`, défaut 5 Mo), auparavant codé en dur.
 
 Test : `tests/Unit/AiImporter/Services/SpreadsheetParserTest` (xlsx 2 feuilles généré :
 mêmes lignes, même `countRows`, mêmes jointures dans les deux modes ; formule ; texte riche).
