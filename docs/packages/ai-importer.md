@@ -724,3 +724,32 @@ numérique du writer (`LunarProductWriter::NUMERIC_FIELDS` + `price_tex`/`wholes
 Lunar) ; seul l'update préserve l'existant. Tests : `LunarProductWriterNormalizationTest`,
 `WriterOptionsTest` (`test_blank_*`, `test_french_decimal_price_is_parsed`).
 
+
+#### 7.quinquies.16.2 Parser : formules, texte riche, mode streamé
+
+**Problèmes** : `readRow()` lisait `getValue()` → une formule arrivait en staging sous la
+forme `"=C2*1.2"` ; une cellule texte riche (objet `RichText`) était stockée `{}` ; en mode
+streamé (`loadStreamed()`, XLSX/XLS > 5 Mo) le classeur initial n'était chargé qu'avec la
+ligne 1 de chaque feuille → `countRows()` = 0 et **feuilles secondaires vides** (aucune
+jointure) ; la « sonde » d'`iterateStreamed()` rechargeait tout le classeur.
+
+**Décisions** (`Services/SpreadsheetParser.php`, `Services/ChunkReadFilter.php`) :
+
+- **Valeur de cellule** (`cellValue()`) : `RichText` → `getPlainText()` ; formule →
+  `getCalculatedValue()`, repli sur la valeur en cache écrite par Excel
+  (`getOldCalculatedValue()`) si le calcul lève ou renvoie une erreur Excel (`#REF!`…).
+  En mode streamé seule une fenêtre de lignes est chargée : une formule visant une autre
+  ligne serait calculée contre des cellules vides, donc **la valeur en cache est
+  prioritaire** quand elle existe. Une formule ne fait jamais planter la ligne.
+- **Mode streamé** : un seul chargement initial avec `ChunkReadFilter(windowSheet:
+  primaire, fullSheets: feuilles de config.sheets)` → en-têtes de la primaire + feuilles
+  secondaires **intégrales** (jointures identiques au mode complet). Les fenêtres
+  suivantes ne chargent que la feuille primaire (`setLoadSheetsOnly`).
+- **Nombre de lignes** : `listWorksheetInfo()` du reader (scan XMLReader, sans charger
+  les données) ; plus de rechargement complet. Limite connue : une feuille avec des
+  lignes vides mais **formatées** en fin de fichier compte ces lignes dans `total_rows`
+  (progression seulement) ; l'itération, elle, les écarte (lignes vides finales bufferisées
+  puis jetées, comme `getHighestDataRow()` en mode complet).
+
+Test : `tests/Unit/AiImporter/Services/SpreadsheetParserTest` (xlsx 2 feuilles généré :
+mêmes lignes, même `countRows`, mêmes jointures dans les deux modes ; formule ; texte riche).
