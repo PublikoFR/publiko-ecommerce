@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Lunar\Models\Transaction;
+use Pko\Pennylane\Models\PennylaneInvoice;
 use Pko\Pennylane\Services\CreditNoteSynchronizer;
 use Throwable;
 
@@ -53,6 +54,17 @@ final class SyncRefundCreditNoteJob implements ShouldBeUnique, ShouldQueue
         $result = $synchronizer->sync($txn);
 
         if ($result === null) {
+            // Commande pas encore facturée (facture émise à l'expédition) :
+            // le job de facture émettra cet avoir une fois la facture finalisée.
+            if (! PennylaneInvoice::where('order_id', $txn->order_id)->where('type', PennylaneInvoice::TYPE_INVOICE)->exists()) {
+                Log::info('Pennylane credit note: commande pas encore facturée, avoir différé', [
+                    'transaction_id' => $this->transactionId,
+                    'order_id' => $txn->order_id,
+                ]);
+
+                return;
+            }
+
             if ($this->attempts() < $this->tries) {
                 $this->release(120);
 

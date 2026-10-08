@@ -10,6 +10,7 @@ use Lunar\Models\OrderLine;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Pennylane\Dto\CreateInvoiceData;
 use Pko\Pennylane\Dto\InvoiceLineData;
+use Pko\Pennylane\Models\PennylaneDeliveryNote;
 use Pko\Pennylane\Support\VatRate;
 
 final class OrderToInvoiceMapper
@@ -45,6 +46,7 @@ final class OrderToInvoiceMapper
             lines: $this->lines($order),
             subject: $order->reference ? "Commande {$order->reference}" : null,
             description: $order->notes,
+            freeText: $this->deliveryNoteMention($order),
             language: (string) ($config['default_language'] ?? 'fr'),
             draft: false,
         );
@@ -98,6 +100,25 @@ final class OrderToInvoiceMapper
         }
 
         return $lines;
+    }
+
+    /**
+     * Rattache la facture au bon de livraison qui justifie l'expédition.
+     */
+    private function deliveryNoteMention(Order $order): ?string
+    {
+        $note = PennylaneDeliveryNote::query()
+            ->where('order_id', $order->id)
+            ->where('status', PennylaneDeliveryNote::STATUS_FINALIZED)
+            ->first();
+
+        if (! $note?->pennylane_document_number) {
+            return null;
+        }
+
+        $date = $note->synced_at?->format('d/m/Y');
+
+        return 'Bon de livraison n° '.$note->pennylane_document_number.($date ? ' du '.$date : '');
     }
 
     private function taxableCents(OrderLine $line): int

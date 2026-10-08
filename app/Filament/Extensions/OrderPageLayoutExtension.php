@@ -160,7 +160,8 @@ final class OrderPageLayoutExtension extends ResourceExtension
                     ->hiddenLabel()
                     ->view('filament.orders.order-documents')
                     ->state(fn (Order $record): array => OrderDocuments::forOrder($record))
-                    ->visible(fn (Order $record): bool => filled(OrderDocuments::forOrder($record)['invoice'])),
+                    ->visible(fn (Order $record): bool => filled(OrderDocuments::forOrder($record)['invoice'])
+                        || filled(OrderDocuments::forOrder($record)['delivery_note'])),
                 ManageOrder::getBillingAddressInfoList(),
             ])
             ->id('order-transactions')

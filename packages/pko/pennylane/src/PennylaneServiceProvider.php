@@ -12,6 +12,7 @@ use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Account\Contracts\CustomerInvoices;
 use Pko\Pennylane\Api\PennylaneClient;
+use Pko\Pennylane\Api\Resources\CommercialDocumentsResource;
 use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
 use Pko\Pennylane\Api\Resources\CustomersResource;
 use Pko\Pennylane\Console\Commands\EmailInvoiceCommand;
@@ -26,7 +27,9 @@ use Pko\Pennylane\Observers\TransactionPennylaneObserver;
 use Pko\Pennylane\Services\CreditNoteSynchronizer;
 use Pko\Pennylane\Services\CustomerInvoiceListing;
 use Pko\Pennylane\Services\CustomerMapper;
+use Pko\Pennylane\Services\DeliveryNoteSynchronizer;
 use Pko\Pennylane\Services\InvoiceSynchronizer;
+use Pko\Pennylane\Services\OrderToDeliveryNoteMapper;
 use Pko\Pennylane\Services\OrderToInvoiceMapper;
 use Pko\Pennylane\Services\TransactionToCreditNoteMapper;
 
@@ -47,12 +50,15 @@ final class PennylaneServiceProvider extends ServiceProvider
 
         $this->app->singleton(CustomerInvoicesResource::class);
         $this->app->singleton(CustomersResource::class);
+        $this->app->singleton(CommercialDocumentsResource::class);
 
         $this->app->singleton(OrderToInvoiceMapper::class);
         $this->app->singleton(TransactionToCreditNoteMapper::class);
         $this->app->singleton(CustomerMapper::class);
         $this->app->singleton(InvoiceSynchronizer::class);
         $this->app->singleton(CreditNoteSynchronizer::class);
+        $this->app->singleton(OrderToDeliveryNoteMapper::class);
+        $this->app->singleton(DeliveryNoteSynchronizer::class);
     }
 
     public function boot(): void

@@ -16,4 +16,8 @@ Route::middleware(['web', 'auth:staff'])
         Route::get('credit-note/{transaction}/pdf', [DownloadPennylanePdfController::class, 'creditNote'])
             ->whereNumber('transaction')
             ->name('credit-note.pdf');
+
+        Route::get('delivery-note/{order}/pdf', [DownloadPennylanePdfController::class, 'deliveryNote'])
+            ->whereNumber('order')
+            ->name('delivery-note.pdf');
     });
