@@ -27,6 +27,8 @@ use Lunar\Models\Order;
 use Lunar\Models\OrderAddress;
 use Lunar\Models\OrderLine;
 use Lunar\Models\ProductVariant;
+use Pko\Pennylane\Models\PennylaneDeliveryNote;
+use Pko\Pennylane\Models\PennylaneInvoice;
 use Pko\ShippingCommon\Models\CarrierShipment;
 use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Tests\TestCase;
@@ -187,6 +189,63 @@ class OrderAdminLayoutTest extends TestCase
             'attachment;',
             (string) $this->get(CarrierLabelUrl::for($shipment, download: true))->headers->get('Content-Disposition'),
         );
+    }
+
+    /**
+     * Demande client : les pièces apparaissent dans l'ordre où elles sont créées —
+     * étiquette, puis bon de livraison (remise au transporteur), puis facture.
+     */
+    public function test_la_vue_d_ensemble_liste_etiquette_bon_de_livraison_puis_facture(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('labels/etiquette-test.pdf', '%PDF-test');
+
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+        OrderAddress::factory()->create([
+            'order_id' => $order->id,
+            'type' => 'shipping',
+            'country_id' => Country::query()->firstOrFail()->id,
+            'shipping_option' => 'chronopost.chrono13',
+        ]);
+
+        CarrierShipment::create([
+            'order_id' => $order->id,
+            'carrier' => 'chronopost',
+            'origin' => CarrierShipment::ORIGIN_WEKLO,
+            'service_code' => 'chrono13',
+            'tracking_number' => 'XN000000042FR',
+            'label_path' => 'labels/etiquette-test.pdf',
+            'status' => CarrierShipment::STATUS_CREATED,
+        ]);
+        PennylaneInvoice::withoutEvents(fn () => PennylaneInvoice::create([
+            'order_id' => $order->id,
+            'type' => PennylaneInvoice::TYPE_INVOICE,
+            'pennylane_id' => 9001,
+            'pennylane_invoice_number' => 'F-TEST-1',
+            'external_reference' => 'order_'.$order->id,
+            'status' => PennylaneInvoice::STATUS_FINALIZED,
+        ]));
+        PennylaneDeliveryNote::create([
+            'order_id' => $order->id,
+            'pennylane_id' => 9002,
+            'pennylane_document_number' => 'BL-TEST-1',
+            'external_reference' => 'delivery_'.$order->id,
+            'status' => PennylaneDeliveryNote::STATUS_FINALIZED,
+        ]);
+
+        $html = view('filament.orders.order-overview', [
+            'getState' => fn (): array => OrderPageLayoutExtension::overview($order->fresh()),
+        ])->render();
+
+        $label = strpos($html, 'XN000000042FR');
+        $deliveryNote = strpos($html, 'Bon de livraison BL-TEST-1');
+        $invoice = strpos($html, 'Facture F-TEST-1');
+
+        $this->assertNotFalse($label);
+        $this->assertNotFalse($deliveryNote);
+        $this->assertNotFalse($invoice);
+        $this->assertTrue($label < $deliveryNote && $deliveryNote < $invoice, 'Ordre attendu : étiquette, bon de livraison, facture.');
     }
 
     public function test_le_lien_d_etiquette_exige_signature_et_session_staff(): void

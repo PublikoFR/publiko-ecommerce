@@ -70,12 +70,7 @@
         @endif
     </div>
 
-    {{-- Facture Pennylane --}}
-    @if ($data['invoice'] ?? null)
-        @include('filament.orders.partials.document-row', ['document' => $data['invoice'], 'class' => 'py-4'])
-    @endif
-
-    {{-- Étiquette transporteur : voir / télécharger, ou créer --}}
+    {{-- Étiquette transporteur (première pièce créée) : voir / télécharger, ou créer --}}
     @foreach ($data['labels'] ?? [] as $label)
         <div class="flex items-start justify-between gap-3 py-4">
             <div class="flex min-w-0 items-start gap-2.5">
@@ -108,6 +103,14 @@
                 @endif
             </div>
         </div>
+    @endforeach
+
+    {{-- Documents Pennylane, dans l'ordre où ils naissent : bon de livraison à la
+         remise au transporteur, puis la facture qui le cite. --}}
+    @foreach (['delivery_note', 'invoice'] as $key)
+        @if ($data[$key] ?? null)
+            @include('filament.orders.partials.document-row', ['document' => $data[$key], 'class' => 'py-4'])
+        @endif
     @endforeach
 
     {{-- Détails facultatifs --}}

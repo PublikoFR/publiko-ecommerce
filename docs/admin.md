@@ -567,7 +567,9 @@ résumé Lunar (section sans titre) sont remplacés par un bloc unique « vue d'
 (`wire:click="mountAction('update_status')"` → modale Lunar de changement de statut, action
 d'en-tête, aussi affichée en bouton à côté du menu Actions), date FR
 (« Passée le 19/07/2026 à 10:34 »), client (nouveau/récurrent · nombre de commandes passées,
-bouton « Fiche client »), puis Chantier / Réf. client / Canal seulement s'ils sont renseignés
+bouton « Fiche client »), puis les pièces de la commande **dans l'ordre où elles sont créées**
+(demande client, 2026-10-12) : étiquette transporteur, bon de livraison Pennylane, facture
+Pennylane — puis Chantier / Réf. client / Canal seulement s'ils sont renseignés
 — Canal masqué tant qu'il n'existe qu'un seul canal. Les hooks `extendOrderSummary*` de Lunar
 ne s'appliquent donc plus. Les deux adresses en sortent, le bloc
 « Étiquettes » (tags Lunar) est supprimé — inutile, et son autocomplétion proposait les tags
