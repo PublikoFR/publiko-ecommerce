@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Lunar\Models\Order;
+use Lunar\Models\Transaction;
 use Pko\Pennylane\Models\PennylaneInvoice;
 use Pko\Pennylane\Services\InvoiceSynchronizer;
 use Throwable;
@@ -51,7 +52,35 @@ final class SyncOrderInvoiceJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $synchronizer->sync($order);
+        $invoice = $synchronizer->sync($order);
+
+        if ($invoice->isFinalized()) {
+            $this->dispatchPendingCreditNotes($order);
+        }
+    }
+
+    /**
+     * Un remboursement passé avant la facture (facturation à l'expédition) n'a
+     * pas pu produire son avoir : il est émis maintenant que la facture existe.
+     */
+    private function dispatchPendingCreditNotes(Order $order): void
+    {
+        if (! (bool) config('pennylane.auto_credit_note_on_refund', true)) {
+            return;
+        }
+
+        $credited = PennylaneInvoice::query()
+            ->where('order_id', $order->id)
+            ->where('type', PennylaneInvoice::TYPE_CREDIT_NOTE)
+            ->where('status', PennylaneInvoice::STATUS_FINALIZED)
+            ->pluck('transaction_id')
+            ->all();
+
+        $order->transactions
+            ->where('type', 'refund')
+            ->where('success', true)
+            ->whereNotIn('id', $credited)
+            ->each(fn (Transaction $refund) => SyncRefundCreditNoteJob::dispatch($refund->id));
     }
 
     public function failed(Throwable $e): void

@@ -8,19 +8,35 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Pko\Pennylane\Api\Exceptions\InvoicePdfNotReady;
 use Pko\Pennylane\Api\Exceptions\PennylaneApiException;
 use Pko\Pennylane\Api\Exceptions\PennylaneException;
+use Pko\Pennylane\Api\Resources\CommercialDocumentsResource;
 use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
 
 final class InvoicePdfFetcher
 {
     public function __construct(
         private readonly CustomerInvoicesResource $invoices,
+        private readonly CommercialDocumentsResource $documents,
         private readonly HttpFactory $http,
     ) {}
 
     public function fetch(int $pennylaneId): string
     {
+        return $this->download(fn (): ?string => $this->invoices->pdfUrl($pennylaneId));
+    }
+
+    /** PDF d'un document commercial (bon de livraison). */
+    public function fetchCommercialDocument(int $pennylaneId): string
+    {
+        return $this->download(fn (): ?string => $this->documents->pdfUrl($pennylaneId));
+    }
+
+    /**
+     * @param  \Closure(): ?string  $resolveUrl
+     */
+    private function download(\Closure $resolveUrl): string
+    {
         try {
-            $url = $this->invoices->pdfUrl($pennylaneId);
+            $url = $resolveUrl();
             if (! $url) {
                 throw new InvoicePdfNotReady;
             }

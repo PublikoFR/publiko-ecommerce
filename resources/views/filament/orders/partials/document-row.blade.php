@@ -1,8 +1,8 @@
-{{-- Ligne d'un document comptable (facture ou avoir Pennylane) : $document, $class. --}}
+{{-- Ligne d'un document Pennylane (bon de livraison, facture, avoir) : $document, $class. --}}
 <div @class(['flex items-start justify-between gap-3', $class ?? null])>
     <div class="flex min-w-0 items-start gap-2.5">
         <x-filament::icon
-            :icon="$document['type'] === 'Avoir' ? 'heroicon-o-receipt-refund' : 'heroicon-o-document-text'"
+            :icon="match ($document['type']) { 'Avoir' => 'heroicon-o-receipt-refund', 'Bon de livraison' => 'heroicon-o-truck', default => 'heroicon-o-document-text' }"
             class="mt-0.5 h-5 w-5 shrink-0 text-gray-400"
         />
         <div class="min-w-0">

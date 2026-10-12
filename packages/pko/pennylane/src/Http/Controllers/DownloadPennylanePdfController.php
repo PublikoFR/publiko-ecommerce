@@ -10,6 +10,7 @@ use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Account\Support\AccountContext;
 use Pko\Pennylane\Api\Exceptions\PennylaneException;
+use Pko\Pennylane\Models\PennylaneDeliveryNote;
 use Pko\Pennylane\Models\PennylaneInvoice;
 use Pko\Pennylane\Services\InvoicePdfFetcher;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -47,6 +48,18 @@ final class DownloadPennylanePdfController
         return $this->streamPdf((int) $record->pennylane_id, $record->pdfFilename(), $request->boolean('inline'));
     }
 
+    public function deliveryNote(Request $request, Order $order): Response
+    {
+        abort_unless($request->hasValidSignature(), 403);
+
+        $record = PennylaneDeliveryNote::where('order_id', $order->id)
+            ->where('status', PennylaneDeliveryNote::STATUS_FINALIZED)
+            ->whereNotNull('pennylane_id')
+            ->firstOrFail();
+
+        return $this->streamPdf((int) $record->pennylane_id, $record->pdfFilename(), $request->boolean('inline'), commercialDocument: true);
+    }
+
     public function customer(Request $request, int $invoice): Response
     {
         $customer = AccountContext::customer();
@@ -66,10 +79,12 @@ final class DownloadPennylanePdfController
      * admin (le paramètre fait alors partie de l'URL signée), compte connecté
      * propriétaire de la facture côté client.
      */
-    private function streamPdf(int $pennylaneId, string $filename, bool $inline = false): Response
+    private function streamPdf(int $pennylaneId, string $filename, bool $inline = false, bool $commercialDocument = false): Response
     {
         try {
-            $body = $this->pdf->fetch($pennylaneId);
+            $body = $commercialDocument
+                ? $this->pdf->fetchCommercialDocument($pennylaneId)
+                : $this->pdf->fetch($pennylaneId);
         } catch (PennylaneException $exception) {
             abort(503, $exception->getMessage(), ['Retry-After' => '60', 'Cache-Control' => 'private, no-store']);
         }

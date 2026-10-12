@@ -77,6 +77,12 @@ packages/pko/pennylane/
 | `payload_snapshot` | json | payload envoyé à Pennylane |
 | `synced_at` | timestamp nullable | |
 
+### `pko_pennylane_delivery_notes`
+
+Un bon de livraison par commande (`order_id` unique) : `pennylane_id`, `pennylane_document_number`, `external_reference` (`delivery_<order_id>`), `status` (`pending`, `finalized`, `failed`), `last_error`, `payload_snapshot`, `synced_at`.
+
+Table séparée de `pko_pennylane_invoices` **à dessein** : tout ce qui lit cette table (e-mail « facture disponible », espace client, liste admin, polling changelog) suppose un document de facturation. Un bon de livraison y serait envoyé au client comme une facture.
+
 ### `pko_pennylane_customers`
 
 Mapping 1:1 Lunar Customer ↔ Pennylane customer_id, avec `external_reference` unique.
@@ -91,6 +97,8 @@ PENNYLANE_API_TOKEN=...                 # obligatoire
 PENNYLANE_INVOICE_TEMPLATE_ID=         # optionnel : sans ID, Pennylane applique son modèle par défaut
 PENNYLANE_TRIGGER_STATUS=payment-received  # statut Lunar qui déclenche la facture
 PENNYLANE_AUTO_CREDIT_NOTE=true         # avoir auto sur refund
+PENNYLANE_DELIVERY_NOTE=false           # bon de livraison Pennylane à l'expédition (scope commercial_documents:all)
+PENNYLANE_DELIVERY_NOTE_STATUS=dispatched  # statut Lunar qui déclenche le bon de livraison
 PENNYLANE_DEADLINE_DAYS=0               # délai de paiement (facture cash par défaut)
 PENNYLANE_LANG=fr                       # converti en locale API (fr → fr_FR)
 PENNYLANE_QUEUE=default                 # queue dédiée possible
@@ -189,12 +197,39 @@ tunnel d'achat.
    - Reprise : facture retrouvée par `external_reference`, sinon `create(draft=false)` ; `finalize` seulement si elle est encore en brouillon
    - Stocke `pennylane_id`, `pennylane_invoice_number`, `status=finalized`, snapshot payload
 
+## Flux bon de livraison (facture après expédition)
+
+Besoin comptable : une pièce Pennylane qui justifie l'expédition en cas de litige, et une facture émise **après** l'expédition. Configuration type :
+
+```bash
+PENNYLANE_DELIVERY_NOTE=true
+PENNYLANE_DELIVERY_NOTE_STATUS=dispatched
+PENNYLANE_TRIGGER_STATUS=dispatched
+```
+
+Le token doit porter le scope **`commercial_documents:all`** (sinon 403 : erreur définitive, le job échoue sans retry, le bon passe `failed` et la facture part aussitôt).
+
+1. **Déclenchement** : `CreateCarrierShipmentJob::markOrderDispatched()` passe la commande en `dispatched` à la création de l'étiquette. `OrderPennylaneObserver` dispatche `SyncOrderDeliveryNoteJob`. Quand le statut du bon est aussi celui de la facture, l'observer **ne** dispatche **pas** la facture : c'est le job du bon qui la chaîne (`SyncOrderDeliveryNoteJob::chainsInvoice()`).
+2. **Job** (mêmes retries que la facture, `ShouldBeUnique`) → `DeliveryNoteSynchronizer` :
+   - `firstOrCreate(external_reference=delivery_<id>)`, early return si `finalized`
+   - `POST /commercial_documents` avec `document_type=shipping_order`, après recherche de reprise. **L'API ne filtre pas sur `external_reference`** (filtres possibles : `id`, `customer_id`, `document_type`) : la reprise liste les bons du client (`sort=-id`, 100 par page, 5 pages max) et compare `external_reference` côté PHP. Ne jamais reprendre `items[0]` sans cette comparaison : le bon d'une autre commande serait cité sur la facture.
+   - Erreur API non réessayable (4xx hors 429) → `fail()` immédiat, sans les 5 retries. Pas de brouillon ni de finalisation : Pennylane numérote le document dès la création (`document_number`).
+   - Lignes = celles de la facture (`OrderToInvoiceMapper::lines()`), **sans le port** (unité `service`). L'API exige un prix par ligne : le bon est valorisé.
+   - `date` = `deadline` = jour d'expédition (l'échéance est obligatoire dans l'API, sans objet ici). Adresse de livraison dans `pdf_description`.
+3. **Facture** : dispatchée après le bon, en succès comme en échec définitif (`failed()`). Un bon en échec ne bloque jamais la facturation, il se relance depuis la fiche commande. La facture cite le bon dans `pdf_invoice_free_text` (« Bon de livraison n° X du JJ/MM/AAAA »).
+4. **Remboursement avant facture** : `SyncRefundCreditNoteJob` sans facture du tout pour la commande → log info et sortie, sans retry. `SyncOrderInvoiceJob`, une fois la facture finalisée, dispatche l'avoir de chaque remboursement réussi qui n'en a pas encore.
+
+**Bascule d'une boutique existante** : les commandes payées et non expédiées au moment du changement seront facturées à l'expédition. Celles déjà facturées reçoivent leur bon de livraison à l'expédition, sans seconde facture (garde `finalized`).
+
+Fiche commande admin : action d'en-tête « Bon de livraison » (téléchargement, relance si échec, émission manuelle si la commande est expédiée sans bon) et ligne dans le bloc documents. PDF via la route signée `pennylane.delivery-note.pdf` (proxy staff, `public_file_url` jamais exposé). Le bon n'est pas exposé dans l'espace client ni envoyé par e-mail.
+
 ## Flux avoir (credit note)
 
 1. **Déclenchement** : `TransactionPennylaneObserver::created()` détecte `type=refund` + `success=true`.
 2. **Job** (retries 60/180/600/1800/3600/14400s) :
    - Cherche la facture parent `PennylaneInvoice` (type=invoice, status=finalized, même order_id)
-   - Absente → `release(120)` (re-queue), jusqu'à épuisement des tries
+   - Absente alors qu'une facture est en cours d'émission → `release(120)` (re-queue), jusqu'à épuisement des tries
+   - Aucune facture pour la commande (facturation à l'expédition) → sortie sans retry, l'avoir sera dispatché par `SyncOrderInvoiceJob`
    - Présente : `TransactionToCreditNoteMapper` répartit le remboursement TTC au prorata du TTC de chaque taux de TVA de la commande (une ligne négative par taux)
    - `create` (montants négatifs), `finalize` si besoin, puis `linkCreditNote` sur la facture parent (sauté si `credited_invoice` est déjà renseigné)
 

@@ -31,6 +31,18 @@ return [
     'trigger_on_status' => env('PENNYLANE_TRIGGER_STATUS', 'payment-received'),
     'auto_credit_note_on_refund' => env('PENNYLANE_AUTO_CREDIT_NOTE', true),
 
+    /*
+     * Bon de livraison (commercial document `shipping_order`) émis à
+     * l'expédition : pièce justificative de la livraison en cas de litige.
+     * Quand son statut est aussi celui de la facture (`trigger_on_status`),
+     * la facture n'est émise qu'APRÈS le bon de livraison, qu'elle cite.
+     * Demande le scope `commercial_documents:all` sur le token.
+     */
+    'delivery_note' => [
+        'enabled' => filter_var(env('PENNYLANE_DELIVERY_NOTE', false), FILTER_VALIDATE_BOOL),
+        'trigger_on_status' => env('PENNYLANE_DELIVERY_NOTE_STATUS', 'dispatched'),
+    ],
+
     'queue' => env('PENNYLANE_QUEUE', 'default'),
 
     'http' => [
@@ -42,6 +54,7 @@ return [
     'external_reference_prefix' => [
         'invoice' => env('PENNYLANE_EXT_PREFIX_INVOICE', 'order_'),
         'credit_note' => env('PENNYLANE_EXT_PREFIX_CREDIT', 'refund_'),
+        'delivery_note' => env('PENNYLANE_EXT_PREFIX_DELIVERY', 'delivery_'),
         'customer' => env('PENNYLANE_EXT_PREFIX_CUSTOMER', 'lunar_cust_'),
     ],
 ];

@@ -12,8 +12,10 @@ use Illuminate\Support\HtmlString;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
+use Pko\Pennylane\Jobs\SyncOrderDeliveryNoteJob;
 use Pko\Pennylane\Jobs\SyncOrderInvoiceJob;
 use Pko\Pennylane\Jobs\SyncRefundCreditNoteJob;
+use Pko\Pennylane\Models\PennylaneDeliveryNote;
 use Pko\Pennylane\Models\PennylaneInvoice;
 
 /**
@@ -33,6 +35,11 @@ final class OrderInvoiceActionsExtension extends ResourceExtension
             $actions,
             fn ($action) => ! (method_exists($action, 'getName') && $action->getName() === 'download_pdf'),
         ));
+
+        $deliveryNoteAction = $this->deliveryNoteAction();
+        if ($deliveryNoteAction !== null) {
+            $actions[] = $deliveryNoteAction;
+        }
 
         $actions[] = $this->invoiceAction();
 
@@ -88,6 +95,67 @@ final class OrderInvoiceActionsExtension extends ResourceExtension
             ->modalCancelAction(false)
             ->modalWidth('md')
             ->modal(fn (): bool => $this->shouldShowErrorModal());
+    }
+
+    /**
+     * Bon de livraison : téléchargement une fois émis, émission ou relance
+     * sinon (commande expédiée sans bon, ou synchronisation en échec).
+     */
+    private function deliveryNoteAction(): ?Action
+    {
+        $order = $this->resolveOrder();
+        if (! $order) {
+            return null;
+        }
+
+        $record = PennylaneDeliveryNote::where('order_id', $order->id)->first();
+        $shipped = in_array($order->status, ['dispatched', 'delivered'], true);
+
+        if (! $record && ! ((bool) config('pennylane.delivery_note.enabled', false) && $shipped)) {
+            return null;
+        }
+
+        return Action::make('pennylane_delivery_note')
+            ->label(fn (): string => match (true) {
+                $record?->isFinalized() => 'Bon de livraison '.$record->pennylane_document_number,
+                $record?->status === PennylaneDeliveryNote::STATUS_FAILED => '⚠ Bon de livraison en échec',
+                $record !== null => 'Bon de livraison bientôt disponible',
+                default => 'Émettre le bon de livraison',
+            })
+            ->icon('heroicon-o-truck')
+            ->color(fn (): string => match (true) {
+                $record?->isFinalized() => 'gray',
+                $record?->status === PennylaneDeliveryNote::STATUS_FAILED => 'danger',
+                default => 'gray',
+            })
+            ->requiresConfirmation(fn (): bool => $record === null)
+            ->modalDescription(fn (): ?string => $record === null
+                ? 'Le bon de livraison sera créé dans Pennylane, daté d\'aujourd\'hui. Il ne peut pas être supprimé ensuite.'
+                : null)
+            ->action(function () use ($order, $record): void {
+                if ($record?->isFinalized() && $record->pennylane_id) {
+                    $this->redirectBrowserTo(URL::signedRoute('pennylane.delivery-note.pdf', ['order' => $order->id]));
+
+                    return;
+                }
+
+                if ($record === null || $record->status === PennylaneDeliveryNote::STATUS_FAILED) {
+                    SyncOrderDeliveryNoteJob::dispatch($order->id);
+                    Notification::make()
+                        ->info()
+                        ->title('Émission du bon de livraison lancée')
+                        ->body('Recharge la page dans quelques secondes.')
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->warning()
+                    ->title('Bon de livraison bientôt disponible')
+                    ->body('Le bon de livraison Pennylane est en cours d\'émission.')
+                    ->send();
+            });
     }
 
     private function creditNotesAction(): ?ActionGroup

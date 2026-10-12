@@ -6,11 +6,12 @@ namespace Pko\Pennylane\Services;
 
 use Illuminate\Support\Facades\URL;
 use Lunar\Models\Order;
+use Pko\Pennylane\Models\PennylaneDeliveryNote;
 use Pko\Pennylane\Models\PennylaneInvoice;
 
 /**
  * Documents Pennylane d'une commande, prêts à afficher dans la fiche admin :
- * facture et avoirs, avec des liens signés de téléchargement et d'affichage.
+ * bon de livraison, facture et avoirs, avec des liens signés de téléchargement et d'affichage.
  *
  * Les liens pointent vers nos routes admin (proxy authentifié staff), jamais
  * vers `public_file_url` : ce lien Pennylane est public, il ne doit pas fuiter.
@@ -21,7 +22,7 @@ final class OrderDocuments
     private const LINK_TTL_HOURS = 12;
 
     /**
-     * @return array{invoice: array<string,mixed>|null, credit_notes: array<int, array<string,mixed>>}
+     * @return array{delivery_note: array<string,mixed>|null, invoice: array<string,mixed>|null, credit_notes: array<int, array<string,mixed>>}
      */
     public static function forOrder(Order $order): array
     {
@@ -31,7 +32,7 @@ final class OrderDocuments
     }
 
     /**
-     * @return array{invoice: array<string,mixed>|null, credit_notes: array<int, array<string,mixed>>}
+     * @return array{delivery_note: array<string,mixed>|null, invoice: array<string,mixed>|null, credit_notes: array<int, array<string,mixed>>}
      */
     private static function build(Order $order): array
     {
@@ -39,7 +40,10 @@ final class OrderDocuments
 
         $invoice = $records->firstWhere('type', PennylaneInvoice::TYPE_INVOICE);
 
+        $deliveryNote = PennylaneDeliveryNote::query()->where('order_id', $order->id)->first();
+
         return [
+            'delivery_note' => $deliveryNote ? self::deliveryNoteRow($deliveryNote) : null,
             'invoice' => $invoice ? self::row($invoice) : null,
             'credit_notes' => $records
                 ->where('type', PennylaneInvoice::TYPE_CREDIT_NOTE)
@@ -70,6 +74,41 @@ final class OrderDocuments
             'url' => $ready ? self::pdfUrl($record) : null,
             'view_url' => $ready ? self::pdfUrl($record, inline: true) : null,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function deliveryNoteRow(PennylaneDeliveryNote $record): array
+    {
+        $ready = $record->isFinalized() && $record->pennylane_id !== null;
+
+        return [
+            'type' => 'Bon de livraison',
+            'number' => $record->pennylane_document_number,
+            'label' => trim('Bon de livraison '.$record->pennylane_document_number),
+            'transaction_id' => null,
+            'state' => match (true) {
+                $ready => 'ready',
+                $record->status === PennylaneDeliveryNote::STATUS_FAILED => 'failed',
+                default => 'pending',
+            },
+            'url' => $ready ? self::deliveryNotePdfUrl($record) : null,
+            'view_url' => $ready ? self::deliveryNotePdfUrl($record, inline: true) : null,
+        ];
+    }
+
+    public static function deliveryNotePdfUrl(PennylaneDeliveryNote $record, bool $inline = false): ?string
+    {
+        if (! $record->isFinalized() || $record->pennylane_id === null || $record->order_id === null) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'pennylane.delivery-note.pdf',
+            now()->addHours(self::LINK_TTL_HOURS),
+            ['order' => $record->order_id, ...($inline ? ['inline' => 1] : [])],
+        );
     }
 
     /**
