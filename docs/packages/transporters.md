@@ -273,6 +273,10 @@ CRUD de `pko_shipping_surcharges` (modèle `Pko\ShippingCommon\Models\ShippingSu
 
 Les onglets du cluster **Expédition** (sous-navigation `Top`) sont limités à Paramètres, Bordereaux et un onglet par transporteur actif.
 
+### Bordereau de remise (onglet Bordereaux)
+
+`DailyManifestPage` liste les envois `created` avec n° de LT. Chaque ligne ouvre la fiche commande (clic sur la ligne ou sur la référence, destinataire et ville en sous-titre). Actions par ligne : **Étiquette** (PDF par lien signé `CarrierLabelUrl`, visible seulement si le fichier existe) et **Suivi** (page publique du transporteur, `CarrierTrackingUrl`, même URL que l'e-mail d'expédition). L'action groupée « Éditer le bordereau » génère le PDF de remise (`ManifestPdf`).
+
 Champs : `code` (unique, snake_case), `label`, `mode` (`auto` / `quote` / `rebill`), `amount_cents` (nullable — **saisi en euros** dans la modale, stocké en cents), `rule` (JSON, nullable), `enabled`.
 
 **Données de référence** (seedées par `PkoShippingSurchargesSeeder`) :
