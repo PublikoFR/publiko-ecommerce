@@ -209,6 +209,8 @@ PENNYLANE_TRIGGER_STATUS=dispatched
 
 Le token doit porter le scope **`commercial_documents:all`** (sinon 403 : erreur définitive, le job échoue sans retry, le bon passe `failed` et la facture part aussitôt).
 
+**Numérotation des bons de livraison à configurer dans le compte Pennylane** (sandbox **et** live), sinon `POST /commercial_documents` → 422 *« You must first configure the numbering for this type of document »*. Même piège que les factures (cf. « Recette réelle »). Constaté au premier test réel sur la sandbox le 2026-10-12 : bon `failed`, facture F-2026-10-8 émise aussitôt (fail-fast), donc sans mention du bon. Ordre de mise en prod : numérotation configurée → token avec `commercial_documents:all` → `PENNYLANE_DELIVERY_NOTE=true`.
+
 1. **Déclenchement** : passage de la commande en `dispatched` = **remise du colis au transporteur** (action « Remis au transporteur » du bordereau, premier scan du suivi, ou statut changé à la main — `docs/shipping.md` §5.28). La création de l'étiquette ne fait que passer la commande en `prepared` : bon et facture sont donc datés de la remise réelle. `OrderPennylaneObserver` dispatche `SyncOrderDeliveryNoteJob`. Quand le statut du bon est aussi celui de la facture, l'observer **ne** dispatche **pas** la facture : c'est le job du bon qui la chaîne (`SyncOrderDeliveryNoteJob::chainsInvoice()`).
 2. **Job** (mêmes retries que la facture, `ShouldBeUnique`) → `DeliveryNoteSynchronizer` :
    - `firstOrCreate(external_reference=delivery_<id>)`, early return si `finalized`
