@@ -36,6 +36,8 @@ class ChronopostValidationKitCommand extends Command
     public const COMBINATIONS = [
         ['slug' => 'chrono13h-semaine', 'label' => 'Chrono 13H — livraison semaine', 'product' => '01', 'service' => '0', 'relay' => false],
         ['slug' => 'chrono13h-samedi', 'label' => 'Chrono 13H — livraison samedi', 'product' => '01', 'service' => '6', 'relay' => false],
+        ['slug' => 'chrono10h-semaine', 'label' => 'Chrono 10H — livraison semaine', 'product' => '02', 'service' => '0', 'relay' => false],
+        ['slug' => 'chrono10h-samedi', 'label' => 'Chrono 10H — livraison samedi', 'product' => '02', 'service' => '6', 'relay' => false],
         ['slug' => 'relais13h-semaine', 'label' => 'Chrono Relais 13H — livraison semaine', 'product' => '86', 'service' => '0', 'relay' => true],
         ['slug' => 'relais13h-samedi', 'label' => 'Chrono Relais 13H — livraison samedi', 'product' => '86', 'service' => '6', 'relay' => true],
     ];

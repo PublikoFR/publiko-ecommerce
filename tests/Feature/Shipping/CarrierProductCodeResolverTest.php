@@ -31,11 +31,15 @@ class CarrierProductCodeResolverTest extends TestCase
         $this->assertSame('86', $resolver->resolve('chronopost', 'chrono_relais'));
     }
 
-    public function test_les_services_hors_contrat_sont_desactives(): void
+    public function test_chrono10_est_actif_et_chrono18_hors_contrat_desactive(): void
     {
-        $this->assertFalse((bool) CarrierService::query()
+        $this->assertTrue((bool) CarrierService::query()
             ->where('carrier_code', 'chronopost')
             ->where('service_code', 'chrono10')
+            ->value('enabled'));
+        $this->assertFalse((bool) CarrierService::query()
+            ->where('carrier_code', 'chronopost')
+            ->where('service_code', 'chrono18')
             ->value('enabled'));
         $this->assertTrue((bool) CarrierService::query()
             ->where('carrier_code', 'chronopost')

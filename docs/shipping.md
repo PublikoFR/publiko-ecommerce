@@ -385,7 +385,7 @@ Mapping statique dans `ShippingOptions::getServiceLabelsProperty()` :
 |---|---|---|
 | `chronopost.chrono_relais` | Livraison économique — Chrono Relais | Point relais Pickup, jusqu'à 20 kg. |
 | `chronopost.chrono13` | Livraison standard — Chrono 13 | Livraison le lendemain avant 13h. |
-| `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. **Hors contrat, service désactivé depuis le 2026-09-25 (§5.24).** |
+| `chronopost.chrono10` | Livraison express — Chrono 10 | Le lendemain avant 10h, selon éligibilité code postal. Désactivé à tort le 2026-09-25 (§5.24), **réactivé le 2026-10-08 (§5.27)** : au contrat, code produit `02`. |
 
 #### Récap ventilé
 
@@ -864,7 +864,7 @@ Notre code de service interne (`chrono13`, `chrono_relais`, `chrono10`) était e
 | Service interne | Code produit Chronopost |
 |---|---|
 | `chrono13` | `01` *(était `1`, refusé — §5.24)* |
-| `chrono10` | `02` *(hors contrat, désactivé)* |
+| `chrono10` | `02` *(au contrat — réactivé le 2026-10-08, §5.27)* |
 | `chrono_relais` | `86` |
 | `chrono18` | `16` |
 | `chrono_classic` | `44` |
@@ -981,13 +981,13 @@ Tests : `OrderShipmentObserverTest` (dispatch à la transition, pas de doublon, 
 
 ### 5.24 Étiquettes `shippingMultiParcelV4` conformes à la doc officielle (2026-09-25)
 
-Source : doc Chronopost Web Services **VL3.25.10.10** + exemples requête/réponse du contrat (reçus le 2026-09-25). Contrat : Chrono 13H `01`, Chrono Relais 13H `86`, Chrono Express `17`, Chrono Classic `44`. **Pas de Chrono 10 ni 18.**
+Source : doc Chronopost Web Services **VL3.25.10.10** + exemples requête/réponse du contrat (reçus le 2026-09-25). Contrat : Chrono 13H `01`, Chrono Relais 13H `86`, Chrono Express `17`, Chrono Classic `44`. **Pas de Chrono 10 ni 18** — lecture corrigée le 2026-10-08 : Chrono 10 `02` est bien au contrat (§5.27).
 
 **Ce qui empêchait toute étiquette Chrono 13** : `productCode = '1'` (repris du module PrestaShop). Le WS exige deux caractères (erreur 33) et la regex du SDK (`wsregex::__reg_ProductCodes`) refusait `1` **en silence** — le SDK était instancié avec `useExceptions = false` → `productCode` jamais posé → `RFLcheck()` faux → « RFL or SOAP error » sans détail. Au passage, `customerCivility` (obligatoire pour le `RFLcheck` du SDK) n'était pas envoyé non plus.
 
 Correctifs (`ChronopostClient::createShipment()` / `buildLabelsData()`) :
 
-- Migration `2026_09_25_100000_align_chronopost_product_codes_on_contract` (idempotente, ne touche pas un code saisi à la main) : `chrono13 → 01`, `chrono10 → 02`, `chrono10` et `chrono18` **désactivés** (lignes gardées pour les grilles et l'historique). `config/chronopost.php` `product_codes` aligné. Filet : un code à un chiffre encore en base est complété à gauche (`1` → `01`).
+- Migration `2026_09_25_100000_align_chronopost_product_codes_on_contract` (idempotente, ne touche pas un code saisi à la main) : `chrono13 → 01`, `chrono10 → 02`, `chrono10` et `chrono18` **désactivés** (lignes gardées pour les grilles et l'historique) — `chrono10` réactivé le 2026-10-08 (§5.27). `config/chronopost.php` `product_codes` aligné. Filet : un code à un chiffre encore en base est complété à gauche (`1` → `01`).
 - **Point relais** : `refValue.idRelais` = `ShipmentRequest::$pickupPointId` pour les produits relais (`ChronopostClient::RELAY_PRODUCT_CODES = ['86']`). Clé SDK **`idRelai`** (sans « s »). Identifiant absent ou mal formé → `RuntimeException` explicite, pas d'étiquette vers une adresse sans point.
   - **Piège** : la doc et la regex SDK annoncent `[0-9]{4}[A-Za-z]` (ex. `3847U`), mais `recherchePointChronopostInter` renvoie aussi des points `999AA` (ex. `611BX`, 34 points sur 60 à Bordeaux/Paris/Lyon). Le SDK est donc contourné par `Pko\ShippingChronopost\Sdk\Shipment` / `Sdk\RefValue` (validation `^[0-9A-Z]{5}$`), injectés dans `chronopost::$shipment`. Vérifié en réel sur les deux formats.
   - Destinataire en relais : adresse du point, `recipientName` = nom du point, `recipientName2` = client, `recipientPhone` + `recipientMobilePhone` = téléphone client (SMS), `recipientEmail` client, `recipientType = 2`. Hors relais : raison sociale / contact, `recipientType = 1`.
@@ -999,7 +999,7 @@ Correctifs (`ChronopostClient::createShipment()` / `buildLabelsData()`) :
 
 **Vérification réelle** (compte test `19869502`, 2026-09-25) : Chrono 13H `01` → LT `XN450139241FR` ; Relais 13H `86` → `XS486816620FR` (point `611BX`) et `XS486816633FR` (point `7159X`). PDF d'une page, adresse du relais imprimée.
 
-Tests : `tests/Unit/Shipping/ChronopostCreateShipmentTest` (payload 13H / relais, `idRelai` présent ou absent, types, civilités, normalisation, passage du `RFLcheck` SDK en mode exceptions, PDF non ré-encodé, erreur WS lisible sans mot de passe — SoapClient factice), `CarrierProductCodeResolverTest` (codes `01`/`02`, services hors contrat désactivés), `ShippingCasesTest` (Chrono 10 n'est plus proposé).
+Tests : `tests/Unit/Shipping/ChronopostCreateShipmentTest` (payload 13H / relais, `idRelai` présent ou absent, types, civilités, normalisation, passage du `RFLcheck` SDK en mode exceptions, PDF non ré-encodé, erreur WS lisible sans mot de passe — SoapClient factice), `CarrierProductCodeResolverTest` (codes `01`/`02`, services hors contrat désactivés), `ShippingCasesTest` (Chrono 10 n'était plus proposé ; de nouveau proposé depuis §5.27).
 
 ### 5.25 Validation prod Chronopost — kit d'étiquettes test (2026-09-25)
 
@@ -1007,7 +1007,7 @@ Chronopost ne délivre les identifiants de production qu'**après validation des
 
 **Commande** : `make artisan CMD='chronopost:validation-kit'` (package `shipping-chronopost`, `Console\ChronopostValidationKitCommand`).
 
-- Génère une étiquette par combinaison du contrat : Chrono 13H `01` service `0` et `6` (samedi), Chrono Relais 13H `86` service `0` et `6`. Le relais utilise un point **réel** obtenu par `recherchePointChronopostInter` (défaut `--zip=33000 --city=BORDEAUX`), avec la même substitution d'adresse que `CreateCarrierShipmentJob::applyPickupPoint()`.
+- Génère une étiquette par combinaison du contrat : Chrono 13H `01`, Chrono 10H `02` (depuis le 2026-10-08) et Chrono Relais 13H `86`, chacun en service `0` et `6` (samedi), soit 6 étiquettes. Le relais utilise un point **réel** obtenu par `recherchePointChronopostInter` (défaut `--zip=33000 --city=BORDEAUX`), avec la même substitution d'adresse que `CreateCarrierShipmentJob::applyPickupPoint()`.
 - Utilise les **vrais** `ChronopostClient::createShipment()` et `PickupPointSoapClient::search()` : seul le transport change (`Validation\RecordingSoapClient`, qui consigne chaque échange — `createShipment()` enchaîne `shippingMultiParcelV4` puis `getReservedSkybillWithTypeAndMode`, et `__getLastRequest()` ne garderait que le second). Pas de payload recopié à la main : le kit montre exactement ce que la prod enverra.
 - Identifiants : **compte test `19869502` / `255562` par défaut** ; `--account=… --password=… [--sub-account=…]` ou `--from-config` (coffre `secret()` puis `config('chronopost.credentials')`). Tout autre compte que le compte test est **refusé sans `--force`** (il produirait de vraies LT, à annuler).
 - Expéditeur : `config('chronopost.shipper')` (env `SHIPPER_*`), complété champ par champ par des valeurs de test si vide — signalé dans le README. Destinataire hors relais : fictif (Paris 7e).
@@ -1017,7 +1017,7 @@ Chronopost ne délivre les identifiants de production qu'**après validation des
 
 Premier kit (compte test, vendredi 2026-09-25) : Chrono 13H `XN450178188FR` (semaine) / `XN450178191FR` (samedi), Relais 13H `XS486826613FR` / `XS486826627FR` (point `611BX`, Bordeaux). PDF de ~55 Ko, une page.
 
-Tests : `tests/Feature/Shipping/ChronopostValidationKitCommandTest` (4 combinaisons envoyées, `idRelais` du point trouvé, PDF / README / traces écrits, mot de passe absent des XML, base64 tronqué, erreur WS consignée, refus d'un compte non test sans `--force`, `service = 6` transmis au skybill — SoapClient factice, aucun appel réseau).
+Tests : `tests/Feature/Shipping/ChronopostValidationKitCommandTest` (6 combinaisons envoyées, `idRelais` du point trouvé, PDF / README / traces écrits, mot de passe absent des XML, base64 tronqué, erreur WS consignée, refus d'un compte non test sans `--force`, `service = 6` transmis au skybill — SoapClient factice, aucun appel réseau).
 
 ### 5.26 Étiquette créée à la main depuis la fiche commande (2026-09-25)
 
@@ -1038,3 +1038,12 @@ Tests : `tests/Feature/Shipping/ChronopostValidationKitCommandTest` (4 combinais
 
 Tests : `OrderShipmentObserverTest` (envoi `pending` sans job à l'encaissement et au rattrapage, idempotence, création manuelle, échec tracé, bouton du menu Actions — y compris l'ouverture de l'onglet — et bouton de la section Livraison via Livewire), `OrderAdminLayoutTest` (lien « Voir l'étiquette » signé en `target=_blank`, PDF `inline`, 403 sans signature ou lien altéré, redirection sans session staff). Faux transporteur partagé : `tests/Stubs/FakeCarrierClient.php` (hors classe de test, sinon Pint renomme `testCredentials()`).
 
+### 5.27 Chrono 10H réactivé : il est au contrat (2026-10-08)
+
+Le support Web Services Chronopost a confirmé le 2026-10-08 que **Chrono 10H fait partie du contrat** : `productCode` `02`, `service` `0` (semaine) / `6` (samedi). La désactivation du 2026-09-25 (§5.24) venait d'une lecture incomplète des éléments du contrat. Chrono 18 reste hors contrat.
+
+- Migration `2026_10_08_100000_reenable_chronopost_chrono10_on_contract` (package `shipping-common`, idempotente) : `chrono10` repassé `enabled`, code produit `02` posé seulement s'il est vide (un code saisi à la main dans le back-office est conservé). `down()` le désactive de nouveau.
+- Chrono 10 est **de nouveau proposé au checkout** (grille `chrono10`, payant même sous franco si le franco ne le couvre pas — cf. piège liste restrictive §5.20).
+- Kit de validation (§5.25) : deux combinaisons ajoutées, Chrono 10H semaine et samedi, à envoyer au support avec les autres avant l'ouverture des accès prod.
+
+Tests : `CarrierProductCodeResolverTest` (`chrono10` actif, `chrono18` désactivé), `ShippingCasesTest` (trois services proposés, Chrono 10 à 24,90 € sur la tranche légère, toujours présent au-delà de 20 kg), `ChronopostValidationKitCommandTest` (6 combinaisons, 3 PDF quand le samedi échoue).

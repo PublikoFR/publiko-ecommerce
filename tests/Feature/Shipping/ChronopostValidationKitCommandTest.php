@@ -44,23 +44,23 @@ class ChronopostValidationKitCommandTest extends TestCase
 
         $this->artisan('chronopost:validation-kit', ['--output' => $this->dir])->assertSuccessful();
 
-        // 4 combinaisons produit / service, relais sur le point renvoyé par la recherche.
+        // 6 combinaisons produit / service (13H, 10H, Relais 13H × semaine / samedi), relais sur le point renvoyé par la recherche.
         $sent = array_map(fn (object $s): array => [
             $s->skybillValue[0]->productCode,
             $s->skybillValue[0]->service,
             $s->refValue[0]->idRelais ?? null,
         ], $factory->soap->shipments);
-        $this->assertSame([['01', '0', null], ['01', '6', null], ['86', '0', '611BX'], ['86', '6', '611BX']], $sent);
-        $this->assertSame('TABAC DE LA GARE', $factory->soap->shipments[2]->recipientValue[0]->recipientName);
+        $this->assertSame([['01', '0', null], ['01', '6', null], ['02', '0', null], ['02', '6', null], ['86', '0', '611BX'], ['86', '6', '611BX']], $sent);
+        $this->assertSame('TABAC DE LA GARE', $factory->soap->shipments[4]->recipientValue[0]->recipientName);
 
         $pdfs = File::glob($this->dir.'/*.pdf');
-        $this->assertCount(4, $pdfs);
+        $this->assertCount(6, $pdfs);
         foreach ($pdfs as $pdf) {
             $this->assertStringStartsWith('%PDF', (string) File::get($pdf));
         }
 
         $readme = File::get($this->dir.'/README.md');
-        foreach (['XN000000001FR', 'XN000000002FR', 'XS000000003FR', 'XS000000004FR', '611BX', 'compte test officiel'] as $expected) {
+        foreach (['XN000000001FR', 'XN000000002FR', 'XN000000003FR', 'XN000000004FR', 'XS000000005FR', 'XS000000006FR', '611BX', 'compte test officiel'] as $expected) {
             $this->assertStringContainsString($expected, $readme);
         }
         $this->assertStringNotContainsString('ERREUR', $readme);
@@ -86,7 +86,8 @@ class ChronopostValidationKitCommandTest extends TestCase
 
         $readme = File::get($this->dir.'/README.md');
         $this->assertStringContainsString('ERREUR : Chronopost shippingMultiParcelV4 : erreur 33', $readme);
-        $this->assertCount(2, File::glob($this->dir.'/*.pdf'));
+        // Échec sur chaque combinaison samedi : seules les 3 combinaisons semaine produisent un PDF.
+        $this->assertCount(3, File::glob($this->dir.'/*.pdf'));
     }
 
     public function test_refuse_un_compte_autre_que_le_compte_test_sans_force(): void
