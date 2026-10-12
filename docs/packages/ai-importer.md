@@ -784,7 +784,10 @@ La clé `ai-importer.queues.connection` n'était jamais lue.
   mettrait alors 2 h à être retenté.
 - **Choix de la connexion** : `ai-importer.queues.connection` = `AI_IMPORTER_QUEUE_CONNECTION`
   sinon dérivée de `QUEUE_CONNECTION` (`database` → `database-long`, `redis` →
-  `redis-long`, autre/`sync` → `null` = connexion par défaut).
+  `redis-long`, autre/`sync` → `null` = connexion par défaut). Sans `QUEUE_CONNECTION`, le
+  repli est `database` (donc `database-long`), **le même que `config/queue.php`** : les deux
+  replis doivent rester alignés, sinon la file par défaut et les jobs d'import tournent sur
+  deux connexions différentes (ancien repli `sync` → imports exécutés en ligne).
 - **Routage centralisé** : file et connexion sont posées dans le **constructeur** de
   `ParseFileToStagingJob` / `ImportStagingToLunarJob` (`onConnection()` + `onQueue()`),
   donc tout point de dispatch (commande planifiée, bouton « Relancer le parse ») en hérite.
