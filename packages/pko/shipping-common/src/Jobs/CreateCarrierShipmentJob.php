@@ -9,14 +9,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Contracts\CarrierClient;
 use Pko\ShippingCommon\Dto\ShipmentRequest;
-use Pko\ShippingCommon\Mail\ShipmentCreatedMail;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\OrderHandover;
 use Pko\ShippingCommon\Support\CarrierProductCodeResolver;
 use Pko\ShippingCommon\Support\ParcelDimensionsCalculator;
 use Pko\ShippingCommon\Support\WeightCalculator;
@@ -114,8 +112,16 @@ class CreateCarrierShipmentJob implements ShouldQueue
             'error_message' => null,
         ])->save();
 
-        $this->markOrderDispatched($order);
-        $this->notifyCustomer($order, $shipment);
+        // Étiquette ≠ expédition : le colis attend le transporteur. Le passage en
+        // « Expédié » (et l'e-mail au client) se fait à la remise, cf. OrderHandover.
+        $handover = app(OrderHandover::class);
+        $handover->markPrepared($order);
+
+        // Commande déjà passée en « Expédié » avant l'étiquette : le passage de
+        // statut est derrière nous, l'e-mail part donc ici.
+        if ($order->status === OrderHandover::DISPATCHED) {
+            $handover->notifyCustomer($order);
+        }
     }
 
     /**
@@ -144,67 +150,6 @@ class CreateCarrierShipmentJob implements ShouldQueue
             'city' => (string) ($pickupPoint['city'] ?? $recipient['city'] ?? ''),
             'country' => (string) ($pickupPoint['country_code'] ?? $recipient['country'] ?? 'FR'),
         ]);
-    }
-
-    protected function markOrderDispatched(Order $order): void
-    {
-        try {
-            if ($order->status !== 'dispatched' && $order->status !== 'delivered') {
-                $order->forceFill(['status' => 'dispatched'])->save();
-            }
-        } catch (Throwable $e) {
-            Log::warning('Failed to flip Order.status to dispatched', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    protected function notifyCustomer(Order $order, CarrierShipment $shipment): void
-    {
-        if ($shipment->notified_customer_at !== null) {
-            return;
-        }
-
-        $recipient = $order->shippingAddress?->contact_email
-            ?? $order->billingAddress?->contact_email
-            ?? $order->customer?->email;
-
-        if (empty($recipient)) {
-            Log::info('Skipping shipment notification: no recipient email', [
-                'order_id' => $order->id,
-                'carrier_shipment_id' => $shipment->id,
-            ]);
-
-            return;
-        }
-
-        $mail = new ShipmentCreatedMail($shipment);
-
-        // Le contenu de l'e-mail est éditable en back-office et peut y être
-        // désactivé : on ne marque alors pas l'expédition comme notifiée, pour
-        // que la réactivation du modèle reprenne les envois en attente.
-        if (! $mail->shouldSend()) {
-            Log::info('Shipment notification disabled by mail template', [
-                'order_id' => $order->id,
-                'carrier_shipment_id' => $shipment->id,
-            ]);
-
-            return;
-        }
-
-        try {
-            Mail::to($recipient)->send($mail);
-
-            $shipment->forceFill(['notified_customer_at' => now()])->save();
-        } catch (Throwable $e) {
-            Log::warning('Failed to send shipment email', [
-                'order_id' => $order->id,
-                'carrier_shipment_id' => $shipment->id,
-                'recipient' => $recipient,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 
     public function failed(Throwable $e): void

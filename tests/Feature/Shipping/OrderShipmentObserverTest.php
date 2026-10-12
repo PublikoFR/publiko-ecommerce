@@ -6,7 +6,9 @@ namespace Tests\Feature\Shipping;
 
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -18,8 +20,11 @@ use Lunar\Models\Currency;
 use Lunar\Models\Order;
 use Lunar\Models\ProductVariant;
 use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
+use Pko\ShippingCommon\Mail\ShipmentCreatedMail;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\OrderHandover;
 use Pko\ShippingCommon\Shipping\ShipmentLabelService;
+use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
 use RuntimeException;
 use Tests\Stubs\FakeCarrierClient;
 use Tests\TestCase;
@@ -120,6 +125,75 @@ class OrderShipmentObserverTest extends TestCase
         Storage::disk('local')->assertExists((string) $shipment->label_path);
         $this->assertSame('chrono_relais', $client->requests[0]->serviceCode);
         $this->assertSame([], app(ShipmentLabelService::class)->originsAwaitingLabel($order));
+    }
+
+    public function test_letiquette_prepare_la_commande_sans_prevenir_le_client(): void
+    {
+        Mail::fake();
+        $this->fakeCarrier();
+        $order = $this->makeOrder('payment-received');
+
+        app(ShipmentLabelService::class)->createLabel($order, CarrierShipment::ORIGIN_WEKLO);
+
+        // Étiquette ≠ expédition : le colis attend encore le transporteur.
+        $this->assertSame(OrderHandover::PREPARED, $order->fresh()->status);
+        Mail::assertNothingOutgoing();
+    }
+
+    public function test_la_remise_au_transporteur_expedie_et_previent_le_client_une_fois(): void
+    {
+        Mail::fake();
+        $this->fakeCarrier();
+        $order = $this->makeOrder('payment-received');
+        $shipment = app(ShipmentLabelService::class)->createLabel($order, CarrierShipment::ORIGIN_WEKLO);
+
+        $this->assertTrue(app(OrderHandover::class)->markDispatched($order->fresh()));
+        $this->assertFalse(app(OrderHandover::class)->markDispatched($order->fresh()));
+
+        $this->assertSame(OrderHandover::DISPATCHED, $order->fresh()->status);
+        Mail::assertQueued(ShipmentCreatedMail::class, 1);
+        $this->assertNotNull($shipment->fresh()->notified_customer_at);
+    }
+
+    public function test_letiquette_creee_apres_un_passage_manuel_en_expedie_previent_le_client(): void
+    {
+        Mail::fake();
+        $this->fakeCarrier();
+        $order = $this->makeOrder('payment-received');
+        $order->update(['status' => OrderHandover::DISPATCHED]);
+
+        app(ShipmentLabelService::class)->createLabel($order->fresh(), CarrierShipment::ORIGIN_WEKLO);
+
+        $this->assertSame(OrderHandover::DISPATCHED, $order->fresh()->status);
+        Mail::assertQueued(ShipmentCreatedMail::class, 1);
+    }
+
+    public function test_le_suivi_passe_par_expedie_avant_livre(): void
+    {
+        Mail::fake();
+        $this->fakeCarrier();
+        $order = $this->makeOrder('payment-received');
+        app(ShipmentLabelService::class)->createLabel($order, CarrierShipment::ORIGIN_WEKLO);
+
+        $http = new HttpFactory;
+        $http->fake(['*/idships/*' => $http::response(['shipment' => ['event' => [
+            ['date' => '2026-10-12T10:00:00+02:00', 'code' => 'DI1', 'label' => 'Distribué'],
+        ]]])]);
+        $this->app->instance(LaPosteTrackingClient::class, new LaPosteTrackingClient(http: $http, apiKey: 'fake-key'));
+
+        $statuses = [];
+        Order::updated(function (Order $updated) use (&$statuses, $order): void {
+            if ($updated->id === $order->id && $updated->wasChanged('status')) {
+                $statuses[] = $updated->status;
+            }
+        });
+
+        $this->artisan('shipping:poll-tracking', ['--min-age' => 0])->assertSuccessful();
+
+        // Personne n'a validé la remise : le scan transporteur la vaut, et les effets
+        // du passage en « Expédié » (e-mail, documents comptables) ne sont pas sautés.
+        $this->assertSame([OrderHandover::DISPATCHED, OrderHandover::DELIVERED], $statuses);
+        Mail::assertQueued(ShipmentCreatedMail::class, 1);
     }
 
     public function test_un_echec_de_creation_est_trace_sur_lenvoi(): void

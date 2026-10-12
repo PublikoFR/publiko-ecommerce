@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Pko\ShippingCommon\Observers;
 
 use Lunar\Models\Order;
+use Pko\ShippingCommon\Shipping\OrderHandover;
 use Pko\ShippingCommon\Shipping\ShipmentLabelService;
 
 /**
  * À l'encaissement, enregistre les envois transporteur « en attente ».
+ * Au passage en « Expédié », envoie l'e-mail d'expédition au client.
  *
  * Aucune étiquette n'est créée ici : c'est l'admin qui la crée depuis la fiche
  * commande (bouton « Créer l'étiquette »). Cf. ShipmentLabelService.
@@ -27,6 +29,7 @@ class OrderShipmentObserver
 
     public function __construct(
         private readonly ShipmentLabelService $labels,
+        private readonly OrderHandover $handover,
     ) {}
 
     public function updated(Order $order): void
@@ -34,6 +37,14 @@ class OrderShipmentObserver
         // Lunar stores the paid state in `status` (the Stripe addon maps a succeeded
         // PaymentIntent to `payment-received`); there is no `payment_status` column.
         if (! $order->wasChanged('status')) {
+            return;
+        }
+
+        // Colis remis au transporteur (bordereau, suivi ou statut changé à la
+        // main) : c'est maintenant que le client est prévenu de l'expédition.
+        if ($order->status === OrderHandover::DISPATCHED) {
+            $this->handover->notifyCustomer($order);
+
             return;
         }
 

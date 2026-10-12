@@ -68,6 +68,24 @@ class LaPosteTrackingClientTest extends TestCase
         $this->assertFalse($status->isTerminal());
     }
 
+    /**
+     * Codes Suivi v2 réels : `PC1` pris en charge, `ET1` acheminement. L'ancien
+     * motif `ET_` ne les reconnaissait pas ; `DR1` (étiquette seule) n'est pas un envoi.
+     */
+    public function test_les_codes_prise_en_charge_et_acheminement_sont_en_transit(): void
+    {
+        foreach (['PC1' => 'in_transit', 'PC2' => 'in_transit', 'ET1' => 'in_transit', 'DR1' => 'unknown'] as $code => $expected) {
+            $http = new HttpFactory;
+            $http->fake(['*/idships/*' => $http::response(['shipment' => ['event' => [
+                ['date' => '2026-10-12T09:00:00+02:00', 'code' => $code, 'label' => $code],
+            ]]], 200)]);
+
+            $status = (new LaPosteTrackingClient(http: $http, apiKey: 'fake-key'))->track('AB12345');
+
+            $this->assertSame($expected, $status->status, $code);
+        }
+    }
+
     public function test_404_maps_to_not_found_exception(): void
     {
         $http = new HttpFactory;

@@ -16,6 +16,7 @@ use Lunar\Models\ProductVariant;
 use Lunar\Models\Transaction;
 use Lunar\Stripe\Facades\Stripe;
 use Pko\ShippingCommon\Jobs\CreateCarrierShipmentJob;
+use Pko\ShippingCommon\Models\CarrierShipment;
 use Tests\TestCase;
 
 class QuotePaymentControllerTest extends TestCase
@@ -84,7 +85,7 @@ class QuotePaymentControllerTest extends TestCase
 
     // ── confirm ──────────────────────────────────────────────────────────────
 
-    public function test_successful_payment_marks_order_paid_and_creates_shipment(): void
+    public function test_successful_payment_marks_order_paid_and_records_pending_shipment(): void
     {
         $order = $this->makeQuoteOrder(total: 10000, withLine: true, shippingOption: 'chronopost.chrono13');
         $this->storeIntent($order, 'PI_CAPTURE', 1490);
@@ -106,8 +107,14 @@ class QuotePaymentControllerTest extends TestCase
             'success' => true,
         ]);
 
-        // Post-payment observer dispatches the carrier shipment job.
-        Queue::assertPushed(CreateCarrierShipmentJob::class);
+        // L'encaissement n'enregistre qu'un envoi en attente : l'étiquette se crée
+        // à la main depuis la fiche commande, sans appel transporteur ici.
+        $this->assertDatabaseHas('pko_carrier_shipments', [
+            'order_id' => $order->id,
+            'carrier' => 'chronopost',
+            'status' => CarrierShipment::STATUS_PENDING,
+        ]);
+        Queue::assertNotPushed(CreateCarrierShipmentJob::class);
     }
 
     public function test_confirm_is_idempotent(): void

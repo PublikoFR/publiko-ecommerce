@@ -27,8 +27,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Lunar\Admin\Filament\Resources\OrderResource;
 use Lunar\Admin\Support\Pages\BasePage;
+use Lunar\Models\Order;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\OrderHandover;
 use Pko\ShippingCommon\Support\CarrierDisplayLabel;
 use Pko\ShippingCommon\Support\CarrierLabelUrl;
 use Pko\ShippingCommon\Support\CarrierTrackingUrl;
@@ -80,6 +82,14 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('handover_today')
+                ->label('Remise du jour')
+                ->icon('heroicon-o-truck')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Colis du jour remis au transporteur')
+                ->modalDescription('Toutes les commandes dont l\'étiquette a été créée aujourd\'hui passent en « Expédié » : e-mail d\'expédition aux clients et documents comptables émis.')
+                ->action(fn () => $this->handOver($this->shipmentsForDate(Carbon::today()))),
             Action::make('print_today')
                 ->label('Bordereau du jour')
                 ->icon('heroicon-o-printer')
@@ -141,6 +151,11 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                 TextColumn::make('service_code')
                     ->label('Service')
                     ->formatStateUsing(fn (?string $state, CarrierShipment $record): string => CarrierDisplayLabel::service($record->carrier, $state)),
+                TextColumn::make('handover')
+                    ->label('Remise')
+                    ->badge()
+                    ->state(fn (CarrierShipment $record): string => self::isHandedOver($record) ? 'Remis' : 'À remettre')
+                    ->color(fn (string $state): string => $state === 'Remis' ? 'success' : 'warning'),
                 TextColumn::make('created_at')
                     ->label('Créé le')
                     ->dateTime('d/m/Y H:i')
@@ -180,6 +195,14 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                     ->icon('heroicon-o-document-text')
                     ->url(fn (CarrierShipment $record): ?string => CarrierLabelUrl::for($record), shouldOpenInNewTab: true)
                     ->visible(fn (CarrierShipment $record): bool => CarrierLabelUrl::exists($record)),
+                TableAction::make('handover')
+                    ->label('Remis au transporteur')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription('La commande passe en « Expédié » : le client reçoit l\'e-mail d\'expédition et les documents comptables sont émis.')
+                    ->visible(fn (CarrierShipment $record): bool => ! self::isHandedOver($record))
+                    ->action(fn (CarrierShipment $record) => $this->handOver(collect([$record]))),
                 TableAction::make('tracking')
                     ->label('Suivi')
                     ->icon('heroicon-o-map-pin')
@@ -187,6 +210,15 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
                     ->url(fn (CarrierShipment $record): string => CarrierTrackingUrl::for($record->carrier, (string) $record->tracking_number), shouldOpenInNewTab: true),
             ])
             ->bulkActions([
+                BulkAction::make('handover')
+                    ->label('Remis au transporteur')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Colis remis au transporteur')
+                    ->modalDescription('Les commandes sélectionnées passent en « Expédié » : chaque client reçoit l\'e-mail d\'expédition et les documents comptables sont émis.')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(fn (Collection $records) => $this->handOver($records)),
                 BulkAction::make('print_manifest')
                     ->label('Éditer le bordereau')
                     ->icon('heroicon-o-printer')
@@ -196,6 +228,39 @@ class DailyManifestPage extends BasePage implements HasForms, HasTable
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('Aucun colis remis')
             ->emptyStateDescription('Les envois apparaissent ici dès que leur étiquette a été générée.');
+    }
+
+    private static function isHandedOver(CarrierShipment $record): bool
+    {
+        return in_array($record->order?->status, [OrderHandover::DISPATCHED, OrderHandover::DELIVERED], true);
+    }
+
+    /**
+     * Passe en « Expédié » les commandes des colis remis au chauffeur. Une
+     * commande à plusieurs colis n'est traitée qu'une fois.
+     *
+     * @param  Collection<int, CarrierShipment>  $shipments
+     */
+    protected function handOver(Collection $shipments): void
+    {
+        $handover = app(OrderHandover::class);
+        $count = 0;
+
+        $shipments->map(fn (CarrierShipment $shipment): ?Order => $shipment->order)
+            ->filter()
+            ->unique('id')
+            ->each(function (Order $order) use ($handover, &$count): void {
+                if ($handover->markDispatched($order)) {
+                    $count++;
+                }
+            });
+
+        Notification::make()
+            ->title($count > 0
+                ? "{$count} commande(s) passée(s) en « Expédié »"
+                : 'Ces commandes étaient déjà expédiées')
+            ->status($count > 0 ? 'success' : 'info')
+            ->send();
     }
 
     private static function orderUrl(CarrierShipment $record): ?string
