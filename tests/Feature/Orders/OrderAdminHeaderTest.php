@@ -39,23 +39,26 @@ class OrderAdminHeaderTest extends TestCase
         $this->actingAs($staff, 'staff');
     }
 
-    public function test_les_actions_sont_regroupees_dans_un_seul_menu(): void
+    public function test_le_statut_est_a_cote_du_menu_qui_regroupe_les_autres_actions(): void
     {
         $order = $this->makeOrder('Résidence Les Pins');
 
         $component = Livewire::test(ManageOrder::class, ['record' => $order->getKey()]);
         $headerActions = $component->instance()->getCachedHeaderActions();
 
-        $this->assertCount(1, $headerActions);
-        $this->assertInstanceOf(ActionGroup::class, $headerActions[0]);
+        $this->assertCount(2, $headerActions);
+        $this->assertSame('update_status', $headerActions[0]->getName());
+        $this->assertSame('Statut : Paiement reçu', $headerActions[0]->getLabel());
+        $this->assertInstanceOf(ActionGroup::class, $headerActions[1]);
 
-        $names = array_keys($headerActions[0]->getFlatActions());
-        $this->assertContains('update_status', $names);
+        $names = array_keys($headerActions[1]->getFlatActions());
+        $this->assertNotContains('update_status', $names);
         $this->assertContains('notify_order_delay', $names);
         $this->assertNotContains('site_name_badge', $names);
 
         // Les actions groupées restent appelables.
         $component->assertActionExists('notify_order_delay');
+        $component->assertActionExists('update_status');
     }
 
     public function test_le_nom_du_chantier_est_affiche_dans_le_resume(): void

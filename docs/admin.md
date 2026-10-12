@@ -522,8 +522,10 @@ afficher une information. Une information ne doit **pas** être un faux bouton d
 
 Extension : `App\Filament\Extensions\OrderHeaderActionsDropdownExtension`, enregistrée **en
 dernier** dans la liste `ManageOrder::class` (elle reçoit les actions de toutes les extensions
-précédentes). Elle regroupe toutes les actions d'en-tête (Lunar + PKO) dans un `ActionGroup`
-unique ; les sous-groupes (ex. avoirs Pennylane) deviennent des sections du menu
+précédentes). Elle regroupe les actions d'en-tête (Lunar + PKO) dans un `ActionGroup`
+unique ; le changement de statut (`update_status`) reste **hors menu**, juste avant lui, en
+bouton « Statut : <libellé> » (action la plus fréquente de la fiche, jugée trop cachée dans le
+menu — 2026-10-12) ; les sous-groupes (ex. avoirs Pennylane) deviennent des sections du menu
 (`dropdown(false)`). Les badges informatifs nommés `*_badge` (commande scindée) restent hors menu.
 Les tests `callAction('<nom>')` fonctionnent toujours : Filament met en cache les actions groupées.
 
@@ -563,7 +565,7 @@ résumé Lunar (section sans titre) sont remplacés par un bloc unique « vue d'
 (`resources/views/filament/orders/order-overview.blade.php`, données de
 `OrderPageLayoutExtension::overview()`) : référence copiable + badge de statut cliquable
 (`wire:click="mountAction('update_status')"` → modale Lunar de changement de statut, action
-d'en-tête toujours appelable bien que regroupée dans le menu Actions), date FR
+d'en-tête, aussi affichée en bouton à côté du menu Actions), date FR
 (« Passée le 19/07/2026 à 10:34 »), client (nouveau/récurrent · nombre de commandes passées,
 bouton « Fiche client »), puis Chantier / Réf. client / Canal seulement s'ils sont renseignés
 — Canal masqué tant qu'il n'existe qu'un seul canal. Les hooks `extendOrderSummary*` de Lunar

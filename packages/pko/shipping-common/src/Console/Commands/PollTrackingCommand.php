@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Lunar\Models\Order;
 use Pko\ShippingCommon\Models\CarrierShipment;
+use Pko\ShippingCommon\Shipping\OrderHandover;
 use Pko\ShippingCommon\Tracking\LaPosteTrackingClient;
 use Pko\ShippingCommon\Tracking\TrackingException;
 use Pko\ShippingCommon\Tracking\TrackingStatus;
@@ -16,6 +17,13 @@ use Throwable;
 
 class PollTrackingCommand extends Command
 {
+    /** Statuts de suivi qui prouvent que le transporteur a le colis. */
+    private const PICKED_UP_STATUSES = [
+        CarrierShipment::DELIVERY_IN_TRANSIT,
+        CarrierShipment::DELIVERY_OUT_FOR_DELIVERY,
+        CarrierShipment::DELIVERY_DELIVERED,
+    ];
+
     protected $signature = 'shipping:poll-tracking
         {--limit=100 : Max shipments to process per run}
         {--min-age=1 : Skip shipments last polled less than N hours ago}';
@@ -94,6 +102,14 @@ class PollTrackingCommand extends Command
             'tracking_events' => $status->events,
         ])->save();
 
+        // Filet de la remise au transporteur : un colis scanné par le transporteur
+        // est expédié, même si personne ne l'a validé sur le bordereau. Toujours
+        // avant « Livré », pour ne jamais sauter les effets du passage en
+        // « Expédié » (e-mail client, bon de livraison et facture).
+        if (in_array($status->status, self::PICKED_UP_STATUSES, true)) {
+            $this->markOrderDispatched($shipment);
+        }
+
         if ($previous !== $status->status && $status->isDelivered()) {
             $this->markOrderDelivered($shipment);
 
@@ -101,6 +117,14 @@ class PollTrackingCommand extends Command
         }
 
         return $previous !== $status->status;
+    }
+
+    protected function markOrderDispatched(CarrierShipment $shipment): void
+    {
+        $order = Order::query()->find($shipment->order_id);
+        if ($order !== null) {
+            app(OrderHandover::class)->markDispatched($order);
+        }
     }
 
     protected function markOrderDelivered(CarrierShipment $shipment): void

@@ -108,9 +108,12 @@ class LaPosteTrackingClient
     {
         $code = strtoupper((string) ($events[0]['code'] ?? $apiStatus));
 
+        // Codes Suivi v2 : DR1 = déclaratif reçu (étiquette créée, colis pas encore
+        // remis), PC1/PC2 = pris en charge, ET1…ET4 = en cours d'acheminement.
+        // L'ancien motif `ET_` ne correspondait à aucun code réel (`ET1`, pas `ET_1`).
         return match (true) {
             in_array($code, ['DI1', 'DI2'], true) => 'delivered',
-            str_starts_with($code, 'ET_') => 'in_transit',
+            (bool) preg_match('/^(PC|ET)\d$/', $code), str_starts_with($code, 'ET_') => 'in_transit',
             in_array($code, ['MLE', 'PCH'], true) => 'out_for_delivery',
             in_array($code, ['DE1', 'DE2'], true) => 'failed',
             str_starts_with($code, 'AG_') => 'returned',

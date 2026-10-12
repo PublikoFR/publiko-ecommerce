@@ -202,13 +202,35 @@ class DailyManifestTest extends TestCase
             ->assertTableActionHasUrl('tracking', CarrierTrackingUrl::for('chronopost', 'LT-SANS-ETIQUETTE'), $withoutLabel);
     }
 
+    public function test_la_remise_au_transporteur_passe_les_commandes_en_expedie(): void
+    {
+        $prepared = $this->makeShipment('LT-A-REMETTRE', ['zip' => '75001', 'city' => 'Paris', 'country' => 'FR'], 'prepared');
+        $alreadySent = $this->makeShipment('LT-DEJA-REMIS', ['zip' => '75002', 'city' => 'Paris', 'country' => 'FR'], 'dispatched');
+
+        $this->actingAs(Staff::create([
+            'first_name' => 'Test',
+            'last_name' => 'Admin',
+            'email' => 'bordereau-remise@example.com',
+            'password' => bcrypt('password'),
+            'admin' => true,
+        ]), 'staff');
+
+        Livewire::test(DailyManifestPage::class)
+            ->assertTableActionVisible('handover', $prepared)
+            ->assertTableActionHidden('handover', $alreadySent)
+            ->callTableBulkAction('handover', [$prepared, $alreadySent]);
+
+        $this->assertSame('dispatched', DB::table('lunar_orders')->where('id', $prepared->order_id)->value('status'));
+        $this->assertSame('dispatched', DB::table('lunar_orders')->where('id', $alreadySent->order_id)->value('status'));
+    }
+
     /**
      * @param  array<string, string>  $recipient
      */
-    private function makeShipment(string $trackingNumber, array $recipient): CarrierShipment
+    private function makeShipment(string $trackingNumber, array $recipient, string $orderStatus = 'dispatched'): CarrierShipment
     {
         return CarrierShipment::create([
-            'order_id' => $this->makeOrderId(),
+            'order_id' => $this->makeOrderId($orderStatus),
             'carrier' => 'chronopost',
             'service_code' => 'chrono13',
             'origin' => CarrierShipment::ORIGIN_WEKLO,
@@ -225,14 +247,14 @@ class DailyManifestTest extends TestCase
      * `pko_carrier_shipments.order_id` porte une contrainte de clé étrangère :
      * le bordereau ne peut pas être testé sur des identifiants fictifs.
      */
-    private function makeOrderId(): int
+    private function makeOrderId(string $status = 'dispatched'): int
     {
         $channel = Channel::query()->first();
         $currency = Currency::query()->first();
 
         return (int) DB::table('lunar_orders')->insertGetId([
             'channel_id' => $channel->id,
-            'status' => 'dispatched',
+            'status' => $status,
             'reference' => 'TEST-'.uniqid(),
             'currency_code' => $currency->code,
             'compare_currency_code' => $currency->code,

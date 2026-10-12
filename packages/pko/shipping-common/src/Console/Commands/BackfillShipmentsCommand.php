@@ -28,7 +28,7 @@ class BackfillShipmentsCommand extends Command
 
     protected $description = 'Enregistre les envois transporteur en attente manquants sur les commandes payées';
 
-    private const PAID_STATUSES = ['paid', 'payment-received', 'dispatched'];
+    private const PAID_STATUSES = ['paid', 'payment-received', 'prepared', 'dispatched'];
 
     public function handle(ShipmentLabelService $labels): int
     {

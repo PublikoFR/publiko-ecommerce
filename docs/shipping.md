@@ -186,7 +186,7 @@ Voir [packages/transporters.md](packages/transporters.md) pour les détails d'im
 
 1. **Email de confirmation d'expédition** — `ShipmentCreatedMail` envoyé dès que l'étiquette est générée. Lien "Suivre mon colis" unifié via `laposte.fr/outils/suivre-vos-envois`.
 2. **Polling tracking horaire** — command `shipping:poll-tracking` planifiée toutes les heures via `routes/console.php`. Utilise l'API REST La Poste unifiée (`api.laposte.fr/suivi/v2`, clé Okapi) qui couvre **Chronopost ET Colissimo** en un seul client. Normalise les codes événements dans un vocabulaire stable.
-3. **Statut Lunar Order** — `Order.status` flippe automatiquement à `dispatched` au moment où l'étiquette est créée, puis à `delivered` dès que l'API La Poste retourne un événement de livraison (`DI1`/`DI2`).
+3. **Statut Lunar Order** — `prepared` à la création de l'étiquette, `dispatched` à la remise au transporteur (bordereau, ou premier scan du suivi), puis `delivered` dès que l'API La Poste retourne un événement de livraison (`DI1`/`DI2`). Cf. §5.28.
 
 Voir [packages/transporters.md](packages/transporters.md) pour les détails (colonnes DB, mapping codes, webhook futur).
 
@@ -850,7 +850,7 @@ Audit de bout en bout de « qu'est-ce qui part réellement chez Chronopost à ch
 
 > **Remplacé le 2026-09-25 : plus aucune création automatique, cf. §5.26.**
 
-`OrderShipmentObserver` (statut `paid` / `payment-received`) → `ShipmentSplitter` → `CreateCarrierShipmentJob` (queue redis, 5 tentatives) → `CarrierClient::createShipment()` → PDF dans `storage/app/labels/{order_id}/`, n° de suivi, commande en `dispatched`, e-mail client. Les lignes fournisseur (`supplier_direct`, `supplier_via_weklo`) sont enregistrées en `pending` **sans** appel transporteur.
+`OrderShipmentObserver` (statut `paid` / `payment-received`) → `ShipmentSplitter` → `CreateCarrierShipmentJob` (queue redis, 5 tentatives) → `CarrierClient::createShipment()` → PDF dans `storage/app/labels/{order_id}/`, n° de suivi, commande en `prepared` (« Commande préparée ») ; `dispatched` et e-mail client à la remise au transporteur (§5.28). Les lignes fournisseur (`supplier_direct`, `supplier_via_weklo`) sont enregistrées en `pending` **sans** appel transporteur.
 
 #### B) Bloquant corrigé — `productCode` (aucune étiquette n'était créable)
 
@@ -1028,7 +1028,7 @@ Tests : `tests/Feature/Shipping/ChronopostValidationKitCommandTest` (6 combinais
 **Fonctionnement** (`Pko\ShippingCommon\Shipping\ShipmentLabelService`) :
 - À l'encaissement, `OrderShipmentObserver` appelle `recordPending()` : un `CarrierShipment` `pending` par origine (`weklo`, `supplier_direct`, `supplier_via_weklo`), **sans appel transporteur**. `shipping:backfill-shipments` fait de même pour les commandes déjà payées.
 - Deux boutons **« Créer l'étiquette <transporteur> »** sur la fiche commande (`Pko\ShippingCommon\Filament\Support\CreateLabelActions`) : dans le menu **Actions** de l'en-tête (groupe Expédition, `OrderShipmentActionsExtension`) et dans la section **Livraison** (`OrderPageLayoutExtension`). Un bouton par origine dont l'étiquette manque (`originsAwaitingLabel()`, calcul sans écriture) ; libellé « Recréer » après un échec ; suffixe « stock » / « marchandise fournisseur » si la commande mélange les deux. `supplier_direct` n'a jamais de bouton (le fournisseur expédie).
-- Le clic appelle `createLabel()` : exécution **synchrone** de `CreateCarrierShipmentJob::handle()` (même code qu'avant : appel transporteur, PDF, `dispatched`, e-mail client). Succès → notification avec le n° de suivi ; échec → `failed()` trace le motif sur l'envoi (`status=failed`, `error_message`) et une notification persistante l'affiche.
+- Le clic appelle `createLabel()` : exécution **synchrone** de `CreateCarrierShipmentJob::handle()` (même code qu'avant : appel transporteur, PDF ; depuis §5.28 la commande passe en `prepared`, plus en `dispatched`, et l'e-mail client attend la remise). Succès → notification avec le n° de suivi ; échec → `failed()` trace le motif sur l'envoi (`status=failed`, `error_message`) et une notification persistante l'affiche.
 - Le job reste `ShouldQueue` : les actions « Relancer » de la liste des envois le mettent toujours en file.
 - **Ouverture du PDF dans le navigateur**, sur le modèle des PDF Pennylane : route `pko.shipping.label.pdf` (`/admin/expedition/etiquettes/{shipment}/pdf`, `ShowCarrierLabelController`) protégée par la session staff **et** une URL signée temporaire de 12 h (`Pko\ShippingCommon\Support\CarrierLabelUrl`). Réponse `inline`, `Cache-Control: private, no-store`, `nosniff`, `no-referrer` ; le fichier reste sur le disque privé `local`. Après création, le bouton ouvre l'étiquette dans un nouvel onglet (`$livewire->js('window.open(…)')`) ; la notification garde un lien « Ouvrir l'étiquette » si le navigateur bloque l'onglet. Sur la fiche commande, « Télécharger l'étiquette » devient « Voir l'étiquette » (même lien, nouvel onglet) ; la liste des envois garde ses téléchargements (unitaire et ZIP).
 
@@ -1047,3 +1047,27 @@ Le support Web Services Chronopost a confirmé le 2026-10-08 que **Chrono 10H fa
 - Kit de validation (§5.25) : deux combinaisons ajoutées, Chrono 10H semaine et samedi, à envoyer au support avec les autres avant l'ouverture des accès prod.
 
 Tests : `CarrierProductCodeResolverTest` (`chrono10` actif, `chrono18` désactivé), `ShippingCasesTest` (trois services proposés, Chrono 10 à 24,90 € sur la tranche légère, toujours présent au-delà de 20 kg), `ChronopostValidationKitCommandTest` (6 combinaisons, 3 PDF quand le samedi échoue).
+
+### 5.28 Étiquette ≠ expédition : statut « Commande préparée » et remise au transporteur (2026-10-12)
+
+**Pourquoi** : la création de l'étiquette passait la commande en `dispatched` et envoyait l'e-mail « Commande expédiée », alors que le transporteur passe souvent le lendemain. Or `dispatched` déclenche aussi le bon de livraison et la facture Pennylane (`docs/packages/pennylane.md`) : ces pièces doivent être datées de la remise réelle du colis.
+
+Cycle de vie (`Pko\ShippingCommon\Shipping\OrderHandover`) :
+
+| Moment | Statut | Effets |
+|---|---|---|
+| Étiquette créée (`CreateCarrierShipmentJob`) | `prepared` « Commande préparée » (nouveau statut, `config/lunar/orders.php`) | aucun e-mail |
+| Remise au transporteur | `dispatched` « Expédié » | e-mail `ShipmentCreatedMail` (par colis non notifié, via `OrderShipmentObserver`), bon de livraison puis facture Pennylane si activés |
+| Livraison (suivi `DI1`/`DI2`) | `delivered` | e-mail de livraison |
+
+**Trois déclencheurs de `dispatched`**, tous idempotents (`markDispatched()` ignore une commande déjà `dispatched`/`delivered`) :
+
+1. **Bordereau** (onglet Bordereaux) : action « Remis au transporteur » par ligne ou sur la sélection, et bouton d'en-tête « Remise du jour » (toutes les étiquettes créées aujourd'hui). Colonne « Remise » : À remettre / Remis. Une commande à plusieurs colis n'est traitée qu'une fois.
+2. **Filet automatique — suivi** (`shipping:poll-tracking`) : un colis en transit, en livraison ou livré prouve la prise en charge → `dispatched` si personne ne l'a validé. Toujours **avant** `delivered` : une commande `prepared` livrée directement ne saute jamais les effets du passage en `dispatched` (e-mail, documents comptables).
+3. **Statut changé à la main** (bouton « Statut : … » de la fiche commande) : mêmes effets.
+
+**Correctif du mapping de suivi** (`LaPosteTrackingClient::normalizeStatus()`) : le motif `ET_` ne correspondait à aucun code réel (`ET1`, pas `ET_1`), seul « livré » était reconnu. `PC1`/`PC2` (pris en charge) et `ET1`…`ET4` (acheminement) → `in_transit` ; `DR1` (déclaratif reçu = étiquette seule) reste `unknown`, il ne vaut pas remise. Codes tirés de la nomenclature Suivi v2 : **à confirmer sur un vrai suivi Chronopost** — un code inconnu retarde la bascule (filet), il ne la provoque jamais à tort.
+
+Statut `prepared` reconnu ailleurs : tableau de bord (bucket « à expédier »), rattrapage `shipping:backfill-shipments`, commandes passées du cadeau de première commande (`OrderMailObserver::PLACED_STATUSES`).
+
+Tests : `OrderShipmentObserverTest` (étiquette → `prepared` sans e-mail ; remise → `dispatched` + e-mail une seule fois ; étiquette après passage manuel en `dispatched` → e-mail ; suivi `DI1` sur une commande `prepared` → `dispatched` puis `delivered`), `DailyManifestTest` (action de remise visible seulement « À remettre », action groupée), `LaPosteTrackingClientTest` (codes `PC*`/`ET*`/`DR1`), `OrderAdminHeaderTest` (bouton de statut hors menu).

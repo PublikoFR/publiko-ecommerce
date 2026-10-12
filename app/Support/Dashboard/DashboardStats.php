@@ -34,6 +34,7 @@ final class DashboardStats
         'awaiting-quote' => 'pending',
         'payment-offline' => 'pending',
         'payment-received' => 'paid',
+        'prepared' => 'toship',
         'dispatched' => 'paid',
         'delivered' => 'paid',
         'in-preparation' => 'toship',

@@ -31,7 +31,7 @@ class OrderMailObserver
     private const PAID_STATUSES = ['paid', 'payment-received'];
 
     /** Statuts pour lesquels une commande est considérée comme passée. */
-    private const PLACED_STATUSES = ['awaiting-payment', 'payment-offline', 'paid', 'payment-received'];
+    private const PLACED_STATUSES = ['awaiting-payment', 'payment-offline', 'paid', 'payment-received', 'prepared'];
 
     public function created(Order $order): void
     {

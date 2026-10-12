@@ -96,6 +96,17 @@ return [
             'favourite' => true,
         ],
 
+        // Étiquette transporteur créée, colis prêt mais pas encore remis au
+        // transporteur : le passage en « Expédié » se fait à la remise (bordereau)
+        // ou au premier scan du transporteur (suivi).
+        'prepared' => [
+            'label' => 'Commande préparée',
+            'color' => '#0ea5e9',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => true,
+        ],
+
         'dispatched' => [
             'label' => 'Expédié',
             'mailers' => [],

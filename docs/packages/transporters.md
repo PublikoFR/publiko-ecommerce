@@ -167,15 +167,18 @@ Chaque package transporteur peut bundler les tarifs publics de l'année dans `pa
 
 ### Notification email au client
 
-Dès que `CreateCarrierShipmentJob` a généré l'étiquette avec succès :
+Depuis le 2026-10-12, l'étiquette ne vaut plus expédition (cf. `docs/shipping.md` §5.28) :
 
-1. `Order.status` bascule à `dispatched` (Lunar).
-2. `ShipmentCreatedMail` (Mailable, queued) est envoyé au client avec :
+1. Étiquette créée → `Order.status` = `prepared` (« Commande préparée »), **aucun** e-mail.
+2. Passage en `dispatched` (remise au transporteur : bordereau, suivi ou statut manuel) →
+   `OrderHandover::notifyCustomer()` met en file `ShipmentCreatedMail` pour chaque colis étiqueté non notifié, avec :
    - Référence commande
    - Nom du transporteur
    - N° de suivi
    - Lien "Suivre mon colis" vers `laposte.fr/outils/suivre-vos-envois?code={tracking}` (unifié Chronopost + Colissimo)
 3. `notified_customer_at` est horodaté sur le `CarrierShipment` pour éviter les doubles envois.
+   Étiquette créée sur une commande **déjà** `dispatched` (statut posé à la main avant) :
+   l'e-mail part à la création de l'étiquette.
 
 Destinataire résolu par priorité :
 1. `order->shippingAddress->contact_email`

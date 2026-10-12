@@ -7,13 +7,17 @@ namespace App\Filament\Extensions;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Lunar\Admin\Support\Extending\ResourceExtension;
+use Lunar\Models\Order;
+use Pko\Account\Support\OrderStatusLabel;
 
 /**
  * Regroupe toutes les actions d'en-tête de la fiche commande dans un menu
  * déroulant unique. Doit être enregistrée APRÈS les autres extensions de
  * ManageOrder pour recevoir leurs actions.
  *
- * Les badges informatifs désactivés (nom `*_badge`) restent visibles hors du menu.
+ * Les badges informatifs désactivés (nom `*_badge`) restent visibles hors du menu,
+ * ainsi que le changement de statut (`update_status`), affiché à côté du menu avec
+ * le statut courant : action la plus fréquente de la fiche, trop cachée dans le menu.
  */
 final class OrderHeaderActionsDropdownExtension extends ResourceExtension
 {
@@ -25,8 +29,15 @@ final class OrderHeaderActionsDropdownExtension extends ResourceExtension
     {
         $badges = [];
         $grouped = [];
+        $status = null;
 
         foreach ($actions as $action) {
+            if ($action instanceof Action && $action->getName() === 'update_status') {
+                $status = $this->statusButton($action);
+
+                continue;
+            }
+
             if ($action instanceof Action && str_ends_with((string) $action->getName(), '_badge')) {
                 $badges[] = $action;
 
@@ -43,17 +54,35 @@ final class OrderHeaderActionsDropdownExtension extends ResourceExtension
         }
 
         if ($grouped === []) {
-            return $badges;
+            return array_values(array_filter([...$badges, $status]));
         }
 
-        return [
+        return array_values(array_filter([
             ...$badges,
+            $status,
             ActionGroup::make($grouped)
                 ->label('Actions')
                 ->icon('heroicon-m-chevron-down')
                 ->iconPosition('after')
                 ->color('primary')
                 ->button(),
-        ];
+        ]));
+    }
+
+    private function statusButton(Action $action): Action
+    {
+        return $action
+            ->label(fn (): string => 'Statut : '.OrderStatusLabel::of($this->resolveOrder()?->status))
+            ->icon('heroicon-m-chevron-down')
+            ->iconPosition('after')
+            ->color('gray')
+            ->button();
+    }
+
+    private function resolveOrder(): ?Order
+    {
+        $record = $this->caller?->record ?? null;
+
+        return $record instanceof Order ? $record : null;
     }
 }
