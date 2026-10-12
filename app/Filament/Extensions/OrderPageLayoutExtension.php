@@ -238,13 +238,14 @@ final class OrderPageLayoutExtension extends ResourceExtension
                 'name' => (string) ($order->billingAddress?->fullName ?? $order->shippingAddress?->fullName ?? ''),
             ],
             'details' => $details,
+            'delivery_note' => OrderDocuments::forOrder($order)['delivery_note'],
             'invoice' => OrderDocuments::forOrder($order)['invoice'],
             'labels' => self::labelRows($order),
         ];
     }
 
     /**
-     * Raccourcis étiquette du bloc « vue d'ensemble », sous la facture : voir /
+     * Raccourcis étiquette du bloc « vue d'ensemble », avant bon de livraison et facture : voir /
      * télécharger une étiquette créée, ou la créer (même action que le menu Actions).
      *
      * @return list<array{title: string, subtitle: string, tone: string, view_url: ?string, download_url: ?string, create_action: ?string}>
