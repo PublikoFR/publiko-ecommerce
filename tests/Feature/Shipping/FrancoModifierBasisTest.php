@@ -183,7 +183,7 @@ class FrancoModifierBasisTest extends TestCase
         );
 
         $this->assertTrue(collect($quote->options)->firstWhere('serviceCode', 'chrono13')->franco);
-        $this->assertTrue(collect($quote->options)->firstWhere('serviceCode', 'chrono10')->franco);
+        $this->assertFalse(collect($quote->options)->firstWhere('serviceCode', 'chrono10')->franco, 'Chrono 10 n\'est jamais offert');
         $this->assertFalse(collect($quote->options)->firstWhere('serviceCode', 'chrono_relais')->franco);
     }
 

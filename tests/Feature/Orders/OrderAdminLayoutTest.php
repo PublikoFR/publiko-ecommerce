@@ -118,6 +118,28 @@ class OrderAdminLayoutTest extends TestCase
             ->assertSee('Aucune note laissée par le client');
     }
 
+    public function test_la_page_commande_s_affiche_avec_un_point_relais_et_ses_horaires(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+        $order->meta = [
+            'pickup_point' => [
+                'id' => 'P1234',
+                'name' => 'Tabac du centre',
+                'address1' => '1 rue de la Paix',
+                'postcode' => '75002',
+                'city' => 'Paris',
+                'opening_schedule' => [['day' => 1, 'label' => 'Lundi', 'hours' => '08:00-19:00']],
+            ],
+            'autre' => ['a' => ['b' => 'c']],
+        ];
+        $order->save();
+
+        $this->get("/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertSee('Tabac du centre');
+    }
+
     public function test_la_note_client_est_echappee(): void
     {
         $this->actingAsStaff();

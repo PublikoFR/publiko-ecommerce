@@ -11,6 +11,7 @@ use Filament\Infolists\Components\Component;
 use Filament\Infolists\Components\Fieldset;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Group;
+use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
@@ -144,6 +145,50 @@ final class OrderPageLayoutExtension extends ResourceExtension
         }
 
         return $aside;
+    }
+
+    /**
+     * Bloc « Informations supplémentaires » : Lunar passe chaque tableau de `meta` à un
+     * KeyValueEntry, qui ne sait rendre que des valeurs scalaires. Le point relais
+     * (`pickup_point.opening_schedule`, tableau de tableaux) déclenchait donc un
+     * `htmlspecialchars(): array given` sur la page commande. Le point relais a déjà son
+     * propre bloc dans « Livraison » : on l'écarte ici, et on aplatit toute autre valeur imbriquée.
+     */
+    public function extendAdditionalInfoSection(Component $section): Component
+    {
+        return Section::make('additional_info')
+            ->heading(__('lunarpanel::order.infolist.additional_info.label'))
+            ->compact()
+            ->statePath('meta')
+            ->schema(function ($state): array {
+                $meta = collect($state instanceof \ArrayObject ? $state->getArrayCopy() : (array) $state)
+                    ->except(['pickup_point']);
+
+                if ($meta->isEmpty()) {
+                    return [
+                        TextEntry::make('no_additional_info')
+                            ->hiddenLabel()
+                            ->getStateUsing(fn () => __('lunarpanel::order.infolist.no_additional_info.label')),
+                    ];
+                }
+
+                return $meta->map(function ($value, $key) {
+                    if (is_array($value)) {
+                        return KeyValueEntry::make('meta_'.$key)
+                            ->state(array_map(
+                                fn ($item): string => is_scalar($item) || $item === null
+                                    ? (string) $item
+                                    : (string) json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                                $value,
+                            ));
+                    }
+
+                    return TextEntry::make('meta_'.$key)
+                        ->state($value)
+                        ->label((string) $key)
+                        ->copyable();
+                })->values()->all();
+            });
     }
 
     public function extendTransactionsInfolist(Component $section): Component
