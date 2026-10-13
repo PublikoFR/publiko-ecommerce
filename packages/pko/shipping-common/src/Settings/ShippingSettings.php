@@ -43,6 +43,14 @@ final class ShippingSettings
     public const FRANCO_ALL_SERVICES = '*';
 
     /**
+     * Services jamais couverts par le franco, même avec le joker `*` ou une
+     * sélection explicite : le Chrono 10 (express) reste toujours facturé.
+     *
+     * @var list<string>
+     */
+    public const FRANCO_NEVER_SERVICES = ['chrono10'];
+
+    /**
      * Codes de service éligibles au franco (codes nus, ex : ['chrono13']), ou
      * `['*']` pour « tous les services ».
      *
@@ -69,6 +77,10 @@ final class ShippingSettings
      */
     public static function francoCovers(array $francoServices, string $serviceCode): bool
     {
+        if (in_array($serviceCode, self::FRANCO_NEVER_SERVICES, true)) {
+            return false;
+        }
+
         return in_array(self::FRANCO_ALL_SERVICES, $francoServices, true)
             || in_array($serviceCode, $francoServices, true);
     }

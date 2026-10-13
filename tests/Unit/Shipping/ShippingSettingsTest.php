@@ -61,9 +61,16 @@ class ShippingSettingsTest extends TestCase
     public function test_services_default_joker_tous_les_services(): void
     {
         $this->assertSame(['*'], ShippingSettings::francoServices());
-        $this->assertTrue(ShippingSettings::francoCovers(['*'], 'chrono10'));
+        $this->assertTrue(ShippingSettings::francoCovers(['*'], 'chrono13'));
         $this->assertTrue(ShippingSettings::francoCovers(['chrono13'], 'chrono13'));
         $this->assertFalse(ShippingSettings::francoCovers(['chrono13'], 'chrono10'));
+    }
+
+    public function test_chrono10_n_est_jamais_couvert_par_le_franco(): void
+    {
+        $this->assertFalse(ShippingSettings::francoCovers(['*'], 'chrono10'));
+        $this->assertFalse(ShippingSettings::francoCovers(['chrono13', 'chrono10'], 'chrono10'));
+        $this->assertTrue(ShippingSettings::francoCovers(['*'], 'chrono_relais'));
     }
 
     public function test_services_db_gagne_sur_defaut(): void

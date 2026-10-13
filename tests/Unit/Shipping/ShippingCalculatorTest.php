@@ -354,8 +354,28 @@ class ShippingCalculatorTest extends TestCase
         $quote = $this->calculator->calculate($cart);
 
         $this->assertTrue(collect($quote->options)->firstWhere('serviceCode', 'chrono13')->franco);
-        $this->assertTrue(collect($quote->options)->firstWhere('serviceCode', 'chrono10')->franco);
+        $this->assertFalse(collect($quote->options)->firstWhere('serviceCode', 'chrono10')->franco, 'Chrono 10 n\'est jamais offert');
         $this->assertFalse(collect($quote->options)->firstWhere('serviceCode', 'chrono_relais')->franco);
+    }
+
+    public function test_franco_joker_n_offre_jamais_le_chrono10(): void
+    {
+        TaxClass::create(['name' => 'Default', 'default' => true]);
+        Setting::set('shipping.franco.threshold_cents', 50000);
+
+        $this->chronoClient->shouldReceive('quote')->andReturn([
+            new QuoteResponse('chrono13', 'Chrono 13', 990),
+            new QuoteResponse('chrono10', 'Chrono 10', 1490),
+        ]);
+
+        $quote = $this->calculator->calculate($this->makeCart([
+            $this->makeLine(francoEligible: true, subtotalHtCents: 60000),
+        ]));
+
+        $chrono10 = collect($quote->options)->firstWhere('serviceCode', 'chrono10');
+        $this->assertTrue(collect($quote->options)->firstWhere('serviceCode', 'chrono13')->franco);
+        $this->assertFalse($chrono10->franco);
+        $this->assertSame(1490, $chrono10->totalPriceCents());
     }
 
     public function test_seuil_configurable_via_db(): void
