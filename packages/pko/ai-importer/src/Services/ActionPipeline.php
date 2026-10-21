@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Services;
 
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Contracts\ActionInterface;
 
 /**
  * Runs a chain of actions on a single source value within a given row context.
@@ -16,6 +17,22 @@ use Pko\AiImporter\Actions\ExecutionContext;
  */
 final class ActionPipeline
 {
+    /** Taille max du cache d'instances d'actions (borne mémoire sur un worker longue durée). */
+    private const ACTION_CACHE_LIMIT = 1000;
+
+    /**
+     * Instances d'actions par configuration (hash du JSON de l'action résolue).
+     * Les actions sont immuables (propriétés readonly) : une même config donne
+     * toujours le même comportement, inutile de passer par la réflexion de
+     * `Action::make()` à chaque ligne × colonne × action.
+     *
+     * @var array<string, ActionInterface>
+     */
+    private array $actionCache = [];
+
+    /** @var array<int|string, array<string, array<string, mixed>>> `config_data.sheets` par job. */
+    private array $sheetsCache = [];
+
     /**
      * @param  array<string, mixed>  $columnConfig  `{col, sheet?, default?, prefix?, suffix?, condition?, else?, actions[]}`
      */
@@ -47,11 +64,27 @@ final class ActionPipeline
                 continue;
             }
             $actionConfig = $this->inheritColumnSource($actionConfig, $columnConfig, $ctx);
-            $action = Action::make($actionConfig);
-            $value = $action->execute($value, $ctx);
+            $value = $this->action($actionConfig)->execute($value, $ctx);
         }
 
         return $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $actionConfig
+     */
+    private function action(array $actionConfig): ActionInterface
+    {
+        $key = md5((string) json_encode($actionConfig));
+
+        if (! isset($this->actionCache[$key])) {
+            if (count($this->actionCache) >= self::ACTION_CACHE_LIMIT) {
+                $this->actionCache = [];
+            }
+            $this->actionCache[$key] = Action::make($actionConfig);
+        }
+
+        return $this->actionCache[$key];
     }
 
     /**
@@ -102,12 +135,21 @@ final class ActionPipeline
      */
     private function configSheets(ExecutionContext $ctx): array
     {
+        $jobKey = $ctx->job->id ?? spl_object_id($ctx->job);
+        if (isset($this->sheetsCache[$jobKey])) {
+            return $this->sheetsCache[$jobKey];
+        }
+
         $configData = $ctx->job->config?->config_data;
         $arr = $configData instanceof \ArrayObject
             ? $configData->getArrayCopy()
             : (array) $configData;
 
-        return (array) ($arr['sheets'] ?? []);
+        if (count($this->sheetsCache) >= 50) {
+            $this->sheetsCache = [];
+        }
+
+        return $this->sheetsCache[$jobKey] = (array) ($arr['sheets'] ?? []);
     }
 
     /**

@@ -103,6 +103,55 @@ use Pko\ShippingCommon\Models\Supplier;
 final class LunarProductWriter
 {
     /**
+     * Clés canoniques reconnues par le writer (contrat ci-dessus). Source de
+     * vérité unique, réutilisée par le rapport de compatibilité de
+     * `ai-importer:import-ps-config` — toute clé ajoutée au writer doit être
+     * ajoutée ici, sinon elle serait annoncée « ignorée » à l'import d'une config.
+     *
+     * @var array<int, string>
+     */
+    public const CANONICAL_KEYS = [
+        'reference', 'name', 'description', 'description_short',
+        'meta_title', 'meta_description', 'meta_keywords', 'url_key',
+        'ean', 'mpn', 'stock', 'min_quantity',
+        'price_cents', 'compare_price_cents', 'cost_price_cents',
+        'weight_value', 'length_value', 'width_value', 'height_value',
+        'brand_name', 'supplier', 'product_type_handle', 'tax_class_handle',
+        'collections', 'tags', 'features', 'images', 'image_alt', 'videos', 'documents',
+        'port_mode', 'logistics_class',
+    ];
+
+    /**
+     * Alias legacy PrestaShop → clé canonique (copie 1:1, sans conversion).
+     *
+     * @var array<string, string>
+     */
+    public const LEGACY_ALIASES = [
+        'ean13' => 'ean',
+        'quantity' => 'stock',
+        'minimal_quantity' => 'min_quantity',
+        'manufacturer' => 'brand_name',
+        'link_rewrite' => 'url_key',
+        'depth' => 'length_value',
+        'width' => 'width_value',
+        'height' => 'height_value',
+        'weight' => 'weight_value',
+        'category' => 'collections',
+        'image' => 'images',
+        'attachments' => 'documents',
+    ];
+
+    /**
+     * Alias legacy en euros → clé canonique en cents (×100 arrondi).
+     *
+     * @var array<string, string>
+     */
+    public const LEGACY_EURO_ALIASES = [
+        'price_tex' => 'price_cents',
+        'wholesale_price' => 'cost_price_cents',
+    ];
+
+    /**
      * Champs numériques canoniques et leur type cible.
      * Parsés via NumberParser — vide = ignoré, illisible = ignoré + warning.
      */
@@ -1169,22 +1218,7 @@ final class LunarProductWriter
      */
     public static function normalizeLegacyKeys(array $data, array &$warnings = []): array
     {
-        $aliases = [
-            'ean13' => 'ean',
-            'quantity' => 'stock',
-            'minimal_quantity' => 'min_quantity',
-            'manufacturer' => 'brand_name',
-            'link_rewrite' => 'url_key',
-            'depth' => 'length_value',
-            'width' => 'width_value',
-            'height' => 'height_value',
-            'weight' => 'weight_value',
-            'category' => 'collections',
-            'image' => 'images',
-            'attachments' => 'documents',
-        ];
-
-        foreach ($aliases as $legacy => $canonical) {
+        foreach (self::LEGACY_ALIASES as $legacy => $canonical) {
             if (! array_key_exists($legacy, $data)) {
                 continue;
             }
@@ -1196,7 +1230,7 @@ final class LunarProductWriter
 
         // price_tex (prix HT en euros) → price_cents ; wholesale_price (prix d'achat
         // en euros) → cost_price_cents. Vide → rien ; illisible → warning, rien.
-        foreach (['price_tex' => 'price_cents', 'wholesale_price' => 'cost_price_cents'] as $legacy => $canonical) {
+        foreach (self::LEGACY_EURO_ALIASES as $legacy => $canonical) {
             if (! array_key_exists($legacy, $data)) {
                 continue;
             }

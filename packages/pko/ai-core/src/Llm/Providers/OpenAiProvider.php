@@ -6,9 +6,12 @@ namespace Pko\AiCore\Llm\Providers;
 
 use Illuminate\Support\Facades\Http;
 use Pko\AiCore\Contracts\LlmProviderInterface;
+use Pko\AiCore\Llm\Concerns\RetriesTransientErrors;
 
 final class OpenAiProvider implements LlmProviderInterface
 {
+    use RetriesTransientErrors;
+
     private const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
     public function __construct(
@@ -30,17 +33,13 @@ final class OpenAiProvider implements LlmProviderInterface
         $body = [
             'model' => $this->model,
             'messages' => $messages,
-            'max_tokens' => $options['max_tokens'] ?? (int) (($this->options['max_tokens'] ?? null) ?? 1024),
+            'max_tokens' => (int) ($options['max_tokens'] ?? $this->options['max_tokens'] ?? config('ai-core.llm.default_max_tokens', 2048)),
         ];
 
-        $response = Http::timeout((int) config('ai-core.llm.http_timeout', 60))
-            ->withToken($this->apiKey)
-            ->retry(
-                (int) config('ai-core.llm.retries', 3),
-                fn (int $attempt): int => config('ai-core.llm.retry_backoff_ms', [2000, 5000, 10000])[$attempt - 1] ?? 10000,
-                throw: false,
-            )
-            ->post(self::ENDPOINT, $body);
+        $request = Http::timeout((int) config('ai-core.llm.http_timeout', 60))
+            ->withToken($this->apiKey);
+
+        $response = $this->withTransientRetries($request)->post(self::ENDPOINT, $body);
 
         if ($response->failed()) {
             throw new \RuntimeException("OpenAI API error ({$response->status()}): {$response->body()}");

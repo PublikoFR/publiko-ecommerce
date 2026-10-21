@@ -7,6 +7,8 @@ namespace Tests\Unit\AiImporter\Actions;
 use PHPUnit\Framework\TestCase;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Actions\Types\LlmTransformAction;
+use Pko\AiImporter\Actions\Types\MapAction;
 use Pko\AiImporter\Models\ImportJob;
 
 /**
@@ -78,6 +80,44 @@ class ActionTypesTest extends TestCase
         ]);
 
         $this->assertSame('REF-4275', $action->execute('4275', $this->ctx()));
+    }
+
+    public function test_factory_coerces_numeric_strings_to_declared_scalar_types(): void
+    {
+        // Les configs PrestaShop (formulaire → JSON) portent les nombres en
+        // chaînes ; sous strict_types un `"1.2"` sur un `float` est un TypeError.
+        $math = Action::make(['type' => 'math', 'operation' => 'multiply', 'value' => '1,5']);
+        $this->assertSame(150.0, $math->execute(100, $this->ctx()));
+
+        $round = Action::make(['type' => 'round', 'decimals' => '1']);
+        $this->assertSame(1.3, $round->execute('1.26', $this->ctx()));
+
+        $truncate = Action::make(['type' => 'truncate', 'length' => '3']);
+        $this->assertSame('abc', $truncate->execute('abcdef', $this->ctx()));
+
+        /** @var LlmTransformAction $llm */
+        $llm = Action::make(['type' => 'llm_transform', 'llm_config_id' => '1', 'prompt' => 'p']);
+        $this->assertSame(1, $llm->llm_config_id);
+
+        /** @var LlmTransformAction $llmNull */
+        $llmNull = Action::make(['type' => 'llm_transform', 'llm_config_id' => '', 'prompt' => 'p']);
+        $this->assertNull($llmNull->llm_config_id);
+
+        /** @var MapAction $map */
+        $map = Action::make(['type' => 'map', 'values' => ['a' => 'b'], 'multi_value' => 'true']);
+        $this->assertTrue($map->multi_value);
+
+        // Valeur non numérique sur un int non nullable : la clé est ignorée,
+        // le défaut du constructeur s'applique (pas de TypeError).
+        $bad = Action::make(['type' => 'truncate', 'length' => 'n/a']);
+        $this->assertSame(255, $bad->length);
+    }
+
+    public function test_legacy_change_case_aliases_tolerate_unknown_keys(): void
+    {
+        $action = Action::make(['type' => 'uppercase', 'comment' => 'majuscules', '_note' => 'x']);
+
+        $this->assertSame('ABC', $action->execute('abc', $this->ctx()));
     }
 
     public function test_change_case_handles_three_modes(): void

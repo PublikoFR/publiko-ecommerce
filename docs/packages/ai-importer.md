@@ -856,3 +856,112 @@ création + mise à jour puis restore — nom lisible via le cast, prix, stock, 
 prix d'achat, pivot exact, produit créé supprimé, statuts staging ; jointure EAN ; prix ajouté
 par l'import supprimé ; tags / caractéristiques / médias / documents / vidéos remis à
 l'identique ; produit créé déjà en panier passé en brouillon ; réindexation Scout).
+
+### 7.quinquies.17 Audit du module (2026-10-21) — API Claude, actions, pipeline
+
+#### 7.quinquies.17.1 Appels Claude (`pko/ai-core`, `ClaudeProvider`)
+
+**Problèmes** : la réponse était lue en `content.0.text` — les modèles à réflexion
+active par défaut (Opus/Sonnet/Haiku 5.x) renvoient un bloc `thinking` **en premier**,
+la valeur importée aurait été une chaîne vide sur toute la colonne. `stop_reason`
+n'était pas lu (un `refusal` passait pour une réponse vide, une troncature `max_tokens`
+était silencieuse). Le retry rejouait 3× **toute** erreur hors 401/402/403, dont les 400
+(modèle inconnu) : 17 s de backoff perdues par ligne. La liste de modèles proposée dans
+« Configuration LLM » s'arrêtait à Opus 4.7.
+
+**Décisions** :
+
+- **Lecture de la réponse** : premier bloc `type: text` du tableau `content`, les blocs
+  `thinking` sont ignorés. `stop_reason: refusal` → `RuntimeException` (la ligne passe en
+  erreur, motif `stop_details` dans les logs) ; `max_tokens` → texte tronqué renvoyé +
+  `Log::warning`. Toujours en HTTP brut via le client Laravel (pas de SDK PHP dans le projet).
+- **Retry** (trait `Llm\Concerns\RetriesTransientErrors`, partagé Claude/OpenAI) : seules
+  les erreurs transitoires sont retentées — `ConnectionException`, 408, 409, 429, 5xx
+  (dont 529 *overloaded*). Une 4xx définitive échoue immédiatement. L'en-tête
+  `retry-after` d'un 429 prime sur le backoff configuré (plafond 60 s). Clé de config
+  `ai-core.llm.retryable_status_codes` (remplace `critical_status_codes`).
+- **Options de `LlmConfig::options`** reprises dans la requête : `max_tokens` (défaut
+  `ai-core.llm.default_max_tokens` = 2048, auparavant 1024 codé en dur), `effort`
+  (`low|medium|high|xhigh|max` → `output_config.effort`, recommandé `low` sur un import
+  ligne à ligne), `temperature` (4.x uniquement, refusée par les 5.x). `testConnection()`
+  passe `max_tokens: 16`.
+- **Modèles** (`LlmProviderName::models()`) : Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1
+  en tête ; les identifiants 4.x restent listés pour que les configurations existantes se
+  rechargent dans le select. Rejeté : un champ texte libre pour le modèle — le select
+  pilote aussi le provider (`providerForModel`).
+- **Prompt caching** : inchangé (bloc `system` + `cache_control` quand `ai.context_cache`),
+  mais rappel : le cache n'est effectif qu'au-delà du minimum de tokens cacheables du
+  modèle (1024 à 4096 selon le modèle) — un contexte global de quelques lignes n'est jamais
+  mis en cache, seule une liste de handles autorisés volumineuse en bénéficie.
+
+Tests : `LlmProvidersTest` (bloc thinking ignoré, `effort`/`max_tokens`/`cache_control`
+dans le corps, refus → exception, 400 non retenté sans `Sleep`, 529 puis 429 `retry-after`
+puis succès).
+
+#### 7.quinquies.17.2 Action `llm_transform`
+
+- **Résolution de la configuration** : `LlmConfig` et provider résolus **une fois par
+  instance d'action** (cache process par identifiant, vidé en début de chaque
+  `ParseFileToStagingJob` / `preview-config`). Avant : une requête SQL + une instanciation
+  de provider **par ligne et par colonne IA**.
+- **Sortie JSON** : les clôtures ```` ```json … ``` ```` sont retirées avant décodage ;
+  `output_format: json` sans `output_json_key` renvoie le tableau décodé entier.
+- `additional_context` vide n'est plus envoyé.
+
+Tests : `LlmTransformActionTest` (no-op sans config active, corps de requête, une seule
+requête `pko_llm_configs` pour deux lignes, fences JSON, `llm_config_id` en chaîne).
+
+#### 7.quinquies.17.3 Fabrique d'actions — coercition de types (`Action::filterConstructorParams`)
+
+**Problème** : les configs PrestaShop portent les nombres en chaînes (`"llm_config_id": "1"`
+dans `somfy.json`, `"value": "1.2"`, `"decimals": "2"`). Tous les fichiers d'action sont en
+`strict_types=1` : une chaîne sur un paramètre `int`/`float` promu est un **`TypeError`** qui
+mettait la ligne en erreur (non couvert : le test e2e PS n'avait pas de `llm_config_id`).
+`ChangeCaseAction::fromArray` contournait aussi le filtre de clés inconnues : `{"type":
+"uppercase", "comment": "…"}` levait `ArgumentCountError`.
+
+**Décision** : la fabrique de base coerce les scalaires vers le type déclaré du paramètre
+(`int`, `float` avec virgule décimale acceptée, `bool` depuis `1/0/true/false/oui/non`,
+`string`). Chaîne vide → `null` si le paramètre est nullable, sinon clé omise (défaut du
+constructeur) ; valeur non convertible → clé omise. `ChangeCaseAction` passe par le même
+filtre. Tests : `ActionTypesTest::test_factory_coerces_numeric_strings_to_declared_scalar_types`,
+`test_legacy_change_case_aliases_tolerate_unknown_keys`.
+
+#### 7.quinquies.17.4 Pipeline et parser — allocations par ligne
+
+- **`ActionPipeline`** : les instances d'actions sont mises en cache par hash de leur config
+  résolue (borne 1000 entrées), au lieu de `ReflectionClass` + `new` à chaque ligne × colonne
+  × action. Les actions sont immuables (propriétés `readonly`), un même JSON produit le même
+  comportement. `config_data.sheets` est aussi mémorisé par job (lu à chaque
+  `multiline_aggregate`). Les actions imbriquées d'un `condition` restent construites à la
+  volée.
+- **`SpreadsheetParser::readRow()` / `readHeaders()`** : `cellExists()` avant `getCell()` —
+  PhpSpreadsheet 3.x **crée** la cellule demandée si elle n'existe pas ; sur une feuille
+  creuse (colonnes vides en fin de ligne) la lecture matérialisait des millions de cellules
+  vides en mémoire. Cellule absente → `null`, comme avant.
+- **`ImportStagingToLunarJob`** : checkpoint de progression sur `imported + errors` (un lot
+  d'erreurs consécutives ne rafraîchissait jamais la progression).
+
+#### 7.quinquies.17.5 `ai-importer:import-ps-config`
+
+- Le rapport de compatibilité lisait une liste de clés **figée et périmée** (annonçait
+  `cost_price_cents`, `documents`, `tags`, `mpn`, `supplier`… comme « ignorées »). Il
+  s'appuie désormais sur `LunarProductWriter::CANONICAL_KEYS` / `LEGACY_ALIASES` /
+  `LEGACY_EURO_ALIASES`, constantes publiques qui sont aussi celles utilisées par
+  `normalizeLegacyKeys()` — une clé ajoutée au writer doit être ajoutée là.
+- Les clés PS de premier niveau `llm_global_context` (chaîne ou objet, sérialisé en JSON) et
+  `llm_cache_context` sont reprises dans `config_data.ai.global_context` /
+  `ai.context_cache`, la section lue par `LlmTransformAction` ; elles étaient perdues
+  silencieusement. Test : `ImportPsConfigCommandTest::test_ps_llm_global_context_lands_in_ai_section`.
+
+#### 7.quinquies.17.6 Points relevés, non traités
+
+- `OpenAiProvider` envoie `max_tokens`, que les modèles OpenAI récents refusent au profit de
+  `max_completion_tokens` ; liste de modèles OpenAI ancienne. Hors périmètre de cet audit.
+- `PreviewConfigCommand` ne reproduit pas la résolution de la valeur initiale par feuille
+  (`relation: one`) de `ParseFileToStagingJob` : l'aperçu d'une colonne issue d'une feuille
+  secondaire peut différer du parse réel.
+- `PrefixAction` est « idempotent » (ne re-préfixe pas une valeur qui commence déjà par
+  `text`) : une référence qui commence légitimement par le préfixe n'est pas préfixée. Comportement
+  verrouillé par test, conservé.
+- Un `ImportLog` INFO est écrit par ligne parsée (volume = nombre de lignes du fichier).
