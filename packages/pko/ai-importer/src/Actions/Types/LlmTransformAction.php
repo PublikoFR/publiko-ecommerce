@@ -9,6 +9,7 @@ use Pko\AiCore\Llm\LlmManager;
 use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Services\CollectionCatalog;
 
 /**
  * LLM-powered column transform.
@@ -64,6 +65,7 @@ final class LlmTransformAction extends Action
     public static function flushConfigCache(): void
     {
         self::$configCache = [];
+        CollectionCatalog::flush();
     }
 
     public function execute(mixed $value, ExecutionContext $ctx): mixed
@@ -93,7 +95,8 @@ final class LlmTransformAction extends Action
         // LLM en bloc système, optionnellement mis en cache (Anthropic prompt caching).
         $cfg = $ctx->job->config?->config_data;
         $aiConfig = $cfg instanceof \ArrayObject ? (array) ($cfg->getArrayCopy()['ai'] ?? []) : [];
-        $globalContext = trim((string) ($aiConfig['global_context'] ?? ''));
+        // `{{categories}}` → catégories réelles du site, lues en base (pas de liste figée).
+        $globalContext = trim(app(CollectionCatalog::class)->expand((string) ($aiConfig['global_context'] ?? '')));
         $useCache = (bool) ($aiConfig['context_cache'] ?? false);
 
         $options = [];

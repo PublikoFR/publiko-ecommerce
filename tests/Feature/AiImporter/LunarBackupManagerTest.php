@@ -246,6 +246,30 @@ class LunarBackupManagerTest extends TestCase
             && $log->level->value === 'error' && str_contains($log->message, 'reference manquante')));
     }
 
+    public function test_collections_are_resolved_by_name_path_and_unknown_ones_only_warn(): void
+    {
+
+        $root = Collection::create(['collection_group_id' => $this->colA->collection_group_id, 'attribute_data' => collect(['name' => new TranslatedText(collect(['fr' => 'Catalogue racine']))])]);
+        $child = Collection::create(['collection_group_id' => $this->colA->collection_group_id, 'attribute_data' => collect(['name' => new TranslatedText(collect(['fr' => 'Éléments']))])]);
+        $child->appendToNode($root)->save();
+
+        $job = $this->job();
+        $this->stage($job, [
+            'reference' => 'NEW-1',
+            'name' => 'Produit',
+            'price_cents' => 1000,
+            // Chemin de noms (sortie IA) résolu sur l'arbre réel + catégorie inconnue.
+            'collections' => 'Accueil>Catalogue racine>Éléments,Accueil>Inexistante',
+        ], 1);
+
+        (new ImportStagingToLunarJob($job->id))->handle(app(LunarProductWriter::class), app(LunarBackupManager::class));
+
+        $product = ProductVariant::where('sku', 'NEW-1')->firstOrFail()->product;
+        $this->assertSame([$child->id], $product->collections()->pluck('lunar_collections.id')->all());
+        $this->assertSame(0, $job->fresh()->error_count);
+        $this->assertTrue(ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%collection%')->exists());
+    }
+
     private function media(Product $owner, string $name): int
     {
         return (int) $owner->addMediaFromString("contenu {$name}")

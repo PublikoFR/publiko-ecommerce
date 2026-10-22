@@ -19,6 +19,7 @@ use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Notifications\ImportJobNotifier;
+use Pko\AiImporter\Services\CollectionCatalog;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Services\LunarProductWriter;
 use Pko\AiImporter\Services\ProgressCache;
@@ -59,6 +60,9 @@ class ImportStagingToLunarJob implements ShouldQueue
     public function handle(LunarProductWriter $writer, LunarBackupManager $backup): void
     {
         $job = ImportJob::query()->findOrFail($this->importJobId);
+
+        // Les catégories ont pu changer depuis le parse (même process worker).
+        CollectionCatalog::flush();
 
         // Honore les options de job : update_mode / row_filter / join_column / columns_to_import.
         $writer->configure($job->options)->setJobId($job->id);
@@ -112,7 +116,7 @@ class ImportStagingToLunarJob implements ShouldQueue
                             ]);
                             $this->log($job, LogLevel::Error, "Ligne #{$record->row_number}: {$e->getMessage()}", [
                                 'staging_id' => $record->id,
-                            ]);
+                            ], $record->row_number);
 
                             if ($policy === ErrorPolicy::Stop) {
                                 return false;

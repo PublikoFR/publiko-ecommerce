@@ -16,6 +16,7 @@ use Lunar\Models\Product;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
+use Lunar\Models\Url;
 use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\RowFilter;
@@ -943,6 +944,27 @@ final class LunarProductWriter
     }
 
     /**
+     * `lunar_collections` n'a pas de colonne `handle` : le handle d'une collection
+     * est le slug de son URL. Un chemin de catégorie (« Accueil>Motorisations>Moteurs »,
+     * format de sortie de l'IA) est résolu sur les noms réels de l'arbre.
+     */
+    private function findCollectionIdByHandle(string $handle): ?int
+    {
+        if (str_contains($handle, '>')) {
+            return app(CollectionCatalog::class)->findIdByPath($handle);
+        }
+
+        $url = Url::query()
+            ->where('element_type', (new \Lunar\Models\Collection)->getMorphClass())
+            ->where('slug', $handle)
+            ->first();
+
+        return $url !== null
+            ? (int) $url->element_id
+            : app(CollectionCatalog::class)->findIdByPath($handle);
+    }
+
+    /**
      * Resolve a list of collection IDs or handles to int IDs. Unresolved handles
      * (no Collection with that handle in DB) are returned separately for warning
      * surfacing — common when an LLM emits a handle that doesn't exist yet.
@@ -970,9 +992,9 @@ final class LunarProductWriter
 
                 continue;
             }
-            $collection = \Lunar\Models\Collection::query()->where('handle', $handle)->first();
-            if ($collection) {
-                $ids[] = $this->collectionHandleCache[$handle] = (int) $collection->id;
+            $collectionId = $this->findCollectionIdByHandle($handle);
+            if ($collectionId !== null) {
+                $ids[] = $this->collectionHandleCache[$handle] = $collectionId;
             } else {
                 $unresolved[] = $handle;
             }
