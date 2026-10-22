@@ -109,7 +109,7 @@ class ImportStagingToLunarJob implements ShouldQueue
                             } else {
                                 $imported++;
                             }
-                            $this->logRow($job, $record);
+                            $this->logRow($job, $record, $imported + $errors);
                         } catch (\Throwable $e) {
                             $errors++;
                             $record->update([
@@ -201,7 +201,7 @@ class ImportStagingToLunarJob implements ShouldQueue
      * Une ligne de console par produit traité, écrite aussitôt : c'est ce qui
      * rend la progression lisible pendant l'import.
      */
-    private function logRow(ImportJob $job, StagingRecord $record): void
+    private function logRow(ImportJob $job, StagingRecord $record, int $position): void
     {
         $data = $record->data instanceof \ArrayObject ? $record->data->getArrayCopy() : (array) $record->data;
         $ref = (string) ($data['reference'] ?? '');
@@ -219,7 +219,7 @@ class ImportStagingToLunarJob implements ShouldQueue
             ? "{$status->label()} : {$record->error_message}"
             : $status->label();
 
-        $this->log($job, $level, "Ligne {$record->row_number}/{$total} : [{$ref}] {$name} — {$outcome}", [], $record->row_number);
+        $this->log($job, $level, "Ligne {$position}/{$total} : [{$ref}] {$name} — {$outcome}", [], $record->row_number);
     }
 
     /**

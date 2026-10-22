@@ -231,7 +231,7 @@ class ParseFileToStagingJobTest extends TestCase
 
         $logs = ImportLog::query()->where('import_job_id', $job->id)->get();
         $this->assertTrue($logs->every(fn (ImportLog $log): bool => $log->phase === LogPhase::Parse));
-        $this->assertTrue($logs->contains(fn (ImportLog $log): bool => str_starts_with($log->message, 'Ligne 2/')));
+        $this->assertTrue($logs->contains(fn (ImportLog $log): bool => str_starts_with($log->message, 'Ligne 1/')));
         // Heure posée par l'application, pas par le défaut SQL (fuseau de la base).
         $this->assertTrue($logs->every(fn (ImportLog $log): bool => abs($log->created_at->diffInSeconds(now())) < 60));
     }

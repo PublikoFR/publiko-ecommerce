@@ -291,6 +291,18 @@ class LunarBackupManagerTest extends TestCase
         $this->assertTrue(ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%feature%')->exists());
     }
 
+    public function test_log_numbering_is_a_position_not_the_sheet_row(): void
+    {
+        $job = $this->job();
+        $job->update(['staging_count' => 1]);
+        // Ligne 2 de la feuille = 1re ligne de données.
+        $this->stage($job, ['reference' => 'POS-1', 'name' => 'Produit', 'price_cents' => 1000], 2);
+
+        (new ImportStagingToLunarJob($job->id))->handle(app(LunarProductWriter::class), app(LunarBackupManager::class));
+
+        $this->assertTrue(ImportLog::where('import_job_id', $job->id)->where('message', 'like', 'Ligne 1/1 :%')->exists());
+    }
+
     private function media(Product $owner, string $name): int
     {
         return (int) $owner->addMediaFromString("contenu {$name}")

@@ -232,7 +232,7 @@ Quand un `llm_transform` (ou n'importe quelle source) émet un handle de `Collec
 Exemple de message :
 
 ```
-[SKU-12345] handle(s) introuvable(s) — 2 collection(s), 3 feature(s) ignoré(s).
+[SKU-12345] introuvable(s) sur le site, ignoré(s) — 2 collection(s) : Accueil>A>B ; Accueil>C — 3 feature(s) : family:X ; value:Famille.Y ; value:Famille.Z
 context: {
   collections: ["categorie-inexistante", "autre-cat"],
   features: ["family:application", "value:matiere.unobtanium"]

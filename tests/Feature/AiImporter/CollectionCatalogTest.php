@@ -79,4 +79,14 @@ class CollectionCatalogTest extends TestCase
         CollectionCatalog::flush();
         $this->assertSame(['Accueil>Nouvelle'], $catalog->paths());
     }
+
+    public function test_find_id_by_path_backtracks_over_homonymous_roots(): void
+    {
+        // Catégorie de démo sans enfant + même nom dans le catalogue réel.
+        $this->make('Motorisations');
+        $real = $this->make('Motorisations');
+        $child = $this->make('Moteurs', $real);
+
+        $this->assertSame($child->id, (new CollectionCatalog)->findIdByPath('Accueil>Motorisations>Moteurs'));
+    }
 }

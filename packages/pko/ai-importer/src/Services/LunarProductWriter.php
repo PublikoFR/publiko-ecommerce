@@ -1066,13 +1066,13 @@ final class LunarProductWriter
 
         $parts = [];
         if ($unresolved['collections'] !== []) {
-            $parts[] = count($unresolved['collections']).' collection(s)';
+            $parts[] = count($unresolved['collections']).' collection(s) : '.implode(' ; ', $unresolved['collections']);
         }
         if ($unresolved['features'] !== []) {
-            $parts[] = count($unresolved['features']).' feature(s)';
+            $parts[] = count($unresolved['features']).' feature(s) : '.implode(' ; ', array_map(fn (string $f): string => mb_strimwidth($f, 0, 80, '…'), $unresolved['features']));
         }
 
-        $message = "[{$sku}] handle(s) introuvable(s) — ".implode(', ', $parts).' ignoré(s).';
+        $message = "[{$sku}] introuvable(s) sur le site, ignoré(s) — ".implode(' — ', $parts);
         $context = array_filter($unresolved, static fn (array $v) => $v !== []);
 
         $this->logWarning($record, $message, $context);

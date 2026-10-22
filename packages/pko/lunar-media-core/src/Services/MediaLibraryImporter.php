@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\LunarMediaCore\Services;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use TomatoPHP\FilamentMediaManager\Models\Folder;
@@ -136,17 +137,20 @@ class MediaLibraryImporter
 
     private function download(string $url): ?string
     {
-        $context = stream_context_create([
-            'http' => ['timeout' => 20, 'user_agent' => 'pko-media-importer/1.0', 'follow_location' => 1],
-            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
-        ]);
-
-        $binary = @file_get_contents($url, false, $context);
-        if ($binary === false || strlen($binary) < 8) {
+        // Client HTTP Laravel avec son User-Agent par défaut : asset.somfy.com répond
+        // 403 aux streams PHP (`file_get_contents`) comme à tout User-Agent
+        // personnalisé ou de navigateur, et 200 au client Guzzle par défaut.
+        try {
+            $response = Http::timeout(20)
+                ->withOptions(['verify' => false])
+                ->get($url);
+        } catch (\Throwable) {
             return null;
         }
 
-        return $binary;
+        $binary = $response->successful() ? $response->body() : '';
+
+        return strlen($binary) < 8 ? null : $binary;
     }
 
     /**

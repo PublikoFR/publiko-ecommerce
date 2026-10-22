@@ -210,7 +210,7 @@ class ParseFileToStagingJob implements ShouldQueue
                         $job->id,
                         LogPhase::Parse,
                         LogLevel::Info,
-                        "Ligne {$rowNumber}/{$totalLabel} : [{$ref}] {$name}",
+                        'Ligne '.($processed + 1)."/{$totalLabel} : [{$ref}] {$name}",
                         $rowNumber,
                     );
                 } catch (\Throwable $e) {

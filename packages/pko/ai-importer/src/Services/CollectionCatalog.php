@@ -68,22 +68,33 @@ class CollectionCatalog
             return null;
         }
 
-        $parent = null;
-        foreach ($segments as $segment) {
-            $match = null;
-            foreach ($this->nodes() as $node) {
-                if ($node['parent_id'] === $parent && self::normalize($node['name']) === self::normalize($segment)) {
-                    $match = $node['id'];
-                    break;
-                }
+        return $this->descend(null, array_map(self::normalize(...), $segments));
+    }
+
+    /**
+     * Descente avec retour arrière : plusieurs racines (ou frères) peuvent porter
+     * le même nom — ex. une catégorie de démo et celle du catalogue réel — et le
+     * premier homonyme n'est pas forcément celui qui contient la suite du chemin.
+     *
+     * @param  array<int, string>  $segments  noms normalisés restant à descendre
+     */
+    private function descend(?int $parent, array $segments): ?int
+    {
+        $segment = array_shift($segments);
+
+        foreach ($this->nodes() as $node) {
+            if ($node['parent_id'] !== $parent || self::normalize($node['name']) !== $segment) {
+                continue;
             }
-            if ($match === null) {
-                return null;
+            if ($segments === []) {
+                return $node['id'];
             }
-            $parent = $match;
+            if (($found = $this->descend($node['id'], $segments)) !== null) {
+                return $found;
+            }
         }
 
-        return $parent;
+        return null;
     }
 
     /**
