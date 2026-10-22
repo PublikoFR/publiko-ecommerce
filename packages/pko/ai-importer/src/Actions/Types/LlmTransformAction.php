@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\AiImporter\Actions\Types;
 
+use Pko\AiCore\Contracts\LlmProviderInterface;
 use Pko\AiCore\Llm\LlmManager;
 use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Action;
@@ -18,14 +19,26 @@ use Pko\AiImporter\Actions\ExecutionContext;
  * vide en dev/test) : `execute()` renvoie la valeur source sans toucher au
  * réseau.
  *
+ * La configuration LLM et le provider sont résolus UNE fois par instance
+ * d'action (et la config mise en cache par identifiant pour la durée du
+ * process) : sans cela, chaque ligne parsée coûtait une requête SQL et une
+ * instanciation de provider par colonne IA.
+ *
  * ⚠️ Coûts API : sur une config active, chaque ligne parsée déclenche un VRAI
  * appel facturable. Ne jamais lancer un parse réel d'une config contenant des
  * actions `llm_transform` sans budget maîtrisé (cf. docs/packages/ai-importer.md).
  */
 final class LlmTransformAction extends Action
 {
+    /** @var array<string, LlmConfig|null> Cache process : clé `id:<n>` ou `default`. */
+    private static array $configCache = [];
+
+    private ?LlmProviderInterface $provider = null;
+
+    private bool $resolved = false;
+
     /**
-     * @param  array<int, string>  $input_columns
+     * @param  array<int, string|array<string, mixed>>  $input_columns
      */
     public function __construct(
         public readonly ?int $llm_config_id = null,
@@ -41,13 +54,16 @@ final class LlmTransformAction extends Action
         return 'llm_transform';
     }
 
+    /** À appeler quand une LlmConfig change en cours de process (tests, admin). */
+    public static function flushConfigCache(): void
+    {
+        self::$configCache = [];
+    }
+
     public function execute(mixed $value, ExecutionContext $ctx): mixed
     {
-        $config = $this->llm_config_id !== null
-            ? LlmConfig::query()->find($this->llm_config_id)
-            : LlmConfig::default();
-
-        if (! $config || ! $config->active) {
+        $provider = $this->provider();
+        if ($provider === null) {
             return $value; // no-op when no usable LLM configured
         }
 
@@ -63,7 +79,7 @@ final class LlmTransformAction extends Action
             }
             $inputs[$col] = $ctx->row[$col] ?? '';
         }
-        if ($this->additional_context !== null) {
+        if ($this->additional_context !== null && trim($this->additional_context) !== '') {
             $inputs['__context__'] = $this->additional_context;
         }
 
@@ -80,15 +96,64 @@ final class LlmTransformAction extends Action
             $options['cache_system'] = $useCache;
         }
 
-        $provider = app(LlmManager::class)->forConfig($config);
         $result = $provider->transform($this->prompt, $inputs, $options);
 
-        if ($this->output_format === 'json' && $this->output_json_key !== null) {
-            $decoded = json_decode($result, true);
+        if ($this->output_format === 'json') {
+            $decoded = json_decode(self::stripCodeFences($result), true);
+            if (! is_array($decoded)) {
+                return $result;
+            }
+            if ($this->output_json_key === null || $this->output_json_key === '') {
+                return $decoded;
+            }
 
-            return is_array($decoded) ? ($decoded[$this->output_json_key] ?? $result) : $result;
+            return $decoded[$this->output_json_key] ?? $result;
         }
 
         return $result;
+    }
+
+    private function provider(): ?LlmProviderInterface
+    {
+        if ($this->resolved) {
+            return $this->provider;
+        }
+        $this->resolved = true;
+
+        $config = $this->config();
+        if (! $config || ! $config->active) {
+            return null;
+        }
+
+        return $this->provider = app(LlmManager::class)->forConfig($config);
+    }
+
+    private function config(): ?LlmConfig
+    {
+        $key = $this->llm_config_id !== null && $this->llm_config_id > 0
+            ? 'id:'.$this->llm_config_id
+            : 'default';
+
+        if (! array_key_exists($key, self::$configCache)) {
+            self::$configCache[$key] = $key === 'default'
+                ? LlmConfig::default()
+                : LlmConfig::query()->find($this->llm_config_id);
+        }
+
+        return self::$configCache[$key];
+    }
+
+    /**
+     * Les modèles entourent volontiers un JSON de ```json … ``` malgré la
+     * consigne : on retire la clôture avant de décoder.
+     */
+    private static function stripCodeFences(string $text): string
+    {
+        $t = trim($text);
+        if (preg_match('/^```[a-zA-Z0-9_-]*\s*\n?(.*?)\n?```$/s', $t, $m)) {
+            return trim($m[1]);
+        }
+
+        return $t;
     }
 }

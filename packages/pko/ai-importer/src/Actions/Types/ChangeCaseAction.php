@@ -36,7 +36,7 @@ final class ChangeCaseAction extends Action
             $config['mode'] = self::LEGACY_TYPE_TO_MODE[$type];
         }
 
-        return new self(...$config); // @phpstan-ignore-line
+        return new self(...self::filterConstructorParams($config)); // @phpstan-ignore-line
     }
 
     public function execute(mixed $value, ExecutionContext $ctx): mixed

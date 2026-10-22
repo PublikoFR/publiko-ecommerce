@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Console;
 
 use Illuminate\Console\Command;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Services\ActionPipeline;
@@ -51,6 +52,7 @@ class PreviewConfigCommand extends Command
         }
 
         $configArr = $configData instanceof \ArrayObject ? $configData->getArrayCopy() : (array) $configData;
+        LlmTransformAction::flushConfigCache();
         $parser->load($file, $configArr);
         $primary = $parser->primarySheetName();
         $mapping = (array) ($configArr['mapping'] ?? []);

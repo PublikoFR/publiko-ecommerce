@@ -303,7 +303,9 @@ final class SpreadsheetParser
         for ($c = 1; $c <= $highestColIndex; $c++) {
             $letter = Coordinate::stringFromColumnIndex($c);
             if ($hasHeader) {
-                $val = (string) ($this->cellValue($sheet->getCell($letter.'1')) ?? '');
+                $val = $sheet->cellExists($letter.'1')
+                    ? (string) ($this->cellValue($sheet->getCell($letter.'1')) ?? '')
+                    : '';
                 $headers[$c] = $val !== '' ? $val : $letter;
             } else {
                 $headers[$c] = $letter;
@@ -322,7 +324,11 @@ final class SpreadsheetParser
         $row = [];
         foreach ($headers as $colIndex => $name) {
             $letter = Coordinate::stringFromColumnIndex($colIndex);
-            $row[$name] = $this->cellValue($sheet->getCell($letter.$rowIndex));
+            // `getCell()` CRÉE la cellule si elle n'existe pas : sur une feuille
+            // creuse, lire 50 colonnes × 100k lignes matérialiserait des millions
+            // de cellules vides en mémoire. On teste l'existence d'abord.
+            $coord = $letter.$rowIndex;
+            $row[$name] = $sheet->cellExists($coord) ? $this->cellValue($sheet->getCell($coord)) : null;
             // Alias by column letter too, so configs with `col: "M"` keep working
             $row[$letter] ??= $row[$name];
         }

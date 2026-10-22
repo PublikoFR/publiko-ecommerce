@@ -12,6 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\LogLevel;
@@ -74,6 +75,10 @@ class ParseFileToStagingJob implements ShouldQueue
         ]);
 
         $this->log($job, LogLevel::Info, 'Début du parse', ['file' => $job->input_file_path]);
+
+        // Une LlmConfig modifiée entre deux parses doit être relue : le cache
+        // de configuration des actions IA vit le temps d'un job, pas du worker.
+        LlmTransformAction::flushConfigCache();
 
         try {
             $disk = Storage::disk(config('ai-importer.storage.disk', 'local'));

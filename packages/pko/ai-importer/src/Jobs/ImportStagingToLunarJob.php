@@ -120,7 +120,10 @@ class ImportStagingToLunarJob implements ShouldQueue
                             }
                         }
 
-                        if ($imported % $chunkEvery === 0) {
+                        // Checkpoint sur le nombre de lignes TRAITÉES (succès + erreurs) :
+                        // compté sur les seuls succès, un lot d'erreurs consécutives
+                        // n'aurait jamais rafraîchi la progression.
+                        if (($imported + $errors) % $chunkEvery === 0) {
                             $job->update([
                                 'imported_count' => $imported,
                                 'error_count' => $errors,

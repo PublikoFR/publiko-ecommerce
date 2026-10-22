@@ -71,6 +71,31 @@ class ImportPsConfigCommandTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_ps_llm_global_context_lands_in_ai_section(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'pscfg').'.json';
+        file_put_contents($file, json_encode([
+            'mapping' => ['reference' => ['col' => 'REF']],
+            'llm_global_context' => ['marque' => 'ACME', 'ton' => 'B2B'],
+            'llm_cache_context' => true,
+        ]));
+
+        try {
+            $this->artisan('ai-importer:import-ps-config', ['file' => $file, '--name' => 'ps-ctx'])
+                ->assertExitCode(0);
+        } finally {
+            @unlink($file);
+        }
+
+        $data = ImporterConfig::query()->where('name', 'ps-ctx')->firstOrFail()->config_data->getArrayCopy();
+
+        $this->assertArrayNotHasKey('llm_global_context', $data);
+        $this->assertArrayNotHasKey('llm_cache_context', $data);
+        $this->assertTrue($data['ai']['context_cache']);
+        $this->assertStringContainsString('"marque": "ACME"', $data['ai']['global_context']);
+        Http::assertNothingSent();
+    }
+
     public function test_singular_action_is_lifted_to_actions_array_on_import(): void
     {
         // test-new-actions.json utilise la forme PS `action` (singulier) ;

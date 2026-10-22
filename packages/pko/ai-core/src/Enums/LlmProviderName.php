@@ -21,7 +21,14 @@ enum LlmProviderName: string
     public function models(): array
     {
         return match ($this) {
+            // Génération courante en tête ; les anciens identifiants restent
+            // listés pour que les configurations existantes se rechargent dans
+            // le formulaire (le select ne connaît que cette liste).
             self::Claude => [
+                'claude-opus-5-5' => 'Claude Opus 5.5',
+                'claude-sonnet-5-5' => 'Claude Sonnet 5.5',
+                'claude-haiku-5-5' => 'Claude Haiku 5.5',
+                'claude-fable-5-1' => 'Claude Fable 5.1',
                 'claude-opus-4-7' => 'Claude Opus 4.7',
                 'claude-sonnet-4-6' => 'Claude Sonnet 4.6',
                 'claude-haiku-4-5' => 'Claude Haiku 4.5',

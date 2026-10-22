@@ -7,6 +7,7 @@ namespace Pko\AiImporter\Console;
 use Illuminate\Console\Command;
 use Pko\AiImporter\Actions\ActionRegistry;
 use Pko\AiImporter\Models\ImporterConfig;
+use Pko\AiImporter\Services\LunarProductWriter;
 
 /**
  * Migrates an existing PrestaShop `publikoaiimporter` JSON config file into
@@ -102,28 +103,10 @@ class ImportPsConfigCommand extends Command
      */
     private function reportCompatibility(array $data): void
     {
-        $writerKeys = [
-            'reference', 'name', 'description', 'description_short',
-            'meta_title', 'meta_description', 'meta_keywords', 'url_key',
-            'ean', 'stock', 'price_cents', 'compare_price_cents',
-            'weight_value', 'length_value', 'width_value', 'height_value',
-            'brand_name', 'product_type_handle', 'tax_class_handle',
-            'collections', 'features', 'images', 'videos',
-        ];
-
-        $writerAliases = [
-            'ean13' => 'ean',
-            'quantity' => 'stock',
-            'manufacturer' => 'brand_name',
-            'link_rewrite' => 'url_key',
-            'width' => 'width_value',
-            'height' => 'height_value',
-            'depth' => 'length_value',
-            'weight' => 'weight_value',
-            'image' => 'images',
-            'category' => 'collections',
-            'price_tex' => 'price_cents',
-        ];
+        // Même source de vérité que le writer : une clé qu'il sait écrire ne doit
+        // jamais être annoncée « ignorée » ici.
+        $writerKeys = LunarProductWriter::CANONICAL_KEYS;
+        $writerAliases = LunarProductWriter::LEGACY_ALIASES + LunarProductWriter::LEGACY_EURO_ALIASES;
 
         $mapping = (array) $data['mapping'];
         $alias = $unknown = $unknownActions = [];
@@ -185,7 +168,10 @@ class ImportPsConfigCommand extends Command
     /**
      * Small normalisation pass — the PS format already matches ours, but we
      * make sure the legacy `action` (singular object) is lifted into a
-     * single-item `actions` array.
+     * single-item `actions` array, and that the PS top-level LLM context keys
+     * (`llm_global_context` / `llm_cache_context`) land in the `ai` section
+     * read by `LlmTransformAction` — otherwise the global context of a PS
+     * config was silently dropped.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -197,6 +183,27 @@ class ImportPsConfigCommand extends Command
                 $data['mapping'][$key]['actions'] = [$column['action']];
                 unset($data['mapping'][$key]['action']);
             }
+        }
+
+        $ai = (array) ($data['ai'] ?? []);
+        if (array_key_exists('llm_global_context', $data)) {
+            $context = $data['llm_global_context'];
+            $context = is_string($context)
+                ? trim($context)
+                : trim((string) json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            if ($context !== '' && trim((string) ($ai['global_context'] ?? '')) === '') {
+                $ai['global_context'] = $context;
+            }
+            unset($data['llm_global_context']);
+        }
+        if (array_key_exists('llm_cache_context', $data)) {
+            if (! array_key_exists('context_cache', $ai)) {
+                $ai['context_cache'] = (bool) $data['llm_cache_context'];
+            }
+            unset($data['llm_cache_context']);
+        }
+        if ($ai !== []) {
+            $data['ai'] = $ai;
         }
 
         return $data;
