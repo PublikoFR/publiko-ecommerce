@@ -12,10 +12,13 @@ use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ActionRegistry;
 use Pko\AiImporter\Actions\ExecutionContext;
 use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
+use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\ActionPipeline;
 use Pko\AiImporter\Services\SpreadsheetParser;
 use Tests\TestCase;
@@ -205,6 +208,54 @@ class ParseFileToStagingJobTest extends TestCase
             [2, 3, 4],
             $job->stagingRecords()->pluck('row_number')->all(),
         );
+    }
+
+    public function test_row_logs_are_flushed_live_and_tagged_as_parse_phase(): void
+    {
+        // Délai nul : chaque ligne est écrite aussitôt, comme sur un parse IA lent.
+        config(['ai-importer.defaults.log_flush_seconds' => 0]);
+        $job = $this->makeJobWithBoomConfig('ignore');
+
+        $seenBeforeNextRow = [];
+        StagingRecord::saved(function (StagingRecord $record) use (&$seenBeforeNextRow): void {
+            $seenBeforeNextRow[$record->row_number] = ImportLog::query()
+                ->where('import_job_id', $record->import_job_id)
+                ->whereNotNull('row_number')
+                ->count();
+        });
+
+        $this->runParse($job);
+
+        // Au moment d'écrire la ligne 4, les logs des lignes 2 et 3 sont déjà en base.
+        $this->assertSame(2, $seenBeforeNextRow[4]);
+
+        $logs = ImportLog::query()->where('import_job_id', $job->id)->get();
+        $this->assertTrue($logs->every(fn (ImportLog $log): bool => $log->phase === LogPhase::Parse));
+        $this->assertTrue($logs->contains(fn (ImportLog $log): bool => str_starts_with($log->message, 'Ligne 2/')));
+        // Heure posée par l'application, pas par le défaut SQL (fuseau de la base).
+        $this->assertTrue($logs->every(fn (ImportLog $log): bool => abs($log->created_at->diffInSeconds(now())) < 60));
+    }
+
+    public function test_cancel_stops_the_parse_and_logs_it(): void
+    {
+        config(['ai-importer.defaults.log_flush_seconds' => 0]);
+        $job = $this->makeJobWithBoomConfig('ignore');
+
+        // L'utilisateur clique « Annuler » pendant la première ligne.
+        StagingRecord::saved(function (StagingRecord $record): void {
+            ImportJob::query()->whereKey($record->import_job_id)->update(['status' => JobStatus::Cancelled]);
+        });
+
+        $this->runParse($job);
+        $job->refresh();
+
+        $this->assertSame(JobStatus::Cancelled, $job->status);
+        $this->assertSame(1, $job->stagingRecords()->count());
+        $this->assertSame(1, $job->last_processed_row);
+        $this->assertTrue(ImportLog::query()
+            ->where('import_job_id', $job->id)
+            ->where('message', 'like', 'Préparation annulée%')
+            ->exists());
     }
 
     private function makeJobWithBoomConfig(string $errorPolicy): ImportJob

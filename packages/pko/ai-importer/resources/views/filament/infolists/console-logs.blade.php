@@ -3,17 +3,20 @@
 @php
     /** @var \Pko\AiImporter\Models\ImportJob $record */
     $record = $getRecord();
+    /** @var \Pko\AiImporter\Enums\LogPhase $phase Une console par phase : préparation (parse) ou import. */
+    $phase ??= \Pko\AiImporter\Enums\LogPhase::Parse;
 
-    $logs = $record->logs()
+    $logs = \Pko\AiImporter\Filament\Resources\ImportJobResource\Pages\ViewImportJob::phaseLogs($record, $phase)
         ->orderByDesc('id')
         ->limit(300)
         ->get()
         ->reverse();
 
-    // Poll tant qu'une phase est en attente du cron ou en cours d'exécution
+    // Poll tant que la phase est en attente du cron ou en cours d'exécution
     // (préparation : pending/parsing ; import : queued/importing).
-    $running = in_array($record->import_status->value, ['queued', 'importing'], true)
-        || in_array($record->status->value, ['pending', 'parsing'], true);
+    $running = $phase === \Pko\AiImporter\Enums\LogPhase::Import
+        ? in_array($record->import_status->value, ['queued', 'importing'], true)
+        : in_array($record->status->value, ['pending', 'parsing'], true);
 
     $palette = [
         'success' => ['#34d399', 'OK  '],
@@ -37,7 +40,7 @@
             <span style="white-space:pre-wrap;word-break:break-word;flex:1;min-width:0;">{{ $log->message }}</span>
         </div>
     @empty
-        <div style="color:#6b7280;">Aucun log pour ce job pour l'instant.</div>
+        <div style="color:#6b7280;">{{ $phase === \Pko\AiImporter\Enums\LogPhase::Import ? 'Aucun log d\'import pour l\'instant.' : 'Aucun log de préparation pour l\'instant.' }}</div>
     @endforelse
 
     @if ($running)

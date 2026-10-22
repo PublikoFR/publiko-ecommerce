@@ -16,6 +16,7 @@ use Lunar\Models\Price;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
@@ -496,6 +497,7 @@ final class LunarBackupManager
     {
         ImportLog::query()->create([
             'import_job_id' => $job->id,
+            'phase' => LogPhase::Import,
             'row_number' => $rowNumber,
             'level' => $level,
             'message' => $message,

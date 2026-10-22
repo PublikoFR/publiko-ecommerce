@@ -17,6 +17,7 @@ use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\RowFilter;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Enums\UpdateMode;
@@ -1076,6 +1077,7 @@ final class LunarProductWriter
         } else {
             ImportLog::query()->create([
                 'import_job_id' => $record->import_job_id,
+                'phase' => LogPhase::Import,
                 'row_number' => $record->row_number,
                 'level' => LogLevel::Warning,
                 'message' => $message,
@@ -1094,13 +1096,14 @@ final class LunarProductWriter
             return;
         }
 
-        $this->pendingLogs[] = [
-            'import_job_id' => $this->jobId,
-            'row_number' => $this->currentRowNumber ?: null,
-            'level' => $level->value,
-            'message' => $message,
-            'context' => $context !== null ? json_encode($context) : null,
-        ];
+        $this->pendingLogs[] = ImportLog::row(
+            $this->jobId,
+            LogPhase::Import,
+            $level,
+            $message,
+            $this->currentRowNumber ?: null,
+            $context,
+        );
     }
 
     private function flushPendingLogs(): void

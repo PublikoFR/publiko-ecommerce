@@ -16,6 +16,7 @@ use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
@@ -116,6 +117,11 @@ class ParseFileToStagingJob implements ShouldQueue
             // désignent des clés de sortie déjà transformées.
             $mapping = MappingOrder::sorted($mapping);
             $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
+            // Avec des actions IA (plusieurs secondes par ligne), attendre
+            // `checkpoint_every` lignes laisserait la console vide pendant des
+            // minutes : on écrit aussi dès que ce délai est écoulé.
+            $flushSeconds = (float) config('ai-importer.defaults.log_flush_seconds', 2);
+            $lastFlush = microtime(true);
             $rowLimit = $job->row_limit;
             $policy = $job->error_policy instanceof ErrorPolicy
                 ? $job->error_policy
@@ -133,6 +139,7 @@ class ParseFileToStagingJob implements ShouldQueue
             $errors = 0;
             $stopped = false;
             $limited = false;
+            $cancelled = false;
 
             /** @var array<int, array<string, mixed>> Batch de logs INFO à insérer en bloc. */
             $logBatch = [];
@@ -199,13 +206,13 @@ class ParseFileToStagingJob implements ShouldQueue
                     $ref = (string) ($mapped['reference'] ?? '');
                     $name = (string) ($mapped['name'] ?? '');
                     $totalLabel = $total !== null ? (string) $total : '?';
-                    $logBatch[] = [
-                        'import_job_id' => $job->id,
-                        'row_number' => $rowNumber,
-                        'level' => LogLevel::Info->value,
-                        'message' => "Ligne {$rowNumber}/{$totalLabel} : [{$ref}] {$name}",
-                        'context' => null,
-                    ];
+                    $logBatch[] = ImportLog::row(
+                        $job->id,
+                        LogPhase::Parse,
+                        LogLevel::Info,
+                        "Ligne {$rowNumber}/{$totalLabel} : [{$ref}] {$name}",
+                        $rowNumber,
+                    );
                 } catch (\Throwable $e) {
                     $errors++;
                     $record = StagingRecord::updateOrCreate(
@@ -215,9 +222,9 @@ class ParseFileToStagingJob implements ShouldQueue
                     if ($record->wasRecentlyCreated) {
                         $stagingCount++;
                     }
-                    $this->log($job, LogLevel::Error, "Ligne #{$rowNumber}: {$e->getMessage()}", [
-                        'row_number' => $rowNumber,
-                    ]);
+                    // Lignes précédentes d'abord : la console reste dans l'ordre.
+                    $this->flushLogBatch($logBatch);
+                    $this->log($job, LogLevel::Error, "Ligne #{$rowNumber}: {$e->getMessage()}", [], $rowNumber);
 
                     // ignore → on continue ; stop/rollback → arrêt propre du
                     // parse (rien à rollback à ce stade : aucune écriture Lunar).
@@ -233,13 +240,28 @@ class ParseFileToStagingJob implements ShouldQueue
                     break;
                 }
 
-                if ($processed % $chunkEvery === 0) {
+                if ($processed % $chunkEvery === 0 || microtime(true) - $lastFlush >= $flushSeconds) {
                     $this->flushLogBatch($logBatch);
                     $this->persistProgress($job, $processed, $stagingCount, $total);
+                    $lastFlush = microtime(true);
+
+                    // Bouton « Annuler » : le statut est relu à chaque écriture.
+                    if (ImportJob::query()->whereKey($job->id)->toBase()->value('status') === JobStatus::Cancelled->value) {
+                        $cancelled = true;
+                        break;
+                    }
                 }
             }
 
             $this->flushLogBatch($logBatch);
+
+            if ($cancelled) {
+                $this->log($job, LogLevel::Warning, "Préparation annulée par l'utilisateur après {$processed} ligne(s).", [
+                    'last_processed_row' => $processed,
+                ]);
+
+                return;
+            }
 
             if ($stopped) {
                 $job->update([
@@ -328,13 +350,16 @@ class ParseFileToStagingJob implements ShouldQueue
     /**
      * @param  array<string, mixed>  $context
      */
-    private function log(ImportJob $job, LogLevel $level, string $message, array $context = []): void
+    private function log(ImportJob $job, LogLevel $level, string $message, array $context = [], ?int $rowNumber = null): void
     {
         ImportLog::create([
             'import_job_id' => $job->id,
+            'phase' => LogPhase::Parse,
+            'row_number' => $rowNumber,
             'level' => $level,
             'message' => $message,
             'context' => $context !== [] ? $context : null,
+            'created_at' => now(),
         ]);
     }
 }

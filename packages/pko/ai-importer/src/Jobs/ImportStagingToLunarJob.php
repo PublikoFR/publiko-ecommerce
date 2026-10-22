@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
@@ -82,17 +83,27 @@ class ImportStagingToLunarJob implements ShouldQueue
         $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
         $imported = (int) $job->imported_count;
         $errors = (int) $job->error_count;
+        $flushSeconds = (float) config('ai-importer.defaults.log_flush_seconds', 2);
+        $lastCheckpoint = microtime(true);
 
         try {
             StagingRecord::query()
                 ->where('import_job_id', $job->id)
                 ->whereIn('status', [StagingStatus::Pending->value, StagingStatus::Validated->value, StagingStatus::Warning->value])
                 ->orderBy('id')
-                ->chunkById(200, function ($records) use ($writer, $job, $policy, &$imported, &$errors, $chunkEvery, $backup): bool {
+                ->chunkById(200, function ($records) use ($writer, $job, $policy, &$imported, &$errors, &$lastCheckpoint, $chunkEvery, $flushSeconds, $backup): bool {
                     foreach ($records as $record) {
                         try {
                             $writer->write($record);
-                            $imported++;
+                            // Le writer rejette certaines lignes sans lever
+                            // d'exception (référence manquante, nom absent à la
+                            // création) : elles comptent comme des erreurs.
+                            if ($record->status === StagingStatus::Error) {
+                                $errors++;
+                            } else {
+                                $imported++;
+                            }
+                            $this->logRow($job, $record);
                         } catch (\Throwable $e) {
                             $errors++;
                             $record->update([
@@ -123,7 +134,9 @@ class ImportStagingToLunarJob implements ShouldQueue
                         // Checkpoint sur le nombre de lignes TRAITÉES (succès + erreurs) :
                         // compté sur les seuls succès, un lot d'erreurs consécutives
                         // n'aurait jamais rafraîchi la progression.
-                        if (($imported + $errors) % $chunkEvery === 0) {
+                        // Et au plus toutes les `log_flush_seconds` pour une barre fluide.
+                        if (($imported + $errors) % $chunkEvery === 0 || microtime(true) - $lastCheckpoint >= $flushSeconds) {
+                            $lastCheckpoint = microtime(true);
                             $job->update([
                                 'imported_count' => $imported,
                                 'error_count' => $errors,
@@ -179,15 +192,43 @@ class ImportStagingToLunarJob implements ShouldQueue
     }
 
     /**
+     * Une ligne de console par produit traité, écrite aussitôt : c'est ce qui
+     * rend la progression lisible pendant l'import.
+     */
+    private function logRow(ImportJob $job, StagingRecord $record): void
+    {
+        $data = $record->data instanceof \ArrayObject ? $record->data->getArrayCopy() : (array) $record->data;
+        $ref = (string) ($data['reference'] ?? '');
+        $name = (string) ($data['name'] ?? '');
+        $status = $record->status instanceof StagingStatus ? $record->status : StagingStatus::Imported;
+
+        $total = $job->staging_count ?: '?';
+
+        $level = match ($status) {
+            StagingStatus::Error => LogLevel::Error,
+            StagingStatus::Skipped => LogLevel::Warning,
+            default => LogLevel::Info,
+        };
+        $outcome = $status === StagingStatus::Error && $record->error_message
+            ? "{$status->label()} : {$record->error_message}"
+            : $status->label();
+
+        $this->log($job, $level, "Ligne {$record->row_number}/{$total} : [{$ref}] {$name} — {$outcome}", [], $record->row_number);
+    }
+
+    /**
      * @param  array<string, mixed>  $context
      */
-    private function log(ImportJob $job, LogLevel $level, string $message, array $context = []): void
+    private function log(ImportJob $job, LogLevel $level, string $message, array $context = [], ?int $rowNumber = null): void
     {
         ImportLog::create([
             'import_job_id' => $job->id,
+            'phase' => LogPhase::Import,
+            'row_number' => $rowNumber,
             'level' => $level,
             'message' => $message,
             'context' => $context !== [] ? $context : null,
+            'created_at' => now(),
         ]);
     }
 }

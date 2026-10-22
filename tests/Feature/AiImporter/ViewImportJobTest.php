@@ -7,10 +7,13 @@ namespace Tests\Feature\AiImporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Lunar\Admin\Models\Staff;
+use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Filament\Resources\ImportJobResource\Pages\ViewImportJob;
 use Pko\AiImporter\Filament\Resources\ImportJobResource\RelationManagers\StagingRecordsRelationManager;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Tests\TestCase;
 
@@ -109,5 +112,34 @@ class ViewImportJobTest extends TestCase
         $this->assertSame(StagingStatus::Validated, $staging->status);
         $this->assertSame('Renommé', ((array) $staging->data)['name']);
         $this->assertSame(2500, ((array) $staging->data)['price_cents']);
+    }
+
+    public function test_console_splits_parse_and_import_logs(): void
+    {
+        $this->actAsAdmin();
+        $job = $this->job();
+
+        $log = fn (?LogPhase $phase, string $message) => ImportLog::create([
+            'import_job_id' => $job->id,
+            'phase' => $phase,
+            'level' => LogLevel::Info,
+            'message' => $message,
+            'created_at' => now(),
+        ]);
+        $log(LogPhase::Parse, 'log-de-preparation');
+        $log(null, 'log-historique-sans-phase');
+        $log(LogPhase::Import, 'log-d-import');
+
+        $this->assertSame(
+            ['log-de-preparation', 'log-historique-sans-phase'],
+            ViewImportJob::phaseLogs($job, LogPhase::Parse)->orderBy('id')->pluck('message')->all(),
+        );
+        $this->assertSame(['log-d-import'], ViewImportJob::phaseLogs($job, LogPhase::Import)->pluck('message')->all());
+
+        Livewire::test(ViewImportJob::class, ['record' => $job->getRouteKey()])
+            ->assertOk()
+            ->assertSee('Préparation')
+            ->assertSee('log-de-preparation')
+            ->assertSee('log-d-import');
     }
 }

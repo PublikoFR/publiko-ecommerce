@@ -8,21 +8,25 @@ use Filament\Actions;
 use Filament\Forms;
 use Filament\Infolists\Components\Actions as InfolistActions;
 use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\UpdateMode;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Widgets\ImportJobProgressWidget;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Support\ProductFieldCatalog;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -125,10 +129,34 @@ class ViewImportJob extends ViewRecord
                 ->icon('heroicon-o-command-line')
                 ->collapsible()
                 ->schema([
-                    ViewEntry::make('console_logs')
-                        ->view('pko-ai-importer::filament.infolists.console-logs'),
+                    Tabs::make('console_phases')
+                        // Onglet Import ouvert d'office dès qu'un import a démarré.
+                        ->activeTab(fn (ImportJob $record): int => $record->import_started_at !== null
+                            || in_array($record->import_status, [ImportStatus::Queued, ImportStatus::Importing], true) ? 2 : 1)
+                        ->tabs(array_map(
+                            fn (LogPhase $phase): Tabs\Tab => Tabs\Tab::make($phase->label())
+                                ->badge(fn (ImportJob $record): int => static::phaseLogs($record, $phase)->count())
+                                ->schema([
+                                    ViewEntry::make("console_logs_{$phase->value}")
+                                        ->hiddenLabel()
+                                        ->view('pko-ai-importer::filament.infolists.console-logs', ['phase' => $phase]),
+                                ]),
+                            LogPhase::cases(),
+                        )),
                 ]),
         ]);
+    }
+
+    /**
+     * Les logs antérieurs à la colonne `phase` (NULL) sont rangés côté préparation.
+     *
+     * @return HasMany<ImportLog>
+     */
+    public static function phaseLogs(ImportJob $record, LogPhase $phase): HasMany
+    {
+        return $record->logs()->where(fn ($q) => $phase === LogPhase::Parse
+            ? $q->where('phase', $phase->value)->orWhereNull('phase')
+            : $q->where('phase', $phase->value));
     }
 
     private function fileExists(?string $path): bool

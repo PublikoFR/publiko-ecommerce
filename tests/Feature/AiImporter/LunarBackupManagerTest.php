@@ -23,9 +23,11 @@ use Lunar\Models\ProductVariant;
 use Lunar\Models\Tag;
 use Lunar\Models\TaxClass;
 use Pko\AiImporter\Enums\ImportStatus;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Jobs\ImportStagingToLunarJob;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Services\LunarProductWriter;
@@ -219,6 +221,29 @@ class LunarBackupManagerTest extends TestCase
         app(LunarBackupManager::class)->restore($job->fresh());
 
         $this->assertSame(0, $variant->prices()->count());
+    }
+
+    public function test_import_writes_one_import_phase_log_per_row(): void
+    {
+        $this->seedExisting();
+
+        $job = $this->job();
+        $this->stage($job, ['reference' => 'EXIST-1', 'price_cents' => 1234], 1);
+        // Rejetée par le writer sans exception : doit compter comme une erreur.
+        $this->stage($job, ['name' => 'Sans référence'], 2);
+
+        (new ImportStagingToLunarJob($job->id))->handle(app(LunarProductWriter::class), app(LunarBackupManager::class));
+
+        $job->refresh();
+        $this->assertSame(1, $job->imported_count);
+        $this->assertSame(1, $job->error_count);
+
+        $logs = ImportLog::query()->where('import_job_id', $job->id)->get();
+        $this->assertTrue($logs->every(fn (ImportLog $log): bool => $log->phase === LogPhase::Import));
+        $this->assertTrue($logs->contains(fn (ImportLog $log): bool => $log->row_number === 1
+            && str_starts_with($log->message, 'Ligne 1/') && str_contains($log->message, 'Mis à jour')));
+        $this->assertTrue($logs->contains(fn (ImportLog $log): bool => $log->row_number === 2
+            && $log->level->value === 'error' && str_contains($log->message, 'reference manquante')));
     }
 
     private function media(Product $owner, string $name): int

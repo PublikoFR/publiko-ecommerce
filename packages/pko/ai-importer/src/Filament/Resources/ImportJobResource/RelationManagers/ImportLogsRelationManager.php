@@ -8,6 +8,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 
 class ImportLogsRelationManager extends RelationManager
 {
@@ -25,6 +26,12 @@ class ImportLogsRelationManager extends RelationManager
             ->poll('5s')
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')->dateTime('H:i:s')->label('Heure'),
+                Tables\Columns\TextColumn::make('phase')
+                    ->label('Phase')
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn (?LogPhase $state): string => ($state ?? LogPhase::Parse)->label())
+                    ->placeholder(LogPhase::Parse->label()),
                 Tables\Columns\TextColumn::make('level')
                     ->badge()
                     ->color(fn (LogLevel $state): string => match ($state) {
@@ -38,6 +45,9 @@ class ImportLogsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('message')->wrap()->searchable(),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('phase')
+                    ->label('Phase')
+                    ->options(collect(LogPhase::cases())->mapWithKeys(fn (LogPhase $p): array => [$p->value => $p->label()])->toArray()),
                 Tables\Filters\SelectFilter::make('level')
                     ->options(collect(LogLevel::cases())->mapWithKeys(fn (LogLevel $l): array => [$l->value => ucfirst($l->value)])->toArray()),
             ]);

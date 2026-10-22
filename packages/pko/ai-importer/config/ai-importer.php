@@ -67,6 +67,9 @@ return [
         'chunk_size' => 500,
         'error_policy' => 'ignore', // ignore | stop | rollback
         'checkpoint_every' => 100,
+        // Délai max (secondes) entre deux écritures des logs ligne à ligne et
+        // de la progression, quel que soit `checkpoint_every`.
+        'log_flush_seconds' => 2,
         // Taille (octets) au-delà de laquelle un XLSX/XLS est lu en mode streamé
         // (fenêtres de `chunk_size` lignes) pour plafonner la mémoire.
         'stream_threshold_bytes' => (int) env('AI_IMPORTER_STREAM_THRESHOLD_BYTES', 5 * 1024 * 1024),
