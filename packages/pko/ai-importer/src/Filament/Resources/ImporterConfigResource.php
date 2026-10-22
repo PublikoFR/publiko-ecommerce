@@ -264,7 +264,7 @@ class ImporterConfigResource extends BaseResource
                 Forms\Components\Textarea::make('config_data.ai.global_context')
                     ->label('Contexte global IA')
                     ->rows(4)
-                    ->helperText('Injecté en préambule de chaque prompt IA (ex: ton de marque, conventions catalogue). Écrire {{categories}} à l\'endroit où doit figurer la liste des catégories : elle est relue en base à chaque préparation.')
+                    ->helperText('Injecté en préambule de chaque prompt IA (ex: ton de marque, conventions catalogue). Marqueurs relus en base à chaque préparation : {{categories}} (catégories du site) et {{features}} (familles de caractéristiques et leurs valeurs).')
                     ->columnSpanFull(),
             ]);
     }

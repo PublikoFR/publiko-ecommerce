@@ -501,9 +501,16 @@ final class LunarProductWriter
             }
         }
 
-        if (! empty($data['features']) && is_array($data['features']) && class_exists(Features::class)) {
-            $unresolved['features'] = $this->findUnresolvedFeatures($data['features']);
-            Features::syncByHandles($product, $data['features']);
+        if (! empty($data['features']) && class_exists(Features::class)) {
+            if (is_array($data['features'])) {
+                $unresolved['features'] = $this->findUnresolvedFeatures($data['features']);
+                Features::syncByHandles($product, $data['features']);
+            } else {
+                // Sortie IA « Famille:Valeur 1,Valeur 2|Famille 2:Valeur » : noms → handles.
+                $parsed = app(FeatureCatalog::class)->parse((string) $data['features']);
+                $unresolved['features'] = $parsed['unresolved'];
+                Features::syncByHandles($product, $parsed['features']);
+            }
         }
 
         if (! empty($data['images'])) {

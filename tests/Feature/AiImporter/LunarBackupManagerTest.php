@@ -270,6 +270,27 @@ class LunarBackupManagerTest extends TestCase
         $this->assertTrue(ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%collection%')->exists());
     }
 
+    public function test_ai_features_string_is_resolved_to_feature_values(): void
+    {
+        $family = FeatureFamily::create(['handle' => 'couleur-x', 'name' => 'Couleur X']);
+        $value = FeatureValue::create(['feature_family_id' => $family->id, 'handle' => 'rouge-x', 'name' => 'Rouge X']);
+
+        $job = $this->job();
+        $this->stage($job, [
+            'reference' => 'FEAT-1',
+            'name' => 'Produit',
+            'price_cents' => 1000,
+            'features' => 'Couleur X:Rouge X|Famille inconnue:Peu importe',
+        ], 1);
+
+        (new ImportStagingToLunarJob($job->id))->handle(app(LunarProductWriter::class), app(LunarBackupManager::class));
+
+        $product = ProductVariant::where('sku', 'FEAT-1')->firstOrFail()->product;
+        $this->assertSame([$value->id], $product->featureValues()->pluck('pko_feature_values.id')->all());
+        $this->assertSame(0, $job->fresh()->error_count);
+        $this->assertTrue(ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%feature%')->exists());
+    }
+
     private function media(Product $owner, string $name): int
     {
         return (int) $owner->addMediaFromString("contenu {$name}")

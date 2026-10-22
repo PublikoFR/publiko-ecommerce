@@ -20,6 +20,7 @@ use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Notifications\ImportJobNotifier;
 use Pko\AiImporter\Services\CollectionCatalog;
+use Pko\AiImporter\Services\FeatureCatalog;
 use Pko\AiImporter\Services\LunarBackupManager;
 use Pko\AiImporter\Services\LunarProductWriter;
 use Pko\AiImporter\Services\ProgressCache;
@@ -63,6 +64,7 @@ class ImportStagingToLunarJob implements ShouldQueue
 
         // Les catégories ont pu changer depuis le parse (même process worker).
         CollectionCatalog::flush();
+        FeatureCatalog::flush();
 
         // Honore les options de job : update_mode / row_filter / join_column / columns_to_import.
         $writer->configure($job->options)->setJobId($job->id);
