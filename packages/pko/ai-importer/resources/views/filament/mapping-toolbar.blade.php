@@ -26,7 +26,15 @@
             if (! this.repeater) return;
             const q = this.search.trim().toLowerCase();
             this.repeater.querySelectorAll('.fi-fo-repeater-item').forEach((item) => {
-                const text = item.textContent.toLowerCase();
+                // Pas `item.textContent` : la liste « Colonne cible » (Select
+                // searchable, Choices.js) garde dans le DOM les libellés de TOUT
+                // le catalogue → chaque ligne contenait n'importe quel terme.
+                // On ne lit que le libellé de la ligne, la valeur choisie et le
+                // résumé de configuration (feuille, colonne, actions).
+                const text = [...item.querySelectorAll('.fi-fo-repeater-item-header, .choices__list--single, .fi-fo-placeholder')]
+                    .map((el) => el.textContent)
+                    .join(' ')
+                    .toLowerCase();
                 const isEmpty = text.includes('aucune configuration');
                 let show = true;
                 if (q && ! text.includes(q)) show = false;
