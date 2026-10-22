@@ -6,6 +6,7 @@ namespace Pko\AdminNav\Filament\Clusters;
 
 use Filament\Clusters\Cluster;
 use Filament\Pages\SubNavigationPosition;
+use Pko\AdminNav\Filament\Concerns\RedirectsToFirstClusteredComponent;
 
 /**
  * Cluster « Boutique & paiement » (Organisation A).
@@ -15,6 +16,8 @@ use Filament\Pages\SubNavigationPosition;
  */
 class PkoShopPaymentCluster extends Cluster
 {
+    use RedirectsToFirstClusteredComponent;
+
     protected static ?string $slug = 'boutique-paiement';
 
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';

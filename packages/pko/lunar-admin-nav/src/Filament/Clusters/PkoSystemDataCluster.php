@@ -6,6 +6,7 @@ namespace Pko\AdminNav\Filament\Clusters;
 
 use Filament\Clusters\Cluster;
 use Filament\Pages\SubNavigationPosition;
+use Pko\AdminNav\Filament\Concerns\RedirectsToFirstClusteredComponent;
 
 /**
  * Cluster « Système & données » (Organisation A).
@@ -15,6 +16,8 @@ use Filament\Pages\SubNavigationPosition;
  */
 class PkoSystemDataCluster extends Cluster
 {
+    use RedirectsToFirstClusteredComponent;
+
     protected static ?string $slug = 'systeme-donnees';
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';

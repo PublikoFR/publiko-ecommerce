@@ -6,6 +6,7 @@ namespace Pko\AdminNav\Filament\Clusters;
 
 use Filament\Clusters\Cluster;
 use Filament\Pages\SubNavigationPosition;
+use Pko\AdminNav\Filament\Concerns\RedirectsToFirstClusteredComponent;
 
 /**
  * Cluster « Paramètres catalogue » (Organisation A).
@@ -15,6 +16,8 @@ use Filament\Pages\SubNavigationPosition;
  */
 class PkoCatalogueSettingsCluster extends Cluster
 {
+    use RedirectsToFirstClusteredComponent;
+
     protected static ?string $slug = 'parametres-catalogue';
 
     protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
