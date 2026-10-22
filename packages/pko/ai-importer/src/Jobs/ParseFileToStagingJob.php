@@ -24,6 +24,7 @@ use Pko\AiImporter\Notifications\ImportJobNotifier;
 use Pko\AiImporter\Services\ActionPipeline;
 use Pko\AiImporter\Services\ProgressCache;
 use Pko\AiImporter\Services\SpreadsheetParser;
+use Pko\AiImporter\Support\MappingOrder;
 
 /**
  * Parses the uploaded spreadsheet and populates `pko_ai_importer_staging`.
@@ -111,6 +112,9 @@ class ParseFileToStagingJob implements ShouldQueue
             if ($columnsToProcess !== []) {
                 $mapping = array_intersect_key($mapping, array_flip($columnsToProcess));
             }
+            // Colonnes IA calculées après les autres : leurs `input_columns`
+            // désignent des clés de sortie déjà transformées.
+            $mapping = MappingOrder::sorted($mapping);
             $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
             $rowLimit = $job->row_limit;
             $policy = $job->error_policy instanceof ErrorPolicy

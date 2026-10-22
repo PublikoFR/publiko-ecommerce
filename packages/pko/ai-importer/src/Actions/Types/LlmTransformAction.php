@@ -13,6 +13,12 @@ use Pko\AiImporter\Actions\ExecutionContext;
 /**
  * LLM-powered column transform.
  *
+ * Les `input_columns` sont des CLÉS DE SORTIE du mapping : la valeur lue est
+ * celle déjà calculée pour cette ligne (`ExecutionContext::getOutput`), avec
+ * repli sur la colonne brute du fichier si la clé n'est pas (encore) mappée.
+ * `ParseFileToStagingJob` calcule les colonnes IA après les autres
+ * (`Support\MappingOrder`) pour que ces valeurs existent.
+ *
  * Assemble les colonnes d'entrée + le contexte global, puis délègue l'appel à
  * `LlmManager::forConfig()` (providers ClaudeProvider / OpenAiProvider tous deux
  * opérationnels). No-op sûr quand aucun `LlmConfig` actif n'est résolu (table
@@ -77,7 +83,7 @@ final class LlmTransformAction extends Action
             if ($col === '') {
                 continue;
             }
-            $inputs[$col] = $ctx->row[$col] ?? '';
+            $inputs[$col] = self::scalar($ctx->getOutput($col, $ctx->row[$col] ?? ''));
         }
         if ($this->additional_context !== null && trim($this->additional_context) !== '') {
             $inputs['__context__'] = $this->additional_context;
@@ -141,6 +147,22 @@ final class LlmTransformAction extends Action
         }
 
         return self::$configCache[$key];
+    }
+
+    /**
+     * Valeur transmissible au modèle : les sorties structurées (hash
+     * `features`, liste d'URLs) sont sérialisées en JSON, le reste en chaîne.
+     */
+    private static function scalar(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        return (string) json_encode($value, JSON_UNESCAPED_UNICODE);
     }
 
     /**

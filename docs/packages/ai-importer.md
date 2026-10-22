@@ -911,6 +911,27 @@ puis succès).
 Tests : `LlmTransformActionTest` (no-op sans config active, corps de requête, une seule
 requête `pko_llm_configs` pour deux lignes, fences JSON, `llm_config_id` en chaîne).
 
+#### 7.quinquies.17.2bis `input_columns` = clés de sortie du mapping (fix 2026-10-22)
+
+**Problème** : les `input_columns` d'un `llm_transform` (format PS : `name`, `manufacturer`,
+`ean13`, `description_short`…) désignent des **clés de sortie du mapping**, pas des colonnes
+brutes du fichier. L'action lisait `ctx->row[col]` (ligne brute, clés = en-têtes/lettres) →
+tous les champs transmis au modèle étaient vides, et Claude répondait « Je ne peux pas
+déterminer les catégories : tous les champs du produit sont vides ».
+
+**Décisions** :
+
+- `LlmTransformAction` lit chaque entrée dans `ExecutionContext::getOutput()` (valeur déjà
+  transformée pour la ligne), repli sur la colonne brute si la clé n'est pas mappée. Les
+  sorties structurées (hash `features`, listes) sont sérialisées en JSON.
+- **Ordre de calcul** (`Support\MappingOrder::sorted()`, appliqué par `ParseFileToStagingJob`
+  et `preview-config`) : colonnes sans IA d'abord dans l'ordre du mapping, puis colonnes IA
+  triées par dépendances (`features` qui lit `description` passe après). Sans cela,
+  `category` (17ᵉ du mapping somfy) lisait `manufacturer` (32ᵉ) avant son calcul. Cycle entre
+  colonnes IA → ordre du mapping.
+
+Tests : `MappingOrderTest`, `LlmTransformActionTest::test_input_columns_read_mapped_outputs_before_raw_row`.
+
 #### 7.quinquies.17.3 Fabrique d'actions — coercition de types (`Action::filterConstructorParams`)
 
 **Problème** : les configs PrestaShop portent les nombres en chaînes (`"llm_config_id": "1"`

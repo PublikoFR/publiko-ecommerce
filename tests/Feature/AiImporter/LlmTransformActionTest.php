@@ -110,6 +110,38 @@ class LlmTransformActionTest extends TestCase
         });
     }
 
+    public function test_input_columns_read_mapped_outputs_before_raw_row(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'content' => [['type' => 'text', 'text' => 'ok']],
+                'stop_reason' => 'end_turn',
+            ]),
+        ]);
+        $this->claudeConfig();
+
+        // Clés de sortie du mapping (format PS) : `name` est déjà calculé (préfixé),
+        // `features` est un hash structuré, `ean13` n'est pas mappé → colonne brute.
+        $action = Action::make([
+            'type' => 'llm_transform',
+            'prompt' => 'p',
+            'input_columns' => ['name', 'features', 'ean13'],
+        ]);
+        $ctx = $this->ctx(['A' => 'moteur', 'ean13' => '3660849542641']);
+        $ctx->setOutput('name', 'MOTEUR SOMFY');
+        $ctx->setOutput('features', ['marque' => ['somfy']]);
+
+        $action->execute('', $ctx);
+
+        Http::assertSent(function ($request): bool {
+            $user = (string) ($request->data()['messages'][0]['content'] ?? '');
+
+            return str_contains($user, '"name": "MOTEUR SOMFY"')
+                && str_contains($user, '"features": "{\\"marque\\":[\\"somfy\\"]}"')
+                && str_contains($user, '"ean13": "3660849542641"');
+        });
+    }
+
     public function test_json_output_strips_code_fences_and_extracts_key(): void
     {
         Http::fake([

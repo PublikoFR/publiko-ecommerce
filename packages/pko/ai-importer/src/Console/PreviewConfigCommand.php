@@ -11,6 +11,7 @@ use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Services\ActionPipeline;
 use Pko\AiImporter\Services\SpreadsheetParser;
+use Pko\AiImporter\Support\MappingOrder;
 
 /**
  * Dry-run a config against a real file without touching the DB or queueing
@@ -55,12 +56,12 @@ class PreviewConfigCommand extends Command
         LlmTransformAction::flushConfigCache();
         $parser->load($file, $configArr);
         $primary = $parser->primarySheetName();
-        $mapping = (array) ($configArr['mapping'] ?? []);
+        $mapping = MappingOrder::sorted((array) ($configArr['mapping'] ?? []));
         $joinKey = $parser->joinKeyName();
 
         $placeholder = new ImportJob;
         $count = 0;
-        $headers = ['#', ...array_keys($mapping)];
+        $headers = ['#', ...array_keys($mapping)]; // ordre de calcul (colonnes IA en dernier)
         $rowsData = [];
 
         foreach ($parser->iterateRows($primary) as $rowNumber => $row) {
