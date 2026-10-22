@@ -7,9 +7,13 @@ namespace Pko\AiImporter\Console;
 use Illuminate\Console\Command;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
+use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
 use Pko\AiImporter\Jobs\ImportStagingToLunarJob;
 use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
+use Pko\AiImporter\Support\AiPreflight;
 
 /**
  * Tick du cron de l'import : c'est LUI qui déclenche les deux phases longues
@@ -82,6 +86,29 @@ class RunScheduledImportsCommand extends Command
             ));
 
             if ($dry) {
+                continue;
+            }
+
+            // Contrôle IA avant tout appel facturable : en échec, le job passe en
+            // erreur avec la raison (visible dans la console de préparation).
+            $config = $job->config;
+            $errors = $config === null ? [] : AiPreflight::check(
+                $config->config_data instanceof \ArrayObject ? $config->config_data->getArrayCopy() : (array) $config->config_data,
+                array_values(array_map('strval', (array) ($job->options['columns_to_process'] ?? []))),
+            );
+            if ($errors !== []) {
+                $job->update(['status' => JobStatus::Error, 'error_message' => 'IA inutilisable : '.implode(' | ', $errors)]);
+                foreach ($errors as $error) {
+                    ImportLog::create([
+                        'import_job_id' => $job->id,
+                        'phase' => LogPhase::Parse,
+                        'level' => LogLevel::Error,
+                        'message' => "Préparation bloquée — {$error}",
+                        'created_at' => now(),
+                    ]);
+                }
+                $this->warn('   préparation bloquée : IA inutilisable');
+
                 continue;
             }
 

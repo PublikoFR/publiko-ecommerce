@@ -1038,7 +1038,9 @@
                 return label + (action.condition ? ' (' + action.condition + ')' : '');
             case 'llm_transform':
                 var llmName = '';
-                if (action.llm_config_id && typeof llmConfigs !== 'undefined') {
+                if (action.backend) {
+                    llmName = action.backend + (action.model ? ' / ' + action.model : '');
+                } else if (action.llm_config_id && typeof llmConfigs !== 'undefined') {
                     var cfg = llmConfigs.find(function(c) { return c.id_llm_config == action.llm_config_id; });
                     if (cfg) llmName = cfg.name;
                 }

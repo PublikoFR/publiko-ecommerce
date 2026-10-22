@@ -17,6 +17,7 @@ use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Services\PreparedCsvImporter;
+use Pko\AiImporter\Support\AiPreflight;
 
 class CreateImportJob extends CreateRecord
 {
@@ -203,6 +204,20 @@ class CreateImportJob extends CreateRecord
         $data['import_status'] ??= ImportStatus::Pending->value;
 
         return $data;
+    }
+
+    /**
+     * Bloque la création si la config utilise une IA inutilisable : la
+     * préparation partirait au cron et ses colonnes IA resteraient vides.
+     */
+    protected function beforeCreate(): void
+    {
+        $configId = $this->data['config_id'] ?? null;
+        $columns = (array) ($this->data['options']['columns_to_process'] ?? []);
+
+        if (! AiPreflight::allowsParse($configId ? ImporterConfig::find($configId) : null, $columns)) {
+            $this->halt();
+        }
     }
 
     protected function afterCreate(): void

@@ -28,6 +28,7 @@ use Pko\AiImporter\Jobs\ParseFileToStagingJob;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Services\LunarBackupManager;
+use Pko\AiImporter\Support\AiPreflight;
 use Pko\AiImporter\Support\ProductFieldCatalog;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -180,6 +181,9 @@ class ViewImportJob extends ViewRecord
                 ->visible(fn (): bool => in_array($this->record->status, [JobStatus::Paused, JobStatus::Error], true))
                 ->requiresConfirmation()
                 ->action(function (): void {
+                    if (! AiPreflight::allowsParse($this->record->config, (array) ($this->record->options['columns_to_process'] ?? []))) {
+                        return;
+                    }
                     ParseFileToStagingJob::dispatch($this->record->id);
                     Notification::make()->success()->title('Parse relancé en file d\'attente')->send();
                 }),

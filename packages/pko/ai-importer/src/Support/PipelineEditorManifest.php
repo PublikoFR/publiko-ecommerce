@@ -172,11 +172,15 @@ final class PipelineEditorManifest
             // ── Intelligence artificielle ───────────────────────────────────
             ['type' => 'llm_transform', 'label' => 'Prompt IA', 'group' => 'ai', 'icon' => 'icon-bolt',
                 'params' => [
-                    'llm_config_id' => ['type' => 'llm_select', 'label' => 'Configuration LLM'],
+                    // Fournisseur + alias de modèle : portable d'une base à l'autre (la clé
+                    // API vient de la configuration LLM active du fournisseur).
+                    'backend' => ['type' => 'select', 'label' => 'Fournisseur IA', 'options' => ['' => 'Config IA par défaut', 'claude' => 'Claude (Anthropic)', 'openai' => 'OpenAI'], 'default' => 'claude'],
+                    'model' => ['type' => 'text', 'label' => 'Modèle', 'placeholder' => 'sonnet', 'help' => 'Alias (opus, sonnet, haiku, fable) = toujours la dernière version ; ou identifiant exact (claude-sonnet-5-5) pour figer. Vide = modèle de la configuration du fournisseur.'],
                     'prompt' => ['type' => 'textarea', 'label' => 'Prompt système', 'rows' => 4, 'placeholder' => 'Tu es un assistant qui génère des descriptions produit SEO...'],
                     'input_columns' => ['type' => 'columns_select', 'label' => 'Colonnes à inclure (après actions appliquées)', 'multiple' => true],
                     'additional_context' => ['type' => 'textarea', 'label' => 'Contexte additionnel', 'rows' => 2, 'placeholder' => 'Catalogue de produits électroménager...'],
                     'output_format' => ['type' => 'select', 'label' => 'Format de sortie', 'options' => ['string' => 'Texte brut', 'json' => 'JSON structuré'], 'default' => 'string'],
+                    'source_columns' => ['type' => 'textarea', 'label' => 'Colonnes sources (JSON)', 'rows' => 3, 'placeholder' => '{"Description": "B03_MEDIA[C=ARGU,K]", "Gamme": "B01_COMMERCE:F"}', 'help' => 'Libellé → Feuille:Colonne ou Feuille[ColFiltre=VALEUR,Colonne], transmis à l\'IA.'],
                     'output_json_key' => ['type' => 'text', 'label' => 'Clé JSON de sortie', 'placeholder' => 'Ex : description', 'help' => 'Clé à extraire de la réponse JSON du LLM', 'show_if' => ['output_format' => 'json']],
                 ]],
 

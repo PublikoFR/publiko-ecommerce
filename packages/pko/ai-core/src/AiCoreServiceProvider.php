@@ -6,6 +6,7 @@ namespace Pko\AiCore;
 
 use Illuminate\Support\ServiceProvider;
 use Pko\AiCore\Llm\LlmManager;
+use Pko\AiCore\Llm\ModelAliasResolver;
 
 class AiCoreServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,7 @@ class AiCoreServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/ai-core.php', 'ai-core');
 
         $this->app->singleton(LlmManager::class, fn () => new LlmManager);
+        $this->app->singleton(ModelAliasResolver::class);
     }
 
     public function boot(): void

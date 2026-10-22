@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Pko\AiImporter\Actions\ActionRegistry;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Services\LunarProductWriter;
+use Pko\AiImporter\Support\LlmActionNormalizer;
 
 /**
  * Migrates an existing PrestaShop `publikoaiimporter` JSON config file into
@@ -206,6 +207,7 @@ class ImportPsConfigCommand extends Command
             $data['ai'] = $ai;
         }
 
-        return $data;
+        // `llm_config_id` du module d'origine → fournisseur + alias portables.
+        return LlmActionNormalizer::config($data);
     }
 }

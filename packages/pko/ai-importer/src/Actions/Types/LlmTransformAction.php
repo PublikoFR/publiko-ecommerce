@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Actions\Types;
 
 use Pko\AiCore\Contracts\LlmProviderInterface;
 use Pko\AiCore\Llm\LlmManager;
+use Pko\AiCore\Llm\LlmUnavailableException;
 use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
@@ -53,6 +54,12 @@ final class LlmTransformAction extends Action
     /** Config demandée par `llm_config_id` introuvable : repli sur la config par défaut. */
     private bool $configMissing = false;
 
+    /** Fournisseur/modèle demandés inutilisables (message pour les logs). */
+    private ?string $backendError = null;
+
+    /** Identifiant exact retenu pour `backend`/`model` (alias résolu). */
+    private ?string $resolvedModel = null;
+
     private bool $resolved = false;
 
     /**
@@ -69,6 +76,8 @@ final class LlmTransformAction extends Action
         public readonly string $output_format = 'string', // string|json
         public readonly ?string $output_json_key = null,
         public readonly array $source_columns = [],
+        public readonly ?string $backend = null, // claude|openai — prioritaire sur llm_config_id
+        public readonly ?string $model = null,   // alias de famille (sonnet, opus…) ou identifiant exact
     ) {}
 
     public static function type(): string
@@ -88,12 +97,17 @@ final class LlmTransformAction extends Action
     public function execute(mixed $value, ExecutionContext $ctx): mixed
     {
         $provider = $this->provider();
+        if ($this->backendError !== null) {
+            $this->warnOnce($ctx, 'backend', $this->backendError);
+        } elseif ($this->resolvedModel !== null) {
+            $this->warnOnce($ctx, 'model', "Modèle IA : {$this->backend}".($this->model ? " / {$this->model}" : '')." → {$this->resolvedModel}", LogLevel::Info);
+        }
         if ($this->configMissing) {
             $this->warnOnce($ctx, 'missing', "Config IA n°{$this->llm_config_id} introuvable : la config IA par défaut est utilisée.");
         }
         if ($provider === null) {
             // Sans ce message, une colonne IA restait vide sans aucune trace.
-            $this->warnOnce($ctx, 'none', "Aucune config IA active : l'action IA est ignorée et la colonne reste inchangée (prompt : « ".mb_strimwidth(trim($this->prompt), 0, 60, '…').' »).');
+            $this->backendError !== null || $this->warnOnce($ctx, 'none', "Aucune config IA active : l'action IA est ignorée et la colonne reste inchangée (prompt : « ".mb_strimwidth(trim($this->prompt), 0, 60, '…').' »).');
 
             return $value; // no-op when no usable LLM configured
         }
@@ -162,6 +176,24 @@ final class LlmTransformAction extends Action
         }
         $this->resolved = true;
 
+        // Fournisseur + modèle (portable) : la clé vient de la config active du fournisseur.
+        if ($this->backend !== null && trim($this->backend) !== '') {
+            try {
+                [$config, $this->resolvedModel] = app(LlmManager::class)->resolveBackend($this->backend, $this->model);
+            } catch (LlmUnavailableException $e) {
+                $this->backendError = $e->getMessage();
+
+                return null;
+            }
+
+            return $this->provider = app(LlmManager::class)->make(
+                $config->provider,
+                $config->api_key,
+                $this->resolvedModel,
+                $config->options ? $config->options->getArrayCopy() : [],
+            );
+        }
+
         $config = $this->config();
         if (! $config || ! $config->active) {
             return null;
@@ -194,9 +226,9 @@ final class LlmTransformAction extends Action
         return self::$configCache[$key];
     }
 
-    private function warnOnce(ExecutionContext $ctx, string $cause, string $message): void
+    private function warnOnce(ExecutionContext $ctx, string $cause, string $message, LogLevel $level = LogLevel::Warning): void
     {
-        $key = $ctx->job->id.':'.$cause.':'.$this->llm_config_id;
+        $key = $ctx->job->id.':'.$cause.':'.$this->llm_config_id.':'.$this->backend.':'.$this->model;
         if (isset(self::$warned[$key])) {
             return;
         }
@@ -206,7 +238,7 @@ final class LlmTransformAction extends Action
             'import_job_id' => $ctx->job->id,
             'phase' => LogPhase::Parse,
             'row_number' => $ctx->rowNumber ?: null,
-            'level' => LogLevel::Warning,
+            'level' => $level,
             'message' => $message,
             'created_at' => now(),
         ]);
