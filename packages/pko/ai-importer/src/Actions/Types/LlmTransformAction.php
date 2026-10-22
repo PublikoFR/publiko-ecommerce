@@ -11,6 +11,7 @@ use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
 use Pko\AiImporter\Services\CollectionCatalog;
 use Pko\AiImporter\Services\FeatureCatalog;
+use Pko\AiImporter\Support\SourceColumnResolver;
 
 /**
  * LLM-powered column transform.
@@ -47,6 +48,9 @@ final class LlmTransformAction extends Action
 
     /**
      * @param  array<int, string|array<string, mixed>>  $input_columns
+     * @param  array<string, string>  $source_columns  libellé → référence de colonne source
+     *                                                 (`Feuille:Col`, `Feuille:[Filtre=VAL,Col]`),
+     *                                                 cf. {@see SourceColumnResolver}
      */
     public function __construct(
         public readonly ?int $llm_config_id = null,
@@ -55,6 +59,7 @@ final class LlmTransformAction extends Action
         public readonly ?string $additional_context = null,
         public readonly string $output_format = 'string', // string|json
         public readonly ?string $output_json_key = null,
+        public readonly array $source_columns = [],
     ) {}
 
     public static function type(): string
@@ -88,6 +93,14 @@ final class LlmTransformAction extends Action
                 continue;
             }
             $inputs[$col] = self::scalar($ctx->getOutput($col, $ctx->row[$col] ?? ''));
+        }
+        // Colonnes sources déclarées par la config (ex. description longue d'une
+        // feuille secondaire filtrée par type) : transmises sous leur libellé.
+        foreach ($this->source_columns as $label => $spec) {
+            $text = is_string($spec) ? SourceColumnResolver::resolve($spec, $ctx) : null;
+            if ($text !== null) {
+                $inputs[(string) $label] = $text;
+            }
         }
         if ($this->additional_context !== null && trim($this->additional_context) !== '') {
             $inputs['__context__'] = $this->additional_context;

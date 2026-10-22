@@ -170,3 +170,7 @@ déclarant `StandardMediaDefinitions` + `media:regenerate`) pour servir des imag
 optimisées plutôt que les originaux plein format. Le panier (`getThumbnail()`) reste sur
 le média natif (dégrade en sans-image pour les produits importés) — à migrer en option 1.
 
+
+## Taille maximale des fichiers
+
+`config/media-core.php` (`max_file_size`, env `MEDIA_MAX_FILE_SIZE`, défaut 25 Mo) est appliqué à `media-library.max_file_size` au boot du package. Le plafond par défaut de spatie/laravel-medialibrary (10 Mo) refusait des notices fournisseurs de ~12 Mo (`FileIsTooBig`, visible uniquement dans `laravel.log`). `MediaLibraryImporter::download()` passe par le client HTTP Laravel et son User-Agent par défaut : asset.somfy.com répond 403 aux streams PHP et aux User-Agent personnalisés ou de navigateur.

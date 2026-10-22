@@ -182,4 +182,47 @@ class LlmTransformActionTest extends TestCase
         $this->assertSame('ok', $action->execute('', $this->ctx(['A' => 'x'])));
         Http::assertSentCount(1);
     }
+
+    public function test_source_columns_are_resolved_from_secondary_and_primary_sheets(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'content' => [['type' => 'text', 'text' => '<p>ok</p>']],
+                'stop_reason' => 'end_turn',
+            ]),
+        ]);
+        $this->claudeConfig();
+
+        $action = Action::make([
+            'type' => 'llm_transform',
+            'prompt' => 'Reformule.',
+            'source_columns' => [
+                'Description' => 'B03_MEDIA[C=ARGU,K]',
+                'Description longue' => 'B03_MEDIA:[C=argu, MTEXTE]',
+                'Gamme' => 'B01_COMMERCE:F',
+                'Vide' => 'B03_MEDIA:[C=NOTICE,K]',
+                'Inconnue' => 'AUTRE_FEUILLE:A',
+            ],
+        ]);
+        $ctx = $this->ctx([], []);
+        $ctx->job->config->config_data = ['primary_sheet' => 'B01_COMMERCE', 'mapping' => []];
+        $ctx->row = ['B' => '1001547', 'F' => 'SONESSE'];
+        $ctx->sheets = ['B03_MEDIA' => [
+            ['B' => '1001547', 'C' => 'PHOTO', 'K' => '', 'MTEXTE' => ''],
+            ['B' => '1001547', 'C' => 'ARGU', 'K' => 'Moteur silencieux 230V.', 'MTEXTE' => 'Moteur silencieux 230V.'],
+            ['B' => '1001547', 'C' => 'NOTICE', 'K' => '', 'MTEXTE' => ''],
+        ]];
+
+        $action->execute('', $ctx);
+
+        Http::assertSent(function ($request): bool {
+            $user = (string) ($request->data()['messages'][0]['content'] ?? '');
+
+            return str_contains($user, '"Description": "Moteur silencieux 230V."')
+                && str_contains($user, '"Description longue": "Moteur silencieux 230V."')
+                && str_contains($user, '"Gamme": "SONESSE"')
+                && ! str_contains($user, 'Vide')
+                && ! str_contains($user, 'Inconnue');
+        });
+    }
 }
