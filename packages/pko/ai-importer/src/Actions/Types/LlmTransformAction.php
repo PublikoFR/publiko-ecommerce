@@ -9,6 +9,9 @@ use Pko\AiCore\Llm\LlmManager;
 use Pko\AiCore\Models\LlmConfig;
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Enums\LogLevel;
+use Pko\AiImporter\Enums\LogPhase;
+use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Services\CollectionCatalog;
 use Pko\AiImporter\Services\FeatureCatalog;
 use Pko\AiImporter\Support\SourceColumnResolver;
@@ -42,7 +45,13 @@ final class LlmTransformAction extends Action
     /** @var array<string, LlmConfig|null> Cache process : clé `id:<n>` ou `default`. */
     private static array $configCache = [];
 
+    /** @var array<string, true> Avertissements déjà journalisés (un par job et par cause). */
+    private static array $warned = [];
+
     private ?LlmProviderInterface $provider = null;
+
+    /** Config demandée par `llm_config_id` introuvable : repli sur la config par défaut. */
+    private bool $configMissing = false;
 
     private bool $resolved = false;
 
@@ -71,6 +80,7 @@ final class LlmTransformAction extends Action
     public static function flushConfigCache(): void
     {
         self::$configCache = [];
+        self::$warned = [];
         CollectionCatalog::flush();
         FeatureCatalog::flush();
     }
@@ -78,7 +88,13 @@ final class LlmTransformAction extends Action
     public function execute(mixed $value, ExecutionContext $ctx): mixed
     {
         $provider = $this->provider();
+        if ($this->configMissing) {
+            $this->warnOnce($ctx, 'missing', "Config IA n°{$this->llm_config_id} introuvable : la config IA par défaut est utilisée.");
+        }
         if ($provider === null) {
+            // Sans ce message, une colonne IA restait vide sans aucune trace.
+            $this->warnOnce($ctx, 'none', "Aucune config IA active : l'action IA est ignorée et la colonne reste inchangée (prompt : « ".mb_strimwidth(trim($this->prompt), 0, 60, '…').' »).');
+
             return $value; // no-op when no usable LLM configured
         }
 
@@ -166,7 +182,34 @@ final class LlmTransformAction extends Action
                 : LlmConfig::query()->find($this->llm_config_id);
         }
 
+        // Id absent de cette base (config importée d'un autre environnement) :
+        // repli sur la config par défaut plutôt que de sauter l'action.
+        if (self::$configCache[$key] === null && $key !== 'default') {
+            $this->configMissing = true;
+            self::$configCache['default'] ??= LlmConfig::default();
+
+            return self::$configCache['default'];
+        }
+
         return self::$configCache[$key];
+    }
+
+    private function warnOnce(ExecutionContext $ctx, string $cause, string $message): void
+    {
+        $key = $ctx->job->id.':'.$cause.':'.$this->llm_config_id;
+        if (isset(self::$warned[$key])) {
+            return;
+        }
+        self::$warned[$key] = true;
+
+        ImportLog::create([
+            'import_job_id' => $ctx->job->id,
+            'phase' => LogPhase::Parse,
+            'row_number' => $ctx->rowNumber ?: null,
+            'level' => LogLevel::Warning,
+            'message' => $message,
+            'created_at' => now(),
+        ]);
     }
 
     /**

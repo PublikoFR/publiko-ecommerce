@@ -14,6 +14,7 @@ use Pko\AiImporter\Actions\ExecutionContext;
 use Pko\AiImporter\Actions\Types\LlmTransformAction;
 use Pko\AiImporter\Models\ImporterConfig;
 use Pko\AiImporter\Models\ImportJob;
+use Pko\AiImporter\Models\ImportLog;
 use Tests\TestCase;
 
 /**
@@ -224,5 +225,38 @@ class LlmTransformActionTest extends TestCase
                 && ! str_contains($user, 'Vide')
                 && ! str_contains($user, 'Inconnue');
         });
+    }
+
+    public function test_unknown_llm_config_id_falls_back_to_default_and_warns_once(): void
+    {
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'content' => [['type' => 'text', 'text' => 'ok']],
+                'stop_reason' => 'end_turn',
+            ]),
+        ]);
+        $this->claudeConfig();
+
+        $action = Action::make(['type' => 'llm_transform', 'prompt' => 'p', 'llm_config_id' => 999, 'input_columns' => ['A']]);
+        $ctx = $this->ctx(['A' => 'x']);
+
+        $this->assertSame('ok', $action->execute('', $ctx));
+        $this->assertSame('ok', $action->execute('', $ctx));
+
+        $logs = ImportLog::where('import_job_id', $ctx->job->id)->where('level', 'warning')->get();
+        $this->assertCount(1, $logs);
+        $this->assertStringContainsString('n°999 introuvable', $logs[0]->message);
+    }
+
+    public function test_noop_without_any_config_is_logged_instead_of_silent(): void
+    {
+        Http::fake();
+
+        $action = Action::make(['type' => 'llm_transform', 'prompt' => 'Reformule la description', 'input_columns' => ['A']]);
+        $ctx = $this->ctx(['A' => 'x']);
+
+        $this->assertNull($action->execute(null, $ctx));
+        $this->assertTrue(ImportLog::where('import_job_id', $ctx->job->id)->where('level', 'warning')->where('message', 'like', 'Aucune config IA active%')->exists());
+        Http::assertNothingSent();
     }
 }
