@@ -330,3 +330,25 @@ Règles :
   supprimée — la clé `usps` reste en base sans effet), newsletter, réseaux sociaux du footer
   (les réglages sociaux restent utilisés par les e-mails), téléphone/« Nos magasins » du bandeau
   supérieur.
+
+### Pictogrammes des catégories dans le menu latéral (2026-11-09)
+
+- **Un seul fichier par catégorie** : la déclinaison *bicolore* du picto (contours forest, accent
+  lime), dans l'image de la catégorie (1ʳᵉ image de la collection `images`).
+- **Survol / catégorie ouverte** : la tuile du picto passe en `bg-accent-500` (vert clair). Décision :
+  les déclinaisons du graphiste ne diffèrent que par la couleur de l'accent (lime → aucun
+  remplissage) ; sur fond lime, l'accent lime du bicolore se fond dans la tuile, et le rendu est
+  **identique au pixel près** à la déclinaison « sur vert clair » (vérifié sur les 10 pictos). Un
+  second champ « picto au survol » par catégorie a été écarté (20 fichiers à maintenir pour un
+  rendu identique), de même qu'un SVG inline recoloré en CSS (sanitization XSS à porter) et le
+  sprite du graphiste versé dans le code (assets client en dur, contraire au §3.0).
+- L'URL de la vignette passe par `pko_media_url($media, 'small')` : un SVG n'a pas de conversion
+  raster, on sert l'original (l'ancien `getFirstMediaUrl('images', 'small')` renvoyait une URL
+  morte pour un SVG). Les médias sont eager-loadés dans le cache du menu
+  (`StorefrontServiceProvider::NAV_CACHE_KEY`, v4).
+- **Import** : `make artisan CMD='storefront:import-category-icons <dossier> [--dry-run]'`. Chaque
+  fichier est associé à la catégorie **racine** dont le nom contient tous ses mots significatifs
+  (`portes-garage-fermetures-industrielles.svg` → « Portes de garage & fermetures industrielles »),
+  la catégorie active la plus fournie gagnant en cas d'homonymie. Le picto devient la 1ʳᵉ image ;
+  relancer remplace le picto du même nom de fichier. Code retour ≠ 0 si un fichier n'a pas trouvé
+  de catégorie. Par nom et non par id : les ids diffèrent entre local, dev et prod.

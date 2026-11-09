@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Lunar\Models\Collection;
 use Lunar\Models\Url;
+use Pko\Storefront\Console\ImportCategoryIconsCommand;
 use Pko\Storefront\Livewire\CartBadge;
 use Pko\Storefront\Livewire\CartDrawer;
 use Pko\Storefront\Livewire\SearchAutocomplete;
@@ -19,7 +20,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class StorefrontServiceProvider extends ServiceProvider
 {
     /** Clé de cache de l'arbre de navigation (menu latéral catégories). */
-    public const NAV_CACHE_KEY = 'pko.storefront.nav.roots.v3';
+    public const NAV_CACHE_KEY = 'pko.storefront.nav.roots.v4';
 
     public function register(): void
     {
@@ -37,6 +38,10 @@ class StorefrontServiceProvider extends ServiceProvider
         Livewire::component('storefront.cart-badge', CartBadge::class);
 
         $this->registerNavCacheInvalidation();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ImportCategoryIconsCommand::class]);
+        }
 
         $this->publishes([
             __DIR__.'/../config/storefront.php' => config_path('storefront.php'),

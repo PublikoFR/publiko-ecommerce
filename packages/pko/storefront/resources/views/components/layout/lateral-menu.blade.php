@@ -6,6 +6,7 @@ use Pko\Storefront\StorefrontServiceProvider;
 $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 3600, function () {
     return Collection::with([
         'defaultUrl',
+        'media',
         'children' => fn ($q) => $q
             ->where('pko_enabled', true)
             ->with([
@@ -108,22 +109,33 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                         // parcourt en descendant les pages, pas via un sous-menu :
                         // on la rend comme un lien simple (ni chevron, ni survol).
                         $colHasChildren = $col->children->isNotEmpty() && ! $col->pko_browse_children;
-                        $colImg = $col->getFirstMediaUrl('images', 'small');
+                        // pko_media_url : conversion « small » si elle existe, sinon
+                        // l'original. Un picto SVG n'a pas de conversion raster et
+                        // getFirstMediaUrl('images', 'small') renvoyait une URL morte.
+                        $colImg = pko_media_url($col->getFirstMedia('images'), 'small');
                     @endphp
                     <li role="none">
                         <div
-                            class="flex items-center gap-3 px-3 py-2.5 transition-colors"
+                            class="group flex items-center gap-3 px-3 py-2.5 transition-colors"
                             :class="{ 'bg-primary-50': l1 === {{ $col->id }} }"
                             @mouseenter="if (window.innerWidth >= 1024) { l1 = {{ $colHasChildren ? $col->id : 'null' }}; l2 = null }"
                         >
-                            {{-- Vignette : pas de fond derrière le picto (le fond blanc/gris
-                                 était visible sous les pictos transparents). Fond neutre
-                                 conservé uniquement pour l'icône de repli. --}}
-                            <span class="shrink-0 w-10 h-10 rounded overflow-hidden flex items-center justify-center {{ $colImg ? '' : 'bg-neutral-100' }}">
+                            {{-- Vignette : tuile transparente au repos, vert clair au survol de
+                                 la ligne ou quand la catégorie est ouverte. Avec un picto bicolore
+                                 de la charte (accent vert clair), l'accent se fond dans la tuile :
+                                 le rendu est exactement la déclinaison « sur vert clair » du
+                                 graphiste, sans second fichier à gérer (cf. docs/packages/storefront.md).
+                                 Fond neutre conservé uniquement pour l'icône de repli. --}}
+                            <span
+                                class="shrink-0 w-10 h-10 rounded-md overflow-hidden flex items-center justify-center transition-colors {{ $colImg ? 'p-1 group-hover:bg-accent-500' : 'bg-neutral-100' }}"
+                                @if ($colImg) :class="{ 'bg-accent-500': l1 === {{ $col->id }} }" @endif
+                            >
                                 @if ($colImg)
                                     <img
                                         src="{{ $colImg }}"
-                                        alt="{{ $col->translateAttribute('name') }}"
+                                        alt=""
+                                        width="32"
+                                        height="32"
                                         class="w-full h-full object-contain"
                                         loading="lazy"
                                     >
