@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+use App\Pipelines\Orders\FreezeOrderLineEcotax;
 use App\Pipelines\Orders\PropagateCartCustomerNotesPipeline;
 use App\Pipelines\Orders\PropagateCartSiteNamePipeline;
 use Lunar\Base\OrderReferenceGenerator;
@@ -154,9 +157,13 @@ return [
             ApplyPickupPointAddress::class,
             CreateShippingLine::class,
             CleanUpOrderLines::class,
+            // Après CleanUpOrderLines (qui supprime les lignes dont les meta
+            // diffèrent du panier) : fige meta.ecotax_cents par ligne produit.
+            FreezeOrderLineEcotax::class,
             MapDiscountBreakdown::class,
             PropagateCartSiteNamePipeline::class,
             PropagateCartCustomerNotesPipeline::class,
+            // Doit rester EN DERNIER.
             MarkQuoteOrderAwaitingQuote::class,
         ],
     ],

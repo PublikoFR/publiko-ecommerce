@@ -12,6 +12,7 @@ Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (Weklo,
 | [workflow.md](workflow.md) | Tests, Git, outils IA (MCP servers), RBAC |
 | [payments.md](payments.md) | Stripe, rejet Cashier |
 | [shipping.md](shipping.md) | Drivers Chronopost / Colissimo / table-rate |
+| [ecotax.md](ecotax.md) | Éco-participation : modèle « dont » (incluse dans le prix), helper `App\Support\Ecotax`, figeage dans `OrderLine.meta`, import et rattrapage |
 | [deployment.md](deployment.md) | Déploiement O2switch (rsync d'artefacts, PROD/DEV) — cf. `deploy/` |
 
 ## Packages PKO

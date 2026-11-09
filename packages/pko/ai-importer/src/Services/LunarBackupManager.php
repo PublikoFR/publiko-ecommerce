@@ -63,7 +63,7 @@ final class LunarBackupManager
 
     /** Variant columns the writer can change on update. */
     private const VARIANT_COLUMNS = [
-        'sku', 'ean', 'mpn', 'stock', 'min_quantity', 'pko_cost_price',
+        'sku', 'ean', 'mpn', 'stock', 'min_quantity', 'pko_cost_price', 'pko_ecotax_cents',
         'weight_value', 'weight_unit', 'length_value', 'length_unit',
         'width_value', 'width_unit', 'height_value', 'height_unit',
     ];

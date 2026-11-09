@@ -8,6 +8,7 @@ use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\ServiceProvider;
 use Pko\AiImporter\Actions\ActionRegistry;
+use Pko\AiImporter\Console\BackfillEcotaxCommand;
 use Pko\AiImporter\Console\ImportPsConfigCommand;
 use Pko\AiImporter\Console\PreviewConfigCommand;
 use Pko\AiImporter\Console\RunScheduledImportsCommand;
@@ -61,6 +62,7 @@ class AiImporterServiceProvider extends ServiceProvider
         // appelle ai-importer:import-ps-config via Artisan::call() en contexte
         // HTTP, où runningInConsole() est false.
         $this->commands([
+            BackfillEcotaxCommand::class,
             ImportPsConfigCommand::class,
             PreviewConfigCommand::class,
             RunScheduledImportsCommand::class,
