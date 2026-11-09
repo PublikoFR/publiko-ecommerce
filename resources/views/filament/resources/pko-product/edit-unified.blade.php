@@ -911,12 +911,30 @@
                 {{-- Marque --}}
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Marque</label>
-                    <select wire:model="brandId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
+                    <select wire:model.live="brandId" class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900">
                         <option value="">—</option>
                         @foreach ($this->brandOptions as $brand)
                             <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                         @endforeach
                     </select>
+                </div>
+
+                {{-- Famille fabricant (privée : jamais affichée au front, sert au ciblage des remises) --}}
+                <div>
+                    <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Famille fabricant</label>
+                    <select wire:model="brandFamilyId" @disabled($brandId === null) class="w-full text-sm border border-gray-300 dark:border-white/10 rounded-lg px-2 py-[7px] bg-white dark:bg-gray-900 disabled:opacity-60">
+                        <option value="">—</option>
+                        @foreach ($this->brandFamilyOptions as $family)
+                            <option value="{{ $family->id }}">{{ $family->displayName() }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-[11.5px] text-gray-500 dark:text-gray-400">
+                        @if ($brandId === null)
+                            Choisissez d'abord une marque.
+                        @else
+                            Interne, non visible des clients. Alimentée par l'import (code + libellé du fabricant).
+                        @endif
+                    </p>
                 </div>
 
                 {{-- Fournisseur --}}

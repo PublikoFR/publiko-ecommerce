@@ -6,6 +6,7 @@ namespace Pko\CatalogFeatures;
 
 use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Product;
+use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
 
@@ -28,6 +29,12 @@ class CatalogFeaturesServiceProvider extends ServiceProvider
                 'product_id',
                 'feature_value_id',
             ),
+        );
+
+        // Famille fabricant (privée) — colonne custom `pko_brand_family_id`.
+        Product::resolveRelationUsing(
+            'brandFamily',
+            fn (Product $product) => $product->belongsTo(BrandFamily::class, 'pko_brand_family_id'),
         );
     }
 }
