@@ -1089,18 +1089,28 @@ class TreeManager extends BasePage implements HasActions, HasForms
     }
 
     /**
-     * URL réutilisable du visuel de catégorie pour l'export : on privilégie
-     * l'URL source d'origine (import distant) et on retombe sur l'URL publique
-     * du média local sinon. Chaîne vide si la catégorie n'a pas d'image.
+     * URL du visuel de catégorie pour l'export : toujours l'URL publique du
+     * média sur l'instance COURANTE. Le `source_url` d'origine (ex. ancien site
+     * PrestaShop) peut ne plus exister : le ré-émettre en `img_src` ferait
+     * pointer l'import cible vers l'ancien site. Il est exporté à part, à titre
+     * informatif, par collectionImageOriginUrl(). Chaîne vide sans image.
      */
     protected function collectionImageSource(LunarCollection $collection): string
     {
         $media = $collection->getFirstMedia('images');
-        if ($media === null) {
-            return '';
-        }
 
-        return (string) ($media->getCustomProperty('source_url') ?: $media->getFullUrl());
+        return $media === null ? '' : (string) $media->getFullUrl();
+    }
+
+    /**
+     * URL d'origine du visuel (custom property `source_url` posée à l'import
+     * distant). Informative uniquement : jamais relue à l'import.
+     */
+    protected function collectionImageOriginUrl(LunarCollection $collection): string
+    {
+        $media = $collection->getFirstMedia('images');
+
+        return $media === null ? '' : (string) ($media->getCustomProperty('source_url') ?? '');
     }
 
     /**
@@ -1237,7 +1247,10 @@ class TreeManager extends BasePage implements HasActions, HasForms
                 $carry[] = [
                     'id' => $c->id,
                     'name' => (string) ($c->translateAttribute('name', self::LOCALE) ?? ''),
+                    'enabled' => (bool) $c->pko_enabled,
+                    'browse_children' => (bool) $c->pko_browse_children,
                     'img_src' => $this->collectionImageSource($c),
+                    'img_source_url' => $this->collectionImageOriginUrl($c),
                     'description' => $c->translateAttribute('description', self::LOCALE),
                     'meta_title' => $c->translateAttribute('meta_title', self::LOCALE),
                     'meta_description' => $c->translateAttribute('meta_description', self::LOCALE),
@@ -1327,6 +1340,13 @@ class TreeManager extends BasePage implements HasActions, HasForms
 
                     $this->persistCollectionAttributes($collection, $data);
 
+                    // Assignation directe : ces colonnes custom ne sont pas
+                    // fillable sur le modèle Lunar, un mass-assignment les
+                    // ignorerait sans erreur. Champ absent (JSON PrestaShop,
+                    // anciens exports) → actif, sans navigation par enfants.
+                    $collection->pko_enabled = $this->payloadBool($node, 'enabled', true);
+                    $collection->pko_browse_children = $this->payloadBool($node, 'browse_children', false);
+
                     if ($parentId === null) {
                         $collection->saveAsRoot();
                     } else {
@@ -1364,6 +1384,21 @@ class TreeManager extends BasePage implements HasActions, HasForms
         Cache::forget(StorefrontServiceProvider::NAV_CACHE_KEY);
 
         return $stats;
+    }
+
+    /**
+     * Lit un booléen d'un nœud importé, tolérant aux formes courantes
+     * (`true`, `1`, `"1"`, `"false"`…). Clé absente ou null → $default.
+     *
+     * @param  array<string, mixed>  $node
+     */
+    private function payloadBool(array $node, string $key, bool $default): bool
+    {
+        if (! array_key_exists($key, $node) || $node[$key] === null) {
+            return $default;
+        }
+
+        return filter_var($node[$key], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 
     /**

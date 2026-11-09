@@ -7,6 +7,9 @@ namespace Tests\Feature\Filament;
 use App\Filament\Pages\TreeManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Lunar\FieldTypes\Text as LunarText;
 use Lunar\FieldTypes\TranslatedText;
@@ -184,6 +187,123 @@ class TreeManagerTest extends TestCase
         ], 'append');
 
         $this->assertSame(['imported' => 0, 'skipped' => 0, 'errors' => 0], $stats);
+    }
+
+    /**
+     * Aller-retour export → import du statut : un parent désactivé (et ses
+     * enfants, désactivés en cascade) et un nœud en navigation par enfants
+     * doivent ressortir identiques après réimport.
+     */
+    public function test_export_import_round_trip_preserves_status(): void
+    {
+        Http::fake();
+        Http::preventStrayRequests();
+
+        $groupId = CollectionGroup::query()->orderBy('id')->value('id');
+        LunarCollection::query()->where('collection_group_id', $groupId)->get()
+            ->each(fn (LunarCollection $c) => $c->delete());
+
+        $parent = $this->makeCollection($groupId, 'Parent off');
+        $parent->pko_enabled = false;
+        $parent->pko_browse_children = true;
+        $parent->saveAsRoot();
+
+        $child = $this->makeCollection($groupId, 'Enfant off');
+        $child->pko_enabled = false;
+        $child->appendToNode($parent)->save();
+
+        $active = $this->makeCollection($groupId, 'Actif');
+        $active->saveAsRoot();
+
+        $component = Livewire::test(TreeManager::class);
+        /** @var TreeManager $instance */
+        $instance = $component->instance();
+        $payload = $instance->serializeCollectionsTree();
+
+        $exportedParent = collect($payload['tree'])->firstWhere('name', 'Parent off');
+        $this->assertFalse($exportedParent['enabled']);
+        $this->assertTrue($exportedParent['browse_children']);
+        $this->assertFalse($exportedParent['children'][0]['enabled']);
+        $this->assertTrue(collect($payload['tree'])->firstWhere('name', 'Actif')['enabled']);
+
+        // Passage par JSON pour coller au flux réel (fichier téléchargé).
+        $decoded = json_decode((string) json_encode($payload), true);
+        $instance->importCollectionsPayload($decoded, 'replace');
+
+        $byName = LunarCollection::query()
+            ->where('collection_group_id', $groupId)
+            ->get()
+            ->keyBy(fn (LunarCollection $c): string => (string) $c->translateAttribute('name', 'fr'));
+
+        $this->assertCount(3, $byName);
+        $this->assertFalse((bool) $byName['Parent off']->pko_enabled);
+        $this->assertTrue((bool) $byName['Parent off']->pko_browse_children);
+        $this->assertFalse((bool) $byName['Enfant off']->pko_enabled);
+        $this->assertFalse((bool) $byName['Enfant off']->pko_browse_children);
+        $this->assertSame((int) $byName['Parent off']->id, (int) $byName['Enfant off']->parent_id);
+        $this->assertTrue((bool) $byName['Actif']->pko_enabled);
+    }
+
+    /**
+     * JSON PrestaShop / anciens exports : sans `enabled` ni `browse_children`,
+     * la catégorie est importée active, sans navigation par enfants.
+     */
+    public function test_import_without_status_fields_defaults_to_enabled(): void
+    {
+        $groupId = CollectionGroup::query()->orderBy('id')->value('id');
+
+        $component = Livewire::test(TreeManager::class);
+        /** @var TreeManager $instance */
+        $instance = $component->instance();
+        $instance->importCollectionsPayload([
+            'tree' => [['name' => 'Sans statut', 'children' => [['name' => 'Enfant sans statut']]]],
+        ], 'append');
+
+        $imported = LunarCollection::query()
+            ->where('collection_group_id', $groupId)
+            ->get()
+            ->filter(fn (LunarCollection $c): bool => in_array(
+                $c->translateAttribute('name', 'fr'),
+                ['Sans statut', 'Enfant sans statut'],
+                true,
+            ));
+
+        $this->assertCount(2, $imported);
+        foreach ($imported as $c) {
+            $this->assertTrue((bool) $c->fresh()->pko_enabled);
+            $this->assertFalse((bool) $c->fresh()->pko_browse_children);
+        }
+    }
+
+    /**
+     * Une catégorie importée depuis un ancien site garde son `source_url` :
+     * l'export doit malgré tout émettre en `img_src` l'URL du média sur
+     * l'instance courante, l'URL d'origine n'étant qu'informative.
+     */
+    public function test_export_img_src_is_local_url_even_with_source_url(): void
+    {
+        Http::fake();
+        Http::preventStrayRequests();
+        Storage::fake('public');
+
+        $groupId = CollectionGroup::query()->orderBy('id')->value('id');
+        $c = $this->makeCollection($groupId, 'Avec visuel');
+        $c->saveAsRoot();
+
+        $oldUrl = 'https://ancien-site.example/img/c/12.jpg';
+        $media = $c->addMedia(UploadedFile::fake()->image('visuel.jpg', 20, 20))
+            ->withCustomProperties(['primary' => true, 'source_url' => $oldUrl])
+            ->toMediaCollection('images');
+
+        $component = Livewire::test(TreeManager::class);
+        /** @var TreeManager $instance */
+        $instance = $component->instance();
+        $found = collect($instance->serializeCollectionsTree()['tree'])->firstWhere('name', 'Avec visuel');
+
+        $this->assertSame($media->getFullUrl(), $found['img_src']);
+        $this->assertNotSame($oldUrl, $found['img_src']);
+        $this->assertSame($oldUrl, $found['img_source_url']);
+        Http::assertNothingSent();
     }
 
     /**
