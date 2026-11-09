@@ -109,6 +109,41 @@ future des remises** (chantier séparé) : aucune règle de prix ne la lit encor
 - **Privé** : pas d'`#[ApiResource]` sur `BrandFamily`, aucune vue storefront ni
   ressource API ne lit la colonne. Ne pas l'exposer sans décision explicite.
 
+### Compatibilités des pièces détachées
+
+Règle métier : distinguer **la marque de la pièce** (marque Lunar du produit, `brand_id`)
+des **équipements avec lesquels elle est compatible**. On ne saisit une compatibilité que
+si elle est **documentée** (notice, catalogue fabricant) — une photo seule ne la confirme pas.
+
+- **Table** `pko_product_compatibilities` : `product_id` (la pièce, FK `lunar_products`
+  cascade), `equipment_brand_id` (nullable, FK `lunar_brands` `nullOnDelete`),
+  `equipment_brand_label` (texte libre si la marque n'est pas au catalogue),
+  `equipment_model`, `equipment_reference`, `compatible_product_id` (nullable, FK
+  `lunar_products` `nullOnDelete`), `note` (500), `sort_order`, timestamps. Index
+  `(product_id, sort_order)`, `equipment_reference`, `equipment_model`.
+- **Pourquoi pas les caractéristiques** (`pko_feature_values`) : une compatibilité est un
+  triplet structuré (marque × modèle × référence) avec lien optionnel vers un produit ;
+  une valeur de facette est un libellé plat partagé. Les mélanger aurait pollué les
+  facettes et perdu la référence exacte.
+- **Pourquoi dans ce package** : même domaine (données catalogue structurées autour du
+  produit), déjà auto-découvert — pas de nouveau package Composer pour une table.
+- **Modèle** `Pko\CatalogFeatures\Models\ProductCompatibility` ; relation
+  `Product::compatibilities()` (triée `sort_order`) via `resolveRelationUsing`.
+  `equipmentBrandName()` = marque du catalogue sinon libellé libre. Le libellé libre
+  est vidé à l'enregistrement dès qu'une marque du catalogue est choisie.
+- **Admin** : carte « Compatibilités » de l'éditeur produit unifié (après « Documents ») :
+  ajout, édition, suppression, réordonnancement (flèches haut/bas), recherche d'un
+  produit compatible par nom/SKU. Persistance en diff (ids conservés), une ligne sans
+  marque, modèle ni référence est ignorée.
+- **Fiche produit** : bloc « Compatibilités » (tableau marque / modèle / référence / lien)
+  après les documents, masqué si aucune ligne, mention « Compatibilités documentées par
+  le fabricant ». Le lien n'est rendu que si le produit compatible est publié et a une URL.
+- **Recherche** : `storefrontSearchMatch()` (scope commun SearchPage + SearchAutocomplete)
+  matche aussi `equipment_reference` et `equipment_model` (sous-requête EXISTS).
+- **Import** : non câblé dans l'AI Importer (lacune). Champ multi-valué (N lignes par
+  produit) : il faut d'abord arrêter le format source (colonnes répétées, séparateur
+  `marque|modèle|réf;…` ?) avec le client.
+
 ### 7.bis.6 Hors scope v1
 
 - **Import FAB-DIS** — module dédié, consommera `Features::syncByHandles()`. Aucun refactor attendu côté catalog-features

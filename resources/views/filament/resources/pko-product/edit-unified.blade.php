@@ -289,6 +289,112 @@
                 </div>
             </x-pko-product::card>
 
+            {{-- 4 bis. Compatibilités documentées (pièce ↔ équipements) --}}
+            <x-pko-product::card title="Compatibilités" icon="heroicon-o-puzzle-piece" :hint="count($this->compatibilities) > 0 ? count($this->compatibilities) . ' ligne' . (count($this->compatibilities) > 1 ? 's' : '') : null">
+                <div class="space-y-3">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Équipements avec lesquels cette pièce est compatible — distincts de la marque de la pièce. N'ajoutez que des compatibilités <strong>documentées</strong> (notice, catalogue fabricant) : une photo seule ne suffit pas. La référence et le modèle d'équipement sont trouvables par la recherche du site.
+                    </p>
+
+                    @if (count($this->compatibilities) === 0)
+                        <div class="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                            Aucune compatibilité documentée.
+                        </div>
+                    @else
+                        <div class="space-y-2">
+                            @foreach ($this->compatibilities as $index => $compat)
+                                <div wire:key="compat-{{ $compat['id'] ?? 'new' }}-{{ $index }}" class="flex items-start gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-white/10 dark:bg-gray-900/40">
+                                    <div class="flex flex-col gap-1 pt-1">
+                                        <button type="button" wire:click="moveCompatibilityRow({{ $index }}, -1)" @disabled($loop->first) class="text-gray-400 hover:text-gray-700 disabled:opacity-30 dark:hover:text-gray-200" title="Monter">
+                                            <x-filament::icon icon="heroicon-m-chevron-up" class="h-4 w-4" />
+                                        </button>
+                                        <button type="button" wire:click="moveCompatibilityRow({{ $index }}, 1)" @disabled($loop->last) class="text-gray-400 hover:text-gray-700 disabled:opacity-30 dark:hover:text-gray-200" title="Descendre">
+                                            <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4" />
+                                        </button>
+                                    </div>
+
+                                    <div class="grid flex-1 grid-cols-1 gap-2 md:grid-cols-2 min-w-0">
+                                        <label class="block">
+                                            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Marque de l'équipement</span>
+                                            <select wire:model.live="compatibilities.{{ $index }}.equipment_brand_id" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-gray-900">
+                                                <option value="">— Hors catalogue (saisie libre) —</option>
+                                                @foreach ($this->brandOptions as $brand)
+                                                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </label>
+                                        @if (empty($compat['equipment_brand_id']))
+                                            <label class="block">
+                                                <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Marque (libre)</span>
+                                                <input type="text" wire:model.blur="compatibilities.{{ $index }}.equipment_brand_label" placeholder="Marque absente du catalogue" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-gray-900" />
+                                            </label>
+                                        @else
+                                            <div class="hidden md:block"></div>
+                                        @endif
+                                        <label class="block">
+                                            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Modèle</span>
+                                            <input type="text" wire:model.blur="compatibilities.{{ $index }}.equipment_model" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-gray-900" />
+                                        </label>
+                                        <label class="block">
+                                            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Référence équipement</span>
+                                            <input type="text" wire:model.blur="compatibilities.{{ $index }}.equipment_reference" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm dark:border-white/10 dark:bg-gray-900" />
+                                        </label>
+
+                                        <div class="md:col-span-2">
+                                            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Produit compatible du catalogue (optionnel)</span>
+                                            @if (! empty($compat['compatible_product_id']))
+                                                <div class="mt-1 flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5">
+                                                    <span class="flex-1 truncate">{{ $compat['compatible_product_label'] ?: '#' . $compat['compatible_product_id'] }}</span>
+                                                    <button type="button" wire:click="clearCompatibleProduct({{ $index }})" class="text-gray-400 hover:text-danger-600" title="Retirer le lien">
+                                                        <x-filament::icon icon="heroicon-m-x-mark" class="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            @else
+                                                <div class="relative mt-1">
+                                                    <input type="text" wire:model.live.debounce.300ms="compatibilitySearch.{{ $index }}" placeholder="Rechercher par nom, SKU…" class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-gray-900" />
+                                                    @php $compatResults = $this->compatibleProductResults($index); @endphp
+                                                    @if ($compatResults->isNotEmpty())
+                                                        <div class="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-gray-900">
+                                                            @foreach ($compatResults as $item)
+                                                                <button type="button" wire:click="pickCompatibleProduct({{ $index }}, {{ $item->id }})" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5">
+                                                                    <span class="flex-1 truncate">{{ $item->translateAttribute('name') }}</span>
+                                                                    <span class="flex-shrink-0 font-mono text-xs text-gray-400">{{ $item->variants->first()?->sku ?? '' }}</span>
+                                                                </button>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <label class="block md:col-span-2">
+                                            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Note (source, restriction…)</span>
+                                            <input type="text" wire:model.blur="compatibilities.{{ $index }}.note" maxlength="500" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-gray-900" />
+                                        </label>
+                                        @error('compatibilities.' . $index . '.*')
+                                            <p class="md:col-span-2 text-xs text-danger-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <button type="button" wire:click="removeCompatibilityRow({{ $index }})" class="mt-0.5 shrink-0 text-gray-400 hover:text-danger-600" title="Supprimer">
+                                        <x-filament::icon icon="heroicon-m-trash" class="h-5 w-5" />
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <button
+                        type="button"
+                        wire:click="addCompatibilityRow"
+                        class="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-primary-400 hover:text-primary-700 dark:border-white/10 dark:text-gray-300"
+                    >
+                        <x-filament::icon icon="heroicon-m-plus" class="h-4 w-4" />
+                        Ajouter une compatibilité
+                    </button>
+                </div>
+            </x-pko-product::card>
+
             {{-- 5. Description longue --}}
             <x-pko-product::card title="Description longue" icon="heroicon-o-document-text">
                 {{ $this->descriptionForm }}

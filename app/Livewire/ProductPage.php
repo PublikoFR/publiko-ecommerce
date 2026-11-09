@@ -13,6 +13,7 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
+use Pko\CatalogFeatures\Models\ProductCompatibility;
 use Pko\ProductDocuments\Models\ProductDocument;
 use Pko\ShippingCommon\Models\Supplier;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -225,6 +226,36 @@ class ProductPage extends Component
             ->orderBy('sort_order')
             ->get()
             ->groupBy(fn (ProductDocument $d): string => $d->category?->label ?? 'Documents');
+    }
+
+    /**
+     * Compatibilités documentées de la pièce avec des équipements (marque,
+     * modèle, référence, lien éventuel vers un produit du catalogue). Le lien
+     * n'est exposé que si le produit compatible est publié et a une URL.
+     *
+     * @return Collection<int, ProductCompatibility>
+     */
+    public function getCompatibilitiesProperty(): Collection
+    {
+        return ProductCompatibility::query()
+            ->with(['equipmentBrand', 'compatibleProduct.defaultUrl'])
+            ->where('product_id', $this->product->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /** URL publique du produit compatible, ou null s'il n'est pas publié. */
+    public function compatibleProductUrl(ProductCompatibility $compatibility): ?string
+    {
+        $target = $compatibility->compatibleProduct;
+        if ($target === null || $target->status !== 'published' || $target->defaultUrl === null) {
+            return null;
+        }
+
+        return Route::has('product.view')
+            ? route('product.view', ['slug' => $target->defaultUrl->slug])
+            : null;
     }
 
     public function render(): View

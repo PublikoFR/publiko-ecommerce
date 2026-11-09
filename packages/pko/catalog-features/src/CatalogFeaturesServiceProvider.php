@@ -8,6 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Product;
 use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
+use Pko\CatalogFeatures\Models\ProductCompatibility;
 use Pko\CatalogFeatures\Services\FeatureManager;
 
 class CatalogFeaturesServiceProvider extends ServiceProvider
@@ -35,6 +36,14 @@ class CatalogFeaturesServiceProvider extends ServiceProvider
         Product::resolveRelationUsing(
             'brandFamily',
             fn (Product $product) => $product->belongsTo(BrandFamily::class, 'pko_brand_family_id'),
+        );
+
+        // Compatibilités documentées pièce ↔ équipements (table pko_product_compatibilities).
+        Product::resolveRelationUsing(
+            'compatibilities',
+            fn (Product $product) => $product->hasMany(ProductCompatibility::class, 'product_id')
+                ->orderBy('sort_order')
+                ->orderBy('id'),
         );
     }
 }

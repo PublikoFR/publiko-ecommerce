@@ -168,7 +168,7 @@ Couverture : `tests/Feature/Storefront/CollectionBrowseChildrenTest.php` (cartes
 | `navVisible()` | `Lunar\Models\Collection` | `pko_enabled=true` ET aucun ancêtre nestedset désactivé (sous-requête EXISTS sur `_lft/_rgt`). |
 | `storefrontVisible()` | `Lunar\Models\Product` | EXISTS au moins une collection navVisible via `lunar_collection_product`. Sous-requête indexée (pas de N+1). Sert à la **navigation par catégories**. |
 | `storefrontSearchable()` | `Lunar\Models\Product` | `status='published'` ET possède une URL par défaut (`whereHas('defaultUrl')`). Indépendant des collections : sert à la **recherche** (un produit publié non catégorisé reste trouvable, sa fiche s'ouvre en « Non classé »). |
-| `storefrontSearchMatch(term)` | `Lunar\Models\Product` | Filtre texte **partagé** par l'autocomplete et la page résultats. Cherche dans : `name`, `description`, `short_description` (attribute_data JSON), identifiants variant `sku`/`ean`/`mpn`/`gtin`, et `tags`. Insensible à la casse. |
+| `storefrontSearchMatch(term)` | `Lunar\Models\Product` | Filtre texte **partagé** par l'autocomplete et la page résultats. Cherche dans : `name`, `description`, `short_description` (attribute_data JSON), identifiants variant `sku`/`ean`/`mpn`/`gtin`, `tags`, et compatibilités (`pko_product_compatibilities.equipment_reference` / `equipment_model`, cf. [catalog-features.md](catalog-features.md)). Insensible à la casse. |
 
 **Appliqué dans** :
 - `Navigation::getCollectionsProperty()` — nav header

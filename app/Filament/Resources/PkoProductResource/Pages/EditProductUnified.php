@@ -30,6 +30,7 @@ use Pko\AiFilament\Actions\GenerateAiAction;
 use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
+use Pko\CatalogFeatures\Models\ProductCompatibility;
 use Pko\CatalogFeatures\Services\FeatureManager;
 use Pko\LunarMediaCore\Filament\Forms\Components\MediaPicker;
 use Pko\ProductDocuments\Models\DocumentCategory;
@@ -154,6 +155,13 @@ class EditProductUnified extends Page implements HasForms
     // ------- Documents téléchargeables (pko/product-documents)
     /** @var array<int, array{id:?int,media_id:?int,media_name:string,category_id:?int,sort_order:int}> */
     public array $documents = [];
+
+    // ------- Compatibilités documentées (pièce ↔ équipements)
+    /** @var array<int, array{id:?int,equipment_brand_id:?int,equipment_brand_label:string,equipment_model:string,equipment_reference:string,compatible_product_id:?int,compatible_product_label:string,note:string}> */
+    public array $compatibilities = [];
+
+    /** @var array<int, string> recherche « produit compatible » par ligne (non persistée) */
+    public array $compatibilitySearch = [];
 
     // ------- SEO
     public string $seoTitle = '';
@@ -311,6 +319,24 @@ class EditProductUnified extends Page implements HasForms
             ])
             ->all();
 
+        $this->compatibilities = ProductCompatibility::query()
+            ->with('compatibleProduct.variants')
+            ->where('product_id', $product->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (ProductCompatibility $c): array => [
+                'id' => (int) $c->id,
+                'equipment_brand_id' => $c->equipment_brand_id !== null ? (int) $c->equipment_brand_id : null,
+                'equipment_brand_label' => (string) ($c->equipment_brand_label ?? ''),
+                'equipment_model' => (string) ($c->equipment_model ?? ''),
+                'equipment_reference' => (string) ($c->equipment_reference ?? ''),
+                'compatible_product_id' => $c->compatible_product_id !== null ? (int) $c->compatible_product_id : null,
+                'compatible_product_label' => $c->compatibleProduct !== null ? $this->productLabel($c->compatibleProduct) : '',
+                'note' => (string) ($c->note ?? ''),
+            ])
+            ->all();
+
         // Filament forms : MediaPicker (médias) + RichEditor (description longue).
         $this->mediaForm->fill();
         $this->descriptionForm->fill([
@@ -364,7 +390,8 @@ class EditProductUnified extends Page implements HasForms
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['isDirty', 'record', 'variantPage', 'collectionSearch', 'relatedSearch'], true)) {
+        if (in_array($property, ['isDirty', 'record', 'variantPage', 'collectionSearch', 'relatedSearch'], true)
+            || str_starts_with($property, 'compatibilitySearch')) {
             return;
         }
 
@@ -845,6 +872,176 @@ class EditProductUnified extends Page implements HasForms
         app(ProductDocumentManager::class)->sync($product, $rows);
     }
 
+    // ------- Compatibilités
+    public function addCompatibilityRow(): void
+    {
+        $this->compatibilities[] = [
+            'id' => null,
+            'equipment_brand_id' => null,
+            'equipment_brand_label' => '',
+            'equipment_model' => '',
+            'equipment_reference' => '',
+            'compatible_product_id' => null,
+            'compatible_product_label' => '',
+            'note' => '',
+        ];
+        $this->isDirty = true;
+    }
+
+    public function removeCompatibilityRow(int $index): void
+    {
+        if (! isset($this->compatibilities[$index])) {
+            return;
+        }
+        unset($this->compatibilities[$index]);
+        $this->compatibilities = array_values($this->compatibilities);
+        $this->compatibilitySearch = [];
+        $this->isDirty = true;
+    }
+
+    /** Déplace une ligne d'un cran (-1 = vers le haut, +1 = vers le bas). */
+    public function moveCompatibilityRow(int $index, int $direction): void
+    {
+        $target = $index + ($direction < 0 ? -1 : 1);
+        if (! isset($this->compatibilities[$index], $this->compatibilities[$target])) {
+            return;
+        }
+        [$this->compatibilities[$index], $this->compatibilities[$target]]
+            = [$this->compatibilities[$target], $this->compatibilities[$index]];
+        $this->compatibilitySearch = [];
+        $this->isDirty = true;
+    }
+
+    /** Résultats de recherche « produit compatible » pour une ligne (min. 2 caractères). */
+    public function compatibleProductResults(int $index): Collection
+    {
+        $term = trim((string) ($this->compatibilitySearch[$index] ?? ''));
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+
+        $like = '%'.addcslashes($term, '\\%_').'%';
+
+        return Product::query()
+            ->whereKeyNot($this->record->id)
+            ->where(function ($q) use ($like): void {
+                $q->whereRaw('attribute_data LIKE ?', [$like])
+                    ->orWhereHas('variants', fn ($vq) => $vq
+                        ->where('sku', 'like', $like)
+                        ->orWhere('mpn', 'like', $like)
+                    );
+            })
+            ->with('variants:id,product_id,sku')
+            ->limit(8)
+            ->get();
+    }
+
+    public function pickCompatibleProduct(int $index, int $productId): void
+    {
+        if (! isset($this->compatibilities[$index])) {
+            return;
+        }
+        $product = Product::with('variants:id,product_id,sku')->find($productId);
+        if ($product === null || (int) $product->id === (int) $this->record->id) {
+            return;
+        }
+        $this->compatibilities[$index]['compatible_product_id'] = (int) $product->id;
+        $this->compatibilities[$index]['compatible_product_label'] = $this->productLabel($product);
+        $this->compatibilitySearch[$index] = '';
+        $this->isDirty = true;
+    }
+
+    public function clearCompatibleProduct(int $index): void
+    {
+        if (! isset($this->compatibilities[$index])) {
+            return;
+        }
+        $this->compatibilities[$index]['compatible_product_id'] = null;
+        $this->compatibilities[$index]['compatible_product_label'] = '';
+        $this->isDirty = true;
+    }
+
+    private function productLabel(Product $product): string
+    {
+        $sku = $product->variants->first()?->sku;
+
+        return trim($product->translateAttribute('name').($sku ? ' — '.$sku : ''));
+    }
+
+    /**
+     * Diff des compatibilités : supprime les lignes retirées, met à jour les
+     * existantes, crée les nouvelles ; sort_order = ordre courant de l'UI.
+     * Une ligne sans marque, modèle ni référence est ignorée (ligne vide).
+     */
+    private function persistCompatibilities(Product $product): void
+    {
+        $existing = ProductCompatibility::query()
+            ->where('product_id', $product->id)
+            ->get()
+            ->keyBy('id');
+
+        $clean = fn ($v): ?string => ($v === null || trim((string) $v) === '') ? null : trim((string) $v);
+
+        $keptIds = [];
+        $position = 0;
+        foreach ($this->compatibilities as $row) {
+            $brandId = ! empty($row['equipment_brand_id']) ? (int) $row['equipment_brand_id'] : null;
+            $data = [
+                'equipment_brand_id' => $brandId,
+                // Libellé libre seulement si aucune marque du catalogue n'est choisie.
+                'equipment_brand_label' => $brandId === null ? $clean($row['equipment_brand_label'] ?? null) : null,
+                'equipment_model' => $clean($row['equipment_model'] ?? null),
+                'equipment_reference' => $clean($row['equipment_reference'] ?? null),
+                'compatible_product_id' => ! empty($row['compatible_product_id']) ? (int) $row['compatible_product_id'] : null,
+                'note' => $clean($row['note'] ?? null),
+            ];
+
+            if ($data['equipment_brand_id'] === null && $data['equipment_brand_label'] === null
+                && $data['equipment_model'] === null && $data['equipment_reference'] === null) {
+                continue;
+            }
+
+            $data['sort_order'] = $position++;
+
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0 && $existing->has($id)) {
+                $existing[$id]->update($data);
+                $keptIds[] = $id;
+            } else {
+                $keptIds[] = (int) ProductCompatibility::create($data + ['product_id' => $product->id])->id;
+            }
+        }
+
+        ProductCompatibility::query()
+            ->where('product_id', $product->id)
+            ->whereNotIn('id', $keptIds === [] ? [0] : $keptIds)
+            ->delete();
+    }
+
+    private function reloadCompatibilityIds(Product $product): void
+    {
+        // Après persistance, les nouvelles lignes reçoivent leur id (évite un
+        // doublon à la sauvegarde suivante) ; les lignes vides disparaissent.
+        $rows = ProductCompatibility::query()
+            ->with('compatibleProduct.variants')
+            ->where('product_id', $product->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $this->compatibilities = $rows->map(fn (ProductCompatibility $c): array => [
+            'id' => (int) $c->id,
+            'equipment_brand_id' => $c->equipment_brand_id !== null ? (int) $c->equipment_brand_id : null,
+            'equipment_brand_label' => (string) ($c->equipment_brand_label ?? ''),
+            'equipment_model' => (string) ($c->equipment_model ?? ''),
+            'equipment_reference' => (string) ($c->equipment_reference ?? ''),
+            'compatible_product_id' => $c->compatible_product_id !== null ? (int) $c->compatible_product_id : null,
+            'compatible_product_label' => $c->compatibleProduct !== null ? $this->productLabel($c->compatibleProduct) : '',
+            'note' => (string) ($c->note ?? ''),
+        ])->all();
+        $this->compatibilitySearch = [];
+    }
+
     // ------- Save
     public function save(): void
     {
@@ -866,7 +1063,20 @@ class EditProductUnified extends Page implements HasForms
                     }
                 },
             ],
-        ], attributes: ['ecotax' => 'éco-participation']);
+            'compatibilities' => ['array'],
+            'compatibilities.*.equipment_brand_id' => ['nullable', 'integer', 'exists:lunar_brands,id'],
+            'compatibilities.*.equipment_brand_label' => ['nullable', 'string', 'max:255'],
+            'compatibilities.*.equipment_model' => ['nullable', 'string', 'max:255'],
+            'compatibilities.*.equipment_reference' => ['nullable', 'string', 'max:255'],
+            'compatibilities.*.compatible_product_id' => ['nullable', 'integer', 'exists:lunar_products,id'],
+            'compatibilities.*.note' => ['nullable', 'string', 'max:500'],
+        ], attributes: [
+            'ecotax' => 'éco-participation',
+            'compatibilities.*.equipment_brand_label' => 'marque d\'équipement',
+            'compatibilities.*.equipment_model' => 'modèle d\'équipement',
+            'compatibilities.*.equipment_reference' => 'référence d\'équipement',
+            'compatibilities.*.note' => 'note',
+        ]);
 
         $longDesc = (string) ($this->descriptionForm->getState()['longDesc'] ?? $this->longDesc);
 
@@ -926,7 +1136,11 @@ class EditProductUnified extends Page implements HasForms
                     'type' => 'cross-sell',
                 ]);
             }
+
+            $this->persistCompatibilities($product);
         });
+
+        $this->reloadCompatibilityIds($this->record);
 
         // Médias (mini form Filament) : persist pivots pko_mediables.
         $this->mediaForm->getState();
