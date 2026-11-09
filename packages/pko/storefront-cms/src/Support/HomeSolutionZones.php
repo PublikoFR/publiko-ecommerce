@@ -27,23 +27,26 @@ final class HomeSolutionZones
     public const VIEWBOX = '0 0 840 540';
 
     /**
-     * `x`/`y` = point d'ancrage sur l'équipement. `lift` (optionnel, défaut 16) =
-     * longueur de la tige entre l'ancre et la tuile picto, allongée là où des
-     * équipements voisins feraient se chevaucher les tuiles.
+     * `x`/`y` = point d'ancrage sur l'équipement. `lift` (défaut 16) = hauteur de
+     * la tige entre l'ancre et la tuile picto ; `dx` (défaut 0) = décalage
+     * horizontal de la tuile (tige oblique) ; `below` = tuile sous l'ancre (côté
+     * route, zone vide) plutôt qu'au-dessus — évite de masquer la façade de la
+     * maison. Réglés pour que les tuiles 51×51 des équipements voisins ne se
+     * chevauchent pas (écart ≥ 8 unités).
      *
-     * @return array<string, array{label: string, description: string, x: float, y: float, lift?: int}>
+     * @return array<string, array{label: string, description: string, x: float, y: float, lift?: int, dx?: int, below?: bool}>
      */
     public static function all(): array
     {
         return [
-            'gates' => ['label' => 'Portails', 'description' => 'Équipements et accessoires pour les entrées de site.', 'x' => 202.6, 'y' => 246.3],
+            'gates' => ['label' => 'Portails', 'description' => 'Équipements et accessoires pour les entrées de site.', 'x' => 202.6, 'y' => 246.3, 'lift' => 22, 'below' => true],
             'garage' => ['label' => 'Garage & fermetures industrielles', 'description' => 'Solutions pour les accès de garage et les bâtiments professionnels.', 'x' => 439.6, 'y' => 278.7],
             'shutters' => ['label' => 'Volets & protections solaires', 'description' => 'Équipements des ouvertures et solutions de protection solaire.', 'x' => 214.3, 'y' => 141.4],
-            'motors' => ['label' => 'Motorisations', 'description' => 'Motorisations pour volets, portails et portes de garage.', 'x' => 155.9, 'y' => 217.5],
-            'intercom' => ['label' => 'Interphonie & visiophonie', 'description' => 'Identification et accueil des visiteurs.', 'x' => 240.0, 'y' => 263.4],
-            'access' => ['label' => "Contrôle d'accès", 'description' => 'Équipements pour gérer les accès au site et au bâtiment.', 'x' => 534.7, 'y' => 351.6, 'lift' => 36],
+            'motors' => ['label' => 'Motorisations', 'description' => 'Motorisations pour volets, portails et portes de garage.', 'x' => 155.9, 'y' => 217.5, 'lift' => 22, 'dx' => -14, 'below' => true],
+            'intercom' => ['label' => 'Interphonie & visiophonie', 'description' => 'Identification et accueil des visiteurs.', 'x' => 240.0, 'y' => 263.4, 'lift' => 22, 'dx' => 34, 'below' => true],
+            'access' => ['label' => "Contrôle d'accès", 'description' => 'Équipements pour gérer les accès au site et au bâtiment.', 'x' => 534.7, 'y' => 351.6, 'lift' => 44],
             'security' => ['label' => 'Alarme & vidéosurveillance', 'description' => 'Surveillance et protection des installations.', 'x' => 603.2, 'y' => 349.8],
-            'smart' => ['label' => 'Domotique & connectivité', 'description' => 'Pilotage et connexion des équipements.', 'x' => 272.8, 'y' => 177.9],
+            'smart' => ['label' => 'Domotique & connectivité', 'description' => 'Pilotage et connexion des équipements.', 'x' => 272.8, 'y' => 177.9, 'dx' => 6],
             'supplies' => ['label' => 'Consommables', 'description' => 'Les compléments pour préparer et réaliser la pose.', 'x' => 353.8, 'y' => 276.0],
             'parts' => ['label' => 'Pièces détachées', 'description' => 'Recherche par équipement, type de pièce et fabricant.', 'x' => 522.2, 'y' => 387.6],
         ];
@@ -110,7 +113,7 @@ final class HomeSolutionZones
      *    correspondent). Une zone sans correspondance n'est pas affichée.
      *
      * @param  mixed  $entries  config('storefront.home.solutions')
-     * @return list<array{key: string, number: string, icon: string, label: string, description: string, url: string, x: float, y: float, lift: int}>
+     * @return list<array{key: string, number: string, icon: string, label: string, description: string, url: string, x: float, y: float, lift: int, dx: int, below: bool}>
      */
     public static function resolve(mixed $entries): array
     {
@@ -166,6 +169,8 @@ final class HomeSolutionZones
                 'x' => $zone['x'],
                 'y' => $zone['y'],
                 'lift' => $zone['lift'] ?? 16,
+                'dx' => $zone['dx'] ?? 0,
+                'below' => $zone['below'] ?? false,
             ];
         }
 

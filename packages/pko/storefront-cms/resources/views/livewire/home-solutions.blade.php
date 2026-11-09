@@ -43,9 +43,13 @@
 
                         @foreach ($items as $item)
                             @php
-                                // Tuile 34×34 posée au-dessus de l'ancre, reliée par une tige.
-                                $tx = $item['x'] - 17;
-                                $ty = $item['y'] - $item['lift'] - 34;
+                                // Tuile 51×51 au-dessus de l'ancre (ou en dessous si `below`),
+                                // décalée de dx, reliée par une tige ; picto 36×36 centré.
+                                $tile = 51;
+                                $cx = $item['x'] + $item['dx'];
+                                $tx = $cx - $tile / 2;
+                                $stemEnd = $item['below'] ? $item['y'] + $item['lift'] : $item['y'] - $item['lift'];
+                                $ty = $item['below'] ? $stemEnd : $stemEnd - $tile;
                             @endphp
                             <g
                                 role="button"
@@ -58,23 +62,23 @@
                                 @focus="active = @js($item['key'])"
                                 @keydown.enter.prevent="window.Livewire.navigate(@js($item['url']))"
                             >
-                                <line x1="{{ $item['x'] }}" y1="{{ $item['y'] }}" x2="{{ $item['x'] }}" y2="{{ $item['y'] - $item['lift'] }}" class="stroke-primary-600" stroke-width="1.5" />
+                                <line x1="{{ $item['x'] }}" y1="{{ $item['y'] }}" x2="{{ $cx }}" y2="{{ $stemEnd }}" class="stroke-primary-600" stroke-width="1.5" />
                                 <circle cx="{{ $item['x'] }}" cy="{{ $item['y'] }}" r="2.5" class="fill-primary-600 stroke-none" />
                                 {{-- Sélection : fond blanc conservé, seul le contour passe en vert clair. --}}
                                 <rect
-                                    x="{{ $tx }}" y="{{ $ty }}" width="34" height="34" rx="8"
+                                    x="{{ $tx }}" y="{{ $ty }}" width="{{ $tile }}" height="{{ $tile }}" rx="12"
                                     class="fill-white transition-colors group-focus-visible:stroke-primary-600"
                                     :class="active === @js($item['key']) ? 'stroke-accent-500' : 'stroke-primary-200'"
-                                    :stroke-width="active === @js($item['key']) ? 3 : 1.5"
-                                    stroke-width="1.5"
+                                    :stroke-width="active === @js($item['key']) ? 4 : 2"
+                                    stroke-width="2"
                                 />
                                 @if ($item['icon'] !== '')
-                                    <image href="{{ $item['icon'] }}" x="{{ $tx + 5 }}" y="{{ $ty + 5 }}" width="24" height="24" preserveAspectRatio="xMidYMid meet" />
+                                    <image href="{{ $item['icon'] }}" x="{{ $tx + 7.5 }}" y="{{ $ty + 7.5 }}" width="36" height="36" preserveAspectRatio="xMidYMid meet" />
                                 @else
                                     <text
-                                        x="{{ $item['x'] }}" y="{{ $ty + 21 }}"
+                                        x="{{ $cx }}" y="{{ $ty + 31 }}"
                                         text-anchor="middle"
-                                        class="font-sans font-bold text-[12px] fill-primary-700 stroke-none"
+                                        class="font-sans font-bold text-[17px] fill-primary-700 stroke-none"
                                     >{{ $item['number'] }}</text>
                                 @endif
                             </g>
