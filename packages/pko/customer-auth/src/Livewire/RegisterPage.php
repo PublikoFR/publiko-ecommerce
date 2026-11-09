@@ -33,6 +33,9 @@ class RegisterPage extends Component
 
     public string $email = '';
 
+    /** Ressaisie de l'e-mail pour éviter les fautes de frappe. Jamais persistée. */
+    public string $emailConfirmation = '';
+
     public string $phone = '';
 
     public string $activity = '';
@@ -59,6 +62,13 @@ class RegisterPage extends Component
         return [
             'siret' => ['required', 'string'],
             'email' => ['required', 'email', 'unique:users,email'],
+            // Comparaison insensible à la casse et aux espaces de bord : une
+            // majuscule ou un espace parasite n'est pas une faute de frappe.
+            'emailConfirmation' => ['required', 'email', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (self::normalizeEmail((string) $value) !== self::normalizeEmail($this->email)) {
+                    $fail('Les deux adresses e-mail ne correspondent pas.');
+                }
+            }],
             'phone' => ['required', 'string', 'max:30'],
             'firstName' => ['required', 'string', 'max:80'],
             'lastName' => ['required', 'string', 'max:80'],
@@ -77,6 +87,16 @@ class RegisterPage extends Component
             'password' => ['required', 'string', 'min:8', 'confirmed:passwordConfirmation'],
             'terms' => ['accepted'],
         ];
+    }
+
+    public function validationAttributes(): array
+    {
+        return ['emailConfirmation' => 'confirmation de l\'e-mail'];
+    }
+
+    private static function normalizeEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
     }
 
     /**
@@ -129,6 +149,10 @@ class RegisterPage extends Component
         // Normalise le SIRET : on accepte les espaces / séparateurs de saisie
         // (ex. « 981 043 979 00021 ») et on ne conserve que les chiffres.
         $this->siret = preg_replace('/\D/', '', (string) $this->siret) ?? '';
+
+        // La confirmation n'est jamais persistée : on peut la nettoyer librement
+        // (un espace collé en bord ferait échouer la règle `email`).
+        $this->emailConfirmation = trim($this->emailConfirmation);
 
         $validated = $this->validate();
 
