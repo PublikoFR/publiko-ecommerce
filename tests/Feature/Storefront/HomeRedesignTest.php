@@ -148,6 +148,20 @@ class HomeRedesignTest extends TestCase
             ->assertSee('Voir la famille');
     }
 
+    public function test_service_shortcuts_render_and_hide_without_url(): void
+    {
+        Setting::set('home.services', [
+            ['icon' => 'refresh-cw', 'title' => 'Remplacement moteur volet roulant', 'subtitle' => 'Trouvez la solution adaptée', 'href' => '/pages/remplacement'],
+            ['icon' => 'camera', 'title' => "Identification d'une pièce", 'subtitle' => null, 'href' => null],
+        ]);
+        $this->reloadSettingsIntoConfig();
+
+        $this->get('/')->assertOk()
+            ->assertSee('Remplacement moteur volet roulant')
+            ->assertSee('href="/pages/remplacement"', false)
+            ->assertDontSee("Identification d'une pièce");
+    }
+
     public function test_pro_band_adapts_to_account_state(): void
     {
         $this->get('/')->assertOk()->assertSee('Ouvrir un compte pro')->assertSee('Déjà inscrit ? Se connecter');
@@ -179,6 +193,7 @@ class HomeRedesignTest extends TestCase
 
         Livewire::test(HomeSectionsForm::class)
             ->set('data.solutions', [['zone' => 'gates', 'collection_id' => (string) $gates->id, 'label' => '', 'description' => '']])
+            ->set('data.services', [['icon' => 'camera', 'title' => 'Identification', 'subtitle' => '', 'href' => '/pages/identifier']])
             ->set('data.selection', [['icon' => 'tag', 'title' => 'Offres', 'subtitle' => '', 'href' => '/pages/offres']])
             ->set('data.community_url', '')
             ->call('save')
@@ -187,6 +202,8 @@ class HomeRedesignTest extends TestCase
         Setting::forget();
         $this->assertEquals([['zone' => 'gates', 'collection_id' => $gates->id, 'label' => null, 'description' => null, 'hidden' => false]], Setting::get('home.solutions'));
         $this->assertSame('/pages/offres', Setting::get('home.selection')[0]['href']);
+        $this->assertSame('/pages/identifier', Setting::get('home.services')[0]['href']);
+        $this->assertNull(Setting::get('home.services')[0]['subtitle']);
         $this->assertNull(Setting::get('home.community_url'));
 
         Livewire::test(HomeSectionsForm::class)

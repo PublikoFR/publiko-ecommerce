@@ -6,6 +6,7 @@ use Pko\Storefront\Support\StorefrontLinks;
 // bandeau compte pro. Tous les liens éditoriaux viennent de Storefront →
 // Paramètres / Page d'accueil (config('storefront.home.*')) ; un lien vide masque
 // l'élément.
+$services = StorefrontLinks::visible(config('storefront.home.services', []), 'title');
 $selection = StorefrontLinks::visible(config('storefront.home.selection', []), 'title');
 $communityUrl = StorefrontLinks::safeHref(config('storefront.home.community_url'));
 
@@ -20,6 +21,32 @@ $pendingReason = ($user && ! $isActivePro) ? ProAccess::denialReason($user) : nu
     </div>
 
     @livewire('storefront-cms.home-solutions')
+
+    {{-- Raccourcis services (remplacement, identification de pièce, devis projet) --}}
+    @if ($services !== [])
+        <section class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6" aria-label="Accès aux services">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($services as $service)
+                    <a
+                        href="{{ $service['href'] }}"
+                        @if (StorefrontLinks::isInternal($service['href'])) wire:navigate @endif
+                        class="group flex items-center gap-4 px-5 py-5 rounded-xl bg-white border border-neutral-200 hover:border-primary-200 hover:shadow-md transition"
+                    >
+                        <span class="w-12 h-12 rounded-full bg-accent-50 flex items-center justify-center text-primary-600 shrink-0">
+                            <x-ui.icon :name="$service['icon'] ?? 'arrow-right'" class="w-5 h-5" />
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block font-semibold text-neutral-900 leading-snug">{{ $service['title'] }}</span>
+                            @if (! empty($service['subtitle']))
+                                <span class="block text-sm text-neutral-500 mt-1">{{ $service['subtitle'] }}</span>
+                            @endif
+                        </span>
+                        <x-ui.icon name="arrow-up-right" class="w-5 h-5 text-primary-600 shrink-0 self-start transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </a>
+                @endforeach
+            </div>
+        </section>
+    @endif
 
     {{-- La sélection pour les pros : 3 raccourcis éditables --}}
     @if ($selection !== [])

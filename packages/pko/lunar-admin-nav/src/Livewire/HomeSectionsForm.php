@@ -24,7 +24,8 @@ use Pko\StorefrontCms\Support\HomeSolutionZones;
 
 /**
  * Onglet « Sections » du hub Page d'accueil (FEAT-009) : schéma des solutions
- * (zone → collection), « La sélection pour les pros » et bandeau pro.
+ * (zone → collection), raccourcis services, « La sélection pour les pros » et
+ * bandeau pro.
  * Persisté dans pko_storefront_settings (clés home.*), relu par le front via
  * config('storefront.home.*').
  */
@@ -41,6 +42,7 @@ class HomeSectionsForm extends Component implements HasForms
 
         $this->form->fill([
             'solutions' => is_array($solutions) && $solutions !== [] ? $solutions : HomeSolutionZones::defaultEntries(),
+            'services' => Setting::get('home.services', config('storefront.home.services', [])),
             'selection' => Setting::get('home.selection', config('storefront.home.selection', [])),
             'community_url' => Setting::get('home.community_url', config('storefront.home.community_url')),
         ]);
@@ -76,6 +78,32 @@ class HomeSectionsForm extends Component implements HasForms
                         ->reorderable(false)
                         ->addActionLabel('Ajouter une zone')
                         ->itemLabel(fn (array $state): ?string => HomeSolutionZones::options()[$state['zone'] ?? ''] ?? null),
+                ])->collapsible(),
+
+            Section::make('Raccourcis services (sous le schéma)')
+                ->description('Rangée de boutons sous le schéma. Un bouton sans URL est masqué.')
+                ->schema([
+                    Repeater::make('services')
+                        ->label('')
+                        ->schema([
+                            Select::make('icon')->label('Icône')->options([
+                                'refresh-cw' => 'Flèches (remplacement)',
+                                'camera' => 'Appareil photo (identification)',
+                                'clipboard-pen' => 'Bloc-notes (devis)',
+                                'document' => 'Document',
+                                'phone' => 'Téléphone',
+                                'headset' => 'Casque (assistance)',
+                            ])->required(),
+                            TextInput::make('title')->label('Titre')->required()->maxLength(60),
+                            TextInput::make('subtitle')->label('Sous-titre')->maxLength(100),
+                            NavigationSettingsSchema::hrefInput('href', 'URL'),
+                        ])
+                        ->columns(2)
+                        ->maxItems(6)
+                        ->defaultItems(0)
+                        ->reorderableWithButtons()
+                        ->addActionLabel('Ajouter un raccourci')
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null),
                 ])->collapsible(),
 
             Section::make('« La sélection pour les pros »')
@@ -128,18 +156,29 @@ class HomeSectionsForm extends Component implements HasForms
             'hidden' => (bool) ($row['hidden'] ?? false),
         ], $data['solutions'] ?? [])));
 
-        Setting::set('home.selection', array_values(array_map(fn (array $row): array => [
-            'icon' => $row['icon'] ?? 'tag',
-            'title' => $row['title'] ?? '',
-            'subtitle' => $row['subtitle'] ?? null,
-            'href' => ($row['href'] ?? '') !== '' ? $row['href'] : null,
-        ], $data['selection'] ?? [])));
+        Setting::set('home.services', self::cards($data['services'] ?? [], 'arrow-right'));
+
+        Setting::set('home.selection', self::cards($data['selection'] ?? [], 'tag'));
 
         // null = ligne masquée : le merge config ignore null (cf.
         // StorefrontCmsServiceProvider) et le défaut de config est lui-même vide.
         Setting::set('home.community_url', ($data['community_url'] ?? '') !== '' ? $data['community_url'] : null);
 
         Notification::make()->success()->title('Sections de la page d\'accueil enregistrées')->send();
+    }
+
+    /**
+     * @param  array<int, mixed>  $rows
+     * @return list<array{icon: string, title: string, subtitle: ?string, href: ?string}>
+     */
+    private static function cards(array $rows, string $defaultIcon): array
+    {
+        return array_values(array_map(fn (array $row): array => [
+            'icon' => $row['icon'] ?? $defaultIcon,
+            'title' => $row['title'] ?? '',
+            'subtitle' => ($row['subtitle'] ?? '') !== '' ? $row['subtitle'] : null,
+            'href' => ($row['href'] ?? '') !== '' ? $row['href'] : null,
+        ], array_filter($rows, 'is_array')));
     }
 
     /**

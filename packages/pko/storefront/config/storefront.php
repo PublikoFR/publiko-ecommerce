@@ -59,6 +59,14 @@ return [
     'home' => [
         'featured_collection_slug' => env('HOME_FEATURED_COLLECTION', null),
 
+        // Rangée de raccourcis services sous le schéma (remplacement, identification
+        // de pièce, devis projet). Lien vide = bouton masqué.
+        'services' => [
+            ['icon' => 'refresh-cw', 'title' => 'Remplacement moteur volet roulant', 'subtitle' => 'Trouvez la solution adaptée', 'href' => '/pages/remplacement-moteur-volet-roulant'],
+            ['icon' => 'camera', 'title' => "Identification d'une pièce", 'subtitle' => 'Transmettez-nous vos photos', 'href' => '/pages/identifier-une-piece'],
+            ['icon' => 'clipboard-pen', 'title' => 'Devis pour un projet', 'subtitle' => 'Présentez-nous vos besoins', 'href' => '/contact'],
+        ],
+
         // « La sélection pour les pros » : 3 raccourcis. Lien vide = carte masquée.
         'selection' => [
             ['icon' => 'tag', 'title' => 'Offres du moment', 'subtitle' => 'Les sélections à découvrir', 'href' => '/pages/offres-du-moment'],
