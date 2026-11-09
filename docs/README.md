@@ -13,6 +13,7 @@ Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (Weklo,
 | [payments.md](payments.md) | Stripe, rejet Cashier |
 | [taxes.md](taxes.md) | TVA : une seule classe (20 %), migration de nettoyage, résolution à l'import |
 | [shipping.md](shipping.md) | Drivers Chronopost / Colissimo / table-rate |
+| [product-reference.md](product-reference.md) | Référence boutique = préfixe marque (`lunar_brands.pko_ref_prefix`) + MPN brut : composition, import, `pko:references:sync`, recherche |
 | [ecotax.md](ecotax.md) | Éco-participation : modèle « dont » (incluse dans le prix), helper `App\Support\Ecotax`, figeage dans `OrderLine.meta`, import et rattrapage |
 | [deployment.md](deployment.md) | Déploiement O2switch (rsync d'artefacts, PROD/DEV) — cf. `deploy/` |
 

@@ -144,6 +144,13 @@ si elle est **documentée** (notice, catalogue fabricant) — une photo seule ne
   produit) : il faut d'abord arrêter le format source (colonnes répétées, séparateur
   `marque|modèle|réf;…` ?) avec le client.
 
+### Préfixe de référence des marques
+
+Colonne `lunar_brands.pko_ref_prefix` (unique, 2-5 `A-Z0-9`), services
+`Support\BrandReferencePrefix` / `Support\ProductReference`, extension admin
+`BrandReferencePrefixExtension`, commandes `pko:brands:ref-prefixes` et
+`pko:references:sync`. Détail : [docs/product-reference.md](../product-reference.md).
+
 ### 7.bis.6 Hors scope v1
 
 - **Import FAB-DIS** — module dédié, consommera `Features::syncByHandles()`. Aucun refactor attendu côté catalog-features

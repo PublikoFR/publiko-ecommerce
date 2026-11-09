@@ -27,12 +27,12 @@ final class ProductFieldCatalog
         return [
             'Identité' => [
                 'name' => 'Nom',
-                'reference' => 'Référence',
-                'sku' => 'Réf. fournisseur (SKU)',
+                'reference' => 'Référence (SKU de repli)',
+                'sku' => 'SKU forcé (remplace préfixe marque + MPN)',
                 'brand_name' => 'Marque',
                 'supplier' => 'Fournisseur',
                 'ean' => 'EAN-13',
-                'mpn' => 'MPN (réf. fabricant)',
+                'mpn' => 'MPN (réf. fabricant, conservée telle quelle)',
                 'product_type_handle' => 'Type de produit',
             ],
             'Famille fabricant (privée, remises)' => [

@@ -122,7 +122,31 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 
 | Clé | Cible Lunar | Notes |
 |---|---|---|
-| `reference` **(requis)** | `ProductVariant::sku` | Résolveur : existe ? update. Sinon : create. |
+| `reference` | `ProductVariant::sku` (repli) | SKU si ni `sku` forcé ni référence composée. Rapproche aussi les produits importés avant le préfixe. |
+| `sku` | `ProductVariant::sku` (forcé) | Prioritaire sur la référence composée. |
+| `mpn` | `ProductVariant::mpn` | Référence fabricant stockée **brute** (ni trim ni normalisation). Avec la marque, compose le SKU. |
+
+**Référence boutique** (cf. `docs/product-reference.md`) — une ligne doit fournir `sku`,
+ou `reference`, ou `brand_name` + `mpn` ; sinon erreur « reference manquante ».
+
+- SKU à la **création** : `sku` forcé → préfixe de la marque + `mpn` brut
+  (`ProductReference::compose`) → `reference`. Cible composée déjà portée par une autre
+  variante → ligne rejetée, rien créé.
+- **Rapprochement** (join `reference`, défaut) : SKU = forcé, puis composé, puis
+  `reference`, puis **marque + MPN exact** (zéros de tête significatifs). Le dernier évite
+  les doublons quand la forme du SKU a changé ; s'il trouve plusieurs variantes, la ligne
+  est rejetée (« référence ambiguë »). Un `sku` forcé inconnu mais marque + MPN connus
+  met à jour le produit existant (anti-doublon) sans réécrire son SKU.
+- Les clés d'identification (`sku`, `reference`, `brand_name`, `mpn`, `ean`) sont lues
+  **avant** `columns_to_import` : une MAJ « prix seul » restreinte à `price_cents` retrouve
+  le produit par marque + MPN sans écrire ces clés. Une création enregistre toujours
+  l'identité complète (marque, MPN).
+- **SKU existant jamais réécrit** par l'import (tous modes). En `price`/`stock`/`price_stock`,
+  le MPN n'est pas touché non plus. Le writer ne déclenche aucune action IA (les actions
+  `llm_transform` s'exécutent au parse, selon la config).
+- Marque **créée** par l'import : préfixe par défaut posé s'il est libre (log Info), sinon
+  laissé vide. Marque sans préfixe : SKU = `reference`, warning unique par marque et par job.
+- Backup avant import : variantes capturées aussi par SKU forcé, SKU composé et MPN.
 | `name` **(requis en création)** | `attribute_data.name` (TranslatedText) | Stocké dans la langue par défaut |
 | `description` | `attribute_data.description` (TranslatedText) | |
 | `description_short` | `attribute_data.description_short` | |
@@ -135,7 +159,7 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `cost_price_cents` | `ProductVariant::pko_cost_price` (cents) | Prix d'achat / coût. **Assignation directe** (colonne custom non-fillable → un mass-assignment la droppe silencieusement). Sert au calcul de marge. |
 | `weight_value` | `ProductVariant::weight_value` (kg) | Unité forcée à `kg` |
 | `length_value` / `width_value` / `height_value` | `ProductVariant::{axis}_value` (cm) | Unité forcée à `cm` |
-| `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` |
+| `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` ; une marque créée reçoit son préfixe de référence par défaut s'il est libre |
 | `brand_family_code` | `Product::pko_brand_family_id` → `pko_brand_families` | Famille fabricant **privée** (famille de remise FAB-DIS). Code **exact** (trim seul), résolu sur (marque, code), créé au besoin. Mode `all` uniquement. Voir §7.quinquies.15decies. |
 | `brand_family_label` | `BrandFamily::label` | Libellé de la famille, mis à jour au réimport. Sans code → ignoré + warning. |
 | `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
@@ -344,7 +368,7 @@ Honorées par les jobs + le writer. Enums dédiés `UpdateMode` / `RowFilter` (l
 | `row_filter` | `all` \| `missing_supplier_ref` \| `existing_supplier_ref` | `LunarProductWriter` | Filtre selon la présence en base (via `join_column`). `missing` → n'écrit que les créations ; `existing` → n'écrit que les MAJ ; les lignes exclues passent en statut `skipped`. |
 | `join_column` | `reference` (défaut, → SKU) \| `ean`/`ean13` (→ EAN) | `LunarProductWriter` | Colonne d'identification du produit existant. ⚠️ Lunar n'a **pas** de champ « réf fournisseur » natif : mappez votre réf fournisseur sur `reference` (SKU) dans le mapping de config. |
 | `columns_to_process` | array de clés de mapping | `ParseFileToStagingJob` | Restreint le mapping calculé au parse (les autres clés sont ignorées). Vide = tout. |
-| `columns_to_import` | array de clés staging | `LunarProductWriter` | Restreint les champs réellement écrits dans Lunar. Les clés essentielles (`reference`, `name`, `join_column`) sont toujours conservées. Vide = tout. |
+| `columns_to_import` | array de clés staging | `LunarProductWriter` | Restreint les champs réellement écrits dans Lunar. Les clés essentielles (`reference`, `name`, `join_column`) sont toujours conservées ; les clés d'identification (`sku`, `brand_name`, `mpn`, `ean`) servent toujours au rapprochement. Vide = tout. |
 
 `LunarProductWriter::configure(array|ArrayObject|null $options): self` applique ces
 options une fois par job (appelé dans `ImportStagingToLunarJob` depuis `$job->options`).
@@ -874,7 +898,7 @@ n'étaient pas restaurées.
 - **Capture brute** : `getRawOriginal()` pour produits, variantes et prix (`attribute_data`
   reste la chaîne JSON Lunar), clé `version: 2` dans le payload. `whereIn` découpés par 1000
   (plafond de placeholders MySQL sur les gros fichiers).
-- **Périmètre** : variantes trouvées par SKU (`reference`) **et** par EAN (`ean`/`ean13`
+- **Périmètre** : variantes trouvées par SKU (`sku` forcé, `reference`, SKU composé préfixe + MPN), par MPN **et** par EAN (`ean`/`ean13`
   normalisés comme dans le writer), quelle que soit `join_column`. Prix filtrés sur
   `(new ProductVariant)->getMorphClass()`.
 - **Restauration** (une transaction) : colonnes produit `brand_id`, `product_type_id`,

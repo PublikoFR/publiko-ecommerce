@@ -83,6 +83,7 @@ use Pko\AdminNav\Filament\Resources\PkoTaxRateResource;
 use Pko\AdminNav\Filament\Resources\PkoTaxZoneResource;
 use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
+use Pko\CatalogFeatures\Filament\Extensions\BrandReferencePrefixExtension;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
@@ -222,6 +223,7 @@ class AppServiceProvider extends ServiceProvider
             ],
             BrandResource::class => [
                 HideLunarMediaExtension::class,
+                BrandReferencePrefixExtension::class,
                 BrandContentExtension::class,
             ],
             // CustomerResource swappée par PkoCustomerResource (combined tabs) → les
@@ -428,12 +430,18 @@ class AppServiceProvider extends ServiceProvider
         // résultats) pour garantir la MÊME couverture des deux côtés. Cherche
         // dans : nom, description, description courte (attribute_data JSON),
         // identifiants variant (sku/ean/mpn/gtin), tags et compatibilités
-        // (référence/modèle d'équipement). Insensible à la casse.
+        // (référence/modèle d'équipement). Insensible à la casse ; sku/mpn
+        // tolèrent en plus espaces et tirets (cf. docs/product-reference.md).
         Builder::macro('storefrontSearchMatch', function (string $term): Builder {
             /** @var Builder $this */
             $like = '%'.mb_strtolower(addcslashes($term, '%_')).'%';
+            // Références (sku/mpn) : espaces et tirets ignorés des DEUX côtés, à la
+            // requête seulement — la valeur stockée n'est jamais altérée.
+            // « som-1240 385 » trouve SOM1240385, « SOM1240385 » trouve « SOM-1240385 ».
+            $compact = str_replace([' ', '-'], '', mb_strtolower($term));
+            $compactLike = mb_strlen($compact) >= 2 ? '%'.addcslashes($compact, '%_').'%' : null;
 
-            return $this->where(function ($qq) use ($like): void {
+            return $this->where(function ($qq) use ($like, $compactLike): void {
                 // Attributs texte du produit (JSON, chemin $.<handle>.value).
                 foreach (['name', 'description', 'short_description'] as $attr) {
                     $qq->orWhereRaw(
@@ -443,11 +451,17 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 // Identifiants de variante.
-                $qq->orWhereHas('variants', function ($q) use ($like): void {
+                $qq->orWhereHas('variants', function ($q) use ($like, $compactLike): void {
                     $q->whereRaw('LOWER(sku) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(ean) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(mpn) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(gtin) LIKE ?', [$like]);
+
+                    if ($compactLike !== null) {
+                        foreach (['sku', 'mpn'] as $column) {
+                            $q->orWhereRaw("REPLACE(REPLACE(LOWER({$column}), ' ', ''), '-', '') LIKE ?", [$compactLike]);
+                        }
+                    }
                 });
 
                 // Tags produit.

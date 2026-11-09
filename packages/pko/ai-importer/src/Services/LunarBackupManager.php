@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Lunar\Models\Brand;
 use Lunar\Models\CartLine;
 use Lunar\Models\OrderLine;
 use Lunar\Models\Price;
@@ -21,6 +22,7 @@ use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
+use Pko\CatalogFeatures\Support\ProductReference;
 use Pko\LunarMediaCore\Models\Mediable;
 use Pko\ProductDocuments\Models\ProductDocument;
 use Pko\ProductVideos\Models\ProductVideo;
@@ -74,11 +76,12 @@ final class LunarBackupManager
 
     public function snapshot(ImportJob $job): string
     {
-        [$skus, $eans] = $this->stagingKeys($job);
+        [$skus, $eans, $mpns] = $this->stagingKeys($job);
 
         /** @var EloquentCollection<int, ProductVariant> $variants */
         $variants = new EloquentCollection;
-        foreach ([['sku', $skus], ['ean', $eans]] as [$column, $values]) {
+        // `mpn` : le writer rapproche aussi par marque + MPN → sur-ensemble sûr.
+        foreach ([['sku', $skus], ['ean', $eans], ['mpn', $mpns]] as [$column, $values]) {
             foreach (array_chunk($values, self::CHUNK) as $chunk) {
                 $variants = $variants->merge(ProductVariant::query()->whereIn($column, $chunk)->get());
             }
@@ -309,34 +312,53 @@ final class LunarBackupManager
     }
 
     /**
-     * @return array{0: array<int, string>, 1: array<int, string>} [skus, eans]
+     * @return array{0: array<int, string>, 1: array<int, string>, 2: array<int, string>} [skus, eans, mpns]
      */
     private function stagingKeys(ImportJob $job): array
     {
         $skus = [];
         $eans = [];
+        $mpns = [];
+        /** @var array<string, string> $prefixes nom de marque → préfixe de référence */
+        $prefixes = Brand::query()->whereNotNull('pko_ref_prefix')->pluck('pko_ref_prefix', 'name')->all();
 
         StagingRecord::query()
             ->where('import_job_id', $job->id)
             ->select(['id', 'data'])
-            ->chunkById(1000, function ($records) use (&$skus, &$eans): void {
+            ->chunkById(1000, function ($records) use (&$skus, &$eans, &$mpns, $prefixes): void {
                 foreach ($records as $record) {
                     $data = $record->data instanceof \ArrayObject ? $record->data->getArrayCopy() : (array) $record->data;
                     // Mêmes alias que le writer (ean13 → ean…).
                     $data = LunarProductWriter::normalizeLegacyKeys($data);
 
-                    $sku = trim((string) ($data['reference'] ?? ''));
-                    $ean = trim((string) ($data['ean'] ?? ''));
-                    if ($sku !== '') {
-                        $skus[$sku] = true;
+                    $mpn = is_scalar($data['mpn'] ?? null) ? (string) $data['mpn'] : '';
+                    $brand = is_scalar($data['brand_name'] ?? null) ? trim((string) $data['brand_name']) : '';
+                    // Mêmes candidats SKU que le writer : forcé, composé, référence.
+                    $candidates = [
+                        trim((string) ($data['sku'] ?? '')),
+                        trim((string) ($data['reference'] ?? '')),
+                        (string) ProductReference::composeFromPrefix($prefixes[$brand] ?? null, $mpn),
+                    ];
+                    foreach ($candidates as $sku) {
+                        if ($sku !== '') {
+                            $skus[$sku] = true;
+                        }
                     }
+                    if (trim($mpn) !== '') {
+                        $mpns[$mpn] = true;
+                    }
+                    $ean = trim((string) ($data['ean'] ?? ''));
                     if ($ean !== '') {
                         $eans[$ean] = true;
                     }
                 }
             });
 
-        return [array_map('strval', array_keys($skus)), array_map('strval', array_keys($eans))];
+        return [
+            array_map('strval', array_keys($skus)),
+            array_map('strval', array_keys($eans)),
+            array_map('strval', array_keys($mpns)),
+        ];
     }
 
     /**
