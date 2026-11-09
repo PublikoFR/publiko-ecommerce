@@ -87,6 +87,28 @@ Chaque écriture dispatche un event Laravel :
 
 **Un autre module peut s'abonner à ces events** sans toucher au package catalog-features (ex : invalider un cache Redis, relancer un indexeur, recompter des facettes, logguer).
 
+### Familles fabricant (privées)
+
+Famille de remise du fabricant (FAB-DIS : `FAM1`/`FAM1L`, `GAMME`/`FONCTION`…), importée
+par l'AI Importer (cf. [ai-importer.md §7.quinquies.15decies](ai-importer.md)). **Cible
+future des remises** (chantier séparé) : aucune règle de prix ne la lit encore.
+
+- **Table** `pko_brand_families` : `id`, `brand_id` (FK `lunar_brands`, cascade), `code`
+  (string 100), `label` (nullable), timestamps. **Unique `(brand_id, code)`** : un code
+  n'a de sens que dans sa marque.
+- **Collation binaire** `utf8mb4_bin` sur `code` (MySQL/MariaDB) : la collation par défaut
+  `utf8mb4_unicode_ci` confondrait `ACM` et `acm` (et `é`/`e`), donc deux familles
+  distinctes du fabricant violeraient l'unicité ou seraient fusionnées. Le code doit rester
+  l'identifiant exact du tarif.
+- **Produit** : `lunar_products.pko_brand_family_id` (nullable, FK `nullOnDelete`), colonne
+  non fillable (assignation directe). Relation `Product::brandFamily()` déclarée par
+  `CatalogFeaturesServiceProvider` (`resolveRelationUsing`), modèle `Pko\CatalogFeatures\Models\BrandFamily`.
+- **Admin** : select « Famille fabricant » sous « Marque » dans l'éditeur produit unifié,
+  filtré sur la marque choisie. Changer de marque vide la famille ; une famille d'une
+  autre marque n'est jamais enregistrée.
+- **Privé** : pas d'`#[ApiResource]` sur `BrandFamily`, aucune vue storefront ni
+  ressource API ne lit la colonne. Ne pas l'exposer sans décision explicite.
+
 ### 7.bis.6 Hors scope v1
 
 - **Import FAB-DIS** — module dédié, consommera `Features::syncByHandles()`. Aucun refactor attendu côté catalog-features
