@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Lunar\Admin\Models\Staff;
 use Lunar\FieldTypes\Text as LunarText;
@@ -147,6 +148,27 @@ class HomeRedesignTest extends TestCase
 
         $this->assertSame(['shutters', 'garage', 'gates'], array_column($items, 'key'));
         $this->assertSame(['01', '02', '03'], array_column($items, 'number'));
+    }
+
+    public function test_solutions_use_the_category_picto_and_fall_back_to_the_number(): void
+    {
+        Storage::fake(config('media-library.disk_name'));
+        $this->neutralizeSeededRoots();
+        $gates = $this->makeCollection('Portails', 'portails-test');
+        $this->makeCollection('Motorisations', 'moteurs-test');
+
+        $svg = sys_get_temp_dir().'/pko-picto-'.uniqid().'.svg';
+        file_put_contents($svg, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"/>');
+        $media = $gates->addMedia($svg)->toMediaCollection('images');
+
+        $items = collect(HomeSolutionZones::resolve([]))->keyBy('key');
+
+        $this->assertSame($media->getUrl(), $items['gates']['icon']);
+        $this->assertSame('', $items['motors']['icon'], 'Sans picto, la pastille affiche le numéro.');
+
+        $this->get('/')->assertOk()
+            ->assertSee('<image href="'.$media->getUrl().'"', false)
+            ->assertDontSee('Voir la famille <svg', false);
     }
 
     public function test_home_renders_solutions_module_when_a_zone_is_mapped(): void

@@ -27,9 +27,11 @@ final class HomeSolutionZones
     public const VIEWBOX = '0 0 840 540';
 
     /**
-     * Ordre = ordre d'affichage. `x`/`y` = point d'ancrage sur l'équipement.
+     * `x`/`y` = point d'ancrage sur l'équipement. `lift` (optionnel, défaut 16) =
+     * longueur de la tige entre l'ancre et la tuile picto, allongée là où des
+     * équipements voisins feraient se chevaucher les tuiles.
      *
-     * @return array<string, array{label: string, description: string, x: float, y: float}>
+     * @return array<string, array{label: string, description: string, x: float, y: float, lift?: int}>
      */
     public static function all(): array
     {
@@ -39,7 +41,7 @@ final class HomeSolutionZones
             'shutters' => ['label' => 'Volets & protections solaires', 'description' => 'Équipements des ouvertures et solutions de protection solaire.', 'x' => 214.3, 'y' => 141.4],
             'motors' => ['label' => 'Motorisations', 'description' => 'Motorisations pour volets, portails et portes de garage.', 'x' => 155.9, 'y' => 217.5],
             'intercom' => ['label' => 'Interphonie & visiophonie', 'description' => 'Identification et accueil des visiteurs.', 'x' => 240.0, 'y' => 263.4],
-            'access' => ['label' => "Contrôle d'accès", 'description' => 'Équipements pour gérer les accès au site et au bâtiment.', 'x' => 534.7, 'y' => 351.6],
+            'access' => ['label' => "Contrôle d'accès", 'description' => 'Équipements pour gérer les accès au site et au bâtiment.', 'x' => 534.7, 'y' => 351.6, 'lift' => 36],
             'security' => ['label' => 'Alarme & vidéosurveillance', 'description' => 'Surveillance et protection des installations.', 'x' => 603.2, 'y' => 349.8],
             'smart' => ['label' => 'Domotique & connectivité', 'description' => 'Pilotage et connexion des équipements.', 'x' => 272.8, 'y' => 177.9],
             'supplies' => ['label' => 'Consommables', 'description' => 'Les compléments pour préparer et réaliser la pose.', 'x' => 353.8, 'y' => 276.0],
@@ -108,7 +110,7 @@ final class HomeSolutionZones
      *    correspondent). Une zone sans correspondance n'est pas affichée.
      *
      * @param  mixed  $entries  config('storefront.home.solutions')
-     * @return list<array{key: string, number: string, label: string, description: string, url: string, x: float, y: float}>
+     * @return list<array{key: string, number: string, icon: string, label: string, description: string, url: string, x: float, y: float, lift: int}>
      */
     public static function resolve(mixed $entries): array
     {
@@ -120,7 +122,7 @@ final class HomeSolutionZones
 
         /** @var SupportCollection<int, Collection> $candidates */
         $candidates = Collection::query()
-            ->with('defaultUrl')
+            ->with(['defaultUrl', 'media'])
             ->where('pko_enabled', true)
             ->where(fn ($q) => $q->whereNull('parent_id')->orWhereIn('id', $explicitIds))
             ->orderBy('_lft')
@@ -154,11 +156,16 @@ final class HomeSolutionZones
             $out[] = [
                 'key' => $key,
                 'lft' => (int) $collection->_lft,
+                // Picto de la famille = 1re image de la catégorie (celle du menu
+                // latéral). pko_media_url sert l'original d'un SVG. Vide = la
+                // pastille retombe sur le numéro.
+                'icon' => pko_media_url($collection->getFirstMedia('images'), 'small'),
                 'label' => trim((string) ($entry['label'] ?? '')) ?: $zone['label'],
                 'description' => trim((string) ($entry['description'] ?? '')) ?: $zone['description'],
                 'url' => route('collection.view', $slug),
                 'x' => $zone['x'],
                 'y' => $zone['y'],
+                'lift' => $zone['lift'] ?? 16,
             ];
         }
 
