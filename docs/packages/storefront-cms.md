@@ -126,12 +126,13 @@ Composant Blade anonyme `x-storefront-cms::mail.layout` (fichier `resources/view
 
 ## Page d'accueil — FEAT-009 (2026-11-09)
 
-Ordre : carrousel (`home-hero`) → **schéma des solutions** (`home-solutions`) → « La sélection
-pour les pros » → Actualités (`home-posts`) → bandeau « Votre espace professionnel ». Les tuiles
+Ordre : carrousel (`home-hero`) → **schéma des solutions** (`home-solutions`) → raccourcis
+services (remplacement moteur, identification de pièce, devis projet — `home.services`) →
+« La sélection pour les pros » → Actualités (`home-posts`) → bandeau « Votre espace professionnel ». Les tuiles
 « Nos univers », « Nouveautés & vedettes » et « Offres du moment » ne sont plus rendues (le schéma
 et les 3 raccourcis les remplacent) ; leurs modèles/tables restent en base, les onglets admin
 correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet **Sections**
-(`Pko\AdminNav\Livewire\HomeSectionsForm`, clés `home.solutions`, `home.selection`,
+(`Pko\AdminNav\Livewire\HomeSectionsForm`, clés `home.solutions`, `home.services`, `home.selection`,
 `home.community_url`).
 
 ### Schéma « À chaque installation, sa solution »
