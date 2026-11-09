@@ -126,11 +126,13 @@ Les opérations d'écriture vivent dans **la même API que le reste du dashboard
 
 #### 2. Tools MCP laravel-boost — commodité de dev **local**
 
-En complément (local uniquement), la création se greffe sur le **serveur MCP existant** (`laravel-boost`, `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Deux tools :
+En complément (local uniquement), la création se greffe sur le **serveur MCP existant** (`laravel-boost`, `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Tools :
 
 | Tool MCP | Rôle |
 |---|---|
 | `page_builder_catalog` (read-only) | Décrit tout le nécessaire : `post_types`, `section_layouts` (1col…6col), **catalogue des blocs** (champs + valeurs autorisées + exemple par bloc), `content_shape`, un `example_page` complet et des `notes`. Source : `PageBuilderManager::blockCatalog()` + `exampleContent()` → **jamais désynchronisé** du normaliseur (valeurs tirées des constantes). |
+| `list_cms_pages` (read-only) | Liste les `Post` existants, **brouillons compris** : filtres `post_type` (handle ou id), `status` (`all`/`draft`/`published`), `search` (titre/slug) ; pagination `page`/`per_page` (20, max 100) ; tri `updated_at` desc. Chaque item : id, type, titre, slug, statut, dates, `blocks_count`, `public_url`, `admin_edit_url`. |
+| `get_cms_page` (read-only) | Lit un `Post` complet par `id` ou `slug` (+ `post_type` si le slug existe dans plusieurs types → sinon erreur explicite) : métadonnées, SEO, `cover_url` et arbre `content`. Point de départ obligatoire d'une modification (`update_cms_page.content` **remplace** tout le contenu). |
 | `create_cms_page` (destructive) | Crée un `Post` (page/article) depuis `{ post_type, title, heading?, slug?, status?, excerpt?, seo_*?, content, cover_media_id? }`. **Brouillon par défaut**. Retourne id, slug, `public_url`, `admin_edit_url`. |
 
 Implémentation :
@@ -141,19 +143,25 @@ Implémentation :
 
 #### 3. Serveur MCP HTTP OAuth — connecteur **claude.ai** (PKOS en hérite)
 
-Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.ai (donc hérité automatiquement par PKOS). Tools exposés : `page_builder_catalog`, `create_cms_page`, `update_cms_page` (modifier / **publier**). Mêmes classes que le MCP boost (transport-agnostiques) → logique partagée.
+Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.ai (donc hérité automatiquement par PKOS). Tools exposés : `page_builder_catalog`, `list_cms_pages`, `get_cms_page`, `create_cms_page`, `update_cms_page` (modifier / **publier**). Le nom de serveur annoncé au client = `brand_name()` + « — Contenus CMS » (`boot()`), jamais de marque en dur. Réponses construites par le trait `App\Mcp\Tools\Concerns\DescribesCmsPosts` (mêmes clés pour tous les tools). Mêmes classes que le MCP boost (transport-agnostiques) → logique partagée.
 
 - **Auth = OAuth 2.1 propre** (jamais de token dans l'URL : claude.ai n'accepte pas de Bearer dans l'UI des connecteurs custom → OAuth requis). `laravel/mcp` + `laravel/passport` font le gros du travail :
   - `routes/ai.php` : `Mcp::oauthRoutes()` (découverte `.well-known/oauth-protected-resource` + `…-authorization-server` + **DCR** `oauth/register`) puis `Mcp::web('/mcp/page-builder', PageBuilderMcpServer::class)->middleware('auth:api')`.
   - **Consent** (`/oauth/authorize`) : guard `staff` (`config/passport.php` → `guard=staff`) → c'est le **personnel back-office** connecté à Filament qui autorise le connecteur.
   - **Validation des access tokens** : guard `api` (`config/auth.php` : driver `passport`, provider `oauth_staff`). Le provider pointe sur `App\Models\Staff` — **sous-modèle** de `Lunar\Admin\Models\Staff` ajoutant `HasApiTokens` **sans toucher au vendor** ni au guard `staff` du panel. Même table `staff`, même id → identité cohérente. Le client DCR est sans `provider` → pas de mismatch (cf. `TokenGuard`).
-  - `config/mcp.php` `redirect_domains` restreints à `https://claude.ai` / `https://claude.com`.
+  - `config/mcp.php` `redirect_domains` (préfixes, contrôlés au DCR) : `https://claude.ai`, `https://claude.com`, `https://chatgpt.com` (redirect `/connector_platform_oauth_redirect`), `https://platform.openai.com`. Tout autre domaine → `400 invalid_redirect_uri`. Ne jamais passer à `*` (n'importe quel site pourrait obtenir un token staff via un consentement piégé).
+  - **Visiteur non connecté sur `/oauth/authorize`** : `bootstrap/app.php` → `redirectGuestsTo` envoie `oauth/*` vers la connexion **back-office** (`filament.lunar.auth.login`), qui renvoie à l'URL *intended* (écran de consentement). Sans ça, Laravel redirige vers `login` = connexion **client**, qui n'authentifie pas le guard `staff` → flow cassé pour qui n'était pas déjà connecté à l'admin. Le reste du site garde `route('login')`.
+  - `CheckStorefrontMaintenance` laisse passer `oauth/*` (sinon page 503 au lieu de la redirection login en maintenance). `oauth/token` et `oauth/register` sont hors groupe `web`, donc non concernés.
 - **Dépendances prod** : `laravel/mcp` promu de `require-dev` → `require` ; `laravel/passport` ajouté.
 - **Déploiement** (prod O2switch) : `composer install`, `php artisan migrate` (tables `oauth_*`), **`php artisan passport:keys`** (clés dans `storage/`, gitignored → à générer sur le serveur, une fois), servir en **HTTPS**. URL du connecteur = `https://<domaine>/mcp/page-builder` (l'OAuth se déroule automatiquement, pas d'URL secrète).
 - **Vérifié localement** : découverte 200, endpoint MCP **401 + `WWW-Authenticate`** sans token, aucune régression panel admin (`McpOAuthDiscoveryTest`). Le **handshake complet** (DCR → consent → token → appel) se valide contre **claude.ai** en conditions réelles.
 - **⚠️ Rappel** : ta note maison `wiki/topics/mcp-server-claude-ai.md` décrivait une implémentation OAuth *from scratch* — ici c'est `laravel/mcp` + Passport qui gèrent DCR/PKCE/refresh/`WWW-Authenticate`. Les détails de la note restent utiles pour diagnostiquer (redirect_domains claude.ai/claude.com, DCR `client_secret_post`).
 
-Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`.
+**Brancher un client** (URL `https://<domaine>/mcp/page-builder`, auth OAuth, client ID/secret vides — DCR) :
+- **claude.ai** : Paramètres → Connecteurs → *Ajouter un connecteur personnalisé*.
+- **ChatGPT** : Paramètres → *Applications et connecteurs* → Paramètres avancés → **Mode développeur** activé, puis *Créer* : URL du serveur, authentification **OAuth**. Le consentement s'ouvre sur `/oauth/authorize` → se connecter avec un compte staff du back-office → *Autoriser*.
+
+Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`. Pour en modifier une : `list_cms_pages` → `get_cms_page` → `update_cms_page` avec le `content` complet modifié.
 
 ### Permission Shield
 

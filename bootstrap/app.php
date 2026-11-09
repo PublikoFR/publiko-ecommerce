@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Pko\StorefrontCms\Http\Middleware\CheckStorefrontMaintenance;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -28,6 +31,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'deconnexion',
         ]);
+
+        // Consentement OAuth des connecteurs MCP (/oauth/authorize, guard staff) :
+        // un visiteur non connecté doit atterrir sur la connexion du back-office,
+        // pas sur la connexion client (`login`) qui n'authentifie pas le staff.
+        // Filament renvoie ensuite vers l'URL « intended » (l'écran de consentement).
+        $middleware->redirectGuestsTo(fn (Request $request): string => $request->is('oauth/*')
+            ? route('filament.lunar.auth.login')
+            : route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

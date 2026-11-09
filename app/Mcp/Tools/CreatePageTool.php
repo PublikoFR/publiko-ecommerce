@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Tools\Concerns\DescribesCmsPosts;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
 use InvalidArgumentException;
@@ -11,8 +12,6 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
-use Pko\StorefrontCms\Filament\Resources\PostResource;
-use Pko\StorefrontCms\Models\Post;
 use Pko\StorefrontCms\Services\PageComposer;
 use Throwable;
 
@@ -25,6 +24,8 @@ use Throwable;
 #[IsDestructive]
 class CreatePageTool extends Tool
 {
+    use DescribesCmsPosts;
+
     protected string $name = 'create_cms_page';
 
     protected string $description = "Crée un contenu CMS (page ou article) à partir de blocs page-builder. Appelle d'abord page_builder_catalog pour connaître les types de contenu, les blocs disponibles et la forme du champ \"content\". La page est créée en BROUILLON par défaut. Le contenu est normalisé/assaini automatiquement (blocs inconnus ignorés, valeurs bornées). Retourne l'id, le slug et les URLs (publique + back-office).";
@@ -80,28 +81,5 @@ class CreatePageTool extends Tool
             'public_url' => $composer->publicUrl($post),
             'admin_edit_url' => $this->adminUrl($post),
         ]);
-    }
-
-    private function countBlocks(Post $post): int
-    {
-        $count = 0;
-        foreach (($post->content['sections'] ?? []) as $section) {
-            foreach (($section['columns'] ?? []) as $column) {
-                $count += count($column['blocks'] ?? []);
-            }
-        }
-
-        return $count;
-    }
-
-    private function adminUrl(Post $post): ?string
-    {
-        try {
-            // Passer le MODÈLE (pas la clé) : le back-office route par slug
-            // (Post::getRouteKeyName() = 'slug') → Filament utilise getRouteKey().
-            return PostResource::getUrl('edit', ['record' => $post]);
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

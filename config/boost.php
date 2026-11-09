@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 use App\Mcp\Tools\CreatePageTool;
+use App\Mcp\Tools\GetPageTool;
+use App\Mcp\Tools\ListPagesTool;
 use App\Mcp\Tools\PageBuilderCatalogTool;
 
 /*
@@ -19,6 +21,8 @@ return [
             // Tools custom exposés à l'IA en plus des tools natifs de Boost.
             'include' => [
                 PageBuilderCatalogTool::class,
+                ListPagesTool::class,
+                GetPageTool::class,
                 CreatePageTool::class,
             ],
         ],
