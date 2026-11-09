@@ -17,6 +17,12 @@ if (! function_exists('pko_media_url')) {
      *
      * Fix temporaire (option 2) : sert l'original quand la conversion manque.
      * À terme, générer les conversions sur les médias-bibliothèque.
+     *
+     * Un SVG est TOUJOURS servi en original : vectoriel, il est net à toute
+     * taille. Quand Imagick est présent (serveurs O2switch, pas le Docker
+     * local), Spatie rastérise le SVG en JPG sur fond blanc, picto 48 px perdu
+     * dans une vignette bien plus grande → icônes microscopiques sur fond blanc
+     * dans le menu (incident du 2026-11-09).
      */
     function pko_media_url(?Media $media, string $conversion = ''): string
     {
@@ -24,7 +30,10 @@ if (! function_exists('pko_media_url')) {
             return '';
         }
 
-        if ($conversion !== '' && $media->hasGeneratedConversion($conversion)) {
+        $isSvg = $media->mime_type === 'image/svg+xml'
+            || strtolower(pathinfo((string) $media->file_name, PATHINFO_EXTENSION)) === 'svg';
+
+        if ($conversion !== '' && ! $isSvg && $media->hasGeneratedConversion($conversion)) {
             return $media->getUrl($conversion);
         }
 

@@ -90,6 +90,21 @@ class CategoryIconsImportTest extends TestCase
         $this->get('/')->assertOk()->assertSee($url, false)->assertSee('group-hover:bg-accent-500', false);
     }
 
+    public function test_svg_is_served_as_original_even_when_a_raster_conversion_exists(): void
+    {
+        $gates = $this->makeRoot('Portails', 'portails-test');
+        $this->artisan('storefront:import-category-icons', ['dir' => $this->dir]);
+
+        // Sur un serveur avec Imagick, Spatie génère des JPG à partir du SVG.
+        $media = $gates->fresh()->getFirstMedia('images');
+        $media->markAsConversionGenerated('small');
+        $media->save();
+
+        $this->assertTrue($media->fresh()->hasGeneratedConversion('small'));
+        $this->assertSame($media->getUrl(), pko_media_url($media->fresh(), 'small'));
+        $this->get('/')->assertOk()->assertSee($media->getUrl(), false)->assertDontSee('portails-small', false);
+    }
+
     private function makeRoot(string $name, string $slug): LunarCollection
     {
         $collection = new LunarCollection([

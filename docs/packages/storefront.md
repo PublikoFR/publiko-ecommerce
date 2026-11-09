@@ -342,9 +342,11 @@ Règles :
   second champ « picto au survol » par catégorie a été écarté (20 fichiers à maintenir pour un
   rendu identique), de même qu'un SVG inline recoloré en CSS (sanitization XSS à porter) et le
   sprite du graphiste versé dans le code (assets client en dur, contraire au §3.0).
-- L'URL de la vignette passe par `pko_media_url($media, 'small')` : un SVG n'a pas de conversion
-  raster, on sert l'original (l'ancien `getFirstMediaUrl('images', 'small')` renvoyait une URL
-  morte pour un SVG). Les médias sont eager-loadés dans le cache du menu
+- L'URL de la vignette passe par `pko_media_url($media, 'small')`, qui sert **toujours l'original
+  d'un SVG**. Piège : sans Imagick (Docker local) aucune conversion n'est générée et tout va bien ;
+  **avec Imagick (O2switch)**, Spatie rastérise le SVG en JPG sur fond blanc, picto 48 px perdu dans
+  une vignette plus grande → icônes microscopiques sur fond blanc (constaté sur dev le
+  2026-11-09, invisible en local). Les médias sont eager-loadés dans le cache du menu
   (`StorefrontServiceProvider::NAV_CACHE_KEY`, v4).
 - **Import** : `make artisan CMD='storefront:import-category-icons <dossier> [--dry-run]'`. Chaque
   fichier est associé à la catégorie **racine** dont le nom contient tous ses mots significatifs
