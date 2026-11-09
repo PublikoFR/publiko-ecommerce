@@ -26,6 +26,7 @@ use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Support\NumberParser;
 use Pko\CatalogFeatures\Facades\Features;
+use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\LunarMediaCore\Services\MediaLibraryImporter;
 use Pko\ProductDocuments\Models\DocumentCategory;
@@ -81,6 +82,11 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `min_quantity`         ProductVariant.min_quantity (défaut 1).
  *  - `supplier`             nom → `Supplier::firstOrCreate` → Product.pko_supplier_id
  *                           (assignation directe : colonne non-fillable).
+ *  - `brand_family_code` / `brand_family_label`  famille fabricant PRIVÉE (famille de
+ *                           remise FAB-DIS : FAM1/FAM1L, GAMME/FONCTION… selon la marque).
+ *                           Code EXACT (trim seul) → `BrandFamily` (brand_id, code) créée
+ *                           au besoin, libellé mis à jour → Product.pko_brand_family_id
+ *                           (assignation directe). Code vide = produit inchangé.
  *
  * Anything the writer doesn't recognise is ignored. NON couverts (pas de colonne
  * cible sans migration) : `supplier_reference`, promos
@@ -130,7 +136,8 @@ final class LunarProductWriter
         'ean', 'mpn', 'stock', 'min_quantity',
         'price_cents', 'compare_price_cents', 'cost_price_cents', 'ecotax_cents',
         'weight_value', 'length_value', 'width_value', 'height_value',
-        'brand_name', 'supplier', 'product_type_handle', 'tax_class_handle',
+        'brand_name', 'supplier', 'brand_family_code', 'brand_family_label',
+        'product_type_handle', 'tax_class_handle',
         'collections', 'tags', 'features', 'images', 'image_alt', 'videos', 'documents',
         'port_mode', 'logistics_class',
     ];
@@ -217,6 +224,9 @@ final class LunarProductWriter
 
     /** @var array<string, int> Cache nom → id des fournisseurs. */
     private array $supplierCache = [];
+
+    /** @var array<string, BrandFamily> Cache « brand_id\0code » → famille fabricant. */
+    private array $brandFamilyCache = [];
 
     /** ID du job courant — 0 = pas de logging granulaire. */
     private int $jobId = 0;
@@ -345,6 +355,7 @@ final class LunarProductWriter
                 'attribute_data' => $this->buildAttributeData($data),
             ]);
             $this->applySupplier($product, $data);
+            $this->applyBrandFamily($record, $product, $data);
 
             $variant = ProductVariant::query()->create([
                 'product_id' => $product->id,
@@ -378,6 +389,7 @@ final class LunarProductWriter
                     'attribute_data' => $this->buildAttributeData($data, $product->attribute_data),
                 ], static fn ($v) => $v !== null));
                 $this->applySupplier($product, $data);
+                $this->applyBrandFamily($record, $product, $data);
                 $this->applyPortMode($product, $data, false);
 
                 $variant->update(array_filter([
@@ -613,6 +625,75 @@ final class LunarProductWriter
             $product->pko_supplier_id = $supplierId;
             $product->save();
         }
+    }
+
+    /**
+     * Rattache le produit à sa famille fabricant PRIVÉE (famille de remise).
+     *
+     * Le code est importé EXACT (trim seul, ni casse ni accents modifiés) : c'est
+     * lui que les remises cibleront. Il n'a de sens que dans la marque du produit,
+     * d'où la résolution sur (brand_id, code). Le libellé, s'il est fourni,
+     * remplace celui en base (le fabricant peut le renommer d'un tarif à l'autre).
+     *
+     * Code vide → famille actuelle conservée (jamais d'effacement sur une cellule
+     * vide). Produit sans marque ou code trop long → warning, rien n'est écrit.
+     * `pko_brand_family_id` n'est pas fillable : assignation directe.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function applyBrandFamily(StagingRecord $record, Product $product, array $data): void
+    {
+        $code = self::scalarTrim($data['brand_family_code'] ?? null);
+        $label = self::scalarTrim($data['brand_family_label'] ?? null);
+
+        if ($code === '') {
+            if ($label !== '') {
+                $this->logWarning($record, 'Famille fabricant ignorée : libellé sans code', ['label' => $label]);
+            }
+
+            return;
+        }
+
+        if ($product->brand_id === null) {
+            $this->logWarning($record, 'Famille fabricant ignorée : produit sans marque', ['code' => $code]);
+
+            return;
+        }
+
+        if (mb_strlen($code) > 100) {
+            $this->logWarning($record, 'Famille fabricant ignorée : code de plus de 100 caractères', ['code' => $code]);
+
+            return;
+        }
+
+        $family = $this->resolveBrandFamily((int) $product->brand_id, $code, $label);
+
+        if ((int) $product->pko_brand_family_id !== $family->id) {
+            $product->pko_brand_family_id = $family->id;
+            $product->save();
+        }
+    }
+
+    private function resolveBrandFamily(int $brandId, string $code, string $label): BrandFamily
+    {
+        $key = $brandId."\0".$code;
+
+        $family = $this->brandFamilyCache[$key] ??= BrandFamily::query()->firstOrCreate(
+            ['brand_id' => $brandId, 'code' => $code],
+            ['label' => $label !== '' ? $label : null],
+        );
+
+        if ($label !== '' && $family->label !== $label) {
+            $family->label = $label;
+            $family->save();
+        }
+
+        return $family;
+    }
+
+    private static function scalarTrim(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
     }
 
     /**
