@@ -91,6 +91,21 @@ au `<select>` natif dès qu'une liste dépasse la vingtaine d'entrées.
 - Premier usage : choix du métier sur le formulaire d'inscription pro (cf.
   `docs/packages/storefront-b2b.md` §15.5).
 
+### Champ mot de passe — œil afficher/masquer (`x-ui.input`)
+
+Le toggle vit **dans le composant** `x-ui.input` et s'active tout seul quand
+`type="password"` : aucune vue appelante n'a à le déclarer (connexion,
+inscription, réinitialisation, profil). Alpine `x-data="{ revealed: false }"` +
+`x-bind:type`, bouton `type="button"` à droite (icônes `eye` / `eye-off`,
+`aria-label` alterné, `aria-pressed`, couleur neutre, focus visible).
+
+- Le `type="password"` reste rendu côté serveur : champ masqué sans JS et après
+  un morphing Livewire (l'état `revealed` peut alors être désynchronisé jusqu'au
+  prochain clic, accepté).
+- Cohabitation avec le slot `trailing` : les deux sont placés côte à côte dans le
+  même conteneur flex, l'input passe de `pr-10` à `pr-20`.
+- Pendant admin : `docs/admin.md` → « Champs mot de passe — œil global ».
+
 ### Menu latéral off-canvas (`x-layout.lateral-menu`)
 
 Composant : `packages/pko/storefront/resources/views/components/layout/lateral-menu.blade.php`  

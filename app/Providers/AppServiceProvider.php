@@ -31,6 +31,7 @@ use App\Observers\ProductAvailabilityObserver;
 use App\Support\DestructiveCommandGuard;
 use App\Support\Payments\ResilientStripeManager;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Forms\Components\TextInput;
 use Filament\Panel;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
@@ -280,6 +281,15 @@ class AppServiceProvider extends ServiceProvider
         // qui casse le parse JS → Alpine/Livewire ne démarrent plus → formulaires en
         // POST natif (ex. admin/login → 405). optOut() coupe l'appel à la source.
         Telemetry::optOut();
+
+        // Œil afficher/masquer sur TOUS les champs mot de passe de l'admin, y
+        // compris ceux déclarés dans vendor/ (Staff, Client → Utilisateur) qu'on ne
+        // peut pas éditer. La closure est obligatoire : configureUsing() s'exécute
+        // à make(), AVANT ->password(), et isPasswordRevealable() lève une
+        // exception si revealable vaut true sur un champ non password.
+        TextInput::configureUsing(static fn (TextInput $component) => $component->revealable(
+            static fn (TextInput $component): bool => $component->isPassword(),
+        ));
 
         // Le manager Stripe de Lunar réutilise l'intent du panier en se fiant au
         // statut stocké en base, jamais rafraîchi sans webhook. Un intent déjà payé
