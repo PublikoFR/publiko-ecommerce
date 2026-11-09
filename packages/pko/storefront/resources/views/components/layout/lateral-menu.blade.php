@@ -203,6 +203,30 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                         Catalogue en cours de chargement…
                     </li>
                 @endforelse
+
+                {{-- « Nos marques » : rangé sous les familles de « Tous nos
+                     produits » (règle client : pas un onglet du menu principal).
+                     Même gabarit qu'une ligne L1 sans enfants, desktop et mobile. --}}
+                @if (\Illuminate\Support\Facades\Route::has('brands.index'))
+                    <li role="none">
+                        <div
+                            class="group flex items-center gap-3 px-3 py-2.5 transition-colors"
+                            @mouseenter="if (window.innerWidth >= 1024) { l1 = null; l2 = null }"
+                        >
+                            <span class="shrink-0 w-10 h-10 rounded-md flex items-center justify-center bg-neutral-100 group-hover:bg-accent-500 transition-colors">
+                                <x-ui.icon name="tag" class="w-4 h-4 text-neutral-500" />
+                            </span>
+                            <a
+                                href="{{ route('brands.index') }}"
+                                class="flex-1 text-sm font-semibold text-neutral-800 hover:text-primary-700 transition py-1"
+                                role="menuitem"
+                                data-lateral-brands-link
+                            >
+                                Nos marques
+                            </a>
+                        </div>
+                    </li>
+                @endif
             </ul>
 
             {{-- Liens du menu principal : sur desktop ils sont dans la barre de

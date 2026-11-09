@@ -57,6 +57,18 @@ Admin : `ManageBrandContent` page Filament, injectée dans `BrandResource` via `
 
 Storefront : route `/marque/{slug}` → `BrandController::show`. Résolution brand : Lunar Url (priorité) puis fallback sur `Str::slug($brand->name) === $slug`. Layout via `brandPage->layout` avec fallback `storefront-cms::brands.show`.
 
+### Liste des marques `/marques`
+
+Route `brands.index` → `BrandController::index`, vue `storefront-cms::brands.index` (grille `brands/partials/grid`). Seul point d'entrée : **« Nos marques » dans le menu latéral** (`lateral-menu.blade.php`, sous les familles de « Tous nos produits », desktop et mobile). Règle client : ce n'est **pas** un onglet du menu principal (`nav.secondary`) et il n'y a pas de bloc marques sur l'accueil.
+
+- **Périmètre** : marques ayant au moins un produit `storefrontSearchable()` (publié + URL par défaut) — même périmètre que la recherche, donc le lien de repli ne mène jamais à une page vide. On n'utilise pas `storefrontVisible()` (rattachement catégorie) pour ne pas cacher une marque dont les produits ne sont pas catégorisés.
+- **Tri** : alphabétique insensible à la casse et aux accents (`Str::ascii`), en PHP — volume de marques faible.
+- **Logo** : premier média de la collection Lunar `images` de la marque via `pko_media_url(…, 'small')` ; sans logo, la tuile affiche le nom.
+- **Lien** : `/marque/{slug}` uniquement si la `BrandPage` a un contenu builder non vide ; sinon `/recherche?b[<id>]=1` (recherche filtrée par marque). Une page marque vide n'affiche qu'un titre, d'où ce repli. Slug : `BrandController::slugFor()` (URL Lunar par défaut, sinon `Str::slug(name)`, même résolution que `show()`).
+- **Index alphabétique** : au-delà de `BrandController::ALPHA_INDEX_THRESHOLD` (30) marques, ancres par lettre (`#marques-A`…, `#marques-autres` pour chiffres/symboles).
+- **SEO** : `<title>` « Nos marques — {brand_name()} », meta description générée avec `brand_name()`.
+- `marques` est déjà dans `PostType::reservedUrlSegments()`, pas de collision avec le catch-all CMS.
+
 
 ## Filtre à facettes réactif (storefront)
 

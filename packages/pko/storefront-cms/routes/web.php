@@ -12,6 +12,9 @@ Route::middleware('web')->group(function (): void {
     // Newsletter (legacy, inchangé)
     Route::post('/newsletter', [NewsletterController::class, 'subscribe'])->name('newsletter.subscribe');
 
+    // Liste publique des marques (entrée « Nos marques » du menu latéral)
+    Route::get('/marques', [BrandController::class, 'index'])->name('brands.index');
+
     // Brand public page (contenu gérable via page-builder)
     Route::get('/marque/{slug}', [BrandController::class, 'show'])->name('brand.view');
 

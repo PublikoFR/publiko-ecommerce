@@ -12,6 +12,65 @@ use Pko\StorefrontCms\Models\BrandPage;
 
 class BrandController
 {
+    /** Au-delà, la page liste affiche un index alphabétique (ancres par lettre). */
+    public const ALPHA_INDEX_THRESHOLD = 30;
+
+    /**
+     * Liste publique des marques ayant au moins un produit publié et
+     * accessible (même périmètre que la recherche : storefrontSearchable).
+     */
+    public function index(): View
+    {
+        $brands = Brand::query()
+            ->whereHas('products', fn ($q) => $q->storefrontSearchable())
+            ->with(['media', 'defaultUrl'])
+            ->get()
+            ->sortBy(fn (Brand $b) => Str::ascii(mb_strtolower((string) $b->name)), SORT_NATURAL)
+            ->values();
+
+        // Une marque dont la page builder est vide n'a rien à montrer sur
+        // /marque/{slug} (titre seul) : on renvoie vers la recherche filtrée.
+        $brandIdsWithPage = BrandPage::query()
+            ->whereIn('brand_id', $brands->pluck('id'))
+            ->get(['brand_id', 'content'])
+            ->filter(fn (BrandPage $p) => ! empty($p->content))
+            ->pluck('brand_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $items = $brands->map(fn (Brand $brand) => [
+            'brand' => $brand,
+            'href' => in_array((int) $brand->id, $brandIdsWithPage, true)
+                ? route('brand.view', self::slugFor($brand))
+                : route('search.view', ['b' => [$brand->id => 1]]),
+            'logo' => pko_media_url($brand->getFirstMedia('images'), 'small'),
+            'letter' => self::letterFor($brand),
+        ]);
+
+        return view('storefront-cms::brands.index', [
+            'items' => $items,
+            'groups' => $items->count() > self::ALPHA_INDEX_THRESHOLD ? $items->groupBy('letter') : null,
+        ]);
+    }
+
+    /**
+     * Slug public d'une marque : URL Lunar par défaut, sinon slug du nom
+     * (même résolution que show()).
+     */
+    public static function slugFor(Brand $brand): string
+    {
+        $slug = $brand->relationLoaded('defaultUrl') ? $brand->defaultUrl?->slug : $brand->defaultUrl()->first()?->slug;
+
+        return $slug ?: Str::slug((string) $brand->name);
+    }
+
+    private static function letterFor(Brand $brand): string
+    {
+        $first = mb_strtoupper(mb_substr(Str::ascii((string) $brand->name), 0, 1));
+
+        return preg_match('/^[A-Z]$/', $first) === 1 ? $first : '#';
+    }
+
     /**
      * Page publique d'une marque avec contenu builder optionnel.
      */
