@@ -156,9 +156,10 @@ correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet 
   l'ordre des zones du dessin ; la numérotation suit cet ordre (pastille et ligne portent toujours
   le même numéro). Réordonner les catégories en admin réordonne donc aussi la liste.
 - **Pastilles = picto de la famille** (1ʳᵉ image de la catégorie, le même que le menu latéral,
-  via `pko_media_url`), dans une tuile blanche qui passe en vert clair quand la famille est
-  sélectionnée ; même picto en tête de ligne dans la liste (plus de numéros). Une catégorie sans
-  image retombe sur son numéro. `lift` (par zone) allonge la tige de la pastille là où des
+  via `pko_media_url`), dans une tuile blanche ; la pastille sélectionnée garde son fond blanc et
+  prend un **contour vert clair** (pas de fond vert). La liste n'affiche que les intitulés : ni
+  numéro ni picto (doublon avec le schéma). Une catégorie sans image retombe sur son numéro dans
+  la pastille. `lift` (par zone) allonge la tige de la pastille là où des
   équipements voisins feraient se chevaucher les tuiles.
 - La famille sélectionnée s'affiche dans une **tuile cliquable en bas à gauche du schéma**
   (picto, nom, description, flèche) qui mène à la catégorie ; plus de bandeau ni de bouton sous
