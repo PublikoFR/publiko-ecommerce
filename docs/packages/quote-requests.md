@@ -145,6 +145,27 @@ restent intacts. Pas de rollback (valeur migrée indiscernable d'une saisie admi
 `contact` et `demande-de-devis` sont ajoutés aux segments réservés des types de
 contenu CMS (`PostType::reservedUrlSegments()`).
 
+## Points d'entrée storefront
+
+Tous générés par `quote_request_url()`, jamais de formulaire dupliqué.
+
+| Où | Quoi | Mode | Contexte |
+|---|---|---|---|
+| Fiche produit (toutes), sous « Ajouter au panier » | bouton secondaire « Demander un conseil ou un devis », visible sans compte | `general` | variante affichée (`product` = id), `ref` = SKU, `from` = chemin de la fiche |
+| Catégories de l'arborescence Pièces détachées (racine + sous-catégories), après la grille | bandeau « Un doute sur la pièce à commander ? » + « Envoyer une photo » | `part_photo` | `collection` = slug courant, `from` = chemin de la catégorie |
+| Fiches des produits rattachés à cette arborescence, après documents/compatibilités et avant « Ça peut aussi vous intéresser » | même bandeau | `part_photo` | variante, SKU, chemin de la fiche |
+
+- Bandeau : composant anonyme `<x-pko-quote-requests::part-help-banner :url="…" />`
+  (`resources/views/components/part-help-banner.blade.php`), bouton `primary`
+  (le lime reste réservé au CTA « Ajouter au panier »).
+- Arborescence : `Pko\StorefrontCms\Support\SparePartsCatalog` (réglage
+  `catalog.spare_parts_collection_id`, défaut slug `pieces-detachees`), cf.
+  [storefront-cms.md](storefront-cms.md).
+- URLs calculées dans `App\Livewire\CollectionPage::getPartHelpUrlProperty()` et
+  `App\Livewire\ProductPage::getQuoteAdviceUrlProperty()` / `getPartHelpUrlProperty()` ;
+  `from` est construit depuis la route (pas `request()->getRequestUri()`, qui vaut
+  `/livewire/update` lors d'un re-rendu Livewire, ex. changement de variante).
+
 ## Installation
 
 Package path-repository : après merge, `make composer CMD='install'` (symlink

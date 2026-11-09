@@ -146,6 +146,15 @@
                         <div class="mt-5">
                             <x-storefront.add-to-cart :product="$this->product" :variant="$this->variant" />
                         </div>
+                        {{-- Action secondaire (le CTA lime reste « Ajouter au panier »),
+                             visible même sans compte : formulaire de devis contextualisé. --}}
+                        @if ($quoteAdviceUrl = $this->quoteAdviceUrl)
+                            <div class="mt-3">
+                                <x-ui.button variant="secondary" :href="$quoteAdviceUrl" icon="messages-square" fullWidth data-testid="quote-advice-button">
+                                    Demander un conseil ou un devis
+                                </x-ui.button>
+                            </div>
+                        @endif
                     </div>
                 </form>
 
@@ -248,6 +257,16 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </section>
+@endif
+
+{{-- Pièce détachée (arborescence réglable en admin) : aide à l'identification
+     par photo, après documents et compatibilités. --}}
+@if ($partHelpUrl = $this->partHelpUrl)
+    <section class="pb-10 md:pb-14">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+            <x-pko-quote-requests::part-help-banner :url="$partHelpUrl" />
         </div>
     </section>
 @endif

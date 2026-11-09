@@ -163,5 +163,11 @@
                 </div>
             </div>
         @endif
+
+        {{-- Arborescence Pièces détachées uniquement (racine réglable en admin) :
+             aide à l'identification par photo, après la grille. --}}
+        @if ($partHelpUrl = $this->partHelpUrl)
+            <x-pko-quote-requests::part-help-banner :url="$partHelpUrl" class="mt-12" />
+        @endif
     </div>
 </section>

@@ -195,3 +195,22 @@ mon espace pro » ; compte en attente → motif `ProAccess::denialReason()`. Lig
 affichée seulement si `home.community_url` est renseignée.
 
 Tests : `tests/Feature/Storefront/HomeRedesignTest.php`.
+
+## Arborescence « Pièces détachées » — `Support\SparePartsCatalog`
+
+Désigne la branche du catalogue traitée comme pièces détachées (bandeau
+d'identification par photo, cf. [quote-requests.md](quote-requests.md#points-dentrée-storefront)).
+
+- **Setting** `catalog.spare_parts_collection_id` (id de la collection racine),
+  éditable dans Storefront → Paramètres → **Catalogue** (sélecteur de toutes les
+  collections, indentées par profondeur).
+- Réglage vide ou collection supprimée → repli sur la collection dont l'URL a le
+  slug `pieces-detachees`. Aucune des deux → aucune arborescence (pas de bandeau).
+- Appartenance : racine + descendants nestedset (même `collection_group_id`,
+  `_lft`/`_rgt` inclus). Un produit en fait partie s'il est rattaché à au moins
+  une collection de la branche (`containsProduct()`).
+- Pourquoi un id plutôt qu'un slug en réglage : un slug renommé en admin
+  casserait silencieusement le bandeau ; l'id survit au renommage. Le slug ne
+  sert que de défaut d'installation.
+- `withDepth()` de nestedset ignore le scope `collection_group_id` (profondeur
+  -1) : la profondeur des options est calculée via `parent_id`.
