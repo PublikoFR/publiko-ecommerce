@@ -1,6 +1,7 @@
 {{-- « À chaque installation, sa solution » (FEAT-009) — schéma + liste synchronisés.
-     Pastilles et lignes portent le picto de la famille (1re image de la catégorie, le
-     même que le menu latéral) ; sans picto, la pastille retombe sur le numéro.
+     Les pastilles portent le picto de la famille (1re image de la catégorie, le même
+     que le menu latéral) ; sans picto, la pastille retombe sur le numéro. La liste
+     n'affiche que les intitulés (le picto y ferait double emploi avec le schéma).
      Desktop : survol/focus d'une ligne ou clic sur une pastille = sélection ; la tuile
      en bas à gauche du schéma présente la famille et mène à sa page.
      Mobile : liste seule (liens directs). --}}
@@ -59,16 +60,13 @@
                             >
                                 <line x1="{{ $item['x'] }}" y1="{{ $item['y'] }}" x2="{{ $item['x'] }}" y2="{{ $item['y'] - $item['lift'] }}" class="stroke-primary-600" stroke-width="1.5" />
                                 <circle cx="{{ $item['x'] }}" cy="{{ $item['y'] }}" r="2.5" class="fill-primary-600 stroke-none" />
-                                <rect
-                                    x="{{ $tx - 5 }}" y="{{ $ty - 5 }}" width="44" height="44" rx="12"
-                                    class="fill-accent-500/30 stroke-none transition-opacity"
-                                    :class="active === @js($item['key']) ? 'opacity-100' : 'opacity-0'"
-                                />
+                                {{-- Sélection : fond blanc conservé, seul le contour passe en vert clair. --}}
                                 <rect
                                     x="{{ $tx }}" y="{{ $ty }}" width="34" height="34" rx="8"
-                                    class="stroke-primary-200 transition-colors group-focus-visible:stroke-primary-600"
+                                    class="fill-white transition-colors group-focus-visible:stroke-primary-600"
+                                    :class="active === @js($item['key']) ? 'stroke-accent-500' : 'stroke-primary-200'"
+                                    :stroke-width="active === @js($item['key']) ? 3 : 1.5"
                                     stroke-width="1.5"
-                                    :class="active === @js($item['key']) ? 'fill-accent-500' : 'fill-white'"
                                 />
                                 @if ($item['icon'] !== '')
                                     <image href="{{ $item['icon'] }}" x="{{ $tx + 5 }}" y="{{ $ty + 5 }}" width="24" height="24" preserveAspectRatio="xMidYMid meet" />
@@ -112,19 +110,9 @@
                                 wire:navigate
                                 @mouseenter="active = @js($item['key'])"
                                 @focus="active = @js($item['key'])"
-                                class="flex items-center gap-3 px-3 py-2 md:py-1.5 rounded-md text-sm transition hover:text-primary-600"
+                                class="flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-md text-sm transition hover:text-primary-600"
                                 :class="active === @js($item['key']) ? 'md:bg-accent-50 md:text-primary-700 md:font-semibold' : 'text-neutral-700'"
                             >
-                                <span
-                                    class="w-9 h-9 rounded-md flex items-center justify-center shrink-0 transition-colors"
-                                    :class="active === @js($item['key']) ? 'md:bg-accent-500' : ''"
-                                >
-                                    @if ($item['icon'] !== '')
-                                        <img src="{{ $item['icon'] }}" alt="" width="28" height="28" class="w-7 h-7 object-contain" loading="lazy">
-                                    @else
-                                        <span class="font-mono text-xs text-neutral-400">{{ $item['number'] }}</span>
-                                    @endif
-                                </span>
                                 <span class="flex-1">{{ $item['label'] }}</span>
                                 <x-ui.icon name="chevron-right" class="w-4 h-4 text-neutral-400 shrink-0" />
                             </a>
