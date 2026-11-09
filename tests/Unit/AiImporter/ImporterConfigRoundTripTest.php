@@ -33,12 +33,18 @@ class ImporterConfigRoundTripTest extends TestCase
             'primary_sheet' => 'B01_COMMERCE',
             'join_key' => 'REFCIALE',
             'sheets' => [
-                'B02_LOGISTIQUE' => ['relation' => 'one', 'join_key' => 'REF', 'type' => 'logistics', 'skip_first_row' => true],
+                'B02_LOGISTIQUE' => ['relation' => 'one', 'join_key' => 'REF', 'type' => 'logistics', 'skip_first_row' => false],
                 'B03_IMAGES' => ['relation' => 'many', 'type' => 'images'],
             ],
         ];
 
         $this->assertSame($config, $this->roundTrip($config));
+
+        // « 1ʳᵉ ligne = en-têtes » est le défaut du parser : un `true` explicite
+        // n'est pas resérialisé (seule l'exception `false` l'est).
+        $explicit = $config;
+        $explicit['sheets']['B03_IMAGES']['skip_first_row'] = true;
+        $this->assertSame($config, $this->roundTrip($explicit));
     }
 
     public function test_ai_block_round_trips_and_is_dropped_when_empty(): void

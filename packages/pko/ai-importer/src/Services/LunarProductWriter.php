@@ -12,6 +12,7 @@ use Lunar\FieldTypes\TranslatedText;
 use Lunar\Models\Brand;
 use Lunar\Models\Currency;
 use Lunar\Models\Language;
+use Lunar\Models\Price;
 use Lunar\Models\Product;
 use Lunar\Models\ProductType;
 use Lunar\Models\ProductVariant;
@@ -68,10 +69,14 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `features`             hash `{family_handle => [value_handle, ...]}` — routed through
  *                           notre package `catalog-features` (Features::syncByHandles), NOT Lunar's
  *                           native Attribute/attribute_data system.
- *  - `images`               array|CSV of remote URLs — downloaded into Spatie MediaLibrary
- *                           collection `config('lunar.media.collection')`. Idempotent via
- *                           `custom_properties.source_url`. First URL flagged `primary=true`
- *                           (becomes thumbnail).
+ *  - `images`               array|CSV|JSON d'URLs distantes → médiathèque (dossier `products`)
+ *                           puis lien `pko_mediables` (groupe `product`). Idempotent : une
+ *                           URL déjà importée (ou le même fichier sous une autre URL, ou
+ *                           déposé à la main) est réutilisée, jamais dupliquée ; une image
+ *                           déjà liée au produit n'est pas liée deux fois.
+ *  - `replace_images`       0/1 (alias PS `delete_existing_images`). 1 = la galerie du
+ *                           produit est REMPLACÉE par les images de la ligne (liens seuls,
+ *                           les fichiers restent en médiathèque). Défaut : ajout.
  *  - `videos`               array|CSV d'URLs OU JSON `[{url,title}]` (format prépa PrestaShop) —
  *                           YouTube/Vimeo/Dailymotion/MP4, routé via `pko/product-videos`
  *                           (addIfNotExists, titre conservé). Idempotent : URL déjà attachée
@@ -83,8 +88,16 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `tags`                 CSV|array → Lunar `syncTags` (valeurs normalisées en MAJUSCULES).
  *  - `mpn`                  ProductVariant.mpn.
  *  - `min_quantity`         ProductVariant.min_quantity (défaut 1).
- *  - `supplier`             nom → `Supplier::firstOrCreate` → Product.pko_supplier_id
- *                           (assignation directe : colonne non-fillable).
+ *  - `supplier`             nom → fournisseur existant (insensible à la casse) ou créé →
+ *                           Product.pko_supplier_id (assignation directe : non-fillable).
+ *  - `port_mode`            inherit|standard|flat|free|quote → Product.pko_port_mode.
+ *                           Vide = inchangé ; valeur inconnue = ignorée + warning.
+ *  - `logistics_class`      ancien code A/B/C → standard/inherit/quote (si `port_mode` absent).
+ *  - `transport_price_cents` int cents HT, forfait transport du produit (alias PS
+ *                           `additional_shipping_cost` en euros) → Product.pko_transport_price_cents.
+ *                           > 0 : REMPLACE le forfait existant et passe le produit en port
+ *                           `flat` (sauf `port_mode` explicite). 0 ou vide : IGNORÉ, le
+ *                           réglage en place est conservé. Jamais de second tarif créé.
  *  - `brand_family_code` / `brand_family_label`  famille fabricant PRIVÉE (famille de
  *                           remise FAB-DIS : FAM1/FAM1L, GAMME/FONCTION… selon la marque).
  *                           Code EXACT (trim seul) → `BrandFamily` (brand_id, code) créée
@@ -110,6 +123,14 @@ use Pko\ShippingCommon\Models\Supplier;
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
  *   - `wholesale_price` (euros, float) → `cost_price_cents` (int, ×100 rounded).
  *   - `ecotax` (euros, float) → `ecotax_cents` (int, ×100 rounded).
+ *   - `additional_shipping_cost` (euros, float) → `transport_price_cents`.
+ *   - `delete_existing_images` → `replace_images`.
+ *
+ * Prix de base (devise par défaut, sans groupe client, palier 1) : UNE seule
+ * ligne `lunar_prices` par variante. L'import met à jour la ligne existante ;
+ * des doublons ou une ligne « fantôme » (morph FQCN) sont fusionnés, jamais
+ * complétés par un tarif supplémentaire. Les prix par groupe client et par
+ * palier de quantité ne sont pas touchés.
  *
  * Éco-participation (modèle « dont », cf. docs/ecotax.md) : PrestaShop fournit
  * `price_tex` HORS éco-taxe. Quand le prix vient de l'alias `price_tex`, on
@@ -153,7 +174,7 @@ final class LunarProductWriter
         'brand_name', 'supplier', 'brand_family_code', 'brand_family_label',
         'product_type_handle', 'tax_class_handle',
         'collections', 'tags', 'features', 'images', 'image_alt', 'videos', 'documents',
-        'port_mode', 'logistics_class',
+        'port_mode', 'logistics_class', 'transport_price_cents', 'replace_images',
     ];
 
     /**
@@ -174,6 +195,7 @@ final class LunarProductWriter
         'category' => 'collections',
         'image' => 'images',
         'attachments' => 'documents',
+        'delete_existing_images' => 'replace_images',
     ];
 
     /**
@@ -185,6 +207,7 @@ final class LunarProductWriter
         'price_tex' => 'price_cents',
         'wholesale_price' => 'cost_price_cents',
         'ecotax' => 'ecotax_cents',
+        'additional_shipping_cost' => 'transport_price_cents',
     ];
 
     /**
@@ -196,6 +219,7 @@ final class LunarProductWriter
         'compare_price_cents' => 'int',
         'cost_price_cents' => 'int',
         'ecotax_cents' => 'int',
+        'transport_price_cents' => 'int',
         'stock' => 'int',
         'min_quantity' => 'int',
         'weight_value' => 'float',
@@ -208,6 +232,12 @@ final class LunarProductWriter
      * Clés qui identifient un produit : lues avant `columns_to_import`.
      */
     private const IDENTITY_KEYS = ['sku', 'reference', 'brand_name', 'mpn', 'ean'];
+
+    /** Modes de facturation du port acceptés (`lunar_products.pko_port_mode`). */
+    private const PORT_MODES = ['inherit', 'standard', 'flat', 'free', 'quote'];
+
+    /** Ancienne classe logistique A/B/C → mode de port. */
+    private const LOGISTICS_CLASS_MODES = ['A' => 'standard', 'B' => 'inherit', 'C' => 'quote'];
 
     /** @var array<string, Brand> Cache nom → marque (lookup ou création). */
     private array $brandCache = [];
@@ -249,6 +279,9 @@ final class LunarProductWriter
 
     /** @var array<string, BrandFamily> Cache « brand_id\0code » → famille fabricant. */
     private array $brandFamilyCache = [];
+
+    /** Une instance par import : son mémo évite de retélécharger une URL déjà traitée. */
+    private ?MediaLibraryImporter $mediaImporter = null;
 
     /** ID du job courant — 0 = pas de logging granulaire. */
     private int $jobId = 0;
@@ -310,10 +343,29 @@ final class LunarProductWriter
         $this->currentRowNumber = $record->row_number ?? 0;
 
         try {
-            $this->doWrite($record);
+            // Une ligne = une transaction : un échec en cours d'écriture (SKU en
+            // doublon, valeur trop longue…) ne laisse ni produit sans variante ni
+            // produit à moitié mis à jour. Les fichiers médias déjà téléchargés
+            // restent en médiathèque (réutilisés au prochain passage).
+            DB::transaction(fn () => $this->doWrite($record));
+        } catch (\Throwable $e) {
+            // Les caches peuvent référencer des entités créées puis annulées par le
+            // rollback (marque, fournisseur, famille…) : on les oublie.
+            $this->forgetCreatedEntities();
+
+            throw $e;
         } finally {
             $this->flushPendingLogs();
         }
+    }
+
+    private function forgetCreatedEntities(): void
+    {
+        $this->brandCache = [];
+        $this->supplierCache = [];
+        $this->brandFamilyCache = [];
+        $this->documentCategoryCache = [];
+        $this->mediaImporter = null;
     }
 
     private function doWrite(StagingRecord $record): void
@@ -330,6 +382,15 @@ final class LunarProductWriter
         $identity = array_intersect_key($data, array_flip(self::IDENTITY_KEYS));
         $data = $this->filterImportColumns($data);
         $this->logNumericWarnings($record, $numericWarnings);
+
+        // Modèle « dont » : l'éco-participation est une part du prix, jamais plus.
+        if (isset($data['price_cents'], $data['ecotax_cents']) && $data['ecotax_cents'] > $data['price_cents']) {
+            $this->logWarning($record, 'Éco-participation supérieure au prix : éco-participation ignorée.', [
+                'price_cents' => $data['price_cents'],
+                'ecotax_cents' => $data['ecotax_cents'],
+            ]);
+            unset($data['ecotax_cents']);
+        }
 
         $forcedSku = self::scalarTrim($identity['sku'] ?? null);
         $reference = self::scalarTrim($identity['reference'] ?? null);
@@ -423,7 +484,7 @@ final class LunarProductWriter
             $this->applyPrice($variant, $data);
             $this->applyCostPrice($variant, $data);
             $this->applyEcotax($variant, $data);
-            $this->applyPortMode($product, $data, true);
+            $this->applyShipping($record, $product, $data, true);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
         } else {
@@ -438,7 +499,7 @@ final class LunarProductWriter
                 ], static fn ($v) => $v !== null));
                 $this->applySupplier($product, $data);
                 $this->applyBrandFamily($record, $product, $data);
-                $this->applyPortMode($product, $data, false);
+                $this->applyShipping($record, $product, $data, false);
 
                 $variant->update(array_filter([
                     'ean' => $data['ean'] ?? null,
@@ -491,6 +552,15 @@ final class LunarProductWriter
         }
 
         $essential = ['reference', 'name', $this->joinColumn];
+        // Le prix importé INCLUT l'éco-participation (modèle « dont ») : écrire l'un
+        // sans l'autre laisserait un prix majoré sans sa mention « dont éco ».
+        if (in_array('price_cents', $this->columnsToImport, true)) {
+            $essential[] = 'ecotax_cents';
+        }
+        // Le forfait transport n'a de sens qu'avec son mode de port.
+        if (in_array('transport_price_cents', $this->columnsToImport, true)) {
+            $essential[] = 'port_mode';
+        }
         $keep = array_flip(array_unique([...$this->columnsToImport, ...$essential]));
 
         return array_intersect_key($data, $keep);
@@ -690,7 +760,12 @@ final class LunarProductWriter
         }
 
         if (! empty($data['images'])) {
-            $this->syncProductImages($product, $data['images'], isset($data['image_alt']) ? (string) $data['image_alt'] : null);
+            $this->syncProductImages(
+                $product,
+                $data['images'],
+                isset($data['image_alt']) ? (string) $data['image_alt'] : null,
+                self::truthy($data['replace_images'] ?? null),
+            );
         }
 
         if (! empty($data['videos'])) {
@@ -705,25 +780,31 @@ final class LunarProductWriter
     }
 
     /**
-     * Importe les images dans la médiathèque custom (dossier `products`,
-     * dédup source_url + sha1) puis les lie au produit via `pko_mediables`
-     * (média-core, groupe `product` — celui que lit l'éditeur produit unifié
-     * ET le storefront). Remplace l'écriture Spatie native (invisible en admin).
+     * Importe les images dans la médiathèque custom (dossier `products`) puis les
+     * lie au produit via `pko_mediables` (média-core, groupe `product` — celui que
+     * lisent l'éditeur produit unifié ET le storefront).
+     *
+     * Anti-doublon à trois niveaux : URL répétée dans la ligne (dédupliquée ici),
+     * fichier déjà en médiathèque ({@see MediaLibraryImporter} : URL, alias, sha1),
+     * média déjà lié au produit ({@see linkMediaToEntity()}).
+     *
+     * `$replace` : la galerie du produit devient exactement la liste importée
+     * (jamais vidée si aucune image n'a pu être importée).
      */
-    private function syncProductImages(Product $product, mixed $raw, ?string $alt = null): void
+    private function syncProductImages(Product $product, mixed $raw, ?string $alt = null, bool $replace = false): void
     {
-        $urls = $this->normaliseUrlList($raw);
+        $urls = $this->uniqueUrls($this->normaliseUrlList($raw));
         if ($urls === []) {
             return;
         }
 
         $alt = $alt !== null ? trim($alt) : '';
-        $importer = app(MediaLibraryImporter::class);
+        $importer = $this->mediaImporter();
         $mediaIds = [];
         foreach ($urls as $url) {
             $media = $importer->importFromUrl($url, 'products');
             if ($media === null) {
-                $this->addLog(LogLevel::Warning, "Image non importée: {$url}");
+                $this->addLog(LogLevel::Warning, 'Image non importée ('.($importer->lastError() ?? 'erreur inconnue')."): {$url}");
 
                 continue;
             }
@@ -737,9 +818,53 @@ final class LunarProductWriter
             $this->addLog(LogLevel::Debug, "Image bibliothèque #{$media->id}: {$url}");
         }
 
-        if ($mediaIds !== []) {
+        $mediaIds = array_values(array_unique($mediaIds));
+        if ($mediaIds === []) {
+            return;
+        }
+
+        if ($replace) {
+            $this->replaceEntityMedia($product, $mediaIds, 'product');
+        } else {
             $this->linkMediaToEntity($product, $mediaIds, 'product');
         }
+    }
+
+    private function mediaImporter(): MediaLibraryImporter
+    {
+        return $this->mediaImporter ??= app(MediaLibraryImporter::class);
+    }
+
+    /**
+     * Retire les URLs désignant le même fichier (variante http/https, casse du
+     * domaine, ancre), en gardant la première occurrence.
+     *
+     * @param  array<int, string>  $urls
+     * @return array<int, string>
+     */
+    private function uniqueUrls(array $urls): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($urls as $url) {
+            $key = MediaLibraryImporter::urlKey($url);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $url;
+        }
+
+        return $out;
+    }
+
+    private static function truthy(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return in_array(mb_strtolower(self::scalarTrim($value)), ['1', 'true', 'oui', 'yes', 'y', 'o'], true);
     }
 
     /**
@@ -826,68 +951,107 @@ final class LunarProductWriter
     }
 
     /**
-     * Pose `pko_port_mode` selon la source.
+     * Règles de frais de port du produit : `pko_port_mode` + forfait
+     * `pko_transport_price_cents`. Un produit n'a qu'UN mode et UN forfait :
+     * l'import REMPLACE la valeur en place quand la source en fournit une, et
+     * n'y TOUCHE PAS quand la source est vide (jamais de second réglage créé).
      *
-     * Mapping depuis l'ancienne logistique A/B/C ou un mode direct :
-     *   - port_mode = 'quote' ou ancien code 'C'          → 'quote'
-     *   - port_mode = 'free'                              → 'free'
-     *   - port_mode = 'flat'                              → 'flat'
-     *   - port_mode = 'standard' ou ancien code 'A'       → 'standard'
-     *   - port_mode = 'inherit' ou ancien code 'B' ou absent (création avec supplier) → 'inherit'
-     *   - absent à la création sans supplier               → 'standard'
+     * Mode demandé par la source, par priorité :
+     *   1. `port_mode` valide (inherit / standard / flat / free / quote) ;
+     *   2. sinon `logistics_class` A / B / C → standard / inherit / quote ;
+     *   3. sinon `transport_price_cents` > 0 → `flat` (un forfait n'agit que dans ce mode) ;
+     *   4. sinon : produit existant inchangé ; création → `inherit` si le produit
+     *      a un fournisseur, `standard` sinon.
+     * Valeur inconnue → ignorée + warning (le réglage en place est conservé).
      *
-     * À la mise à jour : no-op si la clé est absente (pour ne pas écraser une valeur
-     * saisie manuellement).
+     * Forfait : > 0 remplace le forfait existant ; 0 ou vide = ignoré. Un mode
+     * explicitement non forfaitaire efface le forfait (même règle que l'éditeur
+     * produit), un forfait fourni avec un tel mode est ignoré + warning.
      *
      * @param  array<string, mixed>  $data
      */
-    private function applyPortMode(Product $product, array $data, bool $isCreate): void
+    private function applyShipping(StagingRecord $record, Product $product, array $data, bool $isCreate): void
     {
-        $hasPortMode = array_key_exists('port_mode', $data);
-        $hasLogisticsClass = array_key_exists('logistics_class', $data);
+        $mode = null;
+        $rawMode = self::scalarTrim($data['port_mode'] ?? null);
+        $rawClass = self::scalarTrim($data['logistics_class'] ?? null);
 
-        if (! $isCreate && ! $hasPortMode && ! $hasLogisticsClass) {
-            return;
+        if ($rawMode !== '') {
+            $candidate = mb_strtolower($rawMode);
+            if (in_array($candidate, self::PORT_MODES, true)) {
+                $mode = $candidate;
+            } else {
+                $this->logWarning($record, "Facturation du port « {$rawMode} » inconnue, valeur ignorée (attendu : ".implode(', ', self::PORT_MODES).').', ['port_mode' => $rawMode]);
+            }
+        } elseif ($rawClass !== '') {
+            $mode = self::LOGISTICS_CLASS_MODES[mb_strtoupper($rawClass)] ?? null;
+            if ($mode === null) {
+                $this->logWarning($record, "Classe logistique « {$rawClass} » inconnue, valeur ignorée (attendu : A, B ou C).", ['logistics_class' => $rawClass]);
+            }
         }
 
-        if ($hasPortMode) {
-            $raw = strtolower(trim((string) $data['port_mode']));
-            $mode = in_array($raw, ['inherit', 'standard', 'flat', 'free', 'quote'], true) ? $raw : 'standard';
-        } elseif ($hasLogisticsClass) {
-            $raw = strtoupper(trim((string) $data['logistics_class']));
-            $mode = match ($raw) {
-                'C' => 'quote',
-                'A' => 'standard',
-                default => 'inherit',
-            };
-        } else {
-            // Création sans clé fournie : 'inherit' si fournisseur connu, sinon 'standard'.
-            $mode = ($product->pko_supplier_id !== null) ? 'inherit' : 'standard';
+        $flat = $data['transport_price_cents'] ?? null;
+        $flat = is_int($flat) && $flat > 0 ? $flat : null;
+
+        if ($mode === null && $flat !== null) {
+            $mode = 'flat';
+        }
+        if ($mode === null && $isCreate) {
+            $mode = $product->pko_supplier_id !== null ? 'inherit' : 'standard';
         }
 
-        if ($product->pko_port_mode !== $mode) {
+        $dirty = false;
+        if ($mode !== null && $product->pko_port_mode !== $mode) {
             $product->pko_port_mode = $mode;
+            $dirty = true;
+        }
+
+        $current = $product->pko_transport_price_cents !== null ? (int) $product->pko_transport_price_cents : null;
+
+        if (($mode ?? $product->pko_port_mode) === 'flat') {
+            if ($flat !== null && $current !== $flat) {
+                $product->pko_transport_price_cents = $flat;
+                $dirty = true;
+            } elseif ($flat === null && $current === null && $mode === 'flat') {
+                $this->logWarning($record, 'Port forfaitaire sans montant : renseigner le forfait transport du produit.', []);
+            }
+        } elseif ($mode !== null) {
+            if ($flat !== null) {
+                $this->logWarning($record, "Forfait transport ignoré : la facturation du port demandée est « {$mode} ».", ['transport_price_cents' => $flat]);
+            }
+            if ($current !== null) {
+                $product->pko_transport_price_cents = null;
+                $dirty = true;
+            }
+        }
+
+        if ($dirty) {
             $product->save();
         }
     }
 
     /**
-     * Résout (ou crée) un fournisseur par son nom → `pko_supplier_id`. Cache par
-     * instance. Retourne null si absent ou si le package fournisseur n'existe pas.
+     * Résout (ou crée) un fournisseur par son nom → `pko_supplier_id`. Le
+     * fournisseur porte la règle de port héritée par ses produits
+     * (`port_inclus`) : on rapproche donc l'existant sans tenir compte de la
+     * casse ni des espaces multiples, pour ne jamais créer un second
+     * fournisseur « SOMFY » / « Somfy » sans règle. Cache par instance.
      */
     private function resolveSupplierId(array $data): ?int
     {
-        $name = trim((string) ($data['supplier'] ?? ''));
+        $name = (string) preg_replace('/\s+/u', ' ', self::scalarTrim($data['supplier'] ?? null));
         if ($name === '' || ! class_exists(Supplier::class)) {
             return null;
         }
-        if (isset($this->supplierCache[$name])) {
-            return $this->supplierCache[$name];
+        $key = mb_strtolower($name);
+        if (isset($this->supplierCache[$key])) {
+            return $this->supplierCache[$key];
         }
 
-        $supplier = Supplier::query()->firstOrCreate(['name' => $name]);
+        $supplier = Supplier::query()->whereRaw('LOWER(name) = ?', [$key])->orderBy('id')->first()
+            ?? Supplier::query()->create(['name' => $name]);
 
-        return $this->supplierCache[$name] = (int) $supplier->id;
+        return $this->supplierCache[$key] = (int) $supplier->id;
     }
 
     /**
@@ -914,6 +1078,9 @@ final class LunarProductWriter
      * Importe les documents (notices, brochures) dans la médiathèque (dossier
      * `documents`, PDF) puis crée les liens `pko_product_documents` avec la
      * catégorie déduite du type (NOTICE/BROCH → DocumentCategory).
+     *
+     * Idempotent : un document déjà en médiathèque est réutilisé, un document
+     * déjà lié au produit n'est ni dupliqué ni réordonné.
      */
     private function syncProductDocuments(Product $product, mixed $raw): void
     {
@@ -922,26 +1089,32 @@ final class LunarProductWriter
             return;
         }
 
-        $importer = app(MediaLibraryImporter::class);
+        $importer = $this->mediaImporter();
         $manager = app(ProductDocumentManager::class);
-        $position = 0;
+        $seen = [];
         foreach ($items as $item) {
             $url = trim((string) ($item['url'] ?? ''));
             if ($url === '') {
                 continue;
             }
+            $key = MediaLibraryImporter::urlKey($url);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
             $name = trim((string) ($item['name'] ?? ''));
             $type = trim((string) ($item['type'] ?? ''));
 
             $media = $importer->importFromUrl($url, 'documents', $name !== '' ? $name : null, MediaLibraryImporter::DOCUMENT_EXTENSIONS);
             if ($media === null) {
-                $this->addLog(LogLevel::Warning, "Document non importé: {$url}");
+                $this->addLog(LogLevel::Warning, 'Document non importé ('.($importer->lastError() ?? 'erreur inconnue')."): {$url}");
 
                 continue;
             }
 
-            $manager->attach($product, (int) $media->id, $this->resolveDocumentCategoryId($type), $position++);
-            $this->addLog(LogLevel::Debug, "Document #{$media->id} ({$type}): {$url}");
+            $created = $manager->attachIfMissing($product, (int) $media->id, $this->resolveDocumentCategoryId($type));
+            $this->addLog(LogLevel::Debug, "Document #{$media->id} ({$type})".($created ? '' : ' déjà lié').": {$url}");
         }
     }
 
@@ -1045,6 +1218,47 @@ final class LunarProductWriter
                 'updated_at' => $now,
             ]);
             $existing[] = $mediaId;
+        }
+    }
+
+    /**
+     * Remplace les médias d'un groupe par la liste fournie, dans l'ordre : les
+     * liens absents de la liste sont retirés (les fichiers restent en
+     * médiathèque), les autres créés ou repositionnés.
+     *
+     * @param  array<int, int>  $mediaIds
+     */
+    private function replaceEntityMedia(Product $product, array $mediaIds, string $group): void
+    {
+        $type = $product::class;
+        $base = DB::table('pko_mediables')
+            ->where('mediable_type', $type)
+            ->where('mediable_id', $product->id)
+            ->where('mediagroup', $group);
+
+        $removed = (clone $base)->whereNotIn('media_id', $mediaIds)->delete();
+        if ($removed > 0) {
+            $this->addLog(LogLevel::Info, "{$removed} image(s) existante(s) retirée(s) de la galerie (remplacement demandé)");
+        }
+
+        $existing = (clone $base)->pluck('media_id')->map(fn ($v): int => (int) $v)->all();
+        $now = now();
+
+        foreach ($mediaIds as $index => $mediaId) {
+            if (in_array($mediaId, $existing, true)) {
+                (clone $base)->where('media_id', $mediaId)->update(['position' => $index + 1, 'updated_at' => $now]);
+
+                continue;
+            }
+            DB::table('pko_mediables')->insertOrIgnore([
+                'media_id' => $mediaId,
+                'mediable_type' => $type,
+                'mediable_id' => $product->id,
+                'mediagroup' => $group,
+                'position' => $index + 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
     }
 
@@ -1419,26 +1633,66 @@ final class LunarProductWriter
     }
 
     /**
+     * Écrit LE prix de base de la variante : devise par défaut, sans groupe
+     * client, palier de quantité 1. Il n'en existe qu'un : la ligne en place est
+     * mise à jour, jamais doublée.
+     *
+     * Robustesse sur l'existant — sont reconnues comme prix de base, puis
+     * fusionnées en une seule ligne :
+     *  - une ligne au palier 0 ou 1 (anciennes données) ;
+     *  - une ligne « fantôme » dont `priceable_type` est le FQCN au lieu de
+     *    l'alias morph de Lunar (invisible de l'admin et du storefront) ;
+     *  - des doublons stricts (seeders rejoués, anciens imports).
+     * Sans cela, `updateOrCreate` mettait à jour une des lignes et laissait
+     * l'ancien tarif à côté, ou créait un tarif supplémentaire.
+     *
+     * Les prix par groupe client et par palier > 1 ne sont jamais touchés.
+     *
      * `$writeCompare` = false : le prix barré existant est conservé (colonne
      * absente ou vide dans la source → rien n'est écrit, cf. NumberParser).
      */
     private function upsertPrice(ProductVariant $variant, int $priceCents, ?int $comparePriceCents, bool $writeCompare = true): void
     {
-        // Passer par la relation morphMany : elle pose le `priceable_type` avec
-        // l'ALIAS morph de Lunar (`product_variant`), pas le FQCN. Sinon la
-        // relation `$variant->prices` (qui filtre par alias) ne retrouve jamais
-        // le prix → prix « fantôme » invisible dans l'admin et le storefront.
-        $variant->prices()->updateOrCreate(
-            [
+        $morph = $variant->getMorphClass();
+
+        $rows = Price::query()
+            ->whereIn('priceable_type', array_values(array_unique([$morph, ProductVariant::class, $variant::class])))
+            ->where('priceable_id', $variant->id)
+            ->where('currency_id', $this->defaultCurrencyId())
+            ->whereNull('customer_group_id')
+            ->where('min_quantity', '<=', 1)
+            ->orderBy('id')
+            ->get()
+            // La ligne correctement aliasée d'abord : c'est elle que l'app lit.
+            ->sortBy(fn (Price $price): int => $price->getRawOriginal('priceable_type') === $morph ? 0 : 1)
+            ->values();
+
+        $values = array_filter([
+            'price' => $priceCents,
+            'compare_price' => $comparePriceCents,
+        ], static fn (string $column): bool => $column === 'price' || $writeCompare, ARRAY_FILTER_USE_KEY);
+
+        /** @var Price|null $keep */
+        $keep = $rows->shift();
+
+        if ($keep === null) {
+            // Via la relation morphMany : elle pose l'ALIAS morph (`product_variant`).
+            $variant->prices()->create([
                 'currency_id' => $this->defaultCurrencyId(),
                 'customer_group_id' => null,
                 'min_quantity' => 1,
-            ],
-            array_filter([
-                'price' => $priceCents,
-                'compare_price' => $comparePriceCents,
-            ], static fn (string $column): bool => $column === 'price' || $writeCompare, ARRAY_FILTER_USE_KEY),
-        );
+                ...$values,
+            ]);
+
+            return;
+        }
+
+        $keep->update([...$values, 'priceable_type' => $morph, 'min_quantity' => 1]);
+
+        if ($rows->isNotEmpty()) {
+            Price::query()->whereKey($rows->modelKeys())->delete();
+            $this->addLog(LogLevel::Warning, $rows->count().' tarif(s) de base en doublon supprimé(s) — un seul prix de base conservé.');
+        }
     }
 
     /**

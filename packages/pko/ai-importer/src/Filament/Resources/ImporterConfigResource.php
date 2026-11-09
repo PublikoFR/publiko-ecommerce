@@ -417,7 +417,14 @@ class ImporterConfigResource extends BaseResource
         // sheets{} → sheets_repeater[]
         $sheetsRepeater = [];
         foreach ((array) ($config['sheets'] ?? []) as $name => $cfg) {
-            $sheetsRepeater[] = array_merge(['name' => $name], (array) $cfg);
+            $cfg = (array) $cfg;
+            // Clé absente = « 1ʳᵉ ligne = en-têtes » (défaut du parser). Sans cette
+            // valeur explicite, le Toggle s'hydratait à false et CHAQUE sauvegarde
+            // de l'éditeur visuel écrivait `skip_first_row: false` : la ligne
+            // d'en-têtes était alors importée comme un produit et toute colonne
+            // désignée par son intitulé (REFCIALE, MTYP…) devenait introuvable.
+            $cfg['skip_first_row'] = (bool) ($cfg['skip_first_row'] ?? true);
+            $sheetsRepeater[] = array_merge(['name' => $name], $cfg);
         }
         $config['sheets_repeater'] = $sheetsRepeater;
 
@@ -458,6 +465,11 @@ class ImporterConfigResource extends BaseResource
                     continue;
                 }
                 unset($item['name']);
+                // « 1ʳᵉ ligne = en-têtes » est le défaut du parser : on ne
+                // sérialise que l'exception (false).
+                if (($item['skip_first_row'] ?? true) !== false) {
+                    unset($item['skip_first_row']);
+                }
                 $sheets[$name] = array_filter($item, static fn ($v) => $v !== null && $v !== '');
             }
             unset($config['sheets_repeater']);

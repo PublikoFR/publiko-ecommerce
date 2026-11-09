@@ -22,16 +22,33 @@ final class ProductVideoManager
         private readonly OembedClient $oembed,
     ) {}
 
+    /**
+     * Une vidéo est déjà attachée si son URL exacte l'est, OU si la même vidéo
+     * l'est sous une autre forme d'URL (`youtu.be/ID`, `watch?v=ID`,
+     * `embed/ID`, paramètres `&t=`…) : le rapprochement se fait alors sur le
+     * couple fournisseur + identifiant de vidéo.
+     */
     public function exists(Product $product, string $url): bool
     {
+        $url = trim($url);
+        $info = $this->resolver->tryResolve($url);
+
         return ProductVideo::query()
             ->where('product_id', $product->id)
-            ->where('url', trim($url))
+            ->where(function ($q) use ($url, $info): void {
+                $q->where('url', $url);
+                if ($info !== null && filled($info->videoId)) {
+                    $q->orWhere(fn ($same) => $same
+                        ->where('provider', $info->provider)
+                        ->where('provider_video_id', $info->videoId));
+                }
+            })
             ->exists();
     }
 
     /**
-     * Insert a video if the URL is not already attached to the product.
+     * Insert a video if it is not already attached to the product (same URL or
+     * same provider video under another URL form).
      * Returns null if the video already exists, the new ProductVideo otherwise.
      *
      * @throws UnsupportedVideoUrlException when the URL is not recognized

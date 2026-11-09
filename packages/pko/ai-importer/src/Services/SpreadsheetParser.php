@@ -129,6 +129,32 @@ final class SpreadsheetParser
         return (string) $name;
     }
 
+    public function hasSheet(string $sheetName): bool
+    {
+        return $this->spreadsheet()->getSheetByName($sheetName) !== null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function sheetNames(): array
+    {
+        return $this->streamingPath !== null
+            ? array_keys($this->streamingLastRows)
+            : $this->spreadsheet()->getSheetNames();
+    }
+
+    /**
+     * Intitulés de la ligne d'en-têtes d'une feuille (lettres de colonne si la
+     * feuille n'a pas d'en-têtes ou si la cellule est vide).
+     *
+     * @return array<int, string>
+     */
+    public function headerNames(string $sheetName): array
+    {
+        return array_values($this->readHeaders($this->getSheet($sheetName)));
+    }
+
     public function countRows(string $sheetName): int
     {
         $hasHeader = (bool) (($this->config['sheets'][$sheetName]['skip_first_row'] ?? true));

@@ -336,4 +336,109 @@ class ParseFileToStagingJobTest extends TestCase
         $this->assertSame(3, $job->stagingRecords()->count());
         $this->assertSame(3, $job->total_rows);
     }
+
+    public function test_static_columns_are_kept_when_columns_are_restricted(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('ai-importer/inputs/static.csv', "reference,name,price\nSKU-1,Moteur,19900\n");
+
+        $config = ImporterConfig::create([
+            'name' => 'test-static',
+            'config_data' => [
+                'primary_sheet' => 'Worksheet',
+                'mapping' => [
+                    'reference' => ['col' => 'reference'],
+                    'name' => ['col' => 'name'],
+                    'price_cents' => ['col' => 'price'],
+                    // Colonnes statiques : absentes de la grille « colonnes à calculer ».
+                    'supplier' => ['default' => 'SOMFY'],
+                    'additional_shipping_cost' => ['default' => '0'],
+                ],
+            ],
+        ]);
+
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/static.csv',
+            'status' => JobStatus::Pending,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+            'options' => ['columns_to_process' => ['reference', 'name']],
+        ]);
+
+        (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
+
+        $data = (array) $job->stagingRecords()->firstOrFail()->data;
+        $this->assertSame('SKU-1', $data['reference']);
+        $this->assertSame('SOMFY', $data['supplier']);
+        $this->assertSame('0', $data['additional_shipping_cost']);
+        $this->assertArrayNotHasKey('price_cents', $data, 'colonne décochée : non calculée');
+    }
+
+    public function test_missing_sheet_stops_the_parse_with_a_clear_message(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('ai-importer/inputs/nosheet.csv', "reference,name\nSKU-1,Moteur\n");
+
+        $config = ImporterConfig::create([
+            'name' => 'test-nosheet',
+            'config_data' => [
+                'primary_sheet' => 'Worksheet',
+                'join_key' => 'reference',
+                'sheets' => ['B03_MEDIA' => ['relation' => 'many', 'join_col' => 'B']],
+                'mapping' => ['reference' => ['col' => 'reference']],
+            ],
+        ]);
+
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/nosheet.csv',
+            'status' => JobStatus::Pending,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+        ]);
+
+        try {
+            (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
+            $this->fail('La préparation aurait dû s\'arrêter.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('B03_MEDIA', $e->getMessage());
+        }
+
+        $job->refresh();
+        $this->assertSame(JobStatus::Error, $job->status);
+        $this->assertSame(0, $job->stagingRecords()->count());
+    }
+
+    public function test_named_column_missing_from_headers_is_reported_in_the_console(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('ai-importer/inputs/nocol.csv', "reference,name\nSKU-1,Moteur\n");
+
+        $config = ImporterConfig::create([
+            'name' => 'test-nocol',
+            'config_data' => [
+                'primary_sheet' => 'Worksheet',
+                'mapping' => [
+                    'reference' => ['col' => 'reference'],
+                    'ean' => ['col' => 'GTIN'],
+                ],
+            ],
+        ]);
+
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/nocol.csv',
+            'status' => JobStatus::Pending,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+        ]);
+
+        (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
+
+        $this->assertSame(JobStatus::Parsed, $job->refresh()->status);
+        $this->assertTrue(
+            ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%GTIN%')->exists(),
+        );
+    }
 }

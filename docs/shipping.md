@@ -656,7 +656,7 @@ Priorité de conversion : `quote_only=true` OU `logistics_class='C'` → `quote`
 - `MarkQuoteOrderAwaitingQuote` — `WHERE pko_port_mode = 'quote'` (était `pko_quote_only = true`).
 - `CheckoutPage::getIsQuoteOnlyCartProperty()` — idem.
 - `product-page.blade.php` — badge livraison offerte sur `pko_port_mode = 'free'`.
-- `LunarProductWriter::applyPortMode()` — mapping `logistics_class` A/B/C → `standard`/`inherit`/`quote`.
+- `LunarProductWriter::applyShipping()` (ex-`applyPortMode()`) — mode de port et forfait à l'import : une valeur fournie remplace celle en place, une valeur vide n'y touche pas. Détail dans [packages/ai-importer.md](packages/ai-importer.md) §7.quinquies.18.2.
 - `ShippingCalculator` (L4) — partitionne les lignes par `pko_port_mode` résolu : standard / flat / free / quote. Les lignes flat excluent leur poids du poids taxable (seules les lignes standard alimentent la grille), mais ajoutent `pko_transport_price_cents × quantité` à chaque option carrier.
 
 ### 5.15 Checkout branché sur ShippingOptions — récap ventilé et défaut Chrono 13 (Lot L5, 2026-07)

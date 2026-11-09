@@ -164,7 +164,10 @@ ou `reference`, ou `brand_name` + `mpn` ; sinon erreur « reference manquante »
 | `brand_family_label` | `BrandFamily::label` | Libellé de la famille, mis à jour au réimport. Sans code → ignoré + warning. |
 | `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
 | `features` | pivot `pko_feature_value_product` | Hash `{family_handle => [value_handle, ...]}`, delegated à `catalog-features` |
-| `images` | Spatie MediaLibrary | Array ou CSV d'URLs distantes. Idempotent via `custom_properties.source_url`, première URL `primary=true`. |
+| `images` | médiathèque + `pko_mediables` (groupe `product`) | Array, CSV ou JSON d'URLs distantes. Sans doublon : voir §7.quinquies.18.1. |
+| `replace_images` | — | `1` = la galerie du produit est **remplacée** par les images de la ligne (alias PS `delete_existing_images`). Défaut : ajout. |
+| `port_mode` | `Product::pko_port_mode` | `inherit` / `standard` / `flat` / `free` / `quote`. Vide = inchangé. Voir §7.quinquies.18.2. |
+| `transport_price_cents` | `Product::pko_transport_price_cents` | Forfait transport (cents HT). > 0 remplace l'existant et passe en `flat` ; 0 ou vide = ignoré. Alias PS `additional_shipping_cost` (euros). |
 | `videos` | `pko/product-videos` | Array/CSV d'URLs **ou** JSON `[{url,title}]` (format prépa PrestaShop) YouTube/Vimeo/Dailymotion/MP4. Titre conservé. Idempotent par URL. Voir §7.quinquies.15octies. |
 | `product_type_handle` | ProductType | Lookup par handle, fallback sur premier trouvé |
 | `tax_class_handle` | TaxClass | Lookup par **nom** (insensible à la casse ; Lunar n'a pas de colonne `handle`). Vide → classe **par défaut** ; inconnu → classe par défaut + warning `ImportLog`. Jamais la « première » classe — cf. [taxes.md](../taxes.md) |
@@ -190,6 +193,9 @@ Pour importer un JSON Publiko AI Importer (PrestaShop) tel quel, sans renommer l
 | `category` | `collections` | passe array ou CSV inchangé |
 | `price_tex` | `price_cents` | **×100 puis `(int) round()`** (euros → cents) |
 | `wholesale_price` | `cost_price_cents` | **×100 puis `(int) round()`** (prix d'achat euros → cents) |
+| `ecotax` | `ecotax_cents` | **×100 puis `(int) round()`** ; ajoutée au prix issu de `price_tex` (§7.quinquies.15nonies) |
+| `additional_shipping_cost` | `transport_price_cents` | **×100 puis `(int) round()`** (forfait transport euros → cents) |
+| `delete_existing_images` | `replace_images` | passe inchangé (`1`/`0`) |
 
 Les casts ci-dessus passent par `Support\NumberParser` : vide → clé ignorée (jamais 0),
 illisible → clé ignorée + warning. Détail en §7.quinquies.16.1.
@@ -1074,3 +1080,105 @@ filtre. Tests : `ActionTypesTest::test_factory_coerces_numeric_strings_to_declar
   `text`) : une référence qui commence légitimement par le préfixe n'est pas préfixée. Comportement
   verrouillé par test, conservé.
 - Un `ImportLog` INFO est écrit par ligne parsée (volume = nombre de lignes du fichier).
+
+### 7.quinquies.18 Audit 2026-11 — doublons, frais de port, prix, config préservée
+
+Fil rouge : **l'import remplace ce qu'il connaît et ne touche pas à ce qu'il ne connaît pas**.
+Il ne crée jamais un second tarif, un second fournisseur ou un second média pour une
+donnée déjà en base.
+
+#### 7.quinquies.18.1 Médias sans doublon
+
+Trois niveaux, du plus local au plus global :
+
+| Niveau | Où | Règle |
+|---|---|---|
+| Ligne | `LunarProductWriter::uniqueUrls()` | Une URL répétée dans la cellule (ou sous une variante `http`/`https`, casse du domaine, `#ancre`) n'est traitée qu'une fois. |
+| Médiathèque | `MediaLibraryImporter` (cf. [media-core.md](media-core.md)) | URL déjà importée, alias mémorisé, ou même fichier (sha1) → média réutilisé, aucun téléchargement. Fichier déposé à la main reconnu par son contenu. |
+| Produit | `linkMediaToEntity()` | Un média déjà lié au produit n'est pas lié une seconde fois (contrainte unique `pko_mediables`). |
+
+- **Une instance d'importeur par job** : une URL en échec n'est tentée qu'une fois par import
+  et le motif est dans la console (`Image non importée (HTTP 404): …`).
+- **Documents** (`ProductDocumentManager::attachIfMissing()`) : un document déjà lié n'est ni
+  dupliqué ni **réordonné** (l'ancien `attach()` réécrivait `sort_order` à partir de 0 à chaque
+  import et mélangeait les documents ajoutés à la main). Une catégorie vide est complétée.
+- **Vidéos** (`ProductVideoManager::exists()`) : rapprochement sur l'URL exacte **ou** sur
+  fournisseur + identifiant — `youtu.be/ID`, `watch?v=ID` et `embed/ID` sont une seule vidéo.
+- **`replace_images`** : la galerie devient exactement la liste de la ligne, dans l'ordre. Elle
+  n'est jamais vidée si aucune image n'a pu être importée. Les fichiers restent en médiathèque
+  (seuls les liens sont retirés), donc le rollback les rétablit.
+
+Tests : `WriterMediaDedupTest` (11 cas, `Http::preventStrayRequests()`).
+
+#### 7.quinquies.18.2 Frais de port : remplacer ou ignorer, jamais ajouter
+
+Un produit a **un** mode de port (`pko_port_mode`) et **un** forfait
+(`pko_transport_price_cents`), cf. [shipping.md](../shipping.md) §5.14.
+`LunarProductWriter::applyShipping()` :
+
+| Source | Effet |
+|---|---|
+| `port_mode` valide | remplace le mode |
+| `port_mode` vide | **rien** (avant : le produit basculait en `standard`, écrasant un réglage manuel) |
+| `port_mode` inconnu (`gratuit`…) | ignoré + warning `ImportLog` |
+| `logistics_class` A / B / C (si `port_mode` absent) | `standard` / `inherit` / `quote` ; vide = rien |
+| `transport_price_cents` > 0 | remplace le forfait ; sans mode explicite, passe le produit en `flat` |
+| `transport_price_cents` = 0 ou vide | **rien** (le `0` par défaut des configs PrestaShop ne retire pas un forfait saisi à la main) |
+| mode explicite ≠ `flat` | efface le forfait (même règle que l'éditeur produit) ; un forfait fourni en même temps est ignoré + warning |
+| création sans aucune de ces clés | `inherit` si le produit a un fournisseur, `standard` sinon |
+
+- Écrit à la création et en update `all` ; jamais en `price` / `stock`.
+- `additional_shipping_cost` (PrestaShop, euros) est repris comme forfait transport. Écart
+  assumé : dans PrestaShop ce montant s'**ajoutait** au tarif transporteur, ici le mode `flat`
+  le **remplace** (seul modèle de forfait produit du catalogue).
+- **Fournisseur** : il porte la règle de port héritée (`port_inclus`). Rapprochement
+  insensible à la casse et aux espaces multiples : « Somfy » retrouve « SOMFY » au lieu de
+  créer un second fournisseur sans règle.
+- `pko_transport_price_cents` rejoint `LunarBackupManager::PRODUCT_COLUMNS` (rollback).
+
+#### 7.quinquies.18.3 Prix de base : une seule ligne
+
+`upsertPrice()` faisait `updateOrCreate` sur (devise, sans groupe, palier 1). Avec deux lignes
+identiques en base (seeders rejoués) il n'en mettait à jour qu'une ; avec une ligne « fantôme »
+(morph FQCN, §7.quinquies.15quinquies) ou au palier 0 il en **créait** une de plus. Désormais
+toutes les lignes de base de la variante sont lues (alias et FQCN, palier ≤ 1), la ligne
+correctement aliasée est mise à jour, les autres supprimées (warning dans la console). Les
+prix par groupe client et par palier de quantité ne sont jamais touchés.
+
+Éco-participation : quand `columns_to_import` contient `price_cents`, `ecotax_cents` est
+conservée d'office. Le prix issu de `price_tex` **inclut** déjà l'éco-taxe ; l'écrire sans
+la colonne laissait un prix majoré sans mention « dont éco », que le rattrapage aurait majoré
+une seconde fois. Une éco-participation supérieure au prix est ignorée + warning.
+
+Tests : `WriterShippingAndPriceTest` (15 cas).
+
+#### 7.quinquies.18.4 Colonnes statiques et en-têtes
+
+- **Colonnes statiques** (`ConfigColumnExtractor::isStatic()` : ni colonne source ni action,
+  une valeur par défaut — `supplier: {default: "SOMFY"}`, `additional_shipping_cost`,
+  `delete_existing_images`…). Elles ne figurent pas dans la grille « colonnes à calculer »,
+  qui est pré-cochée : `columns_to_process` n'était donc jamais vide et `array_intersect_key`
+  les retirait **toujours** du staging. Symptôme : tous les produits importés sans
+  fournisseur. Elles sont maintenant toujours conservées.
+- **`skip_first_row`** : le Toggle « 1ʳᵉ ligne = en-têtes » s'hydratait à `false` quand la clé
+  était absente du JSON (cas de toute config importée de PrestaShop), et la sauvegarde
+  l'écrivait. Conséquences sur la config SOMFY : ligne d'en-têtes importée comme produit,
+  `REFCIALE` introuvable donc référence réduite au préfixe `SOM`, clé de jointure vide donc
+  images, poids et documents vides. `hydrateVisual()` pose le défaut `true` ; seule
+  l'exception `false` est sérialisée. Migration `repair_header_flags_in_importer_configs` :
+  ne corrige que les configs où le défaut est **prouvé** (toutes les feuilles à `false` et au
+  moins une colonne désignée par son intitulé). Rejeté : forcer `true` partout — une feuille
+  réellement sans en-têtes est légitime.
+- **Contrôles** : `Support\ConfigDiagnostics` (config seule) et `Support\FilePreflight`
+  (fichier contre config, 1ʳᵉ ligne de chaque feuille). Au lancement de la préparation, une
+  feuille absente arrête le job avec la liste des feuilles trouvées (avant : la même erreur
+  sur chaque ligne) ; une colonne nommée absente des en-têtes produit un warning.
+
+#### 7.quinquies.18.5 Une ligne = une transaction
+
+`LunarProductWriter::write()` enveloppe l'écriture d'une ligne dans `DB::transaction()`. Avant,
+un échec entre `Product::create()` et `ProductVariant::create()` (SKU en doublon, valeur trop
+longue) laissait un produit sans variante, invisible du rapprochement : chaque relance en
+créait un autre. Sur exception, les caches d'entités créées (marque, fournisseur, famille,
+catégorie de document) sont vidés — ils pourraient pointer vers une ligne annulée. Les
+fichiers médias téléchargés pendant la ligne restent sur disque et sont réutilisés.

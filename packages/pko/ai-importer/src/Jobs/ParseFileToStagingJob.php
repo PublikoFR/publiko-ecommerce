@@ -25,6 +25,8 @@ use Pko\AiImporter\Notifications\ImportJobNotifier;
 use Pko\AiImporter\Services\ActionPipeline;
 use Pko\AiImporter\Services\ProgressCache;
 use Pko\AiImporter\Services\SpreadsheetParser;
+use Pko\AiImporter\Support\ConfigColumnExtractor;
+use Pko\AiImporter\Support\ConfigDiagnostics;
 use Pko\AiImporter\Support\MappingOrder;
 
 /**
@@ -98,6 +100,7 @@ class ParseFileToStagingJob implements ShouldQueue
             }
 
             $primary = $parser->primarySheetName();
+            $this->assertFileMatchesConfig($job, $parser, $config, $primary);
             $total = $parser->countRows($primary);
             $job->update(['total_rows' => $total]);
 
@@ -111,7 +114,18 @@ class ParseFileToStagingJob implements ShouldQueue
                 (array) ($job->options['columns_to_process'] ?? []),
             ));
             if ($columnsToProcess !== []) {
-                $mapping = array_intersect_key($mapping, array_flip($columnsToProcess));
+                // Les colonnes STATIQUES (valeur par défaut seule : fournisseur,
+                // classe de taxe, frais de port…) ne sont pas proposées dans la
+                // grille « colonnes à calculer » : elles ne coûtent rien et font
+                // partie de la config, on les garde toujours. Sans cela elles
+                // disparaissaient du staging (produits importés sans fournisseur).
+                $selected = array_flip($columnsToProcess);
+                $mapping = array_filter(
+                    $mapping,
+                    static fn (mixed $columnConfig, int|string $key): bool => isset($selected[(string) $key])
+                        || ConfigColumnExtractor::isStatic($columnConfig),
+                    ARRAY_FILTER_USE_BOTH,
+                );
             }
             // Colonnes IA calculées après les autres : leurs `input_columns`
             // désignent des clés de sortie déjà transformées.
@@ -311,6 +325,44 @@ class ParseFileToStagingJob implements ShouldQueue
             'status' => JobStatus::Error,
             'error_message' => $e->getMessage(),
         ]);
+    }
+
+    /**
+     * Contrôle du fichier contre la config, avant la première ligne : une
+     * feuille absente arrête la préparation avec un message clair (au lieu d'une
+     * erreur identique sur chaque ligne) ; une colonne désignée par un intitulé
+     * absent de la ligne d'en-têtes est signalée dans la console (le champ
+     * restera vide), sans bloquer.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function assertFileMatchesConfig(ImportJob $job, SpreadsheetParser $parser, array $config, string $primary): void
+    {
+        $available = $parser->sheetNames();
+        $declared = array_map('strval', array_keys(array_filter((array) ($config['sheets'] ?? []), 'is_array')));
+
+        $missing = array_values(array_diff(array_unique([$primary, ...$declared]), $available));
+        if ($missing !== []) {
+            throw new \RuntimeException(sprintf(
+                'Feuille(s) absente(s) du fichier : %s. Feuilles trouvées : %s. Vérifiez le fichier ou la configuration.',
+                implode(', ', $missing),
+                implode(', ', $available) ?: 'aucune',
+            ));
+        }
+
+        foreach (ConfigDiagnostics::namedColumnsBySheet($config, $primary) as $sheetName => $columns) {
+            if (! $parser->hasSheet($sheetName)) {
+                continue;
+            }
+            $absent = array_values(array_diff($columns, $parser->headerNames($sheetName)));
+            if ($absent !== []) {
+                $this->log($job, LogLevel::Warning, sprintf(
+                    'Feuille « %s » : colonne(s) introuvable(s) dans la ligne d\'en-têtes — %s. Les champs qui en dépendent resteront vides.',
+                    $sheetName,
+                    implode(', ', $absent),
+                ), ['sheet' => $sheetName, 'columns' => $absent]);
+            }
+        }
     }
 
     private function persistProgress(ImportJob $job, int $processed, int $stagingCount, ?int $total): void

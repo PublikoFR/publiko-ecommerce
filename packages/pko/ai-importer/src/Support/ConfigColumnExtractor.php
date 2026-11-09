@@ -91,6 +91,44 @@ final class ConfigColumnExtractor
     }
 
     /**
+     * Colonne STATIQUE : ni colonne source ni action, seulement une valeur par
+     * défaut (ex. `supplier: {default: "SOMFY"}`). Rien à calculer : elle est
+     * toujours écrite en staging, quelle que soit la sélection de colonnes.
+     */
+    public static function isStatic(mixed $columnConfig): bool
+    {
+        if (! is_array($columnConfig)) {
+            return false;
+        }
+
+        return empty($columnConfig['col'])
+            && self::actionsOf($columnConfig) === []
+            && array_key_exists('default', $columnConfig);
+    }
+
+    /**
+     * Colonnes statiques d'une config : `[clé => valeur par défaut]`.
+     *
+     * @return array<string, string>
+     */
+    public static function staticColumns(?ImporterConfig $config): array
+    {
+        if (! $config) {
+            return [];
+        }
+
+        $out = [];
+        foreach (self::mappingOf($config) as $key => $columnConfig) {
+            if (self::isStatic($columnConfig)) {
+                $default = $columnConfig['default'];
+                $out[(string) $key] = is_scalar($default) ? (string) $default : (string) json_encode($default, JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Clés de mapping marquées « IA » (au moins une action `llm_transform`).
      *
      * @return array<int, string>
