@@ -427,7 +427,8 @@ class AppServiceProvider extends ServiceProvider
         // Filtre texte unique et partagé par la recherche (autocomplete + page
         // résultats) pour garantir la MÊME couverture des deux côtés. Cherche
         // dans : nom, description, description courte (attribute_data JSON),
-        // identifiants variant (sku/ean/mpn/gtin) et tags. Insensible à la casse.
+        // identifiants variant (sku/ean/mpn/gtin), tags et compatibilités
+        // (référence/modèle d'équipement). Insensible à la casse.
         Builder::macro('storefrontSearchMatch', function (string $term): Builder {
             /** @var Builder $this */
             $like = '%'.mb_strtolower(addcslashes($term, '%_')).'%';
@@ -451,6 +452,17 @@ class AppServiceProvider extends ServiceProvider
 
                 // Tags produit.
                 $qq->orWhereHas('tags', fn ($q) => $q->whereRaw('LOWER(value) LIKE ?', [$like]));
+
+                // Compatibilités documentées (pièce détachée) : référence ou
+                // modèle d'équipement → retrouve la pièce compatible.
+                $qq->orWhereExists(function ($q) use ($like): void {
+                    $q->from('pko_product_compatibilities as pc')
+                        ->whereColumn('pc.product_id', 'lunar_products.id')
+                        ->where(function ($w) use ($like): void {
+                            $w->whereRaw('LOWER(pc.equipment_reference) LIKE ?', [$like])
+                                ->orWhereRaw('LOWER(pc.equipment_model) LIKE ?', [$like]);
+                        });
+                });
             });
         });
     }

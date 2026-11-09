@@ -138,7 +138,7 @@ Volet latéral détails dans la modale :
 
 ## Disposition des cartes (colonne principale)
 
-Ordre : **1. Informations générales · 2. Tarification · 3. Médias/Vidéos · 4. Documents · 5. Description longue · 6. Caractéristiques · 7. Inventaire & expédition · 8. Variantes · 9. SEO**. La Tarification est volontairement en 2ᵉ position (juste après les infos générales) car c'est l'information la plus consultée à l'édition. Sidebar : Statut & visibilité · Organisation · Produits liés · Dernières modifications.
+Ordre : **1. Informations générales · 2. Tarification · 3. Médias/Vidéos · 4. Documents · 4 bis. Compatibilités (cf. [catalog-features.md](packages/catalog-features.md#compatibilités-des-pièces-détachées)) · 5. Description longue · 6. Caractéristiques · 7. Inventaire & expédition · 8. Variantes · 9. SEO**. La Tarification est volontairement en 2ᵉ position (juste après les infos générales) car c'est l'information la plus consultée à l'édition. Sidebar : Statut & visibilité · Organisation · Produits liés · Dernières modifications.
 
 **Lien « Voir sur la boutique »** : dans la carte sidebar *Statut & visibilité*, affiché uniquement si `status === 'published'` et `productSlug !== ''`. Pointe vers `route('product.view', $productSlug)` (nouvel onglet). Le slug provient de `$product->defaultUrl?->slug` chargé au `mount()`.
 

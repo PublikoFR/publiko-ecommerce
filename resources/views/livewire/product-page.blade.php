@@ -207,6 +207,51 @@
     </section>
 @endif
 
+@if ($this->compatibilities->isNotEmpty())
+    <section class="pb-10 md:pb-14" data-testid="product-compatibilities">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="font-display font-bold text-xl text-neutral-900 mb-1.5">Compatibilités</h2>
+            <p class="text-sm text-neutral-500 mb-6">Compatibilités documentées par le fabricant.</p>
+
+            <div class="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+                <table class="w-full text-sm">
+                    <thead class="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-[0.08em] text-neutral-500">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Marque de l'équipement</th>
+                            <th scope="col" class="px-4 py-3">Modèle</th>
+                            <th scope="col" class="px-4 py-3">Référence</th>
+                            <th scope="col" class="px-4 py-3"><span class="sr-only">Produit compatible</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-neutral-200">
+                        @foreach ($this->compatibilities as $compat)
+                            @php $compatUrl = $this->compatibleProductUrl($compat); @endphp
+                            <tr wire:key="compat-{{ $compat->id }}">
+                                <td class="px-4 py-3 font-semibold text-neutral-900">{{ $compat->equipmentBrandName() ?? '—' }}</td>
+                                <td class="px-4 py-3 text-neutral-700">
+                                    {{ $compat->equipment_model ?: '—' }}
+                                    @if (filled($compat->note))
+                                        <span class="block text-xs text-neutral-500">{{ $compat->note }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 font-mono text-neutral-700">{{ $compat->equipment_reference ?: '—' }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    @if ($compatUrl)
+                                        <a href="{{ $compatUrl }}" class="inline-flex items-center gap-1.5 font-semibold text-primary-600 hover:text-primary-700">
+                                            {{ $compat->compatibleProduct->translateAttribute('name') }}
+                                            <x-ui.icon name="arrow-right" class="w-4 h-4" />
+                                        </a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+@endif
+
 @if ($this->relatedProducts->isNotEmpty())
     <section class="pb-14 md:pb-20">
         <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
