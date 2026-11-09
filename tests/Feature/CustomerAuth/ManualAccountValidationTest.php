@@ -18,6 +18,7 @@ use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoListCustome
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoViewCustomer;
 use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Mail\AccountActivatedMail;
+use Pko\MailTemplates\Models\MailTemplate;
 use Tests\TestCase;
 
 /**
@@ -102,7 +103,7 @@ class ManualAccountValidationTest extends TestCase
 
     public function test_disabled_template_is_respected(): void
     {
-        \Pko\MailTemplates\Models\MailTemplate::query()
+        MailTemplate::query()
             ->where('key', 'account.activated')
             ->update(['enabled' => false]);
         $customer = $this->account(verified: true);

@@ -8,6 +8,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Sirene\SireneClient;
@@ -137,7 +138,7 @@ class RegisterDoesNotLoginTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'pro5@example.test']);
     }
 
-    private function fillValidForm(string $email): \Livewire\Features\SupportTesting\Testable
+    private function fillValidForm(string $email): Testable
     {
         return Livewire::test(RegisterPage::class)
             ->set('siret', '98104397900021')
