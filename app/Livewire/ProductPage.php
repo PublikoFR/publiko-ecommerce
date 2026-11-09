@@ -16,6 +16,7 @@ use Lunar\Models\ProductVariant;
 use Pko\CatalogFeatures\Models\ProductCompatibility;
 use Pko\ProductDocuments\Models\ProductDocument;
 use Pko\ShippingCommon\Models\Supplier;
+use Pko\StorefrontCms\Support\SparePartsCatalog;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ProductPage extends Component
@@ -256,6 +257,45 @@ class ProductPage extends Component
         return Route::has('product.view')
             ? route('product.view', ['slug' => $target->defaultUrl->slug])
             : null;
+    }
+
+    /**
+     * Bouton « Demander un conseil ou un devis » (toutes les fiches, visiteur
+     * compris) : formulaire de devis en mode général, contexte = variante
+     * affichée + sa référence + URL de la fiche.
+     */
+    public function getQuoteAdviceUrlProperty(): ?string
+    {
+        return $this->quoteUrl('general');
+    }
+
+    /**
+     * Bandeau « Un doute sur la pièce à commander ? » : seulement pour un
+     * produit rattaché à l'arborescence Pièces détachées (cf. SparePartsCatalog).
+     */
+    public function getPartHelpUrlProperty(): ?string
+    {
+        if (! SparePartsCatalog::containsProduct($this->product)) {
+            return null;
+        }
+
+        return $this->quoteUrl('part_photo');
+    }
+
+    private function quoteUrl(string $mode): ?string
+    {
+        if (! function_exists('quote_request_url')) {
+            return null;
+        }
+
+        $variant = $this->variant;
+        $sku = is_string($variant->sku) && $variant->sku !== '' ? $variant->sku : null;
+
+        return quote_request_url($mode, [
+            'product' => $variant,
+            'ref' => $sku,
+            'from' => route('product.view', $this->url->slug, false),
+        ]);
     }
 
     public function render(): View

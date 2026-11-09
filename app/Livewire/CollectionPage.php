@@ -17,6 +17,7 @@ use Lunar\Models\Collection as CollectionModel;
 use Lunar\Models\Product;
 use Pko\CatalogFeatures\Facades\Features;
 use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\StorefrontCms\Support\SparePartsCatalog;
 
 class CollectionPage extends Component
 {
@@ -91,6 +92,25 @@ class CollectionPage extends Component
     public function getCollectionProperty(): CollectionModel
     {
         return $this->url->element;
+    }
+
+    /**
+     * Lien « Envoyer une photo » du bandeau d'aide à l'identification, ou null
+     * hors de l'arborescence Pièces détachées (racine désignée par réglage,
+     * cf. SparePartsCatalog). Contexte : slug de la catégorie + URL d'origine.
+     */
+    public function getPartHelpUrlProperty(): ?string
+    {
+        if (! function_exists('quote_request_url') || ! SparePartsCatalog::containsCollection($this->collection)) {
+            return null;
+        }
+
+        $slug = $this->url->slug;
+
+        return quote_request_url('part_photo', [
+            'collection' => $slug,
+            'from' => route('collection.view', $slug, false),
+        ]);
     }
 
     /** @return array<int> flat selected brand ids */

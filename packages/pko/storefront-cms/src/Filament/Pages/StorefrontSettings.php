@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -20,6 +21,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
 use Pko\StorefrontCms\Filament\Pages\Settings\NavigationSettingsSchema;
 use Pko\StorefrontCms\Models\Setting;
+use Pko\StorefrontCms\Support\SparePartsCatalog;
 
 class StorefrontSettings extends Page implements HasForms
 {
@@ -75,6 +77,7 @@ class StorefrontSettings extends Page implements HasForms
             'social_instagram' => Setting::get('social.instagram', $config['social']['instagram'] ?? null),
             'social_linkedin' => Setting::get('social.linkedin', $config['social']['linkedin'] ?? null),
             'social_youtube' => Setting::get('social.youtube', $config['social']['youtube'] ?? null),
+            'spare_parts_collection_id' => Setting::get(SparePartsCatalog::SETTING_KEY),
         ];
     }
 
@@ -137,6 +140,14 @@ class StorefrontSettings extends Page implements HasForms
                 TextInput::make('contact_tagline')->label('Accroche header')->placeholder("Besoin d'un conseil ?"),
             ]),
             ...NavigationSettingsSchema::sections(),
+            Section::make('Catalogue')->schema([
+                Select::make('spare_parts_collection_id')
+                    ->label('Catégorie racine « Pièces détachées »')
+                    ->options(fn (): array => SparePartsCatalog::collectionOptions())
+                    ->searchable()
+                    ->placeholder('Par défaut : catégorie d\'URL « '.SparePartsCatalog::DEFAULT_SLUG.' »')
+                    ->helperText('Cette catégorie et toutes ses sous-catégories, ainsi que les fiches des produits qui y sont rattachés, affichent le bandeau « Un doute sur la pièce à commander ? » (envoi de photo pour identification).'),
+            ])->collapsible(),
             Section::make('Réseaux sociaux')->schema([
                 Grid::make(2)->schema([
                     TextInput::make('social_facebook')->label('Facebook')->url()->prefix('https://'),
@@ -166,6 +177,7 @@ class StorefrontSettings extends Page implements HasForms
         Setting::set('social.instagram', $data['social_instagram']);
         Setting::set('social.linkedin', $data['social_linkedin']);
         Setting::set('social.youtube', $data['social_youtube']);
+        Setting::set(SparePartsCatalog::SETTING_KEY, filled($data['spare_parts_collection_id'] ?? null) ? (int) $data['spare_parts_collection_id'] : null);
         NavigationSettingsSchema::save($data);
 
         Notification::make()->success()->title('Paramètres enregistrés')->send();
