@@ -49,6 +49,9 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `compare_price_cents`  int cents, optional compare-at price.
  *  - `cost_price_cents`     int cents, prix d'achat (coût) → ProductVariant.pko_cost_price
  *                           (assignation directe : colonne non-fillable).
+ *  - `ecotax_cents`         int cents HT par unité, éco-participation INCLUSE dans le
+ *                           prix (modèle « dont ») → ProductVariant.pko_ecotax_cents
+ *                           (assignation directe : colonne non-fillable).
  *  - `weight_value`         float kg.
  *  - `length_value` / `width_value` / `height_value`  floats in cm.
  *  - `brand_name`           Brand::firstOrCreate(['name' => ...]) → Product.brand_id.
@@ -80,7 +83,7 @@ use Pko\ShippingCommon\Models\Supplier;
  *                           (assignation directe : colonne non-fillable).
  *
  * Anything the writer doesn't recognise is ignored. NON couverts (pas de colonne
- * cible sans migration) : `ecotax`, `supplier_reference`, promos
+ * cible sans migration) : `supplier_reference`, promos
  * (`on_sale`/`reduction_*`), `visibility`, `condition`, `unit_price`, etc.
  *
  * Unresolved handles (`collections` or `features`) — handles that don't match
@@ -97,6 +100,12 @@ use Pko\ShippingCommon\Models\Supplier;
  *     `minimal_quantity` → `min_quantity`.
  *   - `price_tex` (euros, float) → `price_cents` (int, ×100 rounded).
  *   - `wholesale_price` (euros, float) → `cost_price_cents` (int, ×100 rounded).
+ *   - `ecotax` (euros, float) → `ecotax_cents` (int, ×100 rounded).
+ *
+ * Éco-participation (modèle « dont », cf. docs/ecotax.md) : PrestaShop fournit
+ * `price_tex` HORS éco-taxe. Quand le prix vient de l'alias `price_tex`, on
+ * calcule `price_cents = round((price_tex + ecotax) × 100)`. Quand la source
+ * fournit directement `price_cents`, l'éco-taxe est réputée déjà incluse.
  *
  * Champs numériques (prix, stock, min_quantity, dimensions) : parsés via
  * `NumberParser` (virgule décimale FR, espaces de milliers acceptés). Une valeur
@@ -119,7 +128,7 @@ final class LunarProductWriter
         'reference', 'name', 'description', 'description_short',
         'meta_title', 'meta_description', 'meta_keywords', 'url_key',
         'ean', 'mpn', 'stock', 'min_quantity',
-        'price_cents', 'compare_price_cents', 'cost_price_cents',
+        'price_cents', 'compare_price_cents', 'cost_price_cents', 'ecotax_cents',
         'weight_value', 'length_value', 'width_value', 'height_value',
         'brand_name', 'supplier', 'product_type_handle', 'tax_class_handle',
         'collections', 'tags', 'features', 'images', 'image_alt', 'videos', 'documents',
@@ -154,6 +163,7 @@ final class LunarProductWriter
     public const LEGACY_EURO_ALIASES = [
         'price_tex' => 'price_cents',
         'wholesale_price' => 'cost_price_cents',
+        'ecotax' => 'ecotax_cents',
     ];
 
     /**
@@ -164,6 +174,7 @@ final class LunarProductWriter
         'price_cents' => 'int',
         'compare_price_cents' => 'int',
         'cost_price_cents' => 'int',
+        'ecotax_cents' => 'int',
         'stock' => 'int',
         'min_quantity' => 'int',
         'weight_value' => 'float',
@@ -352,6 +363,7 @@ final class LunarProductWriter
 
             $this->applyPrice($variant, $data);
             $this->applyCostPrice($variant, $data);
+            $this->applyEcotax($variant, $data);
             $this->applyPortMode($product, $data, true);
             $unresolved = $this->applyRelations($product, $data);
             $wasCreate = true;
@@ -378,11 +390,14 @@ final class LunarProductWriter
 
                 $this->applyPrice($variant, $data);
                 $this->applyCostPrice($variant, $data);
+                $this->applyEcotax($variant, $data);
                 $unresolved = $this->applyRelations($product, $data);
             } else {
                 if ($this->updateMode->writesPrice()) {
+                    // Prix et éco-taxe restent cohérents (modèle « dont »).
                     $this->applyPrice($variant, $data);
                     $this->applyCostPrice($variant, $data);
+                    $this->applyEcotax($variant, $data);
                 }
                 if ($this->updateMode->writesStock() && isset($data['stock'])) {
                     $variant->update(['stock' => $data['stock']]);
@@ -476,6 +491,23 @@ final class LunarProductWriter
         }
 
         $variant->pko_cost_price = $data['cost_price_cents'];
+        $variant->save();
+    }
+
+    /**
+     * Pose `pko_ecotax_cents` (éco-participation HT unitaire, incluse dans le
+     * prix) par assignation DIRECTE (colonne non-fillable, cf. applyCostPrice).
+     * No-op si `ecotax_cents` absent (valeur vide jamais convertie en 0).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function applyEcotax(ProductVariant $variant, array $data): void
+    {
+        if (! isset($data['ecotax_cents'])) {
+            return;
+        }
+
+        $variant->pko_ecotax_cents = max(0, (int) $data['ecotax_cents']);
         $variant->save();
     }
 
@@ -1278,8 +1310,25 @@ final class LunarProductWriter
             unset($data[$legacy]);
         }
 
+        // Modèle « dont » : price_tex PrestaShop est HORS éco-taxe. On ne l'ajoute
+        // que si le prix provient de cet alias (price_cents canonique absent) : un
+        // price_cents fourni directement est réputé inclure déjà l'éco-taxe.
+        $priceFromPriceTex = array_key_exists('price_tex', $data)
+            && NumberParser::isBlank($data['price_cents'] ?? null)
+            && ! NumberParser::isBlank($data['price_tex']);
+        // Valeurs euros brutes, avant conversion : quand prix ET éco-taxe arrivent
+        // en euros, on arrondit la somme (round((price_tex + ecotax) × 100)) plutôt
+        // que d'additionner deux montants déjà arrondis.
+        $priceTexEuros = $priceFromPriceTex ? NumberParser::toFloat($data['price_tex']) : null;
+        $ecotaxEuros = $priceFromPriceTex
+            && array_key_exists('ecotax', $data)
+            && NumberParser::isBlank($data['ecotax_cents'] ?? null)
+                ? NumberParser::toFloat($data['ecotax'])
+                : null;
+
         // price_tex (prix HT en euros) → price_cents ; wholesale_price (prix d'achat
-        // en euros) → cost_price_cents. Vide → rien ; illisible → warning, rien.
+        // en euros) → cost_price_cents ; ecotax (euros) → ecotax_cents.
+        // Vide → rien ; illisible → warning, rien.
         foreach (self::LEGACY_EURO_ALIASES as $legacy => $canonical) {
             if (! array_key_exists($legacy, $data)) {
                 continue;
@@ -1293,6 +1342,22 @@ final class LunarProductWriter
                 }
             }
             unset($data[$legacy]);
+        }
+
+        if ($priceFromPriceTex && is_int($data['price_cents'] ?? null)) {
+            if ($priceTexEuros !== null && $ecotaxEuros !== null) {
+                if ($ecotaxEuros > 0) {
+                    $data['price_cents'] = (int) round(($priceTexEuros + $ecotaxEuros) * 100);
+                }
+
+                return $data;
+            }
+            $ecotaxCents = NumberParser::isBlank($data['ecotax_cents'] ?? null)
+                ? null
+                : NumberParser::toInt($data['ecotax_cents']);
+            if ($ecotaxCents !== null && $ecotaxCents > 0) {
+                $data['price_cents'] += $ecotaxCents;
+            }
         }
 
         return $data;

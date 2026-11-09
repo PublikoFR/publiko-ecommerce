@@ -81,6 +81,9 @@ class EditProductUnified extends Page implements HasForms
 
     public ?string $cost = null;
 
+    /** Éco-participation HT unitaire, INCLUSE dans le prix (modèle « dont », cf. docs/ecotax.md). */
+    public ?string $ecotax = null;
+
     public ?int $taxClassId = null;
 
     /** @var array<int,array{id:?int,customer_group_id:?int,min_quantity:int,price:?string}> */
@@ -239,6 +242,12 @@ class EditProductUnified extends Page implements HasForms
             // Prix d'achat (coût) — colonne custom pko_cost_price (cents), HT.
             $this->cost = $this->centsToDisplay(
                 $default->pko_cost_price !== null ? (int) $default->pko_cost_price : null,
+                $factor
+            );
+
+            // Éco-participation — colonne custom pko_ecotax_cents (cents HT, incluse dans le prix).
+            $this->ecotax = $this->centsToDisplay(
+                $default->pko_ecotax_cents !== null ? (int) $default->pko_ecotax_cents : null,
                 $factor
             );
 
@@ -834,12 +843,25 @@ class EditProductUnified extends Page implements HasForms
     // ------- Save
     public function save(): void
     {
+        // Virgule décimale FR acceptée ; espace seul = vide (NULL, pas 0).
+        $this->ecotax = ($this->ecotax !== null && trim($this->ecotax) !== '')
+            ? str_replace(',', '.', trim($this->ecotax))
+            : null;
+
         $this->validate([
             'productName' => ['required', 'string', 'max:255'],
             'sku' => ['required', 'string', 'max:255'],
             'price' => ['required'],
             'taxClassId' => ['required', 'integer'],
-        ]);
+            'ecotax' => [
+                'nullable', 'numeric', 'min:0',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (is_numeric($this->price) && (float) $value > (float) $this->price) {
+                        $fail('L\'éco-participation ne peut pas dépasser le prix HT (elle y est incluse).');
+                    }
+                },
+            ],
+        ], attributes: ['ecotax' => 'éco-participation']);
 
         $longDesc = (string) ($this->descriptionForm->getState()['longDesc'] ?? $this->longDesc);
 
@@ -1138,6 +1160,8 @@ class EditProductUnified extends Page implements HasForms
         // Prix d'achat (coût) — colonne custom pko_cost_price non-fillable :
         // assignation directe + save (un mass-assignment la droppe silencieusement).
         $variant->pko_cost_price = $this->displayToCents($this->cost, $factor);
+        // Éco-participation (pko_ecotax_cents, non-fillable) : vide = NULL, pas 0.
+        $variant->pko_ecotax_cents = $this->displayToCents($this->ecotax, $factor);
         $variant->save();
 
         // Prix de base

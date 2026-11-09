@@ -621,7 +621,7 @@ Ajout au writer des champs source qui avaient une cible réelle :
 
 Tous ajoutés à `ProductFieldCatalog` (sélectionnables dans « colonnes à importer »).
 
-**Non couverts** (pas de colonne cible sans migration) : `ecotax`,
+**Non couverts** (pas de colonne cible sans migration) :
 `supplier_reference` (pas de champ réf-fournisseur natif Lunar), promos
 (`on_sale`/`reduction_*`/prix barré sans source), `visibility`, `condition`,
 `unit_price`, `delivery_*`, `available_*`, `additional_shipping_cost`. À décider au
@@ -646,6 +646,33 @@ sert de base au calcul de marge dans l'éditeur produit.
   montant `= prix HT − coût` et pourcentage `= (prix − coût) / prix × 100` (computed
   Livewire `getMarginProperty`, recalculée au blur). Les prix sont **HT**
   (`lunar.pricing.stored_inclusive_of_tax=false`) → le coût est HT, la marge est HT.
+
+### 7.quinquies.15nonies Éco-participation (2026-11)
+
+Modèle « dont » (cf. [docs/ecotax.md](../ecotax.md)) : le prix en base **inclut**
+l'éco-taxe. Avant ce support, l'éco-taxe PrestaShop était **perdue** (53 lignes sur 88
+du staging réel, 0,16 à 0,19 € HT).
+
+- **Colonne** : `lunar_product_variants.pko_ecotax_cents` (cents HT par unité, nullable),
+  écrite par assignation directe (`applyEcotax()`), à la création, en update `all` **et**
+  en update `price` (prix et éco-taxe restent cohérents).
+- **Clé** : canonique `ecotax_cents` (dans `CANONICAL_KEYS`) + alias legacy `ecotax`
+  (euros, virgule FR via `NumberParser`, ×100 arrondi), même mécanisme que
+  `wholesale_price → cost_price_cents`. Vide → jamais converti en 0 ; illisible → warning.
+- **Règle de prix** : PrestaShop fournit `price_tex` **hors** éco-taxe (ex. 186,52 € +
+  0,16 €). Quand le prix vient de l'alias `price_tex`, `normalizeLegacyKeys()` calcule
+  `price_cents = price_tex×100 + ecotax×100` (chaque terme arrondi au cent). Quand la
+  source fournit **directement** `price_cents`, l'éco-taxe est réputée **déjà incluse** :
+  rien n'est ajouté. Le prix barré n'est jamais modifié.
+- **Catalogue** : `ecotax_cents` sélectionnable (« Éco-participation (cents HT, incluse
+  dans le prix) ») ; libellé legacy `ecotax` → « Éco-participation ». En `columns_to_import`,
+  cocher `ecotax_cents` en même temps que le prix.
+- **Rattrapage** : `make artisan CMD='ai-importer:backfill-ecotax --dry-run'` puis sans
+  `--dry-run`. Source : la ligne de staging la plus récente par `lunar_product_id` dont
+  `data.ecotax` > 0. Pour chaque variante dont `pko_ecotax_cents` est **NULL** (idempotent) :
+  pose la colonne et **ajoute** l'éco-taxe à tous les paliers `lunar_prices` de la devise
+  par défaut, en transaction. Les `pko_negotiated_prices` ne sont **pas** modifiés mais
+  listés pour arbitrage manuel. Sortie : tableau SKU / ancien prix / éco-taxe / nouveau prix.
 
 ### 7.quinquies.15octies Vidéos au format JSON `[{url,title}]` (2026-07)
 

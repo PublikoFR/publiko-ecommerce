@@ -39,6 +39,7 @@ final class ProductFieldCatalog
                 'price_cents' => 'Prix HT (cents)',
                 'compare_price_cents' => 'Prix barré (cents)',
                 'cost_price_cents' => 'Prix d\'achat / coût (cents)',
+                'ecotax_cents' => 'Éco-participation (cents HT, incluse dans le prix)',
                 'tax_class_handle' => 'Classe de taxe',
             ],
             'Stock' => [
@@ -130,7 +131,7 @@ final class ProductFieldCatalog
         'visibility' => 'Visibilité',
         'condition' => 'État du produit',
         'unity' => 'Unité',
-        'ecotax' => 'Éco-taxe',
+        'ecotax' => 'Éco-participation',
         'unit_price' => 'Prix unitaire',
         'reduction_price' => 'Remise (montant)',
         'reduction_percent' => 'Remise (%)',

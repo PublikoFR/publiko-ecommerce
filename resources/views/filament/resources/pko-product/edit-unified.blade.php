@@ -137,6 +137,20 @@
                     </div>
                 </div>
 
+                {{-- Éco-participation (modèle « dont ») : HT par unité, INCLUSE dans le prix HT --}}
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">Éco-participation (€ HT, incluse dans le prix)</label>
+                        <div class="relative">
+                            <input type="text" wire:model.blur="ecotax" class="w-full text-sm font-mono border border-gray-300 dark:border-white/10 rounded-lg px-3 py-[7px] bg-white dark:bg-gray-900 pr-7 text-right tabular-nums" />
+                            <span class="absolute right-3 top-[9px] text-xs text-gray-500">€</span>
+                        </div>
+                        @error('ecotax')
+                            <p class="text-xs text-red-600 dark:text-red-400 mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
                 {{-- Marge (HT) — lecture seule, calculée depuis prix HT − coût --}}
                 @if ($this->margin !== null)
                     <div class="flex items-center gap-2 text-[12.5px] text-gray-600 dark:text-gray-300">
