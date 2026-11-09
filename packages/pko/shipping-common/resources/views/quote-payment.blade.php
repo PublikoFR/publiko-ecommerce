@@ -16,6 +16,7 @@
         h1 { font-size: 22px; font-weight: 700; margin: 8px 0 16px; color: #16201d; }
         .lines { font-size: 14px; color: #586460; border-top: 1px solid #eef1f0; padding-top: 16px; }
         .lines div { display: flex; justify-content: space-between; padding: 4px 0; }
+        .lines .eco { display: block; font-size: 12px; color: #76817d; padding: 0 0 4px; }
         .total { font-size: 24px; font-weight: 700; color: #00453e; border-top: 2px solid #eef1f0;
                  padding-top: 12px; margin-top: 8px; }
         #payment-element { margin: 24px 0; }
@@ -32,8 +33,23 @@
         <div class="brand">{{ brand_name() }}</div>
         <h1>Paiement de votre commande #{{ $order->reference }}</h1>
 
+        @php
+            // Éco-participation FIGÉE à la commande (OrderLine.meta), incluse dans les montants.
+            $productLines = $order->lines->filter(fn ($line) => $line->type !== 'shipping');
+            $orderEcotax = \App\Support\Ecotax::forOrder($order);
+        @endphp
+
         <div class="lines">
+            @foreach ($productLines as $line)
+                <div><span>{{ $line->description }} × {{ $line->quantity }}</span><span>{{ number_format((int) $line->sub_total->value / 100, 2, ',', ' ') }} € HT</span></div>
+                @if (($lineEcotax = \App\Support\Ecotax::forOrderLine($line)) > 0)
+                    <span class="eco">dont éco-participation {{ number_format($lineEcotax / 100, 2, ',', ' ') }} € HT</span>
+                @endif
+            @endforeach
             <div><span>Sous-total commande</span><span>{{ number_format($order->total->value / 100, 2, ',', ' ') }} € HT</span></div>
+            @if ($orderEcotax > 0)
+                <span class="eco">dont éco-participation {{ number_format($orderEcotax / 100, 2, ',', ' ') }} € HT</span>
+            @endif
             <div><span>Frais de port</span><span>{{ number_format($transportCents / 100, 2, ',', ' ') }} € HT</span></div>
             <div class="total"><span>Total à payer</span><span>{{ number_format($amount / 100, 2, ',', ' ') }} € HT</span></div>
         </div>

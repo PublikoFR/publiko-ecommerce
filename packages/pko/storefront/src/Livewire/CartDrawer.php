@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Pko\Storefront\Livewire;
 
+use App\Support\Ecotax;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Lunar\Facades\CartSession;
+use Lunar\Models\CartLine;
+use Lunar\Models\Contracts\Currency as CurrencyContract;
 
 class CartDrawer extends Component
 {
@@ -22,6 +25,9 @@ class CartDrawer extends Component
     public ?string $couponCode = null;
 
     public ?string $total = null;
+
+    /** Éco-participation totale du panier, formatée (incluse dans le sous-total) ; null si nulle. */
+    public ?string $ecotaxTotal = null;
 
     public int $linesCount = 0;
 
@@ -88,6 +94,7 @@ class CartDrawer extends Component
             $this->discountTotal = null;
             $this->couponCode = null;
             $this->total = null;
+            $this->ecotaxTotal = null;
             $this->linesCount = 0;
 
             return;
@@ -101,6 +108,7 @@ class CartDrawer extends Component
             'unit_price' => $line->unitPrice->formatted(),
             'sub_total' => $line->subTotal->formatted(),
             'thumbnail' => $line->purchasable->getThumbnail()?->getUrl('small'),
+            'ecotax' => self::formatLineEcotax($line, $cart->currency),
         ])->toArray();
 
         $this->linesCount = count($this->lines);
@@ -110,6 +118,16 @@ class CartDrawer extends Component
             : null;
         $this->couponCode = $cart->coupon_code;
         $this->total = $cart->total?->formatted();
+        $ecotaxCents = Ecotax::forCart($cart);
+        $this->ecotaxTotal = $ecotaxCents > 0 ? Ecotax::format($ecotaxCents, $cart->currency) : null;
+    }
+
+    /** Éco-participation de la ligne (incluse dans le prix), formatée ; null si nulle. */
+    private static function formatLineEcotax(CartLine $line, ?CurrencyContract $currency): ?string
+    {
+        $cents = Ecotax::forCartLine($line);
+
+        return $cents > 0 ? Ecotax::format($cents, $currency) : null;
     }
 
     public function render(): View

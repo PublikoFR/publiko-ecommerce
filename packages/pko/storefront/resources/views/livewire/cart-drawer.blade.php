@@ -60,6 +60,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-sm text-neutral-900 line-clamp-2">{{ $line['description'] }}</p>
                             <p class="text-xs text-neutral-500 mt-0.5">Réf. {{ $line['identifier'] }}</p>
+                            <x-storefront.ecotax-note :formatted="$line['ecotax'] ?? null" class="mt-0.5" />
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center gap-1">
                                     <button type="button" wire:click="updateQuantity({{ $line['id'] }}, {{ $line['quantity'] - 1 }})" class="w-7 h-7 border border-neutral-300 rounded text-neutral-600 hover:border-primary-500 hover:text-primary-600 flex items-center justify-center text-sm font-bold">−</button>
@@ -83,6 +84,9 @@
                 <div class="space-y-1 text-sm">
                     @if ($subTotal)
                         <div class="flex justify-between text-neutral-600"><span>Sous-total HT</span><span>{{ $subTotal }}</span></div>
+                    @endif
+                    @if ($ecotaxTotal)
+                        <div class="flex justify-between text-xs text-neutral-500"><span>dont éco-participation</span><span>{{ $ecotaxTotal }} HT</span></div>
                     @endif
                     @if ($discountTotal)
                         <div class="flex justify-between text-success-700">

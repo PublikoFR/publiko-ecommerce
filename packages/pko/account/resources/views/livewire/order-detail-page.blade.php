@@ -52,6 +52,8 @@
                     <div>
                         <p class="font-semibold text-neutral-900">{{ $line->description }}</p>
                         <p class="text-xs text-neutral-500 mt-0.5">{{ $line->identifier }} · Qté {{ $line->quantity }}</p>
+                        {{-- Valeur figée à la commande (OrderLine.meta), jamais la variante actuelle. --}}
+                        <x-storefront.ecotax-note :cents="\App\Support\Ecotax::forOrderLine($line)" :currency="$order->currency" class="mt-0.5" />
                     </div>
                     <p class="font-semibold text-neutral-900">{{ $line->sub_total?->formatted() }}</p>
                 </li>
@@ -60,6 +62,9 @@
 
         <div class="mt-6 pt-4 border-t border-neutral-200 space-y-2 text-sm">
             <div class="flex justify-between"><span class="text-neutral-500">Sous-total</span><span>{{ $order->sub_total?->formatted() }}</span></div>
+            @if (($orderEcotax = \App\Support\Ecotax::forOrder($order)) > 0)
+                <div class="flex justify-between text-xs text-neutral-500"><span>dont éco-participation</span><span>{{ \App\Support\Ecotax::format($orderEcotax, $order->currency) }} HT</span></div>
+            @endif
             <div class="flex justify-between"><span class="text-neutral-500">Livraison</span><span>{{ $order->shipping_total?->formatted() }}</span></div>
             <div class="flex justify-between"><span class="text-neutral-500">TVA</span><span>{{ $order->tax_total?->formatted() }}</span></div>
             <div class="flex justify-between pt-2 border-t border-neutral-200 text-lg font-display font-bold"><span>Total TTC</span><span>{{ $order->total?->formatted() }}</span></div>

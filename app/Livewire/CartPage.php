@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Support\Ecotax;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Lunar\Facades\CartSession;
+use Lunar\Models\CartLine;
+use Lunar\Models\Contracts\Currency as CurrencyContract;
 use Pko\ShippingCommon\Models\Supplier;
 
 class CartPage extends Component
@@ -33,7 +36,16 @@ class CartPage extends Component
             'sub_total' => $line->subTotal->formatted(),
             'thumbnail' => $line->purchasable->getThumbnail()?->getUrl('small'),
             'availability' => $this->resolveAvailability($line->purchasable),
+            'ecotax' => self::formatLineEcotax($line, $cart->currency),
         ])->toArray() ?? [];
+    }
+
+    /** Éco-participation de la ligne (incluse dans le prix), formatée ; null si nulle. */
+    private static function formatLineEcotax(CartLine $line, ?CurrencyContract $currency): ?string
+    {
+        $cents = Ecotax::forCartLine($line);
+
+        return $cents > 0 ? Ecotax::format($cents, $currency) : null;
     }
 
     private function resolveAvailability(mixed $variant): array
@@ -95,6 +107,14 @@ class CartPage extends Component
     public function getCartProperty()
     {
         return CartSession::current();
+    }
+
+    /** Total de l'éco-participation du panier (cents HT, inclus dans le sous-total). */
+    public function getEcotaxTotalProperty(): int
+    {
+        $cart = CartSession::current();
+
+        return $cart ? Ecotax::forCart($cart) : 0;
     }
 
     public function getHasMixedCartProperty(): bool
