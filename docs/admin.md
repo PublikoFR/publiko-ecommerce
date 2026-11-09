@@ -128,6 +128,31 @@ resources/css/filament/admin/
 
 ---
 
+## Champs mot de passe — œil global (`TextInput::configureUsing`)
+
+Tous les `TextInput` `->password()` de l'admin affichent l'œil afficher/masquer,
+y compris ceux déclarés dans `vendor/` (Staff, Client → Utilisateur, pages 2FA
+`lunarphp/filament3-2fa`, profil Filament) qu'on ne peut pas éditer. Réglé une
+fois dans `AppServiceProvider::boot()` :
+
+```php
+TextInput::configureUsing(fn (TextInput $c) => $c->revealable(
+    fn (TextInput $component): bool => $component->isPassword(),
+));
+```
+
+- **Closure obligatoire** : `configureUsing()` s'exécute dans `make()`, avant
+  `->password()`, et `isPasswordRevealable()` lève une exception si `revealable`
+  vaut `true` sur un champ non password.
+- Un `->revealable(...)` explicite posé ensuite gagne (les actions
+  `showPassword`/`hidePassword` sont indexées par nom et écrasées) : pas de
+  doublon sur `SecretsFormSchema` / `LlmConfigResource`, et `revealable(false)`
+  reste possible.
+- Choix de `AppServiceProvider` plutôt qu'un provider `pko/*` : la règle vaut
+  pour tout le panel, tous packages confondus, et aucun package n'en est
+  propriétaire.
+- Pendant front : `docs/packages/storefront.md` → « Champ mot de passe ».
+
 ## Tableau de bord Weklo (page d'accueil `/admin`)
 
 Le dashboard Lunar (grille de widgets ApexChart) est **remplacé** par la page design
