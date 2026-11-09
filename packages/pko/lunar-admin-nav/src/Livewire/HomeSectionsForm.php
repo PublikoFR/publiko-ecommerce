@@ -10,6 +10,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -49,7 +50,7 @@ class HomeSectionsForm extends Component implements HasForms
     {
         return $form->schema([
             Section::make('Schéma « À chaque installation, sa solution »')
-                ->description('Chaque zone du schéma pointe vers une collection du catalogue. Une zone sans collection (ou liée à une collection désactivée) n\'est pas affichée. Libellé et description vides = textes par défaut de la zone.')
+                ->description('Par défaut, chaque zone pointe automatiquement vers la catégorie de premier niveau qui porte son nom (Portails, Volets…). Choisissez une collection pour imposer un autre lien, ou masquez la zone. Libellé et description vides = textes par défaut de la zone.')
                 ->schema([
                     Repeater::make('solutions')
                         ->label('')
@@ -63,9 +64,11 @@ class HomeSectionsForm extends Component implements HasForms
                             Select::make('collection_id')
                                 ->label('Collection')
                                 ->options(fn (): array => self::collectionOptions())
+                                ->placeholder('Automatique (catégorie du même nom)')
                                 ->searchable(),
                             TextInput::make('label')->label('Libellé affiché')->maxLength(60),
                             TextInput::make('description')->label('Description')->maxLength(160),
+                            Toggle::make('hidden')->label('Masquer cette zone'),
                         ])
                         ->columns(2)
                         ->maxItems(count(HomeSolutionZones::all()))
@@ -122,6 +125,7 @@ class HomeSectionsForm extends Component implements HasForms
             'collection_id' => isset($row['collection_id']) && $row['collection_id'] !== '' ? (int) $row['collection_id'] : null,
             'label' => ($row['label'] ?? '') !== '' ? $row['label'] : null,
             'description' => ($row['description'] ?? '') !== '' ? $row['description'] : null,
+            'hidden' => (bool) ($row['hidden'] ?? false),
         ], $data['solutions'] ?? [])));
 
         Setting::set('home.selection', array_values(array_map(fn (array $row): array => [

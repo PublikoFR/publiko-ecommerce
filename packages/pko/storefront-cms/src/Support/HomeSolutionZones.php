@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pko\StorefrontCms\Support;
 
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Str;
 use Lunar\Models\Collection;
 
 /**
@@ -16,9 +17,10 @@ use Lunar\Models\Collection;
  * par-dessus l'image comme dans la maquette, où les pastilles se décalaient
  * dès que la largeur changeait.
  *
- * Les zones sont fixes (elles correspondent au dessin). Ce qui est éditable en
- * admin (Page d'accueil → Sections), c'est le lien zone → collection Lunar, le
- * libellé et la description : config('storefront.home.solutions').
+ * Les zones sont fixes (elles correspondent au dessin). Chaque zone trouve sa
+ * catégorie racine par son nom (AUTO_MATCH) ; l'admin (Page d'accueil →
+ * Sections) peut imposer une autre collection, masquer la zone, changer libellé
+ * et description : config('storefront.home.solutions').
  */
 final class HomeSolutionZones
 {
@@ -56,22 +58,53 @@ final class HomeSolutionZones
     }
 
     /**
-     * Entrées par défaut du repeater admin : une ligne par zone, sans collection.
+     * Entrées par défaut du repeater admin : une ligne par zone, collection en
+     * automatique (rapprochement par nom, cf. AUTO_MATCH).
      *
-     * @return list<array{zone: string, collection_id: null, label: null, description: null}>
+     * @return list<array{zone: string, collection_id: null, label: null, description: null, hidden: false}>
      */
     public static function defaultEntries(): array
     {
         return array_map(
-            fn (string $zone): array => ['zone' => $zone, 'collection_id' => null, 'label' => null, 'description' => null],
+            fn (string $zone): array => ['zone' => $zone, 'collection_id' => null, 'label' => null, 'description' => null, 'hidden' => false],
             array_keys(self::all()),
         );
     }
 
     /**
-     * Zones affichables : celles reliées à une collection active ayant une URL.
-     * Numérotées 01, 02… dans l'ordre du schéma, pour que la pastille et la
-     * ligne de liste portent toujours le même numéro.
+     * Mots-clés de rapprochement automatique zone → catégorie racine, comparés au
+     * nom normalisé de la collection (minuscules, sans accents ni ponctuation).
+     *
+     * Pourquoi : un mapping par identifiant ne survit pas d'un environnement à
+     * l'autre (les ids de collections diffèrent entre local, dev et prod). Sans
+     * ce repli, le module disparaissait tant que personne n'avait refait le
+     * mapping en admin sur chaque serveur.
+     *
+     * @var array<string, list<string>>
+     */
+    public const AUTO_MATCH = [
+        'gates' => ['portail'],
+        'garage' => ['garage', 'fermetures industrielles'],
+        'shutters' => ['volet'],
+        'motors' => ['motorisation'],
+        'intercom' => ['interphon', 'visiophon'],
+        'access' => ['controle d acces'],
+        'security' => ['alarme', 'videosurveillance'],
+        'smart' => ['domotique'],
+        'supplies' => ['consommable'],
+        'parts' => ['pieces detachees', 'piece detachee'],
+    ];
+
+    /**
+     * Zones affichables, numérotées 01, 02… dans l'ordre du schéma (la pastille
+     * et la ligne de liste portent toujours le même numéro).
+     *
+     * Résolution d'une zone, par priorité :
+     * 1. masquée en admin (`hidden`) → absente ;
+     * 2. collection choisie en admin (`collection_id`) → celle-ci, si active ;
+     * 3. sinon, catégorie racine active dont le nom contient un mot-clé de
+     *    AUTO_MATCH (la plus fournie en sous-catégories si plusieurs
+     *    correspondent). Une zone sans correspondance n'est pas affichée.
      *
      * @param  mixed  $entries  config('storefront.home.solutions')
      * @return list<array{key: string, number: string, label: string, description: string, url: string, x: float, y: float}>
@@ -79,27 +112,40 @@ final class HomeSolutionZones
     public static function resolve(mixed $entries): array
     {
         $byZone = collect(is_array($entries) ? $entries : [])
-            ->filter(fn ($e) => is_array($e) && isset(self::all()[$e['zone'] ?? '']) && ! empty($e['collection_id']))
+            ->filter(fn ($e) => is_array($e) && isset(self::all()[$e['zone'] ?? '']))
             ->keyBy('zone');
 
-        if ($byZone->isEmpty()) {
-            return [];
-        }
+        $explicitIds = $byZone->pluck('collection_id')->filter()->map(fn ($id) => (int) $id)->values()->all();
 
-        /** @var SupportCollection<int, Collection> $collections */
-        $collections = Collection::query()
+        /** @var SupportCollection<int, Collection> $candidates */
+        $candidates = Collection::query()
             ->with('defaultUrl')
-            ->whereIn('id', $byZone->pluck('collection_id')->map(fn ($id) => (int) $id)->all())
             ->where('pko_enabled', true)
-            ->get()
-            ->keyBy('id');
+            ->where(fn ($q) => $q->whereNull('parent_id')->orWhereIn('id', $explicitIds))
+            ->orderBy('_lft')
+            ->get();
+
+        $byId = $candidates->keyBy('id');
+        // À mots-clés égaux, la famille la plus fournie (plus grand sous-arbre
+        // nested set) l'emporte sur une racine isolée — ex. une ancienne
+        // catégorie de démo « Portails coulissants » face à « Portails ».
+        $roots = $candidates->whereNull('parent_id')
+            ->sortByDesc(fn (Collection $c) => (int) $c->_rgt - (int) $c->_lft)
+            ->map(fn (Collection $c) => ['collection' => $c, 'name' => self::normalize((string) $c->translateAttribute('name'))]);
 
         $out = [];
         foreach (self::all() as $key => $zone) {
-            $entry = $byZone->get($key);
-            $collection = $entry ? $collections->get((int) $entry['collection_id']) : null;
-            $slug = $collection?->defaultUrl?->slug;
+            $entry = $byZone->get($key, []);
 
+            if (! empty($entry['hidden'])) {
+                continue;
+            }
+
+            $collection = ! empty($entry['collection_id'])
+                ? $byId->get((int) $entry['collection_id'])
+                : $roots->first(fn (array $root) => self::matches($root['name'], self::AUTO_MATCH[$key] ?? []))['collection'] ?? null;
+
+            $slug = $collection?->defaultUrl?->slug;
             if (! $collection || ! $slug) {
                 continue;
             }
@@ -116,5 +162,26 @@ final class HomeSolutionZones
         }
 
         return $out;
+    }
+
+    public static function normalize(string $value): string
+    {
+        $ascii = Str::ascii(mb_strtolower($value));
+
+        return trim((string) preg_replace('/[^a-z0-9]+/', ' ', $ascii));
+    }
+
+    /**
+     * @param  list<string>  $keywords
+     */
+    private static function matches(string $name, array $keywords): bool
+    {
+        foreach ($keywords as $keyword) {
+            if ($name !== '' && str_contains($name, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
