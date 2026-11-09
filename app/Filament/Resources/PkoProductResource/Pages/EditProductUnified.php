@@ -27,6 +27,7 @@ use Lunar\Models\Product;
 use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Pko\AiFilament\Actions\GenerateAiAction;
+use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
@@ -135,6 +136,9 @@ class EditProductUnified extends Page implements HasForms
 
     public ?int $brandId = null;
 
+    /** Famille fabricant PRIVÉE (famille de remise, propre à la marque) — jamais affichée au front. */
+    public ?int $brandFamilyId = null;
+
     public array $tagInputs = [];
 
     public string $newTag = '';
@@ -210,6 +214,7 @@ class EditProductUnified extends Page implements HasForms
             : null;
         $this->supplierId = $product->pko_supplier_id !== null ? (int) $product->pko_supplier_id : null;
         $this->brandId = $product->brand_id;
+        $this->brandFamilyId = $product->pko_brand_family_id !== null ? (int) $product->pko_brand_family_id : null;
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
         $this->tagInputs = $product->tags->pluck('value')->all();
 
@@ -886,6 +891,9 @@ class EditProductUnified extends Page implements HasForms
                 : null;
             $product->pko_transport_price_cents = ($this->portMode === 'flat' && $transportCents !== null) ? $transportCents : null;
             $product->pko_supplier_id = $this->supplierId;
+            // Colonne custom non-fillable : assignation directe. Une famille d'une
+            // autre marque n'est jamais persistée (cohérence marque ↔ famille).
+            $product->pko_brand_family_id = $this->brandFamilyBelongsToBrand() ? $this->brandFamilyId : null;
             $product->save();
 
             $product->collections()->sync($this->collectionIds);
@@ -995,6 +1003,39 @@ class EditProductUnified extends Page implements HasForms
     public function getSupplierOptionsProperty(): Collection
     {
         return Supplier::orderBy('name')->get(['id', 'name']);
+    }
+
+    /** Familles fabricant de la marque courante (vide sans marque). */
+    public function getBrandFamilyOptionsProperty(): Collection
+    {
+        if ($this->brandId === null) {
+            return collect();
+        }
+
+        return BrandFamily::query()
+            ->where('brand_id', $this->brandId)
+            ->orderBy('code')
+            ->get(['id', 'code', 'label']);
+    }
+
+    /** Changer de marque invalide une famille rattachée à l'ancienne marque. */
+    public function updatedBrandId(): void
+    {
+        if (! $this->brandFamilyBelongsToBrand()) {
+            $this->brandFamilyId = null;
+        }
+    }
+
+    private function brandFamilyBelongsToBrand(): bool
+    {
+        if ($this->brandFamilyId === null || $this->brandId === null) {
+            return false;
+        }
+
+        return BrandFamily::query()
+            ->whereKey($this->brandFamilyId)
+            ->where('brand_id', $this->brandId)
+            ->exists();
     }
 
     public function getFeatureFamiliesProperty(): Collection

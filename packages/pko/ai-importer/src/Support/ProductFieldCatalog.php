@@ -35,6 +35,10 @@ final class ProductFieldCatalog
                 'mpn' => 'MPN (réf. fabricant)',
                 'product_type_handle' => 'Type de produit',
             ],
+            'Famille fabricant (privée, remises)' => [
+                'brand_family_code' => 'Famille fabricant — code (ex. FAM1, GAMME)',
+                'brand_family_label' => 'Famille fabricant — libellé (ex. FAM1L, FONCTION)',
+            ],
             'Prix & taxe' => [
                 'price_cents' => 'Prix HT (cents)',
                 'compare_price_cents' => 'Prix barré (cents)',

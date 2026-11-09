@@ -136,6 +136,8 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `weight_value` | `ProductVariant::weight_value` (kg) | Unité forcée à `kg` |
 | `length_value` / `width_value` / `height_value` | `ProductVariant::{axis}_value` (cm) | Unité forcée à `cm` |
 | `brand_name` | `Product::brand_id` | `Brand::firstOrCreate(['name' => ...])` |
+| `brand_family_code` | `Product::pko_brand_family_id` → `pko_brand_families` | Famille fabricant **privée** (famille de remise FAB-DIS). Code **exact** (trim seul), résolu sur (marque, code), créé au besoin. Mode `all` uniquement. Voir §7.quinquies.15decies. |
+| `brand_family_label` | `BrandFamily::label` | Libellé de la famille, mis à jour au réimport. Sans code → ignoré + warning. |
 | `collections` | `Product::collections()` | Array ou CSV, int (ID) ou string (handle). `syncWithoutDetaching` |
 | `features` | pivot `pko_feature_value_product` | Hash `{family_handle => [value_handle, ...]}`, delegated à `catalog-features` |
 | `images` | Spatie MediaLibrary | Array ou CSV d'URLs distantes. Idempotent via `custom_properties.source_url`, première URL `primary=true`. |
@@ -673,6 +675,32 @@ du staging réel, 0,16 à 0,19 € HT).
   pose la colonne et **ajoute** l'éco-taxe à tous les paliers `lunar_prices` de la devise
   par défaut, en transaction. Les `pko_negotiated_prices` ne sont **pas** modifiés mais
   listés pour arbitrage manuel. Sortie : tableau SKU / ancien prix / éco-taxe / nouveau prix.
+
+### 7.quinquies.15decies Famille fabricant (2026-11)
+
+Importe la famille fabricant **exacte** (famille de remise des tarifs FAB-DIS) pour que
+le futur chantier remises puisse la cibler. Donnée **privée** : jamais exposée au front
+ni à l'API (modèle et table : [catalog-features.md](catalog-features.md#familles-fabricant-privées)).
+
+- **Clés** : canoniques `brand_family_code` / `brand_family_label` (dans `CANONICAL_KEYS`,
+  groupe « Famille fabricant (privée, remises) » du catalogue de champs). Pas d'alias legacy.
+- **Colonnes source** : choisies dans la config de chaque marque, une paire code + libellé.
+  Typiquement `FAM1` / `FAM1L` (onglet `B01_COMMERCE`) ; une autre marque peut pointer
+  `GAMME` / `FONCTION`. Aucune config n'est préconfigurée.
+- **Code exact** : trim seul, casse et accents conservés (`ACM` ≠ `acm`). Un code numérique
+  est stocké en chaîne.
+- **Unicité par marque** : la famille est résolue sur `(brand_id, code)` et créée au
+  besoin ; le même code chez deux marques donne deux familles distinctes. Le produit doit
+  donc avoir une marque.
+- **Libellé** : remplace celui en base à chaque réimport (le fabricant renomme parfois).
+- **Modes** : écrit à la création et en update `all`. Jamais en `price` ni `stock`.
+- **Code vide** : famille actuelle conservée (une cellule vide n'efface jamais).
+- **Warnings `ImportLog`** (rien n'est écrit) : produit sans marque, libellé sans code,
+  code de plus de 100 caractères.
+- **Rollback** : `pko_brand_family_id` fait partie de `LunarBackupManager::PRODUCT_COLUMNS`,
+  le rattachement est restauré. Le **libellé** d'une famille (table `pko_brand_families`)
+  n'est pas sauvegardé : un libellé modifié par l'import n'est pas restauré, et une famille
+  créée par l'import reste en base (orpheline, sans effet).
 
 ### 7.quinquies.15octies Vidéos au format JSON `[{url,title}]` (2026-07)
 
