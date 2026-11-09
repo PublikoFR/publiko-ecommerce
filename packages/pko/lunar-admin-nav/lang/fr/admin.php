@@ -63,8 +63,7 @@ return [
             'title' => 'Page d\'accueil',
             'tabs' => [
                 'slides' => 'Slides',
-                'tiles' => 'Tuiles',
-                'offers' => 'Offres du moment',
+                'sections' => 'Sections',
             ],
             'actions' => [
                 'create_slide' => 'Nouveau slide',

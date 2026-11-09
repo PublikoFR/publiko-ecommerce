@@ -12,6 +12,7 @@ use Pko\AdminNav\Filament\Widgets\HomeTilesTable;
 use Pko\AdminNav\Filament\Widgets\LoyaltyGiftsTable;
 use Pko\AdminNav\Filament\Widgets\LoyaltyPointsTable;
 use Pko\AdminNav\Filament\Widgets\LoyaltyTiersTable;
+use Pko\AdminNav\Livewire\HomeSectionsForm;
 use Pko\AdminNav\Livewire\MaintenanceToggle;
 
 class AdminNavServiceProvider extends ServiceProvider
@@ -35,6 +36,7 @@ class AdminNavServiceProvider extends ServiceProvider
         Livewire::component('admin-nav::home-slides-table', HomeSlidesTable::class);
         Livewire::component('admin-nav::home-tiles-table', HomeTilesTable::class);
         Livewire::component('admin-nav::home-offers-table', HomeOffersTable::class);
+        Livewire::component('admin-nav::home-sections-form', HomeSectionsForm::class);
         Livewire::component('admin-nav::loyalty-tiers-table', LoyaltyTiersTable::class);
         Livewire::component('admin-nav::loyalty-gifts-table', LoyaltyGiftsTable::class);
         Livewire::component('admin-nav::loyalty-points-table', LoyaltyPointsTable::class);

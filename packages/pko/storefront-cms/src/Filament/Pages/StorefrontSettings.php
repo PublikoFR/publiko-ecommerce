@@ -7,12 +7,9 @@ namespace Pko\StorefrontCms\Filament\Pages;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
@@ -20,8 +17,8 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Pages\SubNavigationPosition;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 use Pko\AdminNav\Filament\Clusters\PkoShopPaymentCluster;
+use Pko\StorefrontCms\Filament\Pages\Settings\NavigationSettingsSchema;
 use Pko\StorefrontCms\Models\Setting;
 
 class StorefrontSettings extends Page implements HasForms
@@ -63,7 +60,7 @@ class StorefrontSettings extends Page implements HasForms
     {
         $config = config('storefront');
 
-        return [
+        return NavigationSettingsSchema::load() + [
             'brand_name' => Setting::get('brand.name', config('app.name')),
             'brand_logo' => Setting::get('brand.logo'),
             'brand_logo_dark' => Setting::get('brand.logo_dark'),
@@ -74,15 +71,10 @@ class StorefrontSettings extends Page implements HasForms
             'contact_email' => Setting::get('contact.email', $config['contact']['email'] ?? null),
             'admin_email' => Setting::get('admin_email', ''),
             'contact_tagline' => Setting::get('contact.tagline', $config['contact']['tagline'] ?? null),
-            'banner_enabled' => (bool) Setting::get('banner.enabled', $config['banner']['enabled'] ?? true),
-            'banner_text' => Setting::get('banner.text', $config['banner']['text'] ?? null),
-            'banner_icon' => Setting::get('banner.icon', $config['banner']['icon'] ?? 'truck'),
             'social_facebook' => Setting::get('social.facebook', $config['social']['facebook'] ?? null),
             'social_instagram' => Setting::get('social.instagram', $config['social']['instagram'] ?? null),
             'social_linkedin' => Setting::get('social.linkedin', $config['social']['linkedin'] ?? null),
             'social_youtube' => Setting::get('social.youtube', $config['social']['youtube'] ?? null),
-            'usps' => Setting::get('usps', $config['usps'] ?? []),
-            'featured_collection_slug' => Setting::get('home.featured_collection_slug', $config['home']['featured_collection_slug'] ?? null),
         ];
     }
 
@@ -144,28 +136,7 @@ class StorefrontSettings extends Page implements HasForms
                     ->helperText('Destinataire des e-mails internes : nouvelle inscription, nouvelle commande, virement à rapprocher, palier de fidélité.'),
                 TextInput::make('contact_tagline')->label('Accroche header')->placeholder("Besoin d'un conseil ?"),
             ]),
-            Section::make('Bannière info (sous header)')->schema([
-                Toggle::make('banner_enabled')->label('Afficher la bannière'),
-                Grid::make(2)->schema([
-                    TextInput::make('banner_text')
-                        ->label('Texte')
-                        ->placeholder('Livraison offerte dès {{port_franco}}')
-                        ->helperText(new HtmlString(
-                            'Variables dynamiques disponibles : <code>{{port_franco}}</code> (seuil de livraison offerte, ex. « 500 € HT ») '
-                            .'et <code>{{port_franco_montant}}</code> (montant seul). Le seuil se règle dans Expédition → Paramètres.'
-                        )),
-                    Select::make('banner_icon')->label('Icône')->options([
-                        'truck' => 'Camion',
-                        'check' => 'Check',
-                        'info' => 'Info',
-                        'map-pin' => 'Localisation',
-                        'phone' => 'Téléphone',
-                        'credit-card' => 'Carte',
-                    ])->default('truck'),
-                ]),
-                // Seuil franco supprimé (L1) — recréé en page dédiée Expédition → Paramètres (L2).
-                // Source unique : config('shipping.franco.threshold_ht_cents') / FRANCO_THRESHOLD_HT_CENTS.
-            ]),
+            ...NavigationSettingsSchema::sections(),
             Section::make('Réseaux sociaux')->schema([
                 Grid::make(2)->schema([
                     TextInput::make('social_facebook')->label('Facebook')->url()->prefix('https://'),
@@ -174,32 +145,6 @@ class StorefrontSettings extends Page implements HasForms
                     TextInput::make('social_youtube')->label('YouTube')->url()->prefix('https://'),
                 ]),
             ])->collapsible(),
-            Section::make('USPs (bandeau footer)')->schema([
-                Repeater::make('usps')
-                    ->label('')
-                    ->schema([
-                        Select::make('icon')->label('Icône')->options([
-                            'map-pin' => 'Localisation',
-                            'users' => 'Personnes',
-                            'truck' => 'Camion',
-                            'credit-card' => 'Carte',
-                            'check' => 'Check',
-                            'phone' => 'Téléphone',
-                        ])->required(),
-                        TextInput::make('title')->label('Titre')->required()->maxLength(80),
-                        TextInput::make('subtitle')->label('Sous-titre')->maxLength(120),
-                    ])
-                    ->helperText(new HtmlString(
-                        'Titre et sous-titre acceptent les variables dynamiques <code>{{port_franco}}</code> et <code>{{port_franco_montant}}</code>.'
-                    ))
-                    ->columns(3)
-                    ->defaultItems(0)
-                    ->reorderableWithButtons()
-                    ->addActionLabel('Ajouter un USP'),
-            ])->collapsed(),
-            Section::make('Produits vedettes home')->schema([
-                TextInput::make('featured_collection_slug')->label('Slug de la collection affichée en home')->placeholder('ex: nouveautes (vide = derniers produits)'),
-            ])->collapsed(),
         ])->statePath('data');
     }
 
@@ -217,15 +162,11 @@ class StorefrontSettings extends Page implements HasForms
         Setting::set('contact.email', $data['contact_email']);
         Setting::set('admin_email', $data['admin_email'] ?? '');
         Setting::set('contact.tagline', $data['contact_tagline']);
-        Setting::set('banner.enabled', (bool) $data['banner_enabled']);
-        Setting::set('banner.text', $data['banner_text']);
-        Setting::set('banner.icon', $data['banner_icon']);
         Setting::set('social.facebook', $data['social_facebook']);
         Setting::set('social.instagram', $data['social_instagram']);
         Setting::set('social.linkedin', $data['social_linkedin']);
         Setting::set('social.youtube', $data['social_youtube']);
-        Setting::set('usps', $data['usps'] ?? []);
-        Setting::set('home.featured_collection_slug', $data['featured_collection_slug']);
+        NavigationSettingsSchema::save($data);
 
         Notification::make()->success()->title('Paramètres enregistrés')->send();
     }

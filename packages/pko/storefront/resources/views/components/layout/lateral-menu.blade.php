@@ -192,6 +192,23 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                     </li>
                 @endforelse
             </ul>
+
+            {{-- Liens du menu principal : sur desktop ils sont dans la barre de
+                 navigation du header, masquée sous lg → on les reprend ici. --}}
+            @php
+                $mobileNav = \Pko\Storefront\Support\StorefrontLinks::visible(config('storefront.nav.secondary', []));
+                $mobileQuoteUrl = \Pko\Storefront\Support\StorefrontLinks::safeHref(config('storefront.nav.quote_url', '/contact'));
+            @endphp
+            @if ($mobileNav || $mobileQuoteUrl)
+                <div class="lg:hidden shrink-0 border-t border-neutral-200 bg-neutral-50 px-4 py-3 space-y-1">
+                    @foreach ($mobileNav as $link)
+                        <a href="{{ $link['href'] }}" class="block py-1.5 text-sm font-medium text-neutral-700 hover:text-primary-600 transition">{{ $link['label'] }}</a>
+                    @endforeach
+                    @if ($mobileQuoteUrl)
+                        <x-ui.button variant="primary" size="sm" :href="$mobileQuoteUrl" iconRight="arrow-up-right" class="mt-2 w-full">Demander un devis</x-ui.button>
+                    @endif
+                </div>
+            @endif
         </nav>
 
         {{-- Panel L2 — desktop uniquement (colonne masquée si aucune L1 active) --}}

@@ -235,8 +235,8 @@ formatent plus le montant elles-mêmes.
 Règles :
 
 - **Ne jamais recopier un seuil de franco en dur** dans un texte, une config ou une vue front.
-- Points d'application actuels : `components/layout/header.blade.php` (barre utilitaire au-dessus
-  du header **et** bandeau info sous le menu) et `components/layout/usps.blade.php`.
+- Points d'application actuels : `components/layout/header.blade.php` (info livraison du bandeau
+  supérieur **et** messages du bandeau sous le menu) et la mention de bas de page du footer.
   Tout nouvel emplacement affichant un texte éditorial doit passer par `StorefrontText::render()`.
 - Une variable inconnue est laissée telle quelle (on n'efface jamais la saisie utilisateur).
 - Les `{{ }}` d'un `Setting` ne sont pas évalués par Blade (valeur échappée à l'affichage) :
@@ -248,7 +248,7 @@ Dépendance : `pko/lunar-storefront` requiert désormais `pko/lunar-shipping-com
 
 ### Impact back-office
 - Aucun. `/admin` (Filament + Shield) inchangé, routes et middlewares séparés.
-- Exception : l'aide contextuelle des champs « Texte » (bannière) et « USPs » de
+- Exception : l'aide contextuelle des champs « Info livraison » et « Bandeau sous le menu » de
   **Storefront → Paramètres** documente les variables disponibles.
 
 
@@ -300,3 +300,33 @@ Tests : `CheckoutBindingTest` (le jeu de pays inclut l'Afghanistan pour prouver 
 **Propagation vers l'Order** : `PropagateCartSiteNamePipeline` (enregistré dans `config/lunar/orders.php → pipelines.creation`, positionné après `CreateOrderLines` et avant `MarkQuoteOrderAwaitingQuote`) lit `cart->meta['pko_site_name']` et le copie dans la colonne `pko_site_name` de la table `orders`. Le champ est également propagé lors d'un split de devis.
 
 Tests : `tests/Feature/PropagateCartSiteNamePipelineTest`, `tests/Feature/Storefront/CheckoutSiteNameTest`, `tests/Feature/Account/OrderSiteNameTest` (modification autorisée, autorisation 403 si commande d'un autre client, validation longueur).
+
+### Header, footer et liens éditoriaux (FEAT-009, 2026-11-09)
+
+Refonte de l'en-tête et du pied de page d'après la maquette d'accueil du client, **re-stylée
+aux tokens du Design System** (la maquette n'a fourni que la disposition).
+
+| Zone | Rendu | Réglage (Storefront → Paramètres) | Clé config / Setting |
+|---|---|---|---|
+| Bandeau supérieur (forest) | `brand_tagline()` · info livraison à gauche, liens utiles à droite | « Bandeau supérieur » | `banner.*`, `topbar.links` |
+| Menu principal | « Tous nos produits » (burger) + liens + bouton forest « Demander un devis » | « Menu principal » | `nav.secondary`, `nav.quote_url` |
+| Bandeau sous le menu | messages icône + texte | « Bandeau sous le menu » | `access_band.items` |
+| Footer (fond clair) | logo, accroche, téléphone, 3 colonnes de liens, mention de bas de page | « Pied de page » | `footer.columns`, `footer.baseline`, `contact.phone` |
+
+Règles :
+
+- **Tout lien éditorial passe par `Pko\Storefront\Support\StorefrontLinks::visible()`** : un
+  lien sans libellé ou sans URL est **masqué** (le menu de la maquette cible des pages pas encore
+  créées : vider l'URL suffit à retirer l'entrée), et seules les URL sûres sont rendues
+  (`/…`, `#…`, `http(s)://`, `mailto:`, `tel:`). Un `javascript:` saisi en admin n'atteint jamais
+  un `href`. L'admin refait le contrôle par regex (`NavigationSettingsSchema::HREF_REGEX`) pour
+  un retour immédiat, mais le rendu reste la garde.
+- Les valeurs par défaut des liens vivent dans `packages/pko/storefront/config/storefront.php`
+  (pages CMS `/pages/<slug>` à créer côté contenu). Le schéma admin est isolé dans
+  `Pko\StorefrontCms\Filament\Pages\Settings\NavigationSettingsSchema` (load / sections / save).
+- Sous `lg`, le menu principal n'est pas affiché dans le header : ses liens et le bouton devis sont
+  repris en bas du menu latéral (`x-layout.lateral-menu`).
+- **Retirés** : bandeau USPs du footer (composant `usps.blade.php` supprimé, section admin
+  supprimée — la clé `usps` reste en base sans effet), newsletter, réseaux sociaux du footer
+  (les réglages sociaux restent utilisés par les e-mails), téléphone/« Nos magasins » du bandeau
+  supérieur.

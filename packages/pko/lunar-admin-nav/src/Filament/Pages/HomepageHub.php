@@ -36,8 +36,7 @@ class HomepageHub extends Page
     {
         return [
             'slides' => __('admin-nav::admin.hubs.homepage.tabs.slides'),
-            'tiles' => __('admin-nav::admin.hubs.homepage.tabs.tiles'),
-            'offers' => __('admin-nav::admin.hubs.homepage.tabs.offers'),
+            'sections' => __('admin-nav::admin.hubs.homepage.tabs.sections'),
         ];
     }
 }

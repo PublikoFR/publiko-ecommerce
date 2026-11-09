@@ -11,6 +11,7 @@ use Pko\StorefrontCms\Livewire\HomeFeaturedProducts;
 use Pko\StorefrontCms\Livewire\HomeHero;
 use Pko\StorefrontCms\Livewire\HomeOffers;
 use Pko\StorefrontCms\Livewire\HomePosts;
+use Pko\StorefrontCms\Livewire\HomeSolutions;
 use Pko\StorefrontCms\Livewire\HomeTiles;
 use Pko\StorefrontCms\Livewire\PkoMediaLibrary;
 use Pko\StorefrontCms\Models\Setting;
@@ -33,6 +34,7 @@ class StorefrontCmsServiceProvider extends ServiceProvider
         Livewire::component('storefront-cms.home-tiles', HomeTiles::class);
         Livewire::component('storefront-cms.home-offers', HomeOffers::class);
         Livewire::component('storefront-cms.home-posts', HomePosts::class);
+        Livewire::component('storefront-cms.home-solutions', HomeSolutions::class);
         Livewire::component('storefront-cms.home-featured', HomeFeaturedProducts::class);
         Livewire::component('pko-media-library', PkoMediaLibrary::class);
     }
