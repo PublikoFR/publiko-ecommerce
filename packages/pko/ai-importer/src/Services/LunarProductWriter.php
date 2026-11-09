@@ -28,6 +28,8 @@ use Pko\AiImporter\Support\NumberParser;
 use Pko\CatalogFeatures\Facades\Features;
 use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureFamily;
+use Pko\CatalogFeatures\Support\BrandReferencePrefix;
+use Pko\CatalogFeatures\Support\ProductReference;
 use Pko\LunarMediaCore\Services\MediaLibraryImporter;
 use Pko\ProductDocuments\Models\DocumentCategory;
 use Pko\ProductDocuments\Services\ProductDocumentManager;
@@ -39,7 +41,8 @@ use Pko\ShippingCommon\Models\Supplier;
  *
  * Contract — the keys the writer understands in `StagingRecord::data`:
  *
- *  - `reference`            (required) SKU, resolves an existing variant.
+ *  - `reference`            référence source : SKU de repli (cf. « Référence boutique »).
+ *  - `sku`                  SKU FORCÉ : prioritaire sur la référence composée.
  *  - `name`                 (required on create) TranslatedText[default_lang].
  *  - `description` / `description_short` / `meta_title` / `meta_description` /
  *    `meta_keywords`        attribute_data, TranslatedText.
@@ -118,6 +121,17 @@ use Pko\ShippingCommon\Models\Supplier;
  * vide n'est JAMAIS convertie en 0 : la clé est ignorée et la valeur en base
  * conservée. Une valeur illisible est ignorée avec un warning `ImportLog`.
  *
+ * Référence boutique (cf. docs/product-reference.md) — SKU à la création :
+ *   1. `sku` (forcé) s'il est fourni ;
+ *   2. sinon préfixe de la marque + `mpn` brut ({@see ProductReference::compose()}) ;
+ *   3. sinon `reference`.
+ * Une ligne sans aucune de ces trois sources est rejetée (« reference manquante »).
+ * Rapprochement d'un produit existant (join `reference`, défaut) : SKU = forcé,
+ * puis composé, puis `reference`, puis marque + MPN exact. Plusieurs variantes
+ * pour la même marque + MPN → ligne rejetée (ambiguë), jamais de doublon créé.
+ * Un SKU existant n'est JAMAIS réécrit par l'import (cf. `pko:references:sync`).
+ * Une marque créée par l'import reçoit son préfixe par défaut s'il est libre.
+ *
  * Resolvers cache look-ups per instance — build one writer per job, not per row.
  */
 final class LunarProductWriter
@@ -131,7 +145,7 @@ final class LunarProductWriter
      * @var array<int, string>
      */
     public const CANONICAL_KEYS = [
-        'reference', 'name', 'description', 'description_short',
+        'reference', 'sku', 'name', 'description', 'description_short',
         'meta_title', 'meta_description', 'meta_keywords', 'url_key',
         'ean', 'mpn', 'stock', 'min_quantity',
         'price_cents', 'compare_price_cents', 'cost_price_cents', 'ecotax_cents',
@@ -190,8 +204,16 @@ final class LunarProductWriter
         'height_value' => 'float',
     ];
 
-    /** @var array<string, int> */
+    /**
+     * Clés qui identifient un produit : lues avant `columns_to_import`.
+     */
+    private const IDENTITY_KEYS = ['sku', 'reference', 'brand_name', 'mpn', 'ean'];
+
+    /** @var array<string, Brand> Cache nom → marque (lookup ou création). */
     private array $brandCache = [];
+
+    /** @var array<int, true> Marques sans préfixe déjà signalées dans les logs du job. */
+    private array $brandsWithoutPrefixWarned = [];
 
     /** @var array<string, int> */
     private array $collectionHandleCache = [];
@@ -303,21 +325,37 @@ final class LunarProductWriter
         $numericWarnings = [];
         $data = self::normalizeLegacyKeys($data, $numericWarnings);
         $data = self::sanitizeNumericFields($data, $numericWarnings);
+        // Clés d'identification, lues AVANT columns_to_import : une MAJ restreinte
+        // (ex. prix seul) doit retrouver le produit par marque + MPN sans écrire ces clés.
+        $identity = array_intersect_key($data, array_flip(self::IDENTITY_KEYS));
         $data = $this->filterImportColumns($data);
         $this->logNumericWarnings($record, $numericWarnings);
 
-        $sku = trim((string) ($data['reference'] ?? ''));
-        if ($sku === '') {
+        $forcedSku = self::scalarTrim($identity['sku'] ?? null);
+        $reference = self::scalarTrim($identity['reference'] ?? null);
+        $brandName = self::scalarTrim($identity['brand_name'] ?? null);
+        $mpn = self::rawMpn($identity['mpn'] ?? null);
+
+        if ($forcedSku === '' && $reference === '' && ($brandName === '' || $mpn === null)) {
             $this->markError($record, 'reference manquante');
 
             return;
         }
 
+        $brand = $brandName !== '' ? $this->findBrand($brandName) : null;
+        $composed = $forcedSku === '' ? ProductReference::compose($brand, $mpn) : null;
+        $sku = $forcedSku !== '' ? $forcedSku : ($composed ?? $reference);
+
         $this->addLog(LogLevel::Debug, "Début importRow ligne {$this->currentRowNumber}");
         $this->addLog(LogLevel::Debug, "Recherche produit existant (joinColumn: {$this->joinColumn})");
-        $this->addLog(LogLevel::Debug, "valeur clé = {$sku}");
+        $this->addLog(LogLevel::Debug, 'valeur clé = '.($sku !== '' ? $sku : "{$brandName} + {$mpn}"));
 
-        $variant = $this->findExistingVariant($data, $sku);
+        [$variant, $ambiguity] = $this->findExistingVariant($data + $identity, [$forcedSku, $composed, $reference], $brand, $mpn);
+        if ($ambiguity !== null) {
+            $this->markError($record, $ambiguity);
+
+            return;
+        }
         $product = $variant?->product;
         $exists = $product !== null;
 
@@ -348,10 +386,20 @@ final class LunarProductWriter
                 return;
             }
 
+            // Une création enregistre toujours l'identité complète du produit
+            // (marque, MPN), même si columns_to_import les excluait.
+            $data += $identity;
+            $brandId = $this->resolveBrand($data);
+            $brand = $brandId !== null ? $this->brandCache[$brandName] ?? null : null;
+            $sku = $this->creationSku($record, $forcedSku, $reference, $brand, $mpn);
+            if ($sku === null) {
+                return;
+            }
+
             $product = Product::query()->create([
                 'product_type_id' => $this->resolveProductTypeId($data),
                 'status' => 'published',
-                'brand_id' => $this->resolveBrand($data),
+                'brand_id' => $brandId,
                 'attribute_data' => $this->buildAttributeData($data),
             ]);
             $this->applySupplier($product, $data);
@@ -362,7 +410,7 @@ final class LunarProductWriter
                 'tax_class_id' => $this->resolveTaxClassId($record, $data),
                 'sku' => $sku,
                 'ean' => $data['ean'] ?? null,
-                'mpn' => $data['mpn'] ?? null,
+                'mpn' => $mpn,
                 'stock' => (int) ($data['stock'] ?? 0),
                 'unit_quantity' => 1,
                 'min_quantity' => isset($data['min_quantity']) ? max(1, $data['min_quantity']) : 1,
@@ -450,25 +498,106 @@ final class LunarProductWriter
 
     /**
      * Résout le variant existant selon la colonne de jointure (`join_column`).
-     * Lunar n'a pas de champ « référence fournisseur » natif : mappez votre réf
-     * fournisseur sur `reference` (→ SKU) dans le mapping de config. Jointures
-     * supportées : `reference`/`sku` (défaut) et `ean`/`ean13`.
+     *
+     * Jointure `reference`/`sku` (défaut) : SKU = forcé, puis composé (préfixe
+     * marque + MPN), puis `reference` (produits importés avant le préfixe), puis
+     * marque + MPN exact. Ce dernier rapprochement évite un doublon quand le SKU
+     * a changé de forme ; s'il désigne plusieurs variantes, la ligne est rejetée
+     * plutôt que d'en choisir une au hasard. Jointure `ean`/`ean13` : EAN seul.
      *
      * @param  array<string, mixed>  $data
+     * @param  array<int, string|null>  $skuCandidates  par ordre de priorité
+     * @return array{0: ?ProductVariant, 1: ?string} [variant, message d'ambiguïté]
      */
-    private function findExistingVariant(array $data, string $sku): ?ProductVariant
+    private function findExistingVariant(array $data, array $skuCandidates, ?Brand $brand, ?string $mpn): array
     {
-        $column = match ($this->joinColumn) {
-            'ean', 'ean13' => 'ean',
-            default => 'sku',
-        };
+        if (in_array($this->joinColumn, ['ean', 'ean13'], true)) {
+            $ean = trim((string) ($data['ean'] ?? ''));
 
-        $value = $column === 'ean' ? trim((string) ($data['ean'] ?? '')) : $sku;
-        if ($value === '') {
+            return [$ean === '' ? null : ProductVariant::query()->where('ean', $ean)->first(), null];
+        }
+
+        foreach (array_unique(array_filter($skuCandidates, static fn ($v) => $v !== null && $v !== '')) as $candidate) {
+            $variant = ProductVariant::query()->where('sku', $candidate)->first();
+            if ($variant !== null) {
+                return [$variant, null];
+            }
+        }
+
+        if ($brand === null || $mpn === null) {
+            return [null, null];
+        }
+
+        $matches = ProductVariant::query()
+            ->where('mpn', $mpn)
+            ->whereHas('product', fn ($q) => $q->where('brand_id', $brand->id))
+            ->limit(2)
+            ->get();
+
+        if ($matches->count() > 1) {
+            return [null, "référence ambiguë : plusieurs variantes « {$brand->name} » ont le MPN « {$mpn} » — aucun produit créé ni modifié"];
+        }
+
+        return [$matches->first(), null];
+    }
+
+    /**
+     * SKU d'un produit créé : forcé, sinon composé avec la marque (éventuellement
+     * créée à l'instant, préfixe compris), sinon `reference`. Null = ligne
+     * rejetée (aucune source, ou cible déjà portée par une autre variante).
+     */
+    private function creationSku(StagingRecord $record, string $forcedSku, string $reference, ?Brand $brand, ?string $mpn): ?string
+    {
+        if ($forcedSku !== '') {
+            return $forcedSku;
+        }
+
+        $composed = ProductReference::compose($brand, $mpn);
+        if ($composed === null && $brand !== null && $mpn !== null) {
+            $this->warnBrandWithoutPrefix($brand);
+        }
+
+        $sku = $composed ?? $reference;
+        if ($sku === '') {
+            $this->markError($record, 'reference manquante : marque « '.($brand?->name ?? '?').' » sans préfixe de référence et aucune référence source');
+
             return null;
         }
 
-        return ProductVariant::query()->where($column, $value)->first();
+        if ($composed !== null && ProductVariant::query()->where('sku', $composed)->exists()) {
+            $this->markError($record, "SKU cible « {$composed} » déjà porté par une autre variante — aucun produit créé");
+
+            return null;
+        }
+
+        return $sku;
+    }
+
+    private function warnBrandWithoutPrefix(Brand $brand): void
+    {
+        if (isset($this->brandsWithoutPrefixWarned[$brand->id])) {
+            return;
+        }
+        $this->brandsWithoutPrefixWarned[$brand->id] = true;
+
+        $this->addLog(
+            LogLevel::Warning,
+            "Marque « {$brand->name} » sans préfixe de référence : SKU = référence source. Définir le préfixe dans l'admin (Marques).",
+        );
+    }
+
+    /**
+     * Référence fabricant BRUTE (ni trim ni normalisation) ; null si vide ou
+     * uniquement des espaces. Un nombre est converti tel quel en chaîne.
+     */
+    private static function rawMpn(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $value = (string) $value;
+
+        return trim($value) === '' ? null : $value;
     }
 
     /**
@@ -1059,11 +1188,39 @@ final class LunarProductWriter
             return null;
         }
         if (isset($this->brandCache[$name])) {
-            return $this->brandCache[$name];
+            return (int) $this->brandCache[$name]->id;
         }
         $brand = Brand::query()->firstOrCreate(['name' => $name]);
 
-        return $this->brandCache[$name] = (int) $brand->id;
+        // Marque créée par l'import : préfixe par défaut s'il est libre, sinon
+        // laissé vide (collision à arbitrer dans l'admin).
+        if ($brand->wasRecentlyCreated && blank($brand->pko_ref_prefix)) {
+            $prefix = BrandReferencePrefix::freeSuggestion($name, (int) $brand->id);
+            if ($prefix !== null) {
+                $brand->pko_ref_prefix = $prefix;
+                $brand->save();
+                $this->addLog(LogLevel::Info, "Marque « {$name} » créée avec le préfixe de référence {$prefix}");
+            }
+        }
+
+        $this->brandCache[$name] = $brand;
+
+        return (int) $brand->id;
+    }
+
+    /** Marque existante par nom, SANS la créer (rapprochement). */
+    private function findBrand(string $name): ?Brand
+    {
+        if (isset($this->brandCache[$name])) {
+            return $this->brandCache[$name];
+        }
+
+        $brand = Brand::query()->where('name', $name)->first();
+        if ($brand !== null) {
+            $this->brandCache[$name] = $brand;
+        }
+
+        return $brand;
     }
 
     /**

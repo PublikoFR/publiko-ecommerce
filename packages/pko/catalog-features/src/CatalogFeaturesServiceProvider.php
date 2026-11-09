@@ -6,6 +6,8 @@ namespace Pko\CatalogFeatures;
 
 use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Product;
+use Pko\CatalogFeatures\Console\ProposeBrandRefPrefixesCommand;
+use Pko\CatalogFeatures\Console\SyncProductReferencesCommand;
 use Pko\CatalogFeatures\Models\BrandFamily;
 use Pko\CatalogFeatures\Models\FeatureValue;
 use Pko\CatalogFeatures\Services\FeatureManager;
@@ -20,6 +22,13 @@ class CatalogFeaturesServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ProposeBrandRefPrefixesCommand::class,
+                SyncProductReferencesCommand::class,
+            ]);
+        }
 
         Product::resolveRelationUsing(
             'featureValues',
