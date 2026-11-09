@@ -56,19 +56,6 @@
                         <x-ui.input wire:model="postcode" label="Code postal" placeholder="75001" inputmode="numeric" :error="$errors->first('postcode')" />
                         <x-ui.input wire:model="city" label="Ville" placeholder="Paris" :error="$errors->first('city')" />
                     </div>
-                </div>
-
-                {{-- Colonne 2 — Contact & accès --}}
-                <div class="space-y-5">
-                    <div class="grid grid-cols-2 gap-4">
-                        <x-ui.input wire:model="firstName" label="Prénom" required :error="$errors->first('firstName')" />
-                        <x-ui.input wire:model="lastName" label="Nom" required :error="$errors->first('lastName')" />
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <x-ui.input wire:model="email" label="E-mail pro" type="email" required :error="$errors->first('email')" />
-                        <x-ui.input wire:model="phone" label="Téléphone" required :error="$errors->first('phone')" />
-                    </div>
 
                     @if ($metierGroups->isNotEmpty())
                         <x-ui.searchable-select
@@ -82,7 +69,22 @@
                             hint="Renseignez votre métier pour bénéficier de réductions dédiées à votre secteur d'activité."
                         />
                     @endif
+                </div>
 
+                {{-- Colonne 2 — Contact & accès --}}
+                <div class="space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <x-ui.input wire:model="firstName" label="Prénom" required :error="$errors->first('firstName')" />
+                        <x-ui.input wire:model="lastName" label="Nom" required :error="$errors->first('lastName')" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <x-ui.input wire:model="email" label="E-mail pro" type="email" required :error="$errors->first('email')" />
+                        {{-- autocomplete off : l'autofill recopierait une éventuelle faute de l'e-mail. --}}
+                        <x-ui.input wire:model="emailConfirmation" label="Confirmer l'e-mail" type="email" required autocomplete="off" :error="$errors->first('emailConfirmation')" />
+                    </div>
+
+                    <x-ui.input wire:model="phone" label="Téléphone" required :error="$errors->first('phone')" />
                 </div>
             </div>
 

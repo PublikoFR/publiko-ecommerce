@@ -51,6 +51,7 @@ class RegisterAutoLoginTest extends TestCase
             ->set('firstName', 'Jean')
             ->set('lastName', 'Dupont')
             ->set('email', 'pro@example.test')
+            ->set('emailConfirmation', 'pro@example.test')
             ->set('phone', '0600000000')
             ->set('street', '12 avenue des Roses')
             ->set('postcode', '69001')
@@ -74,6 +75,7 @@ class RegisterAutoLoginTest extends TestCase
             ->set('firstName', 'Jean')
             ->set('lastName', 'Dupont')
             ->set('email', 'pro2@example.test')
+            ->set('emailConfirmation', 'pro2@example.test')
             ->set('phone', '0600000000')
             ->set('password', 'secret123')
             ->set('passwordConfirmation', 'secret123')
@@ -82,5 +84,51 @@ class RegisterAutoLoginTest extends TestCase
             ->assertHasErrors(['companyName' => 'required']);
 
         $this->assertGuest();
+    }
+
+    public function test_mismatched_email_confirmation_is_rejected(): void
+    {
+        $this->fillValidForm('pro3@example.test')
+            ->set('emailConfirmation', 'pro3@exemple.test')
+            ->call('submit')
+            ->assertHasErrors(['emailConfirmation'])
+            ->assertSee('Les deux adresses e-mail ne correspondent pas.');
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'pro3@example.test']);
+    }
+
+    public function test_email_confirmation_ignores_case_and_surrounding_spaces(): void
+    {
+        $this->fillValidForm('pro4@example.test')
+            ->set('emailConfirmation', '  PRO4@Example.test ')
+            ->call('submit')
+            ->assertHasNoErrors()
+            ->assertRedirect('/');
+
+        $this->assertSame('pro4@example.test', auth()->user()->email);
+    }
+
+    public function test_email_confirmation_is_required(): void
+    {
+        $this->fillValidForm('pro5@example.test')
+            ->call('submit')
+            ->assertHasErrors(['emailConfirmation' => 'required']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'pro5@example.test']);
+    }
+
+    private function fillValidForm(string $email): \Livewire\Features\SupportTesting\Testable
+    {
+        return Livewire::test(RegisterPage::class)
+            ->set('siret', '98104397900021')
+            ->set('companyName', 'ACME SAS')
+            ->set('firstName', 'Jean')
+            ->set('lastName', 'Dupont')
+            ->set('email', $email)
+            ->set('phone', '0600000000')
+            ->set('password', 'secret123')
+            ->set('passwordConfirmation', 'secret123')
+            ->set('terms', true);
     }
 }
