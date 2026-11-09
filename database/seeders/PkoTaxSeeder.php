@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Lunar\Models\Country;
+use Lunar\Models\ProductVariant;
 use Lunar\Models\TaxClass;
 use Lunar\Models\TaxRate;
 use Lunar\Models\TaxRateAmount;
@@ -39,24 +40,33 @@ class PkoTaxSeeder extends Seeder
             ->where('tax_zone_id', '!=', $taxZone->id)
             ->delete();
 
+        // Une seule classe : la boutique ne vend qu'en TVA 20 % (cf. docs/taxes.md).
         $standardClass = TaxClass::query()->updateOrCreate(
             ['name' => 'TVA 20%'],
             ['default' => true],
         );
 
-        $reducedClass = TaxClass::query()->updateOrCreate(
-            ['name' => 'TVA 10%'],
-            ['default' => false],
-        );
-
-        $superReducedClass = TaxClass::query()->updateOrCreate(
-            ['name' => 'TVA 5.5%'],
-            ['default' => false],
-        );
-
         $this->attachRate($taxZone, $standardClass, 'Standard 20%', 20);
-        $this->attachRate($taxZone, $reducedClass, 'Réduit 10%', 10);
-        $this->attachRate($taxZone, $superReducedClass, 'Super réduit 5.5%', 5.5);
+
+        // `lunar:install` a créé une « Default Tax Class » sans taux : la laisser
+        // exister, c'est offrir une classe à 0 % à l'importeur et à l'admin.
+        $this->removeOtherClasses($standardClass);
+    }
+
+    private function removeOtherClasses(TaxClass $keep): void
+    {
+        $others = TaxClass::query()->whereKeyNot($keep->id)->pluck('id');
+        if ($others->isEmpty()) {
+            return;
+        }
+
+        ProductVariant::query()->whereIn('tax_class_id', $others)->update(['tax_class_id' => $keep->id]);
+
+        $rateIds = TaxRateAmount::query()->whereIn('tax_class_id', $others)->pluck('tax_rate_id');
+        TaxRateAmount::query()->whereIn('tax_class_id', $others)->delete();
+        TaxRate::query()->whereIn('id', $rateIds)->whereDoesntHave('taxRateAmounts')->delete();
+
+        TaxClass::query()->whereKey($others)->delete();
     }
 
     private function attachRate(TaxZone $zone, TaxClass $class, string $label, float $percentage): void

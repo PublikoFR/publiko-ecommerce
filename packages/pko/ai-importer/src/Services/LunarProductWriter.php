@@ -56,7 +56,10 @@ use Pko\ShippingCommon\Models\Supplier;
  *  - `length_value` / `width_value` / `height_value`  floats in cm.
  *  - `brand_name`           Brand::firstOrCreate(['name' => ...]) → Product.brand_id.
  *  - `product_type_handle`  lookup ProductType by handle, fallback to first.
- *  - `tax_class_handle`     lookup TaxClass by handle, fallback to first.
+ *  - `tax_class_handle`     lookup TaxClass par nom (la table Lunar n'a pas de colonne
+ *                           `handle`), insensible à la casse. Vide → classe par défaut ;
+ *                           inconnu → classe par défaut + warning `ImportLog`.
+ *                           Jamais la « première » classe (cf. docs/taxes.md).
  *  - `collections`          array|CSV of collection IDs or handles — syncWithoutDetaching.
  *  - `features`             hash `{family_handle => [value_handle, ...]}` — routed through
  *                           notre package `catalog-features` (Features::syncByHandles), NOT Lunar's
@@ -345,7 +348,7 @@ final class LunarProductWriter
 
             $variant = ProductVariant::query()->create([
                 'product_id' => $product->id,
-                'tax_class_id' => $this->resolveTaxClassId($data),
+                'tax_class_id' => $this->resolveTaxClassId($record, $data),
                 'sku' => $sku,
                 'ean' => $data['ean'] ?? null,
                 'mpn' => $data['mpn'] ?? null,
@@ -1218,20 +1221,34 @@ final class LunarProductWriter
     }
 
     /**
+     * Le nom est le seul identifiant lisible d'une TaxClass (pas de colonne
+     * `handle` côté Lunar). Une valeur inconnue retombe sur la classe par
+     * défaut — jamais sur la « première » classe : c'est ce repli qui avait
+     * rattaché des variantes à une classe sans taux, donc vendues sans TVA.
+     *
      * @param  array<string, mixed>  $data
      */
-    private function resolveTaxClassId(array $data): int
+    private function resolveTaxClassId(StagingRecord $record, array $data): int
     {
-        $handle = isset($data['tax_class_handle']) ? (string) $data['tax_class_handle'] : '';
+        $handle = isset($data['tax_class_handle']) ? trim((string) $data['tax_class_handle']) : '';
         if ($handle === '') {
             return $this->defaultTaxClassId();
         }
-        if (isset($this->taxClassCache[$handle])) {
-            return $this->taxClassCache[$handle];
+        $key = mb_strtolower($handle);
+        if (isset($this->taxClassCache[$key])) {
+            return $this->taxClassCache[$key];
         }
-        $id = (int) (TaxClass::query()->where('handle', $handle)->value('id') ?? $this->defaultTaxClassId());
 
-        return $this->taxClassCache[$handle] = $id;
+        $id = TaxClass::query()->whereRaw('LOWER(name) = ?', [$key])->value('id');
+        if ($id === null) {
+            $this->logWarning(
+                $record,
+                "Classe de taxe « {$handle} » introuvable, classe par défaut appliquée.",
+                ['tax_class_handle' => $handle],
+            );
+        }
+
+        return $this->taxClassCache[$key] = $id !== null ? (int) $id : $this->defaultTaxClassId();
     }
 
     private function defaultProductTypeId(): int
@@ -1241,7 +1258,8 @@ final class LunarProductWriter
 
     private function defaultTaxClassId(): int
     {
-        return $this->defaultTaxClassId ??= (int) (TaxClass::query()->orderBy('id')->value('id') ?? throw new \RuntimeException('No TaxClass exists — seed at least one.'));
+        return $this->defaultTaxClassId ??= (int) (TaxClass::query()->where('default', true)->value('id')
+            ?? throw new \RuntimeException('Aucune TaxClass par défaut — en marquer une `default` (TVA 20 %).'));
     }
 
     private function defaultCurrencyId(): int
