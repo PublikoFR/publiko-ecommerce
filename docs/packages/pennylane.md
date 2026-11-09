@@ -169,6 +169,25 @@ imputée à aucune ligne produit.
 par Pennylane (`currency_amount`) au total de la commande et logue un warning
 au-delà d'un centime d'écart (remise de commande non répartie sur les lignes, par exemple).
 
+**Éco-participation** (modèle « dont », [docs/ecotax.md](../ecotax.md)) : le HT d'une
+ligne produit inclut l'éco-taxe figée (`OrderLine.meta.ecotax_cents`). `lines()` ventile
+chaque ligne produit qui en porte une en deux lignes consécutives :
+
+- produit : même libellé, même quantité, `HT remisé − Ecotax::forOrderLine()` ;
+- « Éco-participation – <libellé produit> » : même quantité, prix unitaire =
+  `Ecotax::unitForOrderLine()`, unité `piece`, **même taux de TVA** (calculé sur la
+  ligne d'origine par `VatRate::fromAmounts`).
+
+La **remise ne touche jamais l'éco-taxe** : elle s'impute entièrement sur la ligne
+produit. Cas limite : HT remisé < éco-taxe → éco-taxe plafonnée au HT, produit à 0,
+warning loggé. **Invariant** : base HT par taux et TVA totale strictement identiques
+avec et sans ventilation (l'éco-taxe étant un multiple de la quantité, la ventilation
+n'introduit aucun nouvel arrondi unitaire) — vérifié par
+`tests/Feature/Pennylane/EcotaxInvoiceLinesTest.php`. Réserve : si Pennylane arrondit la
+TVA ligne par ligne, un écart d'un centime reste théoriquement possible ; le contrôle du
+total ci-dessus le signalerait. L'avoir (proratisation par taux) et le bon de livraison
+(mêmes lignes hors port, valorisées) héritent de la ventilation sans code dédié.
+
 ### Tester sur la sandbox
 
 Un compte Pennylane active un « Environnement de test » depuis son profil (cela

@@ -59,6 +59,12 @@ Voir [packages/ai-importer.md §7.quinquies.15nonies](packages/ai-importer.md) :
 clé `ecotax_cents` / alias `ecotax`, règle `price_tex + ecotax`, et commande
 `ai-importer:backfill-ecotax` pour les produits importés avant ce support.
 
+## Documents Pennylane
+
+Facture, avoir et bon de livraison affichent une ligne « Éco-participation » sous
+chaque produit concerné, sans changer le total HT ni la TVA : voir
+[packages/pennylane.md](packages/pennylane.md) (§ Éco-participation).
+
 ## Admin
 
 Éditeur produit unifié (`EditProductUnified`), carte « Tarification » : champ
