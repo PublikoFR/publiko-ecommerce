@@ -147,11 +147,17 @@ Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.
   - `routes/ai.php` : `Mcp::oauthRoutes()` (découverte `.well-known/oauth-protected-resource` + `…-authorization-server` + **DCR** `oauth/register`) puis `Mcp::web('/mcp/page-builder', PageBuilderMcpServer::class)->middleware('auth:api')`.
   - **Consent** (`/oauth/authorize`) : guard `staff` (`config/passport.php` → `guard=staff`) → c'est le **personnel back-office** connecté à Filament qui autorise le connecteur.
   - **Validation des access tokens** : guard `api` (`config/auth.php` : driver `passport`, provider `oauth_staff`). Le provider pointe sur `App\Models\Staff` — **sous-modèle** de `Lunar\Admin\Models\Staff` ajoutant `HasApiTokens` **sans toucher au vendor** ni au guard `staff` du panel. Même table `staff`, même id → identité cohérente. Le client DCR est sans `provider` → pas de mismatch (cf. `TokenGuard`).
-  - `config/mcp.php` `redirect_domains` restreints à `https://claude.ai` / `https://claude.com`.
+  - `config/mcp.php` `redirect_domains` (préfixes, contrôlés au DCR) : `https://claude.ai`, `https://claude.com`, `https://chatgpt.com` (redirect `/connector_platform_oauth_redirect`), `https://platform.openai.com`. Tout autre domaine → `400 invalid_redirect_uri`. Ne jamais passer à `*` (n'importe quel site pourrait obtenir un token staff via un consentement piégé).
+  - **Visiteur non connecté sur `/oauth/authorize`** : `bootstrap/app.php` → `redirectGuestsTo` envoie `oauth/*` vers la connexion **back-office** (`filament.lunar.auth.login`), qui renvoie à l'URL *intended* (écran de consentement). Sans ça, Laravel redirige vers `login` = connexion **client**, qui n'authentifie pas le guard `staff` → flow cassé pour qui n'était pas déjà connecté à l'admin. Le reste du site garde `route('login')`.
+  - `CheckStorefrontMaintenance` laisse passer `oauth/*` (sinon page 503 au lieu de la redirection login en maintenance). `oauth/token` et `oauth/register` sont hors groupe `web`, donc non concernés.
 - **Dépendances prod** : `laravel/mcp` promu de `require-dev` → `require` ; `laravel/passport` ajouté.
 - **Déploiement** (prod O2switch) : `composer install`, `php artisan migrate` (tables `oauth_*`), **`php artisan passport:keys`** (clés dans `storage/`, gitignored → à générer sur le serveur, une fois), servir en **HTTPS**. URL du connecteur = `https://<domaine>/mcp/page-builder` (l'OAuth se déroule automatiquement, pas d'URL secrète).
 - **Vérifié localement** : découverte 200, endpoint MCP **401 + `WWW-Authenticate`** sans token, aucune régression panel admin (`McpOAuthDiscoveryTest`). Le **handshake complet** (DCR → consent → token → appel) se valide contre **claude.ai** en conditions réelles.
 - **⚠️ Rappel** : ta note maison `wiki/topics/mcp-server-claude-ai.md` décrivait une implémentation OAuth *from scratch* — ici c'est `laravel/mcp` + Passport qui gèrent DCR/PKCE/refresh/`WWW-Authenticate`. Les détails de la note restent utiles pour diagnostiquer (redirect_domains claude.ai/claude.com, DCR `client_secret_post`).
+
+**Brancher un client** (URL `https://<domaine>/mcp/page-builder`, auth OAuth, client ID/secret vides — DCR) :
+- **claude.ai** : Paramètres → Connecteurs → *Ajouter un connecteur personnalisé*.
+- **ChatGPT** : Paramètres → *Applications et connecteurs* → Paramètres avancés → **Mode développeur** activé, puis *Créer* : URL du serveur, authentification **OAuth**. Le consentement s'ouvre sur `/oauth/authorize` → se connecter avec un compte staff du back-office → *Autoriser*.
 
 Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`.
 

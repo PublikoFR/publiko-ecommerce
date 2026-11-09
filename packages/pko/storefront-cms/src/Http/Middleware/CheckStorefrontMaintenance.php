@@ -46,6 +46,13 @@ class CheckStorefrontMaintenance
             return $next($request);
         }
 
+        // Flow OAuth des connecteurs MCP (consentement staff) : sans ce
+        // passe-droit, un staff pas encore connecté verrait la page de
+        // maintenance au lieu d'être redirigé vers la connexion back-office.
+        if ($request->is('oauth/*')) {
+            return $next($request);
+        }
+
         return response()->view('storefront-cms::maintenance', [], 503);
     }
 }

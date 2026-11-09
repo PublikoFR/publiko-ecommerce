@@ -16,10 +16,15 @@ return [
     */
 
     'redirect_domains' => [
-        // Domaines autorisés pour les redirect URIs OAuth. Restreint aux domaines
-        // claude.ai / claude.com (Anthropic migre de l'un vers l'autre).
+        // Domaines autorisés pour les redirect URIs OAuth (préfixe, DCR).
+        // claude.ai / claude.com : connecteurs custom Claude (migration de l'un
+        // vers l'autre). chatgpt.com : connecteurs ChatGPT (mode développeur,
+        // redirect `/connector_platform_oauth_redirect`). platform.openai.com :
+        // gestion/revue des apps OpenAI.
         'https://claude.ai',
         'https://claude.com',
+        'https://chatgpt.com',
+        'https://platform.openai.com',
     ],
 
     /*
