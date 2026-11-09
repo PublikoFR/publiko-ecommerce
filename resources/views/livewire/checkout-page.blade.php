@@ -37,6 +37,7 @@
                                     <span class="block mt-1 text-xs text-neutral-500">
                                         {{ $line->quantity }} × {{ $line->subTotal->formatted() }}
                                     </span>
+                                    <x-storefront.ecotax-note :cents="\App\Support\Ecotax::forCartLine($line)" :currency="$cart->currency" class="mt-0.5" />
                                 </div>
                             </div>
                         @endforeach
@@ -53,6 +54,16 @@
                             <dd class="w-1/2 text-right">
                                 {{ $cart->subTotal->formatted() }}
                             </dd>
+
+                            @if (($cartEcotax = \App\Support\Ecotax::forCart($cart)) > 0)
+                                <dt class="w-1/2 mt-1 text-xs text-neutral-500">
+                                    dont éco-participation
+                                </dt>
+
+                                <dd class="w-1/2 mt-1 text-xs text-right text-neutral-500">
+                                    {{ \App\Support\Ecotax::format($cartEcotax, $cart->currency) }} HT
+                                </dd>
+                            @endif
                         </div>
 
                         @if (($cart->discountTotal?->value ?? 0) > 0)

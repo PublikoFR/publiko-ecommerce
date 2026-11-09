@@ -90,6 +90,8 @@
                             @if ($line->identifier)
                                 <p class="text-xs font-mono text-neutral-400 mt-0.5">{{ $line->identifier }}</p>
                             @endif
+                            {{-- Valeur figée à la commande (OrderLine.meta), jamais la variante actuelle. --}}
+                            <x-storefront.ecotax-note :cents="\App\Support\Ecotax::forOrderLine($line)" :currency="$order->currency" class="mt-0.5" />
                         </div>
                         <div class="text-right shrink-0">
                             <p class="text-sm text-neutral-500">{{ $line->quantity }} ×</p>
@@ -105,6 +107,12 @@
                     <span>Sous-total HT</span>
                     <span>{{ $order->sub_total->formatted() }}</span>
                 </div>
+                @if (($orderEcotax = \App\Support\Ecotax::forOrder($order)) > 0)
+                    <div class="flex justify-between text-xs text-neutral-500">
+                        <span>dont éco-participation</span>
+                        <span>{{ \App\Support\Ecotax::format($orderEcotax, $order->currency) }} HT</span>
+                    </div>
+                @endif
                 @foreach ($order->taxBreakdown->amounts as $tax)
                     <div class="flex justify-between text-sm text-neutral-600">
                         <span>{{ $tax->description }}</span>

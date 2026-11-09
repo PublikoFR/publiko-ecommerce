@@ -30,6 +30,8 @@ if ($isPro) {
         <div {{ $attributes->class(['text-primary-600 leading-none', $priceClass]) }}>
             {{ $priced->price->formatted() }}
             <span class="text-[10px] font-sans font-semibold text-neutral-500 uppercase tracking-wide ml-1">HT</span>
+            {{-- Éco-participation incluse dans le prix (modèle « dont ») : suit la variante ciblée. --}}
+            <x-storefront.ecotax-note :cents="\App\Support\Ecotax::forPurchasable($target)" :currency="$priced->price->currency" class="mt-1.5" />
         </div>
     @else
         <span class="text-sm text-neutral-500 italic">Prix sur demande</span>

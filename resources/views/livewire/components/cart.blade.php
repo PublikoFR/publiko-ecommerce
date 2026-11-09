@@ -64,6 +64,8 @@
                                                 {{ $line['identifier'] }} / {{ $line['options'] }}
                                             </span>
 
+                                            <x-storefront.ecotax-note :formatted="$line['ecotax'] ?? null" class="mt-1" />
+
                                             <div class="flex items-center mt-2">
                                                 <input class="w-16 p-2 text-xs transition-colors border border-gray-100 rounded-lg hover:border-gray-200"
                                                        type="number"
@@ -117,6 +119,16 @@
                     <dd class="w-1/2 text-right">
                         {{ $this->cart->subTotal->formatted() }}
                     </dd>
+
+                    @if ($this->ecotaxTotal > 0)
+                        <dt class="w-1/2 mt-1 text-xs text-neutral-500">
+                            dont éco-participation
+                        </dt>
+
+                        <dd class="w-1/2 mt-1 text-xs text-right text-neutral-500">
+                            {{ \App\Support\Ecotax::format($this->ecotaxTotal, $this->cart->currency) }} HT
+                        </dd>
+                    @endif
                 </dl>
             @else
                 <p class="py-4 text-sm font-medium text-center text-gray-500">

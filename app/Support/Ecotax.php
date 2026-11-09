@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Lunar\DataTypes\Price;
 use Lunar\Models\Cart;
 use Lunar\Models\CartLine;
+use Lunar\Models\Contracts\Currency as CurrencyContract;
+use Lunar\Models\Currency;
 use Lunar\Models\Order;
 use Lunar\Models\OrderLine;
 use Lunar\Models\ProductVariant;
@@ -71,5 +74,16 @@ final class Ecotax
         return (int) $order->lines
             ->filter(static fn (OrderLine $line): bool => $line->type !== 'shipping')
             ->sum(static fn (OrderLine $line): int => self::forOrderLine($line));
+    }
+
+    /**
+     * Formate un montant d'éco-taxe avec le formatter Lunar (même rendu que les
+     * autres prix). Devise par défaut si non fournie.
+     */
+    public static function format(int $cents, ?CurrencyContract $currency = null): string
+    {
+        $currency ??= Currency::getDefault();
+
+        return (new Price($cents, $currency, 1))->formatted();
     }
 }

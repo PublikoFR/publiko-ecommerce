@@ -314,6 +314,33 @@ class OrderAdminLayoutTest extends TestCase
             ->assertDontSee('2 @');
     }
 
+    public function test_les_lignes_affichent_l_eco_participation_figee(): void
+    {
+        $this->actingAsStaff();
+        $order = $this->makeOrder();
+
+        // La variante a changé depuis (990) : seule la valeur figée (160 × 2) compte.
+        $variant = ProductVariant::factory()->create();
+        $variant->pko_ecotax_cents = 990;
+        $variant->save();
+
+        OrderLine::factory()->create([
+            'order_id' => $order->id,
+            'purchasable_type' => ProductVariant::morphName(),
+            'purchasable_id' => $variant->id,
+            'description' => 'Moteur éco-taxé',
+            'quantity' => 2,
+            'unit_price' => 5000,
+            'sub_total' => 10000,
+            'meta' => ['ecotax_cents' => 160],
+        ]);
+
+        Livewire::test(OrderItemsTable::class, ['record' => $order])
+            ->assertSee('dont éco-participation')
+            ->assertSee('3,20')
+            ->assertDontSee('19,80');
+    }
+
     public function test_l_historique_remplace_les_etiquettes_dans_la_colonne_laterale(): void
     {
         $aside = ManageOrder::getInfolistAsideSchema();

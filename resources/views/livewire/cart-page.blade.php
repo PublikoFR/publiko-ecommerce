@@ -60,7 +60,10 @@
                                     <span class="w-10 text-center font-semibold">{{ $line['quantity'] }}</span>
                                     <button type="button" class="w-8 h-8 border border-neutral-300 rounded text-neutral-600 hover:border-primary-500 hover:text-primary-600" wire:click="updateQuantity({{ $line['id'] }}, {{ $line['quantity'] + 1 }})"><x-ui.icon name="plus" class="w-3 h-3 mx-auto" /></button>
                                 </div>
-                                <div class="w-24 text-right font-bold text-neutral-900 shrink-0">{{ $line['sub_total'] }}</div>
+                                <div class="w-28 text-right shrink-0">
+                                    <div class="font-bold text-neutral-900">{{ $line['sub_total'] }}</div>
+                                    <x-storefront.ecotax-note :formatted="$line['ecotax'] ?? null" class="mt-0.5 justify-end" />
+                                </div>
                                 <button type="button" class="text-neutral-400 hover:text-danger-600 shrink-0" wire:click="remove({{ $line['id'] }})" title="Retirer"><x-ui.icon name="trash" class="w-4 h-4" /></button>
                             </li>
                         @endforeach
@@ -73,6 +76,9 @@
                         @if ($this->cart)
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between"><span class="text-neutral-600">Sous-total HT</span><span class="font-semibold">{{ $this->cart->subTotal?->formatted() ?? '—' }}</span></div>
+                                @if ($this->ecotaxTotal > 0)
+                                    <div class="flex justify-between text-xs text-neutral-500"><span>dont éco-participation</span><span>{{ \App\Support\Ecotax::format($this->ecotaxTotal, $this->cart->currency) }} HT</span></div>
+                                @endif
                                 @if (($this->cart->discountTotal?->value ?? 0) > 0)
                                     <div class="flex justify-between text-success-700">
                                         <span>

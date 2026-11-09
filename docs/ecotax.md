@@ -71,3 +71,41 @@ chaque produit concerné, sans changer le total HT ni la TVA : voir
 « Éco-participation (€ HT, incluse dans le prix) ». Chargé au mount, sauvé dans
 `persistPrices()` par assignation directe. Vide = `NULL` (pas 0), virgule décimale
 acceptée. Validation : ≥ 0 et ≤ prix HT.
+
+## Affichage
+
+Mention « dont éco-participation X € HT » : informative, jamais additionnée. Rien
+n'est rendu quand l'éco-taxe vaut 0 ou `NULL`. Convention **HT** partout : tous les
+prix storefront voisins sont HT (`price-gate` affiche « HT »), l'éco-taxe aussi.
+
+- **Composant** `x-storefront.ecotax-note` (`packages/pko/storefront/.../components/storefront/ecotax-note.blade.php`) :
+  props `cents` + `currency`, ou `formatted` (chaîne déjà formatée, vide = rien),
+  `suffix` (défaut `HT`). Texte `text-xs text-neutral-500`, icône Lucide `info`
+  avec info-bulle DEEE. À réutiliser pour toute nouvelle vue.
+- **Format** : `Ecotax::format(int $cents, ?Currency $currency = null)` = formatter
+  Lunar (`Price::formatted()`), même rendu que les autres prix. Exceptions : page de
+  paiement de devis et e-mail de devis, qui formatent déjà tous leurs montants avec
+  `number_format(…, 2, ',', ' ') . ' € HT'` — on garde ce format pour rester homogène.
+
+| Point d'affichage | Source | Ligne | Total |
+|---|---|---|---|
+| Fiche produit + cartes produit (`price-gate`, `product-price`) | `forPurchasable` (variante affichée — suit le changement de variante) | unitaire | — |
+| Panier (`cart-page`, `components/cart`, `cart-drawer`) | `forCartLine` / `forCart` (variante courante) | oui | oui |
+| Checkout | `forCartLine` / `forCart` | oui | oui |
+| Confirmation de commande (`checkout-success-page`) | `forOrderLine` / `forOrder` (**figé**) | oui | oui |
+| Espace client, détail commande | `forOrderLine` / `forOrder` (**figé**) | oui | oui |
+| Page de paiement de devis + `QuotePaymentLinkMail` | `forOrderLine` / `forOrder` (**figé**) | oui | oui |
+| Admin, fiche commande Lunar (`OrderLinesTableExtension`, description de la colonne `unit`) | `forOrderLine` (**figé**) | oui | — |
+
+Réactivité : les composants Livewire panier calculent la valeur par ligne (`lines.*.ecotax`)
+et le total (`ecotaxTotal`, propriété publique pour le drawer, computed pour `CartPage`
+et `components/cart`) à chaque rafraîchissement du panier.
+
+Non couvert :
+
+- **E-mails de commande** (`pko/order-notifications` via `pko/mail-templates`) : ils ne
+  listent pas les lignes, seulement `:order_total` dans des contenus **éditables en
+  base**. Ajouter la mention demanderait un nouveau placeholder (`order_ecotax`) dans
+  `MailTemplateRegistry` / `OrderMailData` / `MailPreview` + une mise à niveau des
+  contenus existants (`DefaultContentUpgradeTest`). Laissé pour une tâche dédiée.
+- **Admin, total commande** : seule la mention par ligne est affichée.
