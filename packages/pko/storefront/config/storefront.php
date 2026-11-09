@@ -34,26 +34,80 @@ return [
         'icon' => 'truck',
     ],
 
-    'usps' => [
-        ['icon' => 'map-pin', 'title' => 'Plus de 80 magasins', 'subtitle' => 'Partout en France'],
-        ['icon' => 'users', 'title' => '1 700 personnes', 'subtitle' => 'À votre service'],
-        ['icon' => 'truck', 'title' => '60 000 références', 'subtitle' => 'Disponibles en 24h'],
-        ['icon' => 'credit-card', 'title' => 'À partir de {{port_franco}}', 'subtitle' => 'Livraison offerte'],
+    // Bandeau au-dessus du menu (forest) : accroche de marque (brand_tagline)
+    // + info franco (banner.*) à gauche, liens utilitaires à droite.
+    'topbar' => [
+        'links' => [
+            ['label' => 'Questions fréquentes', 'href' => '/pages/faq'],
+            ['label' => 'Nous contacter', 'href' => '/contact'],
+        ],
     ],
+
+    // Bandeau d'information sous le menu. Chaque texte accepte les variables
+    // StorefrontText ({{port_franco}}…). Liste vide = bandeau masqué.
+    'access_band' => [
+        'items' => [
+            ['icon' => 'book-open-check', 'text' => 'Catalogue & notices en accès libre'],
+            ['icon' => 'lock', 'text' => 'Tarifs & commandes après validation du compte pro'],
+        ],
+    ],
+
+    // Conservés pour compatibilité (réglage admin historique), plus rendus
+    // depuis FEAT-009 : le footer ne reprend que les liens de la maquette.
+    'usps' => [],
 
     'home' => [
         'featured_collection_slug' => env('HOME_FEATURED_COLLECTION', null),
+
+        // « La sélection pour les pros » : 3 raccourcis. Lien vide = carte masquée.
+        'selection' => [
+            ['icon' => 'tag', 'title' => 'Offres du moment', 'subtitle' => 'Les sélections à découvrir', 'href' => '/pages/offres-du-moment'],
+            ['icon' => 'sparkles', 'title' => 'Nouveautés', 'subtitle' => 'Les dernières références', 'href' => '/collections#nouveautes'],
+            ['icon' => 'package-open', 'title' => 'Déstockage', 'subtitle' => 'Les opportunités du catalogue', 'href' => '/pages/destockage'],
+        ],
+
+        // Ligne « communauté » du bandeau pro : masquée tant que l'URL est vide.
+        'community_url' => null,
+
+        // Module « À chaque installation, sa solution » : une entrée par zone du
+        // schéma (cf. Pko\StorefrontCms\Support\HomeSolutionZones). Une zone sans
+        // collection associée n'est pas affichée. Le mapping se fait en admin
+        // (Page d'accueil → Sections).
+        'solutions' => [],
     ],
 
     'nav' => [
+        // « Tous nos produits » est rendu par le bouton burger dédié du header
+        // (déclencheur du menu latéral off-canvas) — ne pas le redupliquer ici.
+        // Un lien sans URL est masqué (pages à créer dans le CMS).
         'secondary' => [
-            // « Tous nos produits » est rendu par le bouton burger dédié du
-            // header (déclencheur du menu latéral off-canvas) — ne pas le
-            // redupliquer ici, sinon il apparaît en double sous forme de lien mort.
-            ['label' => 'Nouveautés', 'route' => null, 'href' => '/collections#nouveautes'],
-            ['label' => 'Exclusivités', 'route' => null, 'href' => '/collections'],
-            ['label' => 'Nos magasins', 'route' => null, 'href' => '/magasins'],
-            ['label' => 'Actualités', 'route' => null, 'href' => '/actualites'],
+            ['label' => 'Pièces détachées', 'href' => '/collections/pieces-detachees'],
+            ['label' => 'Configurateur sur mesure', 'href' => '/pages/configurateur'],
+            ['label' => 'Nos exclusivités', 'href' => '/pages/exclusivites'],
+            ['label' => 'Notices & documents', 'href' => '/pages/notices-documents'],
+            ['label' => 'Offres pro', 'href' => '/pages/offres-pro'],
         ],
+        'quote_url' => '/contact',
+    ],
+
+    'footer' => [
+        'columns' => [
+            ['title' => 'Votre accompagnement', 'links' => [
+                ['label' => 'Demander un devis', 'href' => '/contact'],
+                ['label' => 'Identifier une pièce', 'href' => '/pages/identifier-une-piece'],
+                ['label' => 'Questions fréquentes', 'href' => '/pages/faq'],
+            ]],
+            ['title' => 'À votre disposition', 'links' => [
+                ['label' => 'Notices & documents', 'href' => '/pages/notices-documents'],
+                ['label' => 'La communauté', 'href' => null],
+                ['label' => 'Actualités', 'href' => '/actualites'],
+            ]],
+            ['title' => 'Informations', 'links' => [
+                ['label' => 'Mentions légales', 'href' => '/pages/mentions-legales'],
+                ['label' => 'Conditions générales', 'href' => '/pages/cgv'],
+                ['label' => 'Confidentialité', 'href' => '/pages/politique-donnees'],
+            ]],
+        ],
+        'baseline' => 'Catalogue ouvert à tous · Achat réservé aux professionnels validés',
     ],
 ];

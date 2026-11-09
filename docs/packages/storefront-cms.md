@@ -123,3 +123,43 @@ Composant Blade anonyme `x-storefront-cms::mail.layout` (fichier `resources/view
 - **Props** : `title` (balise `<title>`), `preheader` (texte d'aperçu masqué).
 - **Usage** : `<x-storefront-cms::mail.layout title="…" preheader="…"> …corps… </x-storefront-cms::mail.layout>`.
 - **Règle** : ne jamais recréer un `<!DOCTYPE html>` complet dans un e-mail — étendre ce layout. Branding lu depuis `Setting`/helpers, jamais codé en dur.
+
+## Page d'accueil — FEAT-009 (2026-11-09)
+
+Ordre : carrousel (`home-hero`) → **schéma des solutions** (`home-solutions`) → « La sélection
+pour les pros » → Actualités (`home-posts`) → bandeau « Votre espace professionnel ». Les tuiles
+« Nos univers », « Nouveautés & vedettes » et « Offres du moment » ne sont plus rendues (le schéma
+et les 3 raccourcis les remplacent) ; leurs modèles/tables restent en base, les onglets admin
+correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet **Sections**
+(`Pko\AdminNav\Livewire\HomeSectionsForm`, clés `home.solutions`, `home.selection`,
+`home.community_url`).
+
+### Schéma « À chaque installation, sa solution »
+
+- Composant `storefront-cms.home-solutions` (`HomeSolutions`) : SVG isométrique + liste des
+  familles, synchronisés en Alpine (survol/focus d'une ligne, clic sur une pastille), carte
+  « Voir la famille » en bas. Mobile : liste seule.
+- **Zones fixes** = équipements dessinés (`Pko\StorefrontCms\Support\HomeSolutionZones`) :
+  portail, porte industrielle, volets, moteur de portail, visiophone, clavier d'accès, caméra,
+  module domotique, palette de consommables, caisse de pièces détachées. L'admin relie chaque zone
+  à une **collection Lunar** (+ libellé/description optionnels). Une zone sans collection, ou liée à
+  une collection désactivée / sans URL, n'est pas affichée ; la numérotation suit les zones
+  affichées (pastille et ligne portent toujours le même numéro).
+- **Pastilles dans le SVG**, ancrées en coordonnées du viewBox — et non en % par-dessus une image
+  comme dans la maquette, où elles se décalaient avec la largeur.
+- Le dessin est **généré** par `scripts/home-solutions-scene.py` (scène 3D projetée en isométrie
+  stricte 30°, couleurs = classes Tailwind DS). Décision : la maquette mélangeait deux
+  perspectives (toit sans faîtage commun, bâtiment sans volume, portail sans piliers, pastilles
+  superposées) ; un générateur garantit la cohérence géométrique et rend les retouches
+  reproductibles. Toute retouche passe par le script : régénérer le partial
+  `livewire/partials/home-solutions-scene.blade.php` **et** reporter les ancres dans
+  `HomeSolutionZones::all()`.
+
+### Bandeau « Votre espace professionnel »
+
+Affiché à tous ; le CTA dépend de l'état du compte via `ProAccess` (source unique) : invité →
+« Ouvrir un compte pro » (seul CTA lime de la page) + « Se connecter » ; pro actif → « Accéder à
+mon espace pro » ; compte en attente → motif `ProAccess::denialReason()`. Ligne « communauté »
+affichée seulement si `home.community_url` est renseignée.
+
+Tests : `tests/Feature/Storefront/HomeRedesignTest.php`.
