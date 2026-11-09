@@ -215,7 +215,9 @@ class MailTemplateResource extends Resource
                     ->tooltip(__('pko-mail-templates::admin.action.edit_tooltip')),
             ])
             ->defaultSort('key')
-            ->paginated([25, 50]);
+            // Tous les modèles sur une seule page : le catalogue dépasse 25
+            // entrées depuis les e-mails de demande de devis.
+            ->paginated([50, 100]);
     }
 
     /** Rappel des variables utilisables, affiché sous la clé du modèle. */

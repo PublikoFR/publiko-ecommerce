@@ -29,7 +29,7 @@ Tous les fichiers PHP portés portent `declare(strict_types=1);` (AGENTS.md §3.
 
 ### Page de contact (`/contact`)
 
-Page dédiée soignée (Design System) : composant full-page `App\Livewire\ContactPage` + vue `resources/views/livewire/contact-page.blade.php` (coordonnées à gauche, formulaire à droite, composants `x-ui.*`). Remplace l'ancien post CMS vide `nous-contacter` ; les liens footer (« Nous contacter ») et le CTA header (« Demander un devis », défaut `storefront.nav.quote_url`) pointent désormais sur `/contact`.
+Page dédiée soignée (Design System) : composant full-page `App\Livewire\ContactPage` + vue `resources/views/livewire/contact-page.blade.php` (coordonnées à gauche, formulaire à droite, composants `x-ui.*`). Remplace l'ancien post CMS vide `nous-contacter` ; le lien « Nous contacter » pointe sur `/contact`. Les CTA devis (header `storefront.nav.quote_url`, footer, services d'accueil) pointent depuis le 2026-11-09 sur le formulaire unique `/demande-de-devis` (cf. [quote-requests.md](quote-requests.md)).
 
 - **Champs** : nom, e-mail, téléphone (optionnel), sujet (select), message + case de consentement RGPD (`accepted`) + **honeypot** `website` (champ caché ; si rempli → succès simulé, aucun envoi).
 - **Soumission** : `ContactPage::submit()` valide puis envoie `App\Mail\ContactMessage` (`->replyTo()` = adresse de l'expéditeur) vers l'adresse contact de la boutique. Résolution : `brand_setting('contact.email')` → `config('storefront.contact.email')` (env `CONTACT_EMAIL`) → `config('mail.from.address')`. Pas de persistance en base (décision : email seul).

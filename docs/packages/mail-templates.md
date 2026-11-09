@@ -267,6 +267,7 @@ puis `LOYALTY_ADMIN_EMAIL`. Si vide, l'envoi est sauté (log info).
 | `order.placed_admin` | `placed_at` renseigné | order-notifications |
 | `order.payment_offline_admin` | statut `payment-offline` | order-notifications |
 | `loyalty.tier_unlocked_admin` | déblocage de palier | loyalty |
+| `quote_request.received_admin` | demande de devis envoyée — destinataire : e-mail de **contact** de la boutique, pas `admin_email` (cf. [quote-requests.md](quote-requests.md)) | quote-requests |
 
 L'inscription équipe porte un `Reply-To` vers l'e-mail du client, pour
 répondre d'un clic. Le bouton « Appeler » n'est rendu que si un téléphone

@@ -61,6 +61,7 @@ class PostType extends Model
             'listes-d-achat', 'purchase-lists',
             'commande-rapide', 'quick-order',
             'magasins', 'stores',
+            'contact', 'demande-de-devis',
         ];
     }
 }

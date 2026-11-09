@@ -233,7 +233,7 @@ $lateralCollections = Cache::remember(StorefrontServiceProvider::NAV_CACHE_KEY, 
                  navigation du header, masquée sous lg → on les reprend ici. --}}
             @php
                 $mobileNav = \Pko\Storefront\Support\StorefrontLinks::visible(config('storefront.nav.secondary', []));
-                $mobileQuoteUrl = \Pko\Storefront\Support\StorefrontLinks::safeHref(config('storefront.nav.quote_url', '/contact'));
+                $mobileQuoteUrl = \Pko\Storefront\Support\StorefrontLinks::safeHref(config('storefront.nav.quote_url', '/demande-de-devis'));
             @endphp
             @if ($mobileNav || $mobileQuoteUrl)
                 <div class="lg:hidden shrink-0 border-t border-neutral-200 bg-neutral-50 px-4 py-3 space-y-1">

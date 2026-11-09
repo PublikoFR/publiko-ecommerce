@@ -63,8 +63,8 @@ return [
         // de pièce, devis projet). Lien vide = bouton masqué.
         'services' => [
             ['icon' => 'refresh-cw', 'title' => 'Remplacement moteur volet roulant', 'subtitle' => 'Trouvez la solution adaptée', 'href' => '/pages/remplacement-moteur-volet-roulant'],
-            ['icon' => 'camera', 'title' => "Identification d'une pièce", 'subtitle' => 'Transmettez-nous vos photos', 'href' => '/pages/identifier-une-piece'],
-            ['icon' => 'clipboard-pen', 'title' => 'Devis pour un projet', 'subtitle' => 'Présentez-nous vos besoins', 'href' => '/contact'],
+            ['icon' => 'camera', 'title' => "Identification d'une pièce", 'subtitle' => 'Transmettez-nous vos photos', 'href' => '/demande-de-devis?mode=part_photo'],
+            ['icon' => 'clipboard-pen', 'title' => 'Devis pour un projet', 'subtitle' => 'Présentez-nous vos besoins', 'href' => '/demande-de-devis?mode=project'],
         ],
 
         // « La sélection pour les pros » : 3 raccourcis. Lien vide = carte masquée.
@@ -95,14 +95,16 @@ return [
             ['label' => 'Notices & documents', 'href' => '/pages/notices-documents'],
             ['label' => 'Offres pro', 'href' => '/pages/offres-pro'],
         ],
-        'quote_url' => '/contact',
+        // Formulaire de devis unique (packages/pko/quote-requests). Les liens
+        // contextualisés (produit, référence…) se génèrent avec quote_request_url().
+        'quote_url' => '/demande-de-devis',
     ],
 
     'footer' => [
         'columns' => [
             ['title' => 'Votre accompagnement', 'links' => [
-                ['label' => 'Demander un devis', 'href' => '/contact'],
-                ['label' => 'Identifier une pièce', 'href' => '/pages/identifier-une-piece'],
+                ['label' => 'Demander un devis', 'href' => '/demande-de-devis'],
+                ['label' => 'Identifier une pièce', 'href' => '/demande-de-devis?mode=part_photo'],
                 ['label' => 'Questions fréquentes', 'href' => '/pages/faq'],
             ]],
             ['title' => 'À votre disposition', 'links' => [

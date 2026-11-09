@@ -1,0 +1,32 @@
+{
+    "name": "pko/lunar-quote-requests",
+    "description": "Formulaire de demande de devis unique et contextuel (demande générale, projet, identification de pièce par photo) + suivi en back-office.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "lunarphp/core": "^1.0",
+        "filament/filament": "^3.0",
+        "livewire/livewire": "^3.0",
+        "pko/lunar-mail-templates": "@dev",
+        "pko/lunar-storefront-cms": "@dev"
+    },
+    "autoload": {
+        "files": [
+            "src/helpers.php"
+        ],
+        "psr-4": {
+            "Pko\\QuoteRequests\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pko\\QuoteRequests\\QuoteRequestsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

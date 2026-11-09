@@ -35,6 +35,7 @@ use Pko\MailTemplates\Filament\Resources\MailTemplateResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
 use Pko\ProductDocuments\Filament\Resources\DocumentCategoryResource;
+use Pko\QuoteRequests\Filament\Resources\QuoteRequestResource;
 use Pko\ShippingCommon\Filament\Clusters\Shipping;
 use Pko\ShippingCommon\Filament\Resources\SupplierResource;
 use Pko\StorefrontCms\Filament\Pages\PkoMediaLibrary;
@@ -85,8 +86,9 @@ class Builder
             self::resItem(PkoCustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
             self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(2),
             self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(3),
-            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(4),
-            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(5),
+            self::resItem(QuoteRequestResource::class, 'heroicon-o-clipboard-document-list', 'Demandes de devis')?->sort(4),
+            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(5),
+            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(6),
         ]));
     }
 

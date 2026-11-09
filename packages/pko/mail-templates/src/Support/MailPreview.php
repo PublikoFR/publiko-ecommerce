@@ -48,6 +48,18 @@ final class MailPreview
             'order_reference' => 'CMD-10432',
             'order_total' => '1 248,90',
             'quote_reference' => 'DEV-2098',
+            'request_number' => 'DEV-000042',
+            'mode_label' => 'Identification d\'une pièce',
+            'postcode' => '34000',
+            'message' => 'Moteur de volet roulant à remplacer, plaque signalétique en photo.',
+            'lines' => 'Moteur tubulaire 10 Nm × 2',
+            'product_name' => 'Moteur tubulaire filaire 10 Nm',
+            'reference' => 'MT-10-FIL',
+            'collection' => 'Moteurs de volets roulants',
+            'product_url' => url('/produits/moteur-tubulaire'),
+            'from_url' => url('/produits/moteur-tubulaire'),
+            'attachments' => 'plaque.jpg, vue-ensemble.jpg',
+            'attachments_count' => '2',
             'tier_name' => 'Argent',
             'tier_benefit' => 'la remise fidélité de 3 %',
             'total_points' => '4 250',
@@ -88,6 +100,10 @@ final class MailPreview
 
         if (in_array($key, ['account.registered_admin', 'loyalty.tier_unlocked_admin'], true)) {
             $values['admin_url'] = url('/admin/customers/42');
+        }
+
+        if ($key === 'quote_request.received_admin') {
+            $values['admin_url'] = url('/admin/quote-requests/42');
         }
 
         return $values;

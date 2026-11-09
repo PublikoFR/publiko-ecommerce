@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0e850e1d9cca38a348b1cb9da717a0e1",
+    "content-hash": "ad646c5bd6a73d9ae47b3ce6c447f964",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -8119,7 +8119,7 @@
         },
         {
             "name": "pko/lunar-account",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/account",
@@ -8158,7 +8158,7 @@
         },
         {
             "name": "pko/lunar-admin-nav",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-admin-nav",
@@ -8205,7 +8205,7 @@
         },
         {
             "name": "pko/lunar-ai-core",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-core",
@@ -8239,7 +8239,7 @@
         },
         {
             "name": "pko/lunar-ai-filament",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-filament",
@@ -8275,7 +8275,7 @@
         },
         {
             "name": "pko/lunar-ai-importer",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/ai-importer",
@@ -8317,7 +8317,7 @@
         },
         {
             "name": "pko/lunar-catalog-features",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/catalog-features",
@@ -8353,7 +8353,7 @@
         },
         {
             "name": "pko/lunar-customer-auth",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/customer-auth",
@@ -8390,7 +8390,7 @@
         },
         {
             "name": "pko/lunar-loyalty",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/loyalty",
@@ -8429,7 +8429,7 @@
         },
         {
             "name": "pko/lunar-mail-templates",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/mail-templates",
@@ -8466,7 +8466,7 @@
         },
         {
             "name": "pko/lunar-media-core",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/lunar-media-core",
@@ -8507,7 +8507,7 @@
         },
         {
             "name": "pko/lunar-order-notifications",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/order-notifications",
@@ -8544,7 +8544,7 @@
         },
         {
             "name": "pko/lunar-page-builder",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/page-builder",
@@ -8581,7 +8581,7 @@
         },
         {
             "name": "pko/lunar-pennylane",
-            "version": "dev-feat/pennylane-customer-invoices",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/pennylane",
@@ -8631,7 +8631,7 @@
         },
         {
             "name": "pko/lunar-product-documents",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-documents",
@@ -8668,7 +8668,7 @@
         },
         {
             "name": "pko/lunar-product-videos",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/product-videos",
@@ -8704,7 +8704,7 @@
         },
         {
             "name": "pko/lunar-purchase-lists",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/purchase-lists",
@@ -8740,7 +8740,7 @@
         },
         {
             "name": "pko/lunar-quick-order",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/quick-order",
@@ -8775,8 +8775,50 @@
             }
         },
         {
+            "name": "pko/lunar-quote-requests",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/pko/quote-requests",
+                "reference": "5df54320128c58b5ddd64f52aa90ad7b2e1d6bd9"
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^11.0",
+                "livewire/livewire": "^3.0",
+                "lunarphp/core": "^1.0",
+                "php": "^8.2",
+                "pko/lunar-mail-templates": "@dev",
+                "pko/lunar-storefront-cms": "@dev"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Pko\\QuoteRequests\\QuoteRequestsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Pko\\QuoteRequests\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Formulaire de demande de devis unique et contextuel (demande générale, projet, identification de pièce par photo) + suivi en back-office.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "pko/lunar-secrets",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/secrets",
@@ -8817,7 +8859,7 @@
         },
         {
             "name": "pko/lunar-shipping-chronopost",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-chronopost",
@@ -8855,7 +8897,7 @@
         },
         {
             "name": "pko/lunar-shipping-colissimo",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-colissimo",
@@ -8893,7 +8935,7 @@
         },
         {
             "name": "pko/lunar-shipping-common",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/shipping-common",
@@ -8932,7 +8974,7 @@
         },
         {
             "name": "pko/lunar-store-locator",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/store-locator",
@@ -8968,7 +9010,7 @@
         },
         {
             "name": "pko/lunar-storefront",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront",
@@ -9005,7 +9047,7 @@
         },
         {
             "name": "pko/lunar-storefront-cms",
-            "version": "dev-fix/fr-display-labels",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "packages/pko/storefront-cms",
@@ -18407,6 +18449,7 @@
         "pko/lunar-product-videos": 20,
         "pko/lunar-purchase-lists": 20,
         "pko/lunar-quick-order": 20,
+        "pko/lunar-quote-requests": 20,
         "pko/lunar-secrets": 20,
         "pko/lunar-shipping-chronopost": 20,
         "pko/lunar-shipping-colissimo": 20,
