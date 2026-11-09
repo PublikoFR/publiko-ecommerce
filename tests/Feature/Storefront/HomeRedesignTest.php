@@ -95,26 +95,44 @@ class HomeRedesignTest extends TestCase
         $response->assertDontSee('Newsletter');
     }
 
-    public function test_solutions_only_show_zones_linked_to_an_enabled_collection(): void
+    public function test_solutions_explicit_mapping_wins_and_disabled_or_hidden_zones_are_skipped(): void
     {
-        $gates = $this->makeCollection('Portails maison', 'portails-test');
+        $this->neutralizeSeededRoots();
+        $gates = $this->makeCollection('Ma sélection entrée', 'portails-test');
         $disabled = $this->makeCollection('Désactivée', 'desactivee-test');
         $disabled->pko_enabled = false;
         $disabled->save();
+        $this->makeCollection('Volets roulants', 'volets-test');
 
         $items = HomeSolutionZones::resolve([
-            ['zone' => 'shutters', 'collection_id' => null],
             ['zone' => 'gates', 'collection_id' => $gates->id, 'label' => null, 'description' => 'Ma description'],
             ['zone' => 'parts', 'collection_id' => $disabled->id],
+            ['zone' => 'shutters', 'collection_id' => null, 'hidden' => true],
             ['zone' => 'inconnue', 'collection_id' => $gates->id],
         ]);
 
-        $this->assertCount(1, $items);
-        $this->assertSame('gates', $items[0]['key']);
+        $this->assertSame(['gates'], array_column($items, 'key'), 'Volets masqués en admin, pièces liées à une collection désactivée.');
         $this->assertSame('01', $items[0]['number']);
         $this->assertSame('Portails', $items[0]['label'], 'Libellé vide = libellé par défaut de la zone.');
         $this->assertSame('Ma description', $items[0]['description']);
         $this->assertStringEndsWith('/collections/portails-test', $items[0]['url']);
+    }
+
+    public function test_solutions_auto_match_root_collections_by_name_without_any_admin_mapping(): void
+    {
+        $this->neutralizeSeededRoots();
+        $this->makeCollection('Portes de garage & fermetures industrielles', 'garage-test');
+        $this->makeCollection("Contrôle d'accès", 'acces-test');
+        $this->makeCollection('Alarme et vidéosurveillance', 'alarme-test');
+        $off = $this->makeCollection('Portails', 'portails-off');
+        $off->pko_enabled = false;
+        $off->save();
+
+        $items = HomeSolutionZones::resolve([]);
+
+        $this->assertSame(['garage', 'access', 'security'], array_column($items, 'key'));
+        $this->assertSame(['01', '02', '03'], array_column($items, 'number'));
+        $this->assertStringEndsWith('/collections/acces-test', $items[1]['url']);
     }
 
     public function test_home_renders_solutions_module_when_a_zone_is_mapped(): void
@@ -167,7 +185,7 @@ class HomeRedesignTest extends TestCase
             ->assertHasNoErrors();
 
         Setting::forget();
-        $this->assertEquals([['zone' => 'gates', 'collection_id' => $gates->id, 'label' => null, 'description' => null]], Setting::get('home.solutions'));
+        $this->assertEquals([['zone' => 'gates', 'collection_id' => $gates->id, 'label' => null, 'description' => null, 'hidden' => false]], Setting::get('home.solutions'));
         $this->assertSame('/pages/offres', Setting::get('home.selection')[0]['href']);
         $this->assertNull(Setting::get('home.community_url'));
 
@@ -188,6 +206,15 @@ class HomeRedesignTest extends TestCase
                 config(['storefront.'.$row->key => $row->value]);
             }
         }
+    }
+
+    /**
+     * Les collections racines du seeder ne doivent pas interférer avec le
+     * rapprochement automatique par nom.
+     */
+    private function neutralizeSeededRoots(): void
+    {
+        LunarCollection::query()->whereNull('parent_id')->update(['pko_enabled' => false]);
     }
 
     private function makeCollection(string $name, string $slug): LunarCollection

@@ -141,10 +141,17 @@ correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet 
   « Voir la famille » en bas. Mobile : liste seule.
 - **Zones fixes** = équipements dessinés (`Pko\StorefrontCms\Support\HomeSolutionZones`) :
   portail, porte industrielle, volets, moteur de portail, visiophone, clavier d'accès, caméra,
-  module domotique, palette de consommables, caisse de pièces détachées. L'admin relie chaque zone
-  à une **collection Lunar** (+ libellé/description optionnels). Une zone sans collection, ou liée à
-  une collection désactivée / sans URL, n'est pas affichée ; la numérotation suit les zones
-  affichées (pastille et ligne portent toujours le même numéro).
+  module domotique, palette de consommables, caisse de pièces détachées.
+- **Rapprochement automatique** : sans réglage admin, chaque zone pointe vers la catégorie
+  **racine active** dont le nom contient un mot-clé de `HomeSolutionZones::AUTO_MATCH`
+  (nom normalisé sans accents ; si plusieurs correspondent, la plus fournie en sous-catégories
+  gagne). Décision du 2026-11-09 : un mapping par identifiant ne survit pas d'un environnement à
+  l'autre (ids de collections différents entre local, dev et prod) — le premier déploiement dev
+  affichait une home **sans le module**, faute de mapping refait sur le serveur.
+- L'admin peut **imposer** une autre collection, **masquer** une zone (`hidden`), changer
+  libellé/description. Une zone sans correspondance, ou liée à une collection désactivée / sans
+  URL, n'est pas affichée ; la numérotation suit les zones affichées (pastille et ligne portent
+  toujours le même numéro).
 - **Pastilles dans le SVG**, ancrées en coordonnées du viewBox — et non en % par-dessus une image
   comme dans la maquette, où elles se décalaient avec la largeur.
 - Le dessin est **généré** par `scripts/home-solutions-scene.py` (scène 3D projetée en isométrie
