@@ -11,6 +11,7 @@ Référence technique du back-office Laravel 11 + Lunar 1.x + Filament 3 (Weklo,
 | [admin.md](admin.md) | Navigation Filament, page d'édition produit unifiée, liste produits, sticky footer, global search |
 | [workflow.md](workflow.md) | Tests, Git, outils IA (MCP servers), RBAC |
 | [payments.md](payments.md) | Stripe, rejet Cashier |
+| [taxes.md](taxes.md) | TVA : une seule classe (20 %), migration de nettoyage, résolution à l'import |
 | [shipping.md](shipping.md) | Drivers Chronopost / Colissimo / table-rate |
 | [deployment.md](deployment.md) | Déploiement O2switch (rsync d'artefacts, PROD/DEV) — cf. `deploy/` |
 

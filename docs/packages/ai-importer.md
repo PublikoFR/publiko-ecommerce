@@ -141,7 +141,7 @@ Les clés suivantes, si présentes dans `StagingRecord::data`, déclenchent une 
 | `images` | Spatie MediaLibrary | Array ou CSV d'URLs distantes. Idempotent via `custom_properties.source_url`, première URL `primary=true`. |
 | `videos` | `pko/product-videos` | Array/CSV d'URLs **ou** JSON `[{url,title}]` (format prépa PrestaShop) YouTube/Vimeo/Dailymotion/MP4. Titre conservé. Idempotent par URL. Voir §7.quinquies.15octies. |
 | `product_type_handle` | ProductType | Lookup par handle, fallback sur premier trouvé |
-| `tax_class_handle` | TaxClass | Lookup par handle, fallback sur premier trouvé |
+| `tax_class_handle` | TaxClass | Lookup par **nom** (insensible à la casse ; Lunar n'a pas de colonne `handle`). Vide → classe **par défaut** ; inconnu → classe par défaut + warning `ImportLog`. Jamais la « première » classe — cf. [taxes.md](../taxes.md) |
 | `compare_price_cents` | `Price::compare_price` | Prix barré |
 
 Les clés inconnues du writer sont **ignorées silencieusement** — le config author peut donc émettre des keys arbitraires pour d'autres consommateurs downstream.
@@ -248,7 +248,7 @@ Stratégie : afficher la liste des handles autorisés au LLM via `llm_global_con
 ### 7.quinquies.12 Limitations connues
 
 - ProductType : le writer utilise le premier `ProductType` trouvé (ordre `id asc`) si `product_type_handle` absent. Pour forcer, ajouter la clé au staging.
-- TaxClass : idem, premier trouvé (fallback de `tax_class_handle`).
+- TaxClass : **pas** de repli sur la première classe — toujours la classe `default` (cf. [taxes.md](../taxes.md), FEAT-003 : 11 variantes rattachées à la « Default Tax Class » sans taux, vendues sans TVA).
 - True streaming XLSX : `PhpSpreadsheet::load()` charge tout en RAM. Au-delà de ~100k lignes, basculer sur un `IReadFilter` chunked — l'API parser reste stable.
 - Éditeur config visual : livré (cf §7.quinquies.13). Filtre live « masquer colonnes vides » / recherche de colonne au niveau du Repeater de mapping non implémenté (Filament 3.3 n'expose pas de filtrage d'items natif) — utiliser la recherche du dropdown « Champ cible ».
 - Appels LLM réels non testés automatiquement (nécessitent une clé API valide, hors CI).
