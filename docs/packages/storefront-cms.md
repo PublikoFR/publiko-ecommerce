@@ -159,8 +159,9 @@ correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet 
   via `pko_media_url`), dans une tuile blanche ; la pastille sélectionnée garde son fond blanc et
   prend un **contour vert clair** (pas de fond vert). La liste n'affiche que les intitulés : ni
   numéro ni picto (doublon avec le schéma). Une catégorie sans image retombe sur son numéro dans
-  la pastille. `lift` (par zone) allonge la tige de la pastille là où des
-  équipements voisins feraient se chevaucher les tuiles.
+  la pastille. Tuiles 51×51 (picto 36×36) ; `lift` (hauteur de tige), `dx`
+  (décalage horizontal, tige oblique) et `below` (tuile sous l'équipement, côté route) par zone
+  écartent les tuiles d'équipements voisins et dégagent la façade de la maison.
 - La famille sélectionnée s'affiche dans une **tuile cliquable en bas à gauche du schéma**
   (picto sur fond blanc, sans fond ni contour, nom, description, flèche) qui mène à la catégorie ; plus de bandeau ni de bouton sous
   le schéma.
