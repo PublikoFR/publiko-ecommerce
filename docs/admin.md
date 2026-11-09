@@ -385,10 +385,16 @@ Critères d'accès pro restants, dans l'ordre où ils sont évalués :
 | critère | motif de refus |
 |---|---|
 | session d'impersonation admin | — (bypass, cf. plus haut) |
-| session `JustRegistered` (auto-login post-inscription) | — (bypass) |
 | aucun `Customer` rattaché à l'utilisateur | compte non rattaché à une société |
 | `pko_status = banned` | compte suspendu |
-| `pko_status = pending` | e-mail non confirmé (lien renvoyé) |
+| `pko_status ≠ active`, e-mail non confirmé | « confirmez votre e-mail » (lien renvoyé) |
+| `pko_status ≠ active`, e-mail confirmé | « compte en cours de validation par notre équipe » |
+
+Depuis FEAT-006, `active` n'est posé **que par l'équipe** (validation manuelle :
+action « Valider le compte » sur la liste / la fiche client, ou Select « Statut
+compte »). Vérifier son e-mail n'ouvre plus l'accès. Détails, garde « e-mail non
+confirmé » et e-mail « compte validé » : `docs/packages/storefront-b2b.md`
+§ « Validation manuelle des comptes pro ».
 
 Le rattachement au groupe par défaut reste posé à l'inscription
 (`RegisterProCustomer`) — un client sans groupe n'a pas de prix — et

@@ -68,6 +68,7 @@ final class MailPreview
             'credit_note_total' => '312,00',
             'verify_url' => url('/verification-email/apercu'),
             'account_url' => url('/compte'),
+            'login_url' => url('/connexion'),
             'order_url' => url('/compte/commandes/CMD-10432'),
             'cart_url' => url('/panier'),
             'quote_url' => url('/compte/devis/DEV-2098'),

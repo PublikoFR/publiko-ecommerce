@@ -263,7 +263,7 @@ puis `LOYALTY_ADMIN_EMAIL`. Si vide, l'envoi est sauté (log info).
 
 | Clé | Déclencheur | Package |
 |---|---|---|
-| `account.registered_admin` | `RegisterProCustomer` | customer-auth |
+| `account.registered_admin` | vérification de l'e-mail du client (route `verification.verify`) — compte à valider | customer-auth |
 | `order.placed_admin` | `placed_at` renseigné | order-notifications |
 | `order.payment_offline_admin` | statut `payment-offline` | order-notifications |
 | `loyalty.tier_unlocked_admin` | déblocage de palier | loyalty |

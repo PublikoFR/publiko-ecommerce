@@ -11,11 +11,16 @@ use Illuminate\Support\Facades\Session;
 /**
  * Point unique de vérité pour « ce compte est-il un pro actif ? ».
  *
- * Partagé par RequireProCustomer (gate /compte) et RedirectIfProCustomer
- * (redirection depuis /connexion). Sans cette symétrie, un utilisateur
- * authentifié mais non-actif (SIRET en attente, hors groupe) boucle entre
- * /compte (qui le renvoie vers /connexion) et /connexion (qui le renvoie
- * vers /compte) → ERR_TOO_MANY_REDIRECTS.
+ * Règle (FEAT-006) : est pro actif un utilisateur rattaché à un Customer dont
+ * `pko_status` vaut `active`. Ce statut n'est posé que par l'équipe (validation
+ * manuelle en back-office) — le client ne l'obtient jamais seul, même en
+ * confirmant son e-mail. Seule exception : l'impersonation admin.
+ *
+ * Partagé par RequireProCustomer (gate /compte), RedirectIfProCustomer
+ * (redirection depuis /connexion) et LoginPage (refus de connexion). Sans cette
+ * symétrie, un utilisateur authentifié mais non-actif boucle entre /compte (qui
+ * le renvoie vers /connexion) et /connexion (qui le renvoie vers /compte)
+ * → ERR_TOO_MANY_REDIRECTS.
  */
 class ProAccess
 {
@@ -24,6 +29,10 @@ class ProAccess
      * à l'origine de l'impersonation.
      */
     public const IMPERSONATOR_SESSION_KEY = 'pko.impersonator_staff_id';
+
+    public const UNVERIFIED_EMAIL_REASON = 'Confirmez d\'abord votre adresse e-mail en cliquant sur le lien reçu à l\'inscription.';
+
+    public const AWAITING_VALIDATION_REASON = 'Votre compte est en cours de validation par notre équipe, nous vous recontacterons.';
 
     /**
      * Retourne null si l'utilisateur est un pro actif, sinon le motif (message FR)
@@ -42,17 +51,6 @@ class ProAccess
             return null;
         }
 
-        // Auto-login juste après l'inscription : le compte reste `pending` (e-mail
-        // pas encore vérifié) mais on lui accorde un accès complet le temps de sa
-        // session, pour ne pas casser le parcours d'entrée. Sans ce bypass,
-        // l'auto-login ne produit qu'une « semi-connexion » (nom affiché sous le
-        // profil mais toutes les routes pro rebondissent vers /connexion). Le flag
-        // meurt avec la session : une fois déconnecté, le compte pending redevient
-        // non-connectable tant que son e-mail n'est pas vérifié (cf. LoginPage).
-        if (JustRegistered::isActive()) {
-            return null;
-        }
-
         $customer = method_exists($user, 'customers') ? $user->customers()->first() : null;
 
         if (! $customer) {
@@ -63,19 +61,22 @@ class ProAccess
         if ($pkoStatus === 'banned') {
             return 'Votre compte a été suspendu. Contactez-nous pour plus d\'informations.';
         }
-        if ($pkoStatus === 'pending') {
-            // Un compte s'active en vérifiant son e-mail (clic du lien reçu à
-            // l'inscription) — c'est le CLIENT qui active, pas l'admin. Le SIRET
-            // n'est PAS un critère : selon la config il peut n'être que la valeur
-            // saisie par le client (vérif INSEE désactivée → simple contrôle Luhn),
-            // voire absent. Un compte encore `pending` n'a pas confirmé son e-mail :
-            // on l'invite à le faire (LoginPage renvoie le lien).
-            return 'Confirmez votre adresse e-mail (lien reçu à l\'inscription) pour activer votre compte.';
+        if ($pkoStatus !== 'active') {
+            // Chaque compte pro est validé MANUELLEMENT par l'équipe (back-office,
+            // action « Valider le compte ») : ni l'inscription ni la vérification
+            // de l'e-mail n'ouvrent l'accès. Deux messages, car le client n'a pas
+            // la même chose à faire : confirmer son e-mail (LoginPage lui renvoie
+            // alors le lien), ou simplement attendre la validation.
+            if (method_exists($user, 'hasVerifiedEmail') && ! $user->hasVerifiedEmail()) {
+                return self::UNVERIFIED_EMAIL_REASON;
+            }
+
+            return self::AWAITING_VALIDATION_REASON;
         }
 
         // Pas de gate sur `sirene_status` : le SIRET n'est pas une valeur fiable
-        // (non vérifié quand INSEE est off, voire null), il ne peut donc pas
-        // conditionner l'accès. Seule la vérification e-mail fait foi.
+        // (non vérifié quand INSEE est off, voire null). L'équipe le contrôle
+        // avant de valider le compte.
 
         // AUCUN gate sur les groupes clients. Les groupes Lunar servent à la
         // tarification et à la visibilité catalogue, pas à l'authentification :
@@ -90,8 +91,8 @@ class ProAccess
         // reste posé à l'inscription (cf. RegisterProCustomer) pour que le client
         // ait des prix, mais son retrait n'est plus un motif de refus.
         //
-        // Le critère d'accès pro est donc : un compte rattaché à un Customer,
-        // non banni, dont l'e-mail est vérifié (pko_status).
+        // Le critère d'accès pro est donc : un compte rattaché à un Customer dont
+        // `pko_status` vaut `active`, c'est-à-dire validé par l'équipe.
 
         return null;
     }

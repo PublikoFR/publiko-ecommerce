@@ -10,13 +10,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
-use Pko\CustomerAuth\Mail\CustomerRegisteredAdminMail;
 use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\SireneResult;
 use Pko\CustomerAuth\Sirene\Status;
 use Pko\CustomerAuth\Support\DefaultCustomerGroup;
-use Pko\MailTemplates\Support\AdminRecipient;
 
 class RegisterProCustomer
 {
@@ -58,11 +56,9 @@ class RegisterProCustomer
                 'sirene_status' => $sirene->status->value,
                 'sirene_verified_at' => $sirene->isActive() ? now() : null,
                 'naf_code' => $sirene->nafCode,
-                // Le compte reste en attente tant que l'e-mail n'a pas été vérifié,
-                // même si l'utilisateur est auto-connecté (SIRET actif). La
-                // vérification e-mail (route verification.verify) fait passer le
-                // compte à 'active' — à condition que le SIRET soit lui aussi actif,
-                // sinon il reste 'pending' pour validation manuelle.
+                // Le compte reste en attente jusqu'à la validation manuelle par
+                // l'équipe (back-office, action « Valider le compte »). Ni la
+                // vérification de l'e-mail ni le statut SIRET ne l'activent.
                 'pko_status' => 'pending',
                 'pko_street' => $data['street'] ?? null,
                 'pko_postcode' => $data['postcode'] ?? null,
@@ -101,8 +97,8 @@ class RegisterProCustomer
                 'password' => Hash::make($data['password']),
             ]);
             // email_verified_at reste null : l'utilisateur doit confirmer son adresse
-            // via le lien signé du mail de bienvenue. Il a néanmoins un accès complet
-            // entretemps (bandeau de rappel côté storefront).
+            // via le lien signé du mail de bienvenue. Il n'est pas connecté et n'a
+            // aucun accès tant que l'équipe n'a pas validé le compte.
 
             $customer->users()->attach($user);
 
@@ -116,8 +112,8 @@ class RegisterProCustomer
             $welcome = new CustomerRegisteredMail($result['customer'], $result['user']);
 
             // Le modèle peut être désactivé en back-office. Le lien de vérification
-            // reste alors accessible via le renvoi manuel (`verification.send`),
-            // l'inscription n'est donc pas bloquée.
+            // reste alors accessible : une tentative de connexion le renvoie
+            // (EmailVerificationMail, cf. LoginPage). L'inscription n'est pas bloquée.
             if ($welcome->shouldSend()) {
                 Mail::to($result['user']->email)->send($welcome);
             }
@@ -128,19 +124,9 @@ class RegisterProCustomer
             ]);
         }
 
-        // Notification interne (récap des coordonnées, onboarding téléphone).
-        // Même isolation que le mail client : un échec SMTP ne compromet pas
-        // l'inscription. Destinataire : Storefront → Paramètres (`admin_email`).
-        try {
-            AdminRecipient::send(
-                new CustomerRegisteredAdminMail($result['customer'], $result['user']),
-                $result['customer'],
-            );
-        } catch (\Throwable $e) {
-            logger()->error('CustomerRegisteredAdminMail failed', [
-                'error' => $e->getMessage(),
-            ]);
-        }
+        // La notification équipe (CustomerRegisteredAdminMail) ne part PAS ici :
+        // elle part à la vérification de l'e-mail (route `verification.verify`),
+        // quand le compte est prêt à être validé manuellement.
 
         return $result;
     }

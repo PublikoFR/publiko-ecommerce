@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Livewire;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
@@ -13,10 +12,12 @@ use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\CustomerAuth\Sirene\Status;
-use Pko\CustomerAuth\Support\JustRegistered;
 
 class RegisterPage extends Component
 {
+    /** Clé du flash de session portant l'e-mail inscrit (page « vérifiez vos e-mails »). */
+    public const REGISTERED_EMAIL_SESSION_KEY = 'pko.registered_email';
+
     public string $siret = '';
 
     /** Établissement confirmé actif par l'INSEE (vérif async au blur du SIRET). */
@@ -181,30 +182,14 @@ class RegisterPage extends Component
             throw ValidationException::withMessages(['siret' => $e->getMessage()]);
         }
 
-        // Auto-login systématique : une inscription qui aboutit connecte toujours.
-        //
-        // RÉGRESSION RÉCURRENTE — ne pas reconditionner ce bloc au statut SIRENE.
-        // `RegisterProCustomer` a déjà rejeté (DomainException) le seul cas
-        // disqualifiant, `Status::Inactive`. Il ne reste donc que `Active` et
-        // `Pending`, et `Pending` ne veut PAS dire « en attente de validation » :
-        // c'est le statut retourné dès que l'INSEE n'est pas consulté
-        // (INSEE_ENABLED=false — le défaut — clé API absente, timeout, 5xx). Gater
-        // l'auto-login sur `isActive()` revenait donc à ne JAMAIS auto-connecter
-        // sur toute installation sans compte INSEE.
-        //
-        // C'est cohérent avec ProAccess : le SIRET n'y est pas un critère d'accès,
-        // seule la vérification e-mail l'est. Le compte reste `pending` tant que
-        // l'e-mail n'est pas confirmé, d'où la redirection vers l'accueil (et non
-        // /compte, gated) et le flag JustRegistered qui ouvre l'accès le temps de
-        // la session.
-        Auth::login($result['user']);
-        session()->regenerate();
-        // Exception assumée à la règle « un compte pending ne reste jamais
-        // connecté » : on ne casse pas le parcours d'inscription.
-        JustRegistered::flag();
-        session()->flash('status', 'Bienvenue ! Votre compte a bien été créé. Pour l\'activer, validez votre adresse e-mail en cliquant sur le lien reçu par e-mail.');
+        // PAS de connexion automatique (FEAT-006) : chaque compte pro est validé
+        // manuellement par l'équipe. Le client doit d'abord confirmer son e-mail
+        // (lien reçu), puis attendre la validation — il ne se connecte qu'ensuite.
+        // L'adresse passe par un flash de session pour être affichée sur la page
+        // suivante sans apparaître dans l'URL (historique, logs, Referer).
+        session()->flash(self::REGISTERED_EMAIL_SESSION_KEY, $result['user']->email);
 
-        return redirect('/');
+        return redirect()->route('register.check-inbox');
     }
 
     #[Layout('customer-auth::layouts.auth', ['containerClass' => 'max-w-3xl'])]

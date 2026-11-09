@@ -6,16 +6,14 @@ use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
 use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
-use Pko\CustomerAuth\Mail\AccountActivatedMail;
-use Pko\CustomerAuth\Mail\EmailVerificationMail;
-use Pko\CustomerAuth\Support\JustRegistered;
+use Pko\CustomerAuth\Mail\CustomerRegisteredAdminMail;
 use Pko\CustomerAuth\Support\ProAccess;
+use Pko\MailTemplates\Support\AdminRecipient;
 
 Route::middleware(['web', 'redirect.if.pro'])->group(function () {
     Route::get('/connexion', LoginPage::class)->name('login');
@@ -24,8 +22,31 @@ Route::middleware(['web', 'redirect.if.pro'])->group(function () {
     Route::get('/reinitialisation/{token}', ResetPasswordPage::class)->name('password.reset');
 });
 
+// Après l'inscription : « vérifiez votre boîte mail ». Page publique — le compte
+// n'est jamais connecté à l'inscription (validation manuelle, FEAT-006). L'adresse
+// affichée vient d'un flash de session posé par RegisterPage, jamais de l'URL.
+Route::middleware('web')
+    ->get('/inscription/verifiez-vos-emails', fn () => view('customer-auth::pages.check-inbox', [
+        'email' => session(RegisterPage::REGISTERED_EMAIL_SESSION_KEY),
+    ]))
+    ->name('register.check-inbox');
+
+// Après le clic sur le lien de vérification : « adresse confirmée, notre équipe
+// étudie votre compte ». Page publique, idempotente.
+Route::middleware('web')
+    ->get('/inscription/confirmee', fn () => view('customer-auth::pages.email-verified', [
+        'accountActive' => session('pko.account_active') === true,
+    ]))
+    ->name('register.email-verified');
+
 // Vérification d'e-mail via lien signé (fonctionne sans session préalable, donc
 // depuis n'importe quel appareil). Le middleware `signed` valide signature + expiration.
+//
+// Confirmer son e-mail N'OUVRE PAS l'accès : le compte reste `pending` jusqu'à la
+// validation manuelle par l'équipe (action « Valider le compte » en back-office,
+// qui envoie alors AccountActivatedMail). Ici on se contente de poser
+// `email_verified_at`, de prévenir l'équipe que le compte est prêt à être étudié,
+// puis d'afficher la page de confirmation. Pas de connexion automatique.
 Route::middleware(['web', 'signed'])
     ->get('/verification-email/{id}/{hash}', function (Request $request, string $id, string $hash) {
         $user = User::findOrFail($id);
@@ -38,47 +59,29 @@ Route::middleware(['web', 'signed'])
             $user->markEmailAsVerified();
             event(new Verified($user));
 
-            // L'e-mail vérifié active le compte. C'est le SEUL critère : le SIRET
-            // n'est pas une valeur fiable (non vérifié quand INSEE est off, voire
-            // null), il n'intervient donc pas ici. Un compte `banned` reste banni.
+            // Notification équipe : le compte est maintenant prêt à être validé.
+            // Envoyée à la vérification (et non à l'inscription) pour ne signaler
+            // que des adresses réelles. Un échec SMTP ne bloque pas la vérification.
             foreach ($user->customers()->get() as $customer) {
-                if ($customer->getAttribute('pko_status') === 'pending') {
-                    $customer->setAttribute('pko_status', 'active');
-                    $customer->save();
+                if ($customer->getAttribute('pko_status') !== 'pending') {
+                    continue;
+                }
 
-                    // E-mail 02 : le compte vient de passer `pending` -> `active`.
-                    // Envoyé ici et pas dans un observer, pour ne notifier que
-                    // l'activation par vérification d'e-mail — une réactivation
-                    // manuelle en back-office n'a pas le même sens pour le client.
-                    $activation = new AccountActivatedMail($customer);
-
-                    if ($activation->shouldSend()) {
-                        Mail::to($user->email)->send($activation);
-                    }
+                try {
+                    AdminRecipient::send(new CustomerRegisteredAdminMail($customer, $user), $customer);
+                } catch (Throwable $e) {
+                    logger()->error('CustomerRegisteredAdminMail failed', ['error' => $e->getMessage()]);
                 }
             }
         }
 
-        Auth::login($user);
+        // Lien rejoué sur un compte déjà validé (ou créé actif en back-office) :
+        // la page invite alors à se connecter au lieu d'annoncer une étude.
+        $active = $user->customers()->where('pko_status', 'active')->exists();
 
-        return redirect('/compte')->with('status', 'Votre adresse e-mail a bien été vérifiée. Merci !');
+        return redirect()->route('register.email-verified')->with('pko.account_active', $active);
     })
     ->name('verification.verify');
-
-// Renvoi du lien de vérification depuis le bandeau de rappel (utilisateur connecté).
-Route::middleware(['web', 'auth', 'throttle:6,1'])
-    ->post('/verification-email/renvoyer', function (Request $request) {
-        $user = $request->user();
-
-        if ($user->hasVerifiedEmail()) {
-            return back();
-        }
-
-        Mail::to($user->email)->send(new EmailVerificationMail($user));
-
-        return back()->with('status', 'Un nouvel e-mail de vérification vous a été envoyé.');
-    })
-    ->name('verification.send');
 
 // Déconnexion — logout Laravel standard. POST uniquement (un GET serait
 // déclenchable par un prefetch). Le lien est un `<form>` POST plein-page : la
@@ -98,11 +101,6 @@ Route::middleware('web')->post('/deconnexion', function (Request $request) {
         $request->session()->invalidate();
         $request->session()->regenerateToken();
     }
-
-    // La branche impersonation n'invalide pas la session : on retire donc
-    // explicitement le flag « fraîchement inscrit », sans quoi un compte pending
-    // pourrait se reconnecter dans la même session (cf. ProAccess).
-    JustRegistered::clear();
 
     return redirect('/');
 })->name('logout');

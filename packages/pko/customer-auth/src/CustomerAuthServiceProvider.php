@@ -17,6 +17,7 @@ use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
 use Pko\CustomerAuth\Models\NegotiatedPrice;
+use Pko\CustomerAuth\Observers\CustomerActivationObserver;
 use Pko\CustomerAuth\Observers\CustomerGroupHandleObserver;
 use Pko\CustomerAuth\Sirene\SireneClient;
 
@@ -51,6 +52,10 @@ class CustomerAuthServiceProvider extends ServiceProvider
         // contrôle d'accès pro résolvent le groupe par défaut par handle, et le
         // champ est librement éditable dans l'admin Lunar.
         CustomerGroup::observe(CustomerGroupHandleObserver::class);
+
+        // E-mail « compte validé » au passage pending → active (validation manuelle
+        // en back-office, quel que soit le chemin : action ou Select de la fiche).
+        Customer::observe(CustomerActivationObserver::class);
 
         // Relation « prix négociés » ajoutée au modèle Customer de Lunar sans le
         // subclasser (utilisée par le RelationManager Filament + le pipeline pricing).

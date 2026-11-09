@@ -94,4 +94,31 @@ class DefaultContentUpgradeTest extends TestCase
         $this->assertSame(DefaultContentUpgrade::MISSING, DefaultContentUpgrade::apply(self::KEY, $this->previous()));
         $this->assertSame(0, MailTemplate::query()->count());
     }
+
+    public function test_upgrade_validation_manuelle_met_a_jour_les_trois_mails_de_compte(): void
+    {
+        // FEAT-006 : bienvenue, « compte validé » et notification équipe ne
+        // promettent plus un accès ouvert par la seule vérification de l'e-mail.
+        $file = __DIR__.'/../../../packages/pko/mail-templates/database/content/upgrades/2026_11_09_account_manual_validation.php';
+        $previousByKey = require $file;
+
+        foreach ($previousByKey as $key => $previous) {
+            MailTemplate::query()->create([
+                'key' => $key,
+                'locale' => 'fr',
+                'subject' => $previous['subject'],
+                'content' => $previous['content'],
+                'enabled' => true,
+            ]);
+        }
+
+        $this->assertSame([
+            'account.welcome' => DefaultContentUpgrade::UPDATED,
+            'account.activated' => DefaultContentUpgrade::UPDATED,
+            'account.registered_admin' => DefaultContentUpgrade::UPDATED,
+        ], DefaultContentUpgrade::applyFile($file));
+
+        $activated = MailTemplate::query()->where('key', 'account.activated')->firstOrFail();
+        $this->assertStringContainsString(':login_url', (string) json_encode($activated->content));
+    }
 }

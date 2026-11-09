@@ -10,7 +10,9 @@ use Pko\CustomerAuth\Support\CustomerAdminMailData;
 use Pko\MailTemplates\Mail\TemplatedMail;
 
 /**
- * Notification équipe à chaque inscription client (onboarding téléphone).
+ * Notification équipe « compte à valider » : envoyée quand un client inscrit
+ * confirme son adresse e-mail (route `verification.verify`). Le compte est alors
+ * prêt à être étudié puis validé en back-office (onboarding téléphone).
  *
  * Reply-To = e-mail du client : un « répondre » ouvre directement le fil.
  */

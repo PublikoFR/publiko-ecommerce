@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Lunar\Models\Customer;
 use Lunar\Models\CustomerGroup;
 use Pko\CustomerAuth\Actions\RegisterProCustomer;
+use Pko\CustomerAuth\Mail\AccountActivatedMail;
 use Pko\CustomerAuth\Mail\CustomerRegisteredAdminMail;
 use Pko\CustomerAuth\Mail\CustomerRegisteredMail;
 use Pko\CustomerAuth\Sirene\SireneClient;
@@ -101,43 +102,13 @@ class RegisterProCustomerTest extends TestCase
         });
     }
 
-    public function test_notification_admin_part_avec_les_coordonnees(): void
+    public function test_notification_admin_ne_part_pas_a_linscription(): void
     {
+        // FEAT-006 : l'équipe est prévenue quand le compte est prêt à valider,
+        // c'est-à-dire à la vérification de l'e-mail — pas à l'inscription.
         $this->mockSireneActive();
         Mail::fake();
-        Setting::set('admin_email', 'ops@example.test');
-        Setting::forget();
-        config()->set('customer-auth.admin_notification_email', 'ops@example.test');
-
-        $this->assertSame('ops@example.test', AdminRecipient::email());
-
-        $result = app(RegisterProCustomer::class)->handle($this->defaultData([
-            'phone' => '06 12 34 56 78',
-            'first_name' => 'Jean',
-            'last_name' => 'Dupont',
-            'company_name' => 'ACME SAS',
-        ]));
-
-        Mail::assertSent(CustomerRegisteredAdminMail::class, function (CustomerRegisteredAdminMail $mail) use ($result): bool {
-            $this->assertTrue($mail->hasTo('ops@example.test'));
-            $this->assertSame('pro@example.test', $mail->values['email']);
-            $this->assertSame('ACME SAS', $mail->values['company_name']);
-            $this->assertSame('06 12 34 56 78', $mail->values['phone']);
-            $this->assertSame('tel:+33612345678', $mail->values['phone_url']);
-            $mail->build();
-            $this->assertTrue($mail->hasReplyTo($result['user']->email));
-
-            return true;
-        });
-    }
-
-    public function test_notification_admin_absente_si_pas_de_destinataire(): void
-    {
-        $this->mockSireneActive();
-        Mail::fake();
-        Setting::set('admin_email', '');
-        config()->set('customer-auth.admin_notification_email', null);
-        config()->set('loyalty.admin_email', null);
+        $this->configureAdminRecipient();
 
         app(RegisterProCustomer::class)->handle($this->defaultData());
 
@@ -164,7 +135,7 @@ class RegisterProCustomerTest extends TestCase
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
 
         // Le compte reste 'pending' même avec un SIRET actif : il ne passe
-        // 'active' qu'à la vérification de l'adresse e-mail (route verification.verify).
+        // 'active' qu'à la validation manuelle par l'équipe (FEAT-006).
         $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
     }
 
@@ -280,7 +251,7 @@ class RegisterProCustomerTest extends TestCase
         );
     }
 
-    public function test_verification_email_active_le_compte_pending(): void
+    public function test_verification_email_ne_connecte_pas_et_laisse_le_compte_pending(): void
     {
         $this->mockSireneActive();
         Mail::fake();
@@ -288,20 +259,17 @@ class RegisterProCustomerTest extends TestCase
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
         $user = $result['user'];
 
-        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
-
-        $url = EmailVerification::signedUrl($user);
-        $this->get($url);
+        $this->get(EmailVerification::signedUrl($user))
+            ->assertRedirect(route('register.email-verified'));
 
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
+        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
+        $this->assertGuest();
+        Mail::assertNotSent(AccountActivatedMail::class);
     }
 
-    public function test_verification_email_active_le_compte_meme_si_siret_pending(): void
+    public function test_verification_email_meme_si_siret_pending_laisse_le_compte_pending(): void
     {
-        // INSEE indisponible → SIRET 'pending'. La vérification e-mail doit quand
-        // même activer le compte : le SIRET (non vérifié quand INSEE est off) ne
-        // gate pas l'activation — c'est le clic du client sur le lien qui active.
         $mock = $this->createMock(SireneClient::class);
         $mock->method('verify')->willReturn(new SireneResult(
             status: Status::Pending,
@@ -312,11 +280,100 @@ class RegisterProCustomerTest extends TestCase
 
         $result = app(RegisterProCustomer::class)->handle($this->defaultData());
 
+        $this->get(EmailVerification::signedUrl($result['user']));
+
         $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
-        $this->assertSame('pending', Customer::find($result['customer']->id)->sirene_status);
+    }
+
+    public function test_verification_email_notifie_lequipe_avec_les_coordonnees(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+        $this->configureAdminRecipient();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData([
+            'phone' => '06 12 34 56 78',
+            'first_name' => 'Jean',
+            'last_name' => 'Dupont',
+            'company_name' => 'ACME SAS',
+        ]));
 
         $this->get(EmailVerification::signedUrl($result['user']));
 
-        $this->assertSame('active', Customer::find($result['customer']->id)->pko_status);
+        Mail::assertSent(CustomerRegisteredAdminMail::class, 1);
+        Mail::assertSent(CustomerRegisteredAdminMail::class, function (CustomerRegisteredAdminMail $mail) use ($result): bool {
+            $this->assertTrue($mail->hasTo('ops@example.test'));
+            $this->assertSame('pro@example.test', $mail->values['email']);
+            $this->assertSame('ACME SAS', $mail->values['company_name']);
+            $this->assertSame('06 12 34 56 78', $mail->values['phone']);
+            $this->assertSame('tel:+33612345678', $mail->values['phone_url']);
+            $mail->build();
+            $this->assertTrue($mail->hasReplyTo($result['user']->email));
+
+            return true;
+        });
+    }
+
+    public function test_notification_admin_absente_si_pas_de_destinataire(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+        Setting::set('admin_email', '');
+        config()->set('customer-auth.admin_notification_email', null);
+        config()->set('loyalty.admin_email', null);
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+        $this->get(EmailVerification::signedUrl($result['user']));
+
+        Mail::assertNotSent(CustomerRegisteredAdminMail::class);
+    }
+
+    public function test_lien_deja_utilise_est_idempotent(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+        $this->configureAdminRecipient();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+        $url = EmailVerification::signedUrl($result['user']);
+
+        $this->get($url)->assertRedirect(route('register.email-verified'));
+        $this->get($url)->assertRedirect(route('register.email-verified'));
+
+        // Un seul mail équipe : le second clic ne renotifie pas.
+        Mail::assertSent(CustomerRegisteredAdminMail::class, 1);
+        $this->assertSame('pending', Customer::find($result['customer']->id)->pko_status);
+    }
+
+    public function test_page_de_confirmation_annonce_la_validation_par_lequipe(): void
+    {
+        $this->get(route('register.email-verified'))
+            ->assertOk()
+            ->assertSee('Adresse e-mail confirmée')
+            ->assertSee('valider votre compte pro')
+            ->assertDontSee('Me connecter');
+    }
+
+    public function test_page_de_confirmation_propose_la_connexion_si_compte_deja_actif(): void
+    {
+        $this->mockSireneActive();
+        Mail::fake();
+
+        $result = app(RegisterProCustomer::class)->handle($this->defaultData());
+        $result['customer']->update(['pko_status' => 'active']);
+
+        $this->followingRedirects()
+            ->get(EmailVerification::signedUrl($result['user']))
+            ->assertOk()
+            ->assertSee('Me connecter');
+    }
+
+    private function configureAdminRecipient(): void
+    {
+        Setting::set('admin_email', 'ops@example.test');
+        Setting::forget();
+        config()->set('customer-auth.admin_notification_email', 'ops@example.test');
+
+        $this->assertSame('ops@example.test', AdminRecipient::email());
     }
 }

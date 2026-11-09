@@ -18,7 +18,7 @@ et en base, jamais dans une classe PHP ni un Blade. Une autre boutique reseede.
 | # | Mail | État | Cible |
 |---|---|---|---|
 | 01 | Bienvenue / inscription | ✅ livré | `CustomerRegisteredMail` — bascule sur le socle |
-| 02 | Activation du compte | ✅ livré | `AccountActivatedMail`, à la vérification de l'e-mail |
+| 02 | Compte validé | ✅ livré | `AccountActivatedMail`, à la validation manuelle par l'équipe (FEAT-006) |
 | 03 | Première commande + cadeau | ✅ livré | `FirstOrderGiftMail`, 1re commande payée |
 | 04 | Confirmation de commande | ✅ livré | `OrderConfirmedMail` — comble le trou critique |
 | 05 | Paiement confirmé | ✅ livré | `OrderPaymentReceivedMail` |
@@ -62,19 +62,15 @@ logique dans un package, sans toucher à la config Lunar (§6 du CLAUDE.md).
 ## Questions ouvertes
 
 - ~~07 et 08~~ : **tranché le 2026-09-01** — contenus communiqués plus tard, clés seedées désactivées.
-- ~~02~~ : **répondu par le code**. Deux mécanismes distincts, à ne pas confondre :
-  - **Le SIRET est bien validé dès l'inscription** — clé de contrôle puis appel INSEE côté
-    Livewire (`RegisterPage::verifySirene`), re-validation au submit, et `RegisterProCustomer`
-    rejoue `verify()` en rejetant l'inscription si l'établissement est inactif, puis horodate
-    `sirene_verified_at`. Le texte client « votre SIRET a bien été validé » est donc exact.
-  - **L'activation du compte**, elle, ne dépend que de la vérification de l'e-mail
-    (`customer-auth/routes/web.php`) — c'est ce que dit le commentaire du code, qui porte sur
-    le critère d'activation, pas sur l'existence d'une validation SIRET.
-
-  01 et 02 s'enchaînent donc correctement, textes client conservés tels quels.
-  ⚠️ Seul cas de bord : si l'API INSEE est indisponible, `SireneClient` retombe sur
-  `Status::Pending`, l'inscription passe et `sirene_verified_at` reste null — le mail
-  affirme alors une validation qui n'a pas eu lieu. Non traité (cas de panne, texte figé).
+- ~~02~~ : **revu le 2026-11-09 (FEAT-006)**. L'activation n'est plus déclenchée par la
+  vérification de l'e-mail mais par la **validation manuelle de l'équipe** en back-office
+  (cf. `docs/packages/storefront-b2b.md` § « Validation manuelle des comptes pro »).
+  Textes revus en conséquence (migration `2026_11_09_000100_upgrade_account_mails_for_manual_validation`) :
+  01 n'affirme plus « votre SIRET a bien été validé » et annonce l'étude du compte par
+  l'équipe ; 02 devient « votre compte a été validé, vous pouvez vous connecter » avec un
+  bouton vers `/connexion` (placeholder `login_url`). Le cas de bord INSEE indisponible
+  (mail affirmant une validation SIRET qui n'a pas eu lieu) disparaît : c'est l'équipe qui
+  contrôle le SIRET avant de valider.
 - **03** : « un petit cadeau glissé dans le colis » — geste logistique manuel. Le mail
   l'annonce ; qui garantit que le cadeau est réellement mis ?
 - **13** : le CTA « Donner mon avis » pointe vers quoi ? (Google, Trustpilot, formulaire interne)
@@ -88,7 +84,7 @@ Hors bibliothèque client. 4 modèles `audience = admin`, éditables dans
 Configuration → E-mails, destinataire unique Storefront → Paramètres
 (`admin_email`) :
 
-- `account.registered_admin` — inscription (onboarding téléphone)
+- `account.registered_admin` — compte à valider, envoyé à la vérification de l'e-mail du client (onboarding téléphone)
 - `order.placed_admin` — nouvelle commande
 - `order.payment_offline_admin` — virement à rapprocher
 - `loyalty.tier_unlocked_admin` — palier fidélité

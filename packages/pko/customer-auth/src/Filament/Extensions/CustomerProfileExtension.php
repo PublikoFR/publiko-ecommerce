@@ -17,6 +17,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Lunar\Admin\Support\Extending\ResourceExtension;
+use Lunar\Models\Customer;
+use Pko\CustomerAuth\Actions\ValidateCustomerAccount;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 
 class CustomerProfileExtension extends ResourceExtension
@@ -96,7 +98,20 @@ class CustomerProfileExtension extends ResourceExtension
                                 'banned' => 'Suspendu',
                             ])
                             ->default('pending')
-                            ->required(),
+                            ->required()
+                            ->helperText('Passer un compte « En attente » à « Actif » le valide : le client est prévenu par e-mail et peut se connecter.')
+                            // Même garde que l'action « Valider le compte » : pas de
+                            // validation tant que le client n'a pas confirmé son e-mail
+                            // (cf. ValidateCustomerAccount). Ne vise que la transition
+                            // pending → active d'une fiche existante.
+                            ->rule(fn (?Model $record): \Closure => function (string $attribute, mixed $value, \Closure $fail) use ($record): void {
+                                if ($value === 'active'
+                                    && $record instanceof Customer
+                                    && $record->getAttribute('pko_status') === 'pending'
+                                    && ! ValidateCustomerAccount::emailVerified($record)) {
+                                    $fail('Impossible de valider ce compte : le client n\'a pas encore confirmé son adresse e-mail.');
+                                }
+                            }),
                         Toggle::make('sepa_enabled')
                             ->label('Prélèvement SEPA autorisé')
                             ->default(false)
