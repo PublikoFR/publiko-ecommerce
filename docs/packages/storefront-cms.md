@@ -151,8 +151,10 @@ correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet 
   affichait une home **sans le module**, faute de mapping refait sur le serveur.
 - L'admin peut **imposer** une autre collection, **masquer** une zone (`hidden`), changer
   libellé/description. Une zone sans correspondance, ou liée à une collection désactivée / sans
-  URL, n'est pas affichée ; la numérotation suit les zones affichées (pastille et ligne portent
-  toujours le même numéro).
+  URL, n'est pas affichée.
+- **Ordre = ordre du catalogue** (arbre nested set, comme le menu « Tous nos produits »), pas
+  l'ordre des zones du dessin ; la numérotation suit cet ordre (pastille et ligne portent toujours
+  le même numéro). Réordonner les catégories en admin réordonne donc aussi la liste.
 - **Pastilles dans le SVG**, ancrées en coordonnées du viewBox — et non en % par-dessus une image
   comme dans la maquette, où elles se décalaient avec la largeur.
 - Le dessin est **généré** par `scripts/home-solutions-scene.py` (scène 3D projetée en isométrie

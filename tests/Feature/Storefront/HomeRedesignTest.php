@@ -135,6 +135,20 @@ class HomeRedesignTest extends TestCase
         $this->assertStringEndsWith('/collections/acces-test', $items[1]['url']);
     }
 
+    public function test_solutions_follow_catalogue_order_like_the_menu(): void
+    {
+        $this->neutralizeSeededRoots();
+        // Ordre du catalogue volontairement différent de l'ordre des zones du dessin.
+        $this->makeCollection('Volets & protections solaires', 'volets-test');
+        $this->makeCollection('Portes de garage & fermetures industrielles', 'garage-test');
+        $this->makeCollection('Portails', 'portails-test');
+
+        $items = HomeSolutionZones::resolve([]);
+
+        $this->assertSame(['shutters', 'garage', 'gates'], array_column($items, 'key'));
+        $this->assertSame(['01', '02', '03'], array_column($items, 'number'));
+    }
+
     public function test_home_renders_solutions_module_when_a_zone_is_mapped(): void
     {
         $gates = $this->makeCollection('Portails maison', 'portails-test');

@@ -96,8 +96,9 @@ final class HomeSolutionZones
     ];
 
     /**
-     * Zones affichables, numérotées 01, 02… dans l'ordre du schéma (la pastille
-     * et la ligne de liste portent toujours le même numéro).
+     * Zones affichables, triées dans l'ordre du catalogue (comme le menu) et
+     * numérotées 01, 02… dans cet ordre (la pastille et la ligne de liste
+     * portent toujours le même numéro).
      *
      * Résolution d'une zone, par priorité :
      * 1. masquée en admin (`hidden`) → absente ;
@@ -152,7 +153,7 @@ final class HomeSolutionZones
 
             $out[] = [
                 'key' => $key,
-                'number' => str_pad((string) (count($out) + 1), 2, '0', STR_PAD_LEFT),
+                'lft' => (int) $collection->_lft,
                 'label' => trim((string) ($entry['label'] ?? '')) ?: $zone['label'],
                 'description' => trim((string) ($entry['description'] ?? '')) ?: $zone['description'],
                 'url' => route('collection.view', $slug),
@@ -161,7 +162,16 @@ final class HomeSolutionZones
             ];
         }
 
-        return $out;
+        // Même ordre que le menu « Tous nos produits » : l'ordre de l'arbre du
+        // catalogue (nested set), pas l'ordre des zones du dessin. La
+        // numérotation suit cet ordre, pastille et ligne gardent le même numéro.
+        usort($out, fn (array $a, array $b): int => $a['lft'] <=> $b['lft']);
+
+        return array_map(function (array $item, int $i): array {
+            unset($item['lft']);
+
+            return ['number' => str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT)] + $item;
+        }, $out, array_keys($out));
     }
 
     public static function normalize(string $value): string
