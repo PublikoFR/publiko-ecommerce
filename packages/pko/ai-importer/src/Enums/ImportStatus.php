@@ -17,13 +17,13 @@ enum ImportStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Pending => 'En attente',
-            self::Scheduled => 'Programmé (CRON)',
-            self::Queued => 'En file',
+            self::Pending => 'À lancer',
+            self::Scheduled => 'Programmé',
+            self::Queued => 'En file d\'attente',
             self::Importing => 'Import en cours',
             self::Imported => 'Importé',
             self::Error => 'Erreur',
-            self::RolledBack => 'Rollback effectué',
+            self::RolledBack => 'Annulé (restauré)',
         };
     }
 

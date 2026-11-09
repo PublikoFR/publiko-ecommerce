@@ -338,6 +338,47 @@ final class LunarProductWriter
         return $this;
     }
 
+    /**
+     * Le produit décrit par ces données existe-t-il déjà ? Lecture seule, mêmes
+     * règles de rapprochement que l'import (SKU forcé, composé, référence,
+     * marque + MPN, ou EAN selon `join_column`). Sert au filtre « nouveaux
+     * produits / produits existants » dès la préparation, pour ne pas calculer
+     * (ni payer en IA) des lignes qui ne seront pas importées.
+     *
+     * @param  array<string, mixed>  $data  données de staging (clés canoniques ou alias)
+     * @return bool|null null = identification impossible ou ambiguë (à trancher à l'import)
+     */
+    public function productExists(array $data): ?bool
+    {
+        $ignored = [];
+        $data = self::normalizeLegacyKeys($data, $ignored);
+
+        $forcedSku = self::scalarTrim($data['sku'] ?? null);
+        $reference = self::scalarTrim($data['reference'] ?? null);
+        $brandName = self::scalarTrim($data['brand_name'] ?? null);
+        $mpn = self::rawMpn($data['mpn'] ?? null);
+        $byEan = in_array($this->joinColumn, ['ean', 'ean13'], true);
+
+        if (! $byEan && $forcedSku === '' && $reference === '' && ($brandName === '' || $mpn === null)) {
+            return null;
+        }
+        if ($byEan && self::scalarTrim($data['ean'] ?? null) === '') {
+            return null;
+        }
+
+        $brand = $brandName !== '' ? $this->findBrand($brandName) : null;
+        $composed = $forcedSku === '' ? ProductReference::compose($brand, $mpn) : null;
+
+        [$variant, $ambiguity] = $this->findExistingVariant($data, [$forcedSku, $composed, $reference], $brand, $mpn);
+
+        return $ambiguity !== null ? null : $variant !== null;
+    }
+
+    public function rowFilter(): RowFilter
+    {
+        return $this->rowFilter;
+    }
+
     public function write(StagingRecord $record): void
     {
         $this->currentRowNumber = $record->row_number ?? 0;

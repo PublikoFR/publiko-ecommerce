@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature\AiImporter;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Lunar\Models\Currency;
+use Lunar\Models\Language;
+use Lunar\Models\ProductType;
+use Lunar\Models\TaxClass;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Pko\AiImporter\Actions\Action;
@@ -20,6 +25,7 @@ use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Services\ActionPipeline;
+use Pko\AiImporter\Services\LunarProductWriter;
 use Pko\AiImporter\Services\SpreadsheetParser;
 use Tests\TestCase;
 
@@ -398,15 +404,37 @@ class ParseFileToStagingJobTest extends TestCase
             'error_policy' => 'ignore',
         ]);
 
-        try {
-            (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
-            $this->fail('La préparation aurait dû s\'arrêter.');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('B03_MEDIA', $e->getMessage());
-        }
+        // Pas d'exception : la file ne retente pas un fichier qui ne correspond pas.
+        (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
 
         $job->refresh();
         $this->assertSame(JobStatus::Error, $job->status);
+        $this->assertStringContainsString('B03_MEDIA', (string) $job->error_message);
+        $this->assertSame(0, $job->stagingRecords()->count());
+    }
+
+    public function test_a_preparation_stopped_before_the_worker_is_not_started(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('ai-importer/inputs/stopped.csv', "reference,name\nSKU-1,Moteur\n");
+
+        $config = ImporterConfig::create([
+            'name' => 'test-stopped',
+            'config_data' => ['primary_sheet' => 'Worksheet', 'mapping' => ['reference' => ['col' => 'reference']]],
+        ]);
+
+        // L'utilisateur a cliqué « Arrêter la préparation » alors que le job attendait en file.
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/stopped.csv',
+            'status' => JobStatus::Cancelled,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+        ]);
+
+        (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
+
+        $this->assertSame(JobStatus::Cancelled, $job->refresh()->status);
         $this->assertSame(0, $job->stagingRecords()->count());
     }
 
@@ -440,5 +468,63 @@ class ParseFileToStagingJobTest extends TestCase
         $this->assertTrue(
             ImportLog::where('import_job_id', $job->id)->where('level', 'warning')->where('message', 'like', '%GTIN%')->exists(),
         );
+    }
+
+    public function test_presence_filter_is_applied_before_ai_columns(): void
+    {
+        Storage::fake('local');
+        Http::fake();
+        Storage::disk('local')->put('ai-importer/inputs/filter.csv', "reference,name\nDEJA-LA,Moteur connu\nNOUVEAU,Moteur neuf\n");
+
+        // Un produit du fichier existe déjà au catalogue.
+        ProductType::firstOrCreate(['name' => 'Test Type']);
+        TaxClass::firstOrCreate(['name' => 'Standard'], ['default' => true]);
+        Currency::firstOrCreate(['code' => 'EUR'], ['name' => 'Euro', 'exchange_rate' => 1.0, 'default' => true, 'enabled' => true]);
+        Language::firstOrCreate(['code' => 'fr'], ['name' => 'Français', 'default' => true]);
+        $seed = ImportJob::create(['input_file_path' => 'n/a', 'status' => 'parsed', 'import_status' => 'pending', 'error_policy' => 'ignore']);
+        (new LunarProductWriter)->write(StagingRecord::create([
+            'import_job_id' => $seed->id, 'row_number' => 1, 'status' => StagingStatus::Pending,
+            'data' => ['reference' => 'DEJA-LA', 'name' => 'Moteur connu'],
+        ]));
+
+        $config = ImporterConfig::create([
+            'name' => 'test-filter',
+            'config_data' => [
+                'primary_sheet' => 'Worksheet',
+                'mapping' => [
+                    // Colonne IA déclarée en premier : elle est tout de même calculée
+                    // après les colonnes simples, donc après le filtre.
+                    'description' => ['col' => 'name', 'actions' => [['type' => 'llm_transform', 'prompt' => 'Décris']]],
+                    'reference' => ['col' => 'reference'],
+                    'name' => ['col' => 'name'],
+                ],
+            ],
+        ]);
+
+        $job = ImportJob::create([
+            'config_id' => $config->id,
+            'input_file_path' => 'ai-importer/inputs/filter.csv',
+            'status' => JobStatus::Pending,
+            'import_status' => 'pending',
+            'error_policy' => 'ignore',
+            'options' => ['row_filter' => 'missing_supplier_ref'],
+        ]);
+
+        (new ParseFileToStagingJob($job->id))->handle(app(SpreadsheetParser::class), app(ActionPipeline::class));
+
+        $rows = $job->stagingRecords()->orderBy('row_number')->get();
+        $known = $rows[0];
+        $new = $rows[1];
+
+        // Produit déjà au catalogue : écarté, sa colonne IA n'a pas été calculée.
+        $this->assertSame(StagingStatus::Skipped, $known->status);
+        $this->assertStringContainsString('filtre', (string) $known->error_message);
+        $this->assertArrayNotHasKey('description', (array) $known->data);
+
+        // Nouveau produit : préparé en entier.
+        $this->assertSame(StagingStatus::Pending, $new->status);
+        $this->assertArrayHasKey('description', (array) $new->data);
+
+        Http::assertNothingSent();
     }
 }

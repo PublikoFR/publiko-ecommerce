@@ -215,7 +215,7 @@ Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
 
 ```
 [Ventes & Clients] Clients · Commandes · Factures · Expédition · Groupes de clients
-[Catalogue]        Produits · Médias · ⌄ Catégorisation · Imports
+[Catalogue]        Produits · Médias · ⌄ Catégorisation · ⌄ Imports (Imports de produits, Configurations)
 [Marketing]        Réductions · Fidélité · Newsletter
 [Boutique]         Slider accueil · Tuiles accueil · Offres du moment · Contenus
 [Configuration]    ⌄ Réglages · ⌄ Financier · Configurations LLM

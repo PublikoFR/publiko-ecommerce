@@ -6,6 +6,7 @@ namespace Pko\AiImporter\Actions\Types;
 
 use Pko\AiImporter\Actions\Action;
 use Pko\AiImporter\Actions\ExecutionContext;
+use Pko\AiImporter\Support\NumberParser;
 
 /**
  * Aggregate secondary-sheet rows (1-N join) into a single string/array/count.
@@ -23,11 +24,12 @@ final class MultilineAggregateAction extends Action
      */
     public function __construct(
         public readonly string $sheet = '',
-        public readonly string $method = 'concat', // first|last|count|concat|json_array
+        public readonly string $method = 'concat', // first|last|count|sum|concat|template|json_array
         public readonly string $separator = '|',
         public readonly ?string $filter_type = null,
         public readonly string $type_col = 'type',
         public readonly array $columns = [],
+        public readonly string $row_template = '',
     ) {}
 
     public static function type(): string
@@ -61,10 +63,27 @@ final class MultilineAggregateAction extends Action
             return $out;
         };
 
+        // Une seule colonne demandée : `first` / `last` rendent sa valeur, pas un
+        // tableau à une entrée (inexploitable par les champs numériques ou texte).
+        $single = static fn (array $extracted): mixed => count($extracted) === 1 ? reset($extracted) : $extracted;
+
         return match ($this->method) {
             'count' => count($rows),
-            'first' => $rows === [] ? null : $extract($rows[0]),
-            'last' => $rows === [] ? null : $extract($rows[array_key_last($rows)]),
+            'first' => $rows === [] ? null : $single($extract($rows[0])),
+            'last' => $rows === [] ? null : $single($extract($rows[array_key_last($rows)])),
+            // Somme des valeurs de la 1ʳᵉ colonne demandée — ex. éco-participation :
+            // total des lignes CONTRIB d'une feuille réglementaire (DEEE + mobilier…).
+            // Décimales FR acceptées ; null si aucune valeur numérique.
+            'sum' => $this->sum(array_map($extract, $rows)),
+            // `{COLONNE}` remplacé par la valeur de la ligne, lignes jointes par le séparateur.
+            'template' => implode($this->separator, array_map(
+                fn (array $row): string => (string) preg_replace_callback(
+                    '/\{([^{}]+)\}/',
+                    static fn (array $m): string => is_scalar($row[$m[1]] ?? null) ? (string) $row[$m[1]] : '',
+                    $this->row_template,
+                ),
+                $rows,
+            )),
             'json_array' => json_encode(array_map($extract, $rows), JSON_UNESCAPED_UNICODE),
             'concat' => implode($this->separator, array_map(
                 static fn (array $r): string => implode(' ', array_map('strval', $r)),
@@ -72,5 +91,21 @@ final class MultilineAggregateAction extends Action
             )),
             default => null,
         };
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $extracted
+     */
+    private function sum(array $extracted): ?float
+    {
+        $total = null;
+        foreach ($extracted as $row) {
+            $value = NumberParser::isBlank(reset($row)) ? null : NumberParser::toFloat(reset($row));
+            if ($value !== null) {
+                $total = ($total ?? 0.0) + $value;
+            }
+        }
+
+        return $total === null ? null : round($total, 6);
     }
 }

@@ -18,6 +18,38 @@ namespace Pko\AiImporter\Support;
 final class MappingOrder
 {
     /**
+     * Mapping d'une config dans l'ordre CHOISI dans l'éditeur.
+     *
+     * La base range `config_data` dans une colonne JSON, et MySQL réordonne les
+     * clés d'un objet JSON (par longueur puis ordre alphabétique) : l'ordre des
+     * colonnes posé dans l'éditeur était perdu à chaque sauvegarde (`id`, `mpn`,
+     * `name`… au lieu de l'ordre saisi). L'ordre est donc conservé à part, dans
+     * la liste `config_data.mapping_order` (un tableau JSON garde son ordre) ;
+     * les clés absentes de la liste suivent, dans l'ordre de l'objet.
+     *
+     * @param  array<string, mixed>  $config  `config_data` complet
+     * @return array<string, mixed>
+     */
+    public static function declared(array $config): array
+    {
+        $mapping = (array) ($config['mapping'] ?? []);
+        $order = array_values(array_filter((array) ($config['mapping_order'] ?? []), 'is_scalar'));
+        if ($order === []) {
+            return $mapping;
+        }
+
+        $ordered = [];
+        foreach ($order as $key) {
+            $key = (string) $key;
+            if (array_key_exists($key, $mapping)) {
+                $ordered[$key] = $mapping[$key];
+            }
+        }
+
+        return $ordered + $mapping;
+    }
+
+    /**
      * @param  array<string, mixed>  $mapping
      * @return array<string, mixed> même mapping, clés réordonnées
      */

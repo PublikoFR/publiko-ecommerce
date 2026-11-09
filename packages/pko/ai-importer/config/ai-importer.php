@@ -30,6 +30,12 @@ return [
             'application/vnd.ms-excel',
             'text/csv',
             'application/csv',
+            // Un CSV est souvent détecté « text/plain », et un XLSX produit par
+            // certains outils « application/zip » : sans eux le fichier était refusé
+            // à l'envoi. Un fichier illisible est de toute façon signalé par le
+            // contrôle du fichier, avant toute préparation.
+            'text/plain',
+            'application/zip',
         ],
     ],
 

@@ -17,12 +17,14 @@ use Pko\AiImporter\Enums\ErrorPolicy;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\LogLevel;
 use Pko\AiImporter\Enums\LogPhase;
+use Pko\AiImporter\Enums\RowFilter;
 use Pko\AiImporter\Enums\StagingStatus;
 use Pko\AiImporter\Models\ImportJob;
 use Pko\AiImporter\Models\ImportLog;
 use Pko\AiImporter\Models\StagingRecord;
 use Pko\AiImporter\Notifications\ImportJobNotifier;
 use Pko\AiImporter\Services\ActionPipeline;
+use Pko\AiImporter\Services\LunarProductWriter;
 use Pko\AiImporter\Services\ProgressCache;
 use Pko\AiImporter\Services\SpreadsheetParser;
 use Pko\AiImporter\Support\ConfigColumnExtractor;
@@ -73,12 +75,20 @@ class ParseFileToStagingJob implements ShouldQueue
             return;
         }
 
+        // Arrêtée par l'utilisateur avant que le worker ne la prenne : on ne la
+        // relance pas dans son dos (le statut `parsing` posé ici l'aurait écrasé).
+        if ($job->status === JobStatus::Cancelled) {
+            $this->log($job, LogLevel::Warning, 'Préparation arrêtée avant son démarrage : rien n\'a été traité.');
+
+            return;
+        }
+
         $job->update([
             'status' => JobStatus::Parsing,
             'parse_started_at' => $job->parse_started_at ?? now(),
         ]);
 
-        $this->log($job, LogLevel::Info, 'Début du parse', ['file' => $job->input_file_path]);
+        $this->log($job, LogLevel::Info, 'Début de la préparation', ['file' => $job->input_file_path]);
 
         // Une LlmConfig modifiée entre deux parses doit être relue : le cache
         // de configuration des actions IA vit le temps d'un job, pas du worker.
@@ -100,12 +110,19 @@ class ParseFileToStagingJob implements ShouldQueue
             }
 
             $primary = $parser->primarySheetName();
-            $this->assertFileMatchesConfig($job, $parser, $config, $primary);
+            // Fichier et config ne correspondent pas : arrêt net, SANS nouvelle
+            // tentative de la file (relancer ne changerait rien au fichier).
+            $mismatch = $this->fileMismatch($job, $parser, $config, $primary);
+            if ($mismatch !== null) {
+                $this->fail($job, $mismatch);
+
+                return;
+            }
             $total = $parser->countRows($primary);
             $job->update(['total_rows' => $total]);
 
             $joinKey = $parser->joinKeyName();
-            $mapping = (array) ($config['mapping'] ?? []);
+            $mapping = MappingOrder::declared($config);
 
             // Option `columns_to_process` : restreint le mapping à un sous-ensemble
             // de clés (les autres ne sont pas calculées au parse). Vide = tout.
@@ -130,6 +147,13 @@ class ParseFileToStagingJob implements ShouldQueue
             // Colonnes IA calculées après les autres : leurs `input_columns`
             // désignent des clés de sortie déjà transformées.
             $mapping = MappingOrder::sorted($mapping);
+            // Filtre « nouveaux produits / produits existants » appliqué dès la
+            // préparation : une ligne qui ne sera pas importée n'est pas calculée
+            // au-delà de ses colonnes simples — aucun appel IA payé pour rien.
+            $filterWriter = app(LunarProductWriter::class)->configure($job->options);
+            $rowFilter = $filterWriter->rowFilter();
+            $skippedByFilter = 0;
+
             $chunkEvery = (int) config('ai-importer.defaults.checkpoint_every', 100);
             // Avec des actions IA (plusieurs secondes par ligne), attendre
             // `checkpoint_every` lignes laisserait la console vide pendant des
@@ -183,7 +207,20 @@ class ParseFileToStagingJob implements ShouldQueue
                         rowNumber: $rowNumber,
                     );
 
+                    $filterChecked = $rowFilter === RowFilter::All;
+                    $excluded = false;
+
                     foreach ($mapping as $outputKey => $columnConfig) {
+                        // Les colonnes IA passent en dernier (MappingOrder) : on
+                        // tranche juste avant la première, sur les colonnes déjà calculées.
+                        if (! $filterChecked && ConfigColumnExtractor::usesAi($columnConfig)) {
+                            $filterChecked = true;
+                            $excluded = $this->excludedByFilter($filterWriter, $rowFilter, $mapped);
+                            if ($excluded) {
+                                break;
+                            }
+                        }
+
                         $srcCol = $columnConfig['col'] ?? null;
                         $srcSheet = $columnConfig['sheet'] ?? null;
 
@@ -207,11 +244,22 @@ class ParseFileToStagingJob implements ShouldQueue
                         $ctx->setOutput((string) $outputKey, $value);
                     }
 
+                    if (! $filterChecked) {
+                        $excluded = $this->excludedByFilter($filterWriter, $rowFilter, $mapped);
+                    }
+                    if ($excluded) {
+                        $skippedByFilter++;
+                    }
+
                     // Anti-doublon à la reprise : updateOrCreate sur la clé
                     // unique (import_job_id, row_number).
                     $record = StagingRecord::updateOrCreate(
                         ['import_job_id' => $job->id, 'row_number' => $rowNumber],
-                        ['data' => $mapped, 'status' => StagingStatus::Pending, 'error_message' => null],
+                        [
+                            'data' => $mapped,
+                            'status' => $excluded ? StagingStatus::Skipped : StagingStatus::Pending,
+                            'error_message' => $excluded ? 'Écartée par le filtre « '.$rowFilter->label().' »' : null,
+                        ],
                     );
                     if ($record->wasRecentlyCreated) {
                         $stagingCount++;
@@ -224,7 +272,7 @@ class ParseFileToStagingJob implements ShouldQueue
                         $job->id,
                         LogPhase::Parse,
                         LogLevel::Info,
-                        'Ligne '.($processed + 1)."/{$totalLabel} : [{$ref}] {$name}",
+                        'Ligne '.($processed + 1)."/{$totalLabel} : [{$ref}] {$name}".($excluded ? ' — écartée par le filtre' : ''),
                         $rowNumber,
                     );
                 } catch (\Throwable $e) {
@@ -306,10 +354,11 @@ class ParseFileToStagingJob implements ShouldQueue
             ]);
             ProgressCache::set($job, $processed, $total);
 
-            $this->log($job, LogLevel::Success, 'Parse terminé', [
+            $this->log($job, LogLevel::Success, 'Préparation terminée', [
                 'total_rows' => $total,
                 'staging_rows' => $stagingCount,
                 'error_rows' => $errors,
+                'skipped_by_filter' => $skippedByFilter,
             ]);
 
             ImportJobNotifier::parseCompleted($job->fresh());
@@ -328,6 +377,24 @@ class ParseFileToStagingJob implements ShouldQueue
     }
 
     /**
+     * La ligne est-elle écartée par le filtre de présence ? Une ligne qu'on ne
+     * sait pas identifier (référence vide, rapprochement ambigu) n'est jamais
+     * écartée ici : l'import tranchera, avec son message d'erreur.
+     *
+     * @param  array<string, mixed>  $mapped
+     */
+    private function excludedByFilter(LunarProductWriter $writer, RowFilter $filter, array $mapped): bool
+    {
+        if ($filter === RowFilter::All) {
+            return false;
+        }
+
+        $exists = $writer->productExists($mapped);
+
+        return $exists !== null && ! $filter->allows($exists);
+    }
+
+    /**
      * Contrôle du fichier contre la config, avant la première ligne : une
      * feuille absente arrête la préparation avec un message clair (au lieu d'une
      * erreur identique sur chaque ligne) ; une colonne désignée par un intitulé
@@ -335,19 +402,20 @@ class ParseFileToStagingJob implements ShouldQueue
      * restera vide), sans bloquer.
      *
      * @param  array<string, mixed>  $config
+     * @return string|null message d'arrêt, null si la préparation peut démarrer
      */
-    private function assertFileMatchesConfig(ImportJob $job, SpreadsheetParser $parser, array $config, string $primary): void
+    private function fileMismatch(ImportJob $job, SpreadsheetParser $parser, array $config, string $primary): ?string
     {
         $available = $parser->sheetNames();
         $declared = array_map('strval', array_keys(array_filter((array) ($config['sheets'] ?? []), 'is_array')));
 
         $missing = array_values(array_diff(array_unique([$primary, ...$declared]), $available));
         if ($missing !== []) {
-            throw new \RuntimeException(sprintf(
+            return sprintf(
                 'Feuille(s) absente(s) du fichier : %s. Feuilles trouvées : %s. Vérifiez le fichier ou la configuration.',
                 implode(', ', $missing),
                 implode(', ', $available) ?: 'aucune',
-            ));
+            );
         }
 
         foreach (ConfigDiagnostics::namedColumnsBySheet($config, $primary) as $sheetName => $columns) {
@@ -363,6 +431,8 @@ class ParseFileToStagingJob implements ShouldQueue
                 ), ['sheet' => $sheetName, 'columns' => $absent]);
             }
         }
+
+        return null;
     }
 
     private function persistProgress(ImportJob $job, int $processed, int $stagingCount, ?int $total): void

@@ -16,10 +16,10 @@ enum JobStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Pending => 'En attente du CRON',
-            self::Parsing => 'Préparation…',
+            self::Pending => 'En file d\'attente',
+            self::Parsing => 'Préparation en cours',
             self::Paused => 'En pause',
-            self::Parsed => 'Parsé',
+            self::Parsed => 'Préparé',
             self::Error => 'Erreur',
             self::Cancelled => 'Annulé',
         };

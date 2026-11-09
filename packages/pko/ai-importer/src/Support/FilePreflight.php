@@ -120,10 +120,20 @@ final class FilePreflight
                 $hints[] = $index !== false ? "{$column} (trouvé « {$headers[$index]} » : casse ou espaces différents)" : $column;
             }
 
-            $findings[] = self::finding(ConfigDiagnostics::ERROR, sprintf(
-                'Feuille « %s » : colonne(s) introuvable(s) dans la ligne d\'en-têtes — %s. Les champs qui en dépendent resteront vides.',
+            // Une colonne de JOINTURE introuvable vide toutes les feuilles liées :
+            // bloquant. Une colonne de données absente ne vide que son champ.
+            $joinColumn = $name === $primary
+                ? ($config['join_key'] ?? null)
+                : ($config['sheets'][$name]['join_col'] ?? $config['sheets'][$name]['join_key'] ?? ($config['join_key'] ?? null));
+            $breaksJoin = is_scalar($joinColumn) && in_array(trim((string) $joinColumn), $missing, true);
+
+            $findings[] = self::finding($breaksJoin ? ConfigDiagnostics::ERROR : ConfigDiagnostics::WARNING, sprintf(
+                'Feuille « %s » : colonne(s) introuvable(s) dans la ligne d\'en-têtes — %s. %s',
                 $name,
                 implode(', ', $hints),
+                $breaksJoin
+                    ? 'La colonne de jointure en fait partie : aucune ligne des feuilles liées ne serait rapprochée.'
+                    : 'Les champs qui en dépendent resteront vides.',
             ));
         }
 

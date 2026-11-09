@@ -25,7 +25,7 @@ use Pko\AiImporter\Models\ImporterConfig;
 final class ConfigColumnExtractor
 {
     /**
-     * @return array<int, array{value: string, label: string, has_ai: bool}>
+     * @return array<int, array{value: string, label: string, has_ai: bool, source: string}>
      */
     public static function fromConfig(?ImporterConfig $config): array
     {
@@ -38,7 +38,7 @@ final class ConfigColumnExtractor
 
     /**
      * @param  array<string, mixed>  $mapping
-     * @return array<int, array{value: string, label: string, has_ai: bool}>
+     * @return array<int, array{value: string, label: string, has_ai: bool, source: string}>
      */
     public static function fromMapping(array $mapping): array
     {
@@ -82,6 +82,7 @@ final class ConfigColumnExtractor
                 'value' => (string) $key,
                 'label' => $source !== '' ? (string) $key.' ('.$source.')' : (string) $key,
                 'has_ai' => $hasAi,
+                'source' => $source,
             ];
         }
 
@@ -104,6 +105,22 @@ final class ConfigColumnExtractor
         return empty($columnConfig['col'])
             && self::actionsOf($columnConfig) === []
             && array_key_exists('default', $columnConfig);
+    }
+
+    /** La colonne déclenche-t-elle au moins un appel IA (`llm_transform`) ? */
+    public static function usesAi(mixed $columnConfig): bool
+    {
+        if (! is_array($columnConfig)) {
+            return false;
+        }
+
+        foreach (self::actionsOf($columnConfig) as $action) {
+            if (is_array($action) && ($action['type'] ?? null) === 'llm_transform') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -161,7 +178,7 @@ final class ConfigColumnExtractor
             $data = $data->getArrayCopy();
         }
 
-        return is_array($data) ? (array) ($data['mapping'] ?? []) : [];
+        return is_array($data) ? MappingOrder::declared($data) : [];
     }
 
     /**

@@ -191,7 +191,7 @@ final class PipelineEditorManifest
                     'filter_type' => ['type' => 'text', 'label' => 'Filtrer par type(s)', 'placeholder' => 'PHOTO ou PHOTO,VIDEO (vide = tout)', 'help' => 'Filtre sur la colonne type_col définie dans les feuilles. Plusieurs types séparés par une virgule.'],
                     'method' => ['type' => 'select', 'label' => 'Méthode', 'width' => '50%',
                         'options' => ['concat' => 'Concaténation (valeurs séparées)', 'first' => 'Premier élément seulement', 'last' => 'Dernier élément seulement',
-                            'count' => 'Nombre d\'éléments', 'template' => 'Template personnalisé par ligne', 'json_array' => 'Tableau JSON structuré'],
+                            'count' => 'Nombre d\'éléments', 'sum' => 'Somme des valeurs (ex. éco-participation)', 'template' => 'Template personnalisé par ligne', 'json_array' => 'Tableau JSON structuré'],
                         'default' => 'concat'],
                     'separator' => ['type' => 'text', 'label' => 'Séparateur', 'width' => '50%', 'default' => ',', 'placeholder' => ', ou | ou ;', 'help' => 'Caractère(s) entre chaque valeur'],
                     'row_template' => ['type' => 'text', 'label' => 'Template de ligne', 'placeholder' => 'Ex : {N}:{L} → url1:alt1,url2:alt2', 'help' => 'Utilisez {LETTRE} pour insérer une valeur de colonne.', 'show_if' => ['method' => 'template']],

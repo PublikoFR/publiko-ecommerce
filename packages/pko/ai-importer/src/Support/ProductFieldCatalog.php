@@ -130,6 +130,7 @@ final class ProductFieldCatalog
         'link_rewrite' => 'URL (slug)',
         'image' => 'Images',
         'image_alt' => 'Alt images',
+        'attachments' => 'Documents (notices, brochures)',
         'width' => 'Largeur',
         'height' => 'Hauteur',
         'depth' => 'Profondeur',

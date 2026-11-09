@@ -383,6 +383,8 @@ Tests : `tests/Feature/AiImporter/WriterOptionsTest` (7 cas — update_mode × 4
 
 ### 7.quinquies.14 V3 — Page « Préparer un fichier » (UI Filament fidèle PS)
 
+> **Remplacé le 2026-11** par le parcours en 4 étapes : la page est devenue l'assistant « Nouvel import », les configurations enregistrées et l'import JSON ont rejoint la liste des configurations. Voir §7.quinquies.19. Le texte ci-dessous est conservé pour l'historique des décisions.
+
 Portage fidèle de la page PrestaShop *Prepare a File* sur `ImportJobResource` (page
 **Create** = « Préparer un fichier », page **List** = « Liste des imports »).
 
@@ -464,6 +466,8 @@ fichier » + « Importer une préparation ».
 
 #### V4 — Page « Aperçu & Import » (portage `preview.tpl` PS)
 
+> **Remplacé le 2026-11** par le parcours en 4 étapes : les 7 cartes de statistiques, les sections « Fichiers joints » / « Options d'import » et les 8 boutons d'en-tête ont laissé place au bandeau d'étape et à une action principale par étape. Voir §7.quinquies.19. Le texte ci-dessous est conservé pour l'historique des décisions.
+
 Refonte de la page détail d'un job (`ViewImportJob` + `StagingRecordsRelationManager`)
 pour reproduire la page PrestaShop « Aperçu et Import », thème Filament natif.
 
@@ -508,6 +512,8 @@ Tests : `tests/Feature/AiImporter/ViewImportJobTest` (compteurs de staging × 2 
 que ci-dessus (conflit migration `pko_posts`).
 
 ### 7.quinquies.15bis Flow piloté CRON — 2 phases découplées (2026-07)
+
+> **Remplacé le 2026-11** par le parcours en 4 étapes : les deux phases ne tournent toujours pas dans la requête web, mais partent tout de suite sur leur file quand un worker la traite ; le planificateur ne reste le déclencheur qu'en `sync` et pour les imports programmés. Voir §7.quinquies.19. Le texte ci-dessous est conservé pour l'historique des décisions.
 
 Refonte du déclenchement pour que **les deux phases longues soient attrapées par le
 cron**, jamais exécutées en synchrone dans la requête web. Motivation : sur DEV/prod
@@ -1182,3 +1188,214 @@ longue) laissait un produit sans variante, invisible du rapprochement : chaque r
 créait un autre. Sur exception, les caches d'entités créées (marque, fournisseur, famille,
 catégorie de document) sont vidés — ils pourraient pointer vers une ligne annulée. Les
 fichiers médias téléchargés pendant la ligne restent sur disque et sont réutilisés.
+
+### 7.quinquies.19 Refonte du parcours (2026-11) — 4 étapes, une action principale
+
+**Constat** : l'écran d'un import affichait 7 cartes de statistiques, 3 sections, jusqu'à 8
+boutons d'en-tête et 2 tableaux, sans dire où l'on en était ni quoi faire ensuite. La page de
+création mêlait la gestion des configurations, l'import JSON, l'import CSV et le déclenchement
+du cron. Le vocabulaire était technique (« parsé », « staging », « programmé (CRON) »).
+
+**Décision** : un parcours unique, **Préparation → Vérification → Import → Terminé**, où chaque
+écran ne propose que l'action de l'étape en cours. Aucune fonctionnalité retirée (tableau de
+correspondance en fin de section).
+
+#### 7.quinquies.19.1 Un état lisible : `Enums\FlowState`
+
+Un import a deux statuts techniques (`status` pour la préparation, `import_status` pour
+l'écriture). `ImportJob::flowState()` les ramène à **un** état : `Waiting`, `Preparing`,
+`PrepareFailed`, `Cancelled`, `Review`, `Scheduled`, `Importing`, `ImportFailed`, `Done`,
+`RolledBack`. Il porte libellé, couleur, icône, étape (1 à 4), `isRunning()` (l'écran se
+rafraîchit) et `allowsStagingEdits()`. La liste, la fiche et les tableaux s'appuient dessus :
+plus aucune vue ne recombine les deux statuts.
+
+Libellés revus : `JobStatus::Pending` « En file d'attente » (ex-« En attente du CRON »),
+`Parsed` « Préparé », `ImportStatus::Scheduled` « Programmé », `StagingStatus::Pending`
+« À importer ». Les valeurs en base sont inchangées.
+
+#### 7.quinquies.19.2 Déclenchement : `Support\ImportFlow`
+
+Toutes les transitions lancées depuis l'interface passent par cette classe.
+
+| Connexion de la file des imports | Préparation / import « maintenant » |
+|---|---|
+| `database-long`, `redis-long` (un worker la traite) | job dispatché **tout de suite** ; statut passé à `parsing` / `queued` **avant** le dispatch |
+| `sync` | rien n'est dispatché (le job tournerait dans la requête) : l'import reste éligible, `ai-importer:run-scheduled` le prend sous 2 min |
+
+Avant, tout passait par le planificateur : jusqu'à 2 min d'attente du tick, plus 1 min du
+worker. Les imports **programmés à une date** restent déclenchés par le planificateur. Sortir
+le job de son état éligible avant le dispatch garde la protection anti double exécution de
+§7.quinquies.15bis. Rejeté : dispatcher aussi en `sync` (parse de plusieurs minutes dans la
+requête, et statut final écrasé — bug d'origine).
+
+Deux garde-fous dans `ParseFileToStagingJob` : un import **arrêté pendant qu'il attendait en
+file** n'est plus démarré par le worker (le job posait `parsing` sans regarder, écrasant
+l'arrêt) ; un fichier qui ne correspond pas à la configuration (feuille absente) termine le
+job en erreur **sans exception**, donc sans les deux nouvelles tentatives de la file, vouées
+au même échec.
+
+`startImport()` depuis l'état « Import annulé » remet à zéro `backup_path`,
+`rollback_completed` et les compteurs : une nouvelle sauvegarde est prise, l'annulation
+redevient possible. `retryErrorRows()` remet les lignes en erreur « à importer ».
+
+`CreateImportJob` renseigne enfin `created_by_id` (jamais posé jusque-là). `ImportJobNotifier`
+vérifie en retour que la table `notifications` existe avant d'envoyer : les notifications en
+base de Filament partent en file d'attente, et ce projet n'active pas
+`databaseNotifications()` sur le panneau — chaque fin d'import aurait laissé un job en échec
+(`Table 'notifications' doesn't exist`). Le jour où le panneau les active, les notifications de
+fin de préparation et d'import arriveront au créateur sans autre changement.
+
+#### 7.quinquies.19.3 « Nouvel import » : assistant en 2 étapes (`CreateImportJob`)
+
+1. **Fichier** — configuration + fichier, puis contrôle immédiat (`ImportJobResource::preflight()`,
+   mis en cache 5 min car l'assistant réévalue ses champs à chaque interaction) :
+   - `Support\ConfigDiagnostics::analyze()` — config seule (identification, feuilles déclarées,
+     en-têtes) ;
+   - `Support\FilePreflight::check()` — fichier contre config, en ne lisant que la 1ʳᵉ ligne de
+     chaque feuille (0,8 s sur le FAB-DIS Somfy de 1,2 Mo ; sauté au-delà de 25 Mo).
+   Une **erreur** (feuille absente, colonne de jointure introuvable, pas d'identification)
+   bloque le passage à l'étape 2 ; une colonne de données absente n'est qu'un avertissement.
+2. **Réglages** — nombre de lignes, produits concernés, colonnes à calculer, réglages avancés
+   repliés. Sous la grille : nombre d'appels IA à prévoir (colonnes IA cochées × lignes) et
+   valeurs fixes de la config qui ont un effet à l'import.
+
+`?config=<id>` présélectionne une configuration (bouton « Nouvel import » d'une config). Le
+fichier est stocké sous un nom lisible (`20261110-003042-fabdis-somfy-2026.xlsx`) au lieu d'un
+ULID.
+
+**Filtre appliqué dès la préparation.** `row_filter` (« nouveaux produits » / « produits
+existants ») n'agissait qu'à l'écriture : toutes les lignes étaient calculées, IA comprise,
+puis ignorées. `ParseFileToStagingJob` interroge maintenant
+`LunarProductWriter::productExists()` (lecture seule, mêmes règles de rapprochement que
+l'import) juste avant la première colonne IA — elles passent en dernier, cf. `MappingOrder` —
+et range la ligne exclue en `skipped` sans la calculer davantage. Une ligne non identifiable
+n'est jamais écartée ici : l'import tranchera avec son message d'erreur.
+
+**Limite d'envoi.** Livewire refuse tout fichier temporaire de plus de 12 Mo avant que le champ
+n'applique ses 100 Mo. `Http\Middleware\RaiseStaffUploadLimit`, ajouté à
+`livewire.temporary_file_upload.middleware`, relève la limite à `ai-importer.upload.max_size_kb`
+pour une session du guard `staff` uniquement. Rejeté : relever `rules` globalement — la limite
+protège aussi les envois publics du storefront (demandes de devis).
+
+#### 7.quinquies.19.4 Fiche d'un import (`ViewImportJob`)
+
+- **Bandeau** (`infolists/flow-header.blade.php`) : fil des 4 étapes, état en clair (ce qu'il se
+  passe, quoi faire), barre de progression, cause de l'arrêt, compteurs non nuls. Il alerte quand
+  plusieurs lignes à importer portent la même référence (`ImportJob::duplicateReferences()`),
+  symptôme d'une colonne de référence mal lue.
+- **Une action principale par étape** ; le reste dans « Plus ».
+
+  | État | Action principale | Aussi proposé |
+  |---|---|---|
+  | File d'attente, préparation | — | Arrêter la préparation |
+  | Préparation interrompue, arrêtée | Relancer la préparation | — |
+  | À vérifier, import annulé | Importer dans le catalogue | Réglages d'import (Plus) |
+  | Import programmé | Importer maintenant (si date future) | Annuler la programmation |
+  | Import interrompu | Reprendre l'import | Réessayer les erreurs · Annuler l'import |
+  | Terminé | Importer les lignes restantes (s'il en reste) | Réessayer les erreurs · Annuler l'import |
+
+- **« Importer dans le catalogue »** réunit en une fenêtre ce qui était réparti entre « Options
+  d'import » et « Programmer l'import Lunar » : mode de mise à jour, produits concernés, clé de
+  rapprochement, champs à écrire, conduite en cas d'erreur, maintenant ou à une date. « Champs à
+  écrire » ne liste que les champs présents dans les lignes préparées (et non tout le catalogue
+  de champs), derrière un interrupteur désactivé par défaut.
+- **Console « En direct »** : affichée seulement pendant un traitement ou après un arrêt sur
+  erreur. Le reste du temps l'onglet « Journal détaillé » (filtres phase / niveau) suffit.
+- **Détails** (replié) : fichier, configuration, réglages, sauvegardes — fusion de « Fichiers
+  joints » et « Options d'import ».
+- **Un seul minuteur.** Le bandeau porte `wire:poll.3s="refreshFlow"` tant que
+  `flowState()->isRunning()`. `refreshFlow()` émet `import-flow-updated`, que les deux tableaux
+  (composants Livewire distincts, qui ne suivent pas le rendu de la page) écoutent pour se
+  recharger. Avant : un widget à 2 s, une console à 3 s et un tableau à 5 s, permanents. Piège
+  rencontré : un `->poll()` conditionnel posé sur le tableau ne démarre jamais si le tableau a
+  été rendu avant le lancement de l'import.
+
+#### 7.quinquies.19.5 Lignes préparées (`StagingRecordsRelationManager`)
+
+- Onglets avec compteur : Toutes / À importer / Erreurs / Importées / Écartées.
+- Colonnes par défaut : ligne, photo, produit (nom + référence), marque, **prix HT final**,
+  stock, statut + cause, lien vers la fiche produit. Le prix et la marque sont lus après
+  `normalizeLegacyKeys()` + `sanitizeNumericFields()` : c'est exactement ce que l'import écrira
+  (`price_tex` + `ecotax` → prix final, « dont éco … »). Les colonnes brutes restent
+  disponibles dans le sélecteur de colonnes, masquées par défaut (le tableau en affichait 30+).
+- Clic sur une ligne → fiche en panneau latéral, champs groupés comme le catalogue de champs
+  (les colonnes sans effet à l'import en dernier, repliées), historique de la ligne. Une valeur
+  structurée (hash de caractéristiques) s'édite en JSON et redevient un tableau. Corriger une
+  ligne en erreur la remet « à importer ».
+- « Écarter » / « Rétablir » remplacent le sélecteur de statut en ligne. Actions groupées :
+  remettre à importer, marquer vérifiées, écarter, supprimer.
+- Les lignes sont verrouillées pendant qu'un traitement les lit ou les écrit.
+- Export CSV en `;`, lu par tranches : réimportable tel quel par « Importer un fichier déjà
+  préparé ».
+
+#### 7.quinquies.19.6 Configurations (`ImporterConfigResource`)
+
+- Identité en tête, puis 4 onglets : **Feuilles du fichier**, **Colonnes**, **IA**, **JSON**
+  (une config existante s'ouvre sur Colonnes).
+- **Colonnes** : une ligne repliée par champ — libellé, badges « IA » / « non importée »,
+  résumé texte (`PipelineSummary::oneLine()`). 50 colonnes tiennent sur ~2 600 px au lieu de
+  ~8 000. L'éditeur de pipeline (modal JS) est inchangé.
+- **Feuilles** : les champs éditent enfin les clés lues par le parser (`join_col`, `type_col`)
+  — l'ancien formulaire éditait `join_key` / `type`, que les configs importées n'utilisent pas.
+  Un ancien `join_key` local est affiché dans le champ et reste honoré.
+- **Bandeau de contrôle** (`ConfigDiagnostics`) en tête de page et colonne « État » de la liste
+  (Prête / À vérifier / À corriger).
+- **Ordre des colonnes** : `config_data` est une colonne JSON et **MySQL réordonne les clés d'un
+  objet JSON** (longueur, puis ordre alphabétique). L'ordre posé dans l'éditeur était donc perdu
+  à chaque sauvegarde (`id`, `mpn`, `upc`, `name`…) et les boutons de réordonnancement sans
+  effet. L'ordre est maintenant tenu dans la liste `config_data.mapping_order`
+  (`MappingOrder::declared()`), relue par l'éditeur, la préparation, l'aperçu CLI et le tableau
+  des lignes. Rejeté : stocker `mapping` en liste — toutes les configs existantes et le format
+  d'échange PrestaShop sont des objets.
+- Un champ simple laissé vide (`type`, `primary_sheet`, `join_key`) n'est plus enregistré à
+  `null`.
+- « Importer (JSON) » et « Nouvel import » sont sur la liste ; « Exporter », « Dupliquer »,
+  « Supprimer » dans le menu de la ligne et le menu « Plus » de la page.
+
+#### 7.quinquies.19.7 Action `multiline_aggregate`
+
+- **`sum`** : somme des valeurs de la colonne demandée sur les lignes filtrées, `null` si
+  aucune (jamais 0). Pour l'éco-participation d'une feuille réglementaire FAB-DIS :
+  `{"method": "sum", "filter_type": "CONTRIB"}` avec `type_col: RTYP`. Lire « la première
+  ligne » (`relation: one`) ne tient qu'à l'ordre des lignes du fichier : sur le fichier Somfy
+  la feuille compte aussi des lignes `BATTERY` porteuses d'une valeur.
+- **`template`** : proposé par la palette de l'éditeur mais jamais implémenté (renvoyait
+  `null`). `row_template` (`{N}:{L}`) est maintenant appliqué à chaque ligne.
+- **`first` / `last`** avec une seule colonne renvoient sa valeur au lieu d'un tableau à une
+  entrée, inexploitable par un champ numérique ou texte.
+
+#### 7.quinquies.19.8 Vues et style
+
+Les vues du parcours utilisent une feuille embarquée (`partials/styles.blade.php`, classes
+`pko-imp-*`, couleurs = variables CSS de Filament) et non des classes Tailwind : le thème admin
+n'est recompilé qu'au build, ces écrans doivent s'afficher sans lui, y compris en mode sombre.
+
+Menu latéral (`pko/lunar-admin-nav`) : « Imports » devient un sous-menu **Imports de produits** /
+**Configurations** — les configurations n'avaient aucune entrée de menu.
+
+#### 7.quinquies.19.9 Où sont passées les anciennes commandes
+
+| Avant | Maintenant |
+|---|---|
+| Page « Préparer un fichier », section « Configurations enregistrées » | Imports → Configurations (liste) |
+| « Nouvelle configuration », « Importer JSON » (page Préparer) | Liste des configurations |
+| « Importer un CSV préparé » / « Importer une préparation » | Imports → Plus → Importer un fichier déjà préparé |
+| « Exécuter CRON » | Plus → Lancer le planificateur maintenant (liste et fiche) |
+| « Tester CRON » | Fiche → Plus → Vérifier le planificateur |
+| « Options d'import » + « Programmer l'import Lunar » | Importer dans le catalogue (ou Plus → Réglages d'import) |
+| « Relancer le parse », « Annuler », « Rollback », « Reprendre l'import » | Relancer la préparation, Arrêter la préparation, Annuler l'import, Reprendre l'import |
+| Sections « Fichiers joints » (télécharger source / sauvegarde, restaurer) | Section Détails + Plus → Télécharger… + Annuler l'import |
+| Cartes de statistiques (`ImportJobProgressWidget`, supprimé) | Bandeau d'étape + compteurs des onglets |
+| Sélecteur de statut en ligne, « Marquer validées », « Ignorer » | Écarter / Rétablir, actions groupées |
+| Filtrage des lignes à la création, sans effet avant l'écriture | Appliqué dès la préparation |
+
+Tests : `CreateImportJobTest`, `ViewImportJobTest`, `ImportFlowTest`, `EditImporterConfigTest`,
+`ConfigDiagnosticsTest`, `FilePreflightTest`, `ImporterConfigRoundTripTest`,
+`ParseFileToStagingJobTest`.
+
+> **Piège d'environnement de test.** Dans le conteneur de dev, `APP_ENV=local` est une variable
+> d'environnement réelle : `<env name="APP_ENV" value="testing"/>` de `phpunit.xml` (sans
+> `force`) ne la surcharge pas, `app()->runningUnitTests()` vaut `false`, et le `fillForm()` de
+> Filament ne fait **rien**, sans erreur. Les tests de ce parcours renseignent donc les champs
+> par `set('data.…')`. `BrandReferencePrefixAdminTest` et tout test utilisant `fillForm()`
+> échouent dans ce conteneur pour cette raison, indépendamment de ce chantier.

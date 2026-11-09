@@ -6,6 +6,7 @@ namespace Tests\Unit\AiImporter;
 
 use PHPUnit\Framework\TestCase;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
+use Pko\AiImporter\Support\MappingOrder;
 
 /**
  * Pure round-trip guard for the visual editor serialisation. Asserts that
@@ -24,7 +25,37 @@ class ImporterConfigRoundTripTest extends TestCase
         $hydrated = ImporterConfigResource::hydrateVisual(['config_data' => $config]);
         $dehydrated = ImporterConfigResource::dehydrateVisual($hydrated);
 
-        return ImporterConfigResource::arrayify($dehydrated['config_data']);
+        $config = ImporterConfigResource::arrayify($dehydrated['config_data']);
+        // Ordre des colonnes, tenu à part de l'objet `mapping` (testé plus bas).
+        unset($config['mapping_order']);
+
+        return $config;
+    }
+
+    public function test_column_order_survives_storage_that_reorders_json_keys(): void
+    {
+        $config = ['mapping' => [
+            'reference' => ['col' => 'A'],
+            'name' => ['col' => 'B'],
+            'id' => ['col' => 'C'],
+        ]];
+
+        $saved = ImporterConfigResource::dehydrateVisual(ImporterConfigResource::hydrateVisual(['config_data' => $config]))['config_data'];
+        $this->assertSame(['reference', 'name', 'id'], $saved['mapping_order']);
+
+        // MySQL rend les clés d'un objet JSON triées par longueur puis alphabet.
+        $stored = $saved;
+        uksort($stored['mapping'], fn (string $a, string $b): int => [strlen($a), $a] <=> [strlen($b), $b]);
+        $this->assertSame(['id', 'name', 'reference'], array_keys($stored['mapping']));
+
+        // L'éditeur et la préparation relisent l'ordre choisi.
+        $reloaded = ImporterConfigResource::hydrateVisual(['config_data' => $stored])['config_data'];
+        $this->assertSame(['reference', 'name', 'id'], array_column($reloaded['mapping_repeater'], 'key'));
+        $this->assertSame(['reference', 'name', 'id'], array_keys(MappingOrder::declared($stored)));
+
+        // Une clé ajoutée hors éditeur (JSON brut) suit, sans être perdue.
+        $stored['mapping']['ean'] = ['col' => 'D'];
+        $this->assertSame(['reference', 'name', 'id', 'ean'], array_keys(MappingOrder::declared($stored)));
     }
 
     public function test_sheets_and_primary_keys_round_trip(): void

@@ -45,6 +45,49 @@ final class PipelineSummary
     }
 
     /**
+     * Résumé TEXTE sur une ligne, pour l'en-tête replié d'une colonne du mapping :
+     * « B01_COMMERCE › M · défaut 0 · Multiplier ×1.2 → Arrondir (2) ».
+     * Chaîne vide si la colonne n'a ni source, ni défaut, ni action.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public static function oneLine(array $row): string
+    {
+        $parts = [];
+
+        $sheet = trim((string) ($row['sheet'] ?? ''));
+        $col = trim((string) ($row['col'] ?? ''));
+        if ($sheet !== '' || $col !== '') {
+            $parts[] = trim($sheet.($sheet !== '' && $col !== '' ? ' › ' : '').$col);
+        }
+
+        $default = self::scalar($row['default'] ?? '');
+        if ($default !== '') {
+            $parts[] = 'défaut '.mb_strimwidth($default, 0, 24, '…');
+        }
+
+        $steps = [];
+        foreach (self::normalizeActions($row['actions'] ?? []) as $action) {
+            $type = (string) ($action['type'] ?? '');
+            if ($type === '') {
+                continue;
+            }
+            if ($type === 'condition') {
+                $steps[] = 'Si… alors…';
+
+                continue;
+            }
+            [$label, $hint] = self::describe($type, $action);
+            $steps[] = trim($label.' '.mb_strimwidth($hint, 0, 28, '…'));
+        }
+        if ($steps !== []) {
+            $parts[] = implode(' → ', $steps);
+        }
+
+        return implode(' · ', $parts);
+    }
+
+    /**
      * Sheet badge + source column + default value (the non-pipeline part).
      *
      * @param  array<string, mixed>  $row
