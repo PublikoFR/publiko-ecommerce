@@ -3,7 +3,7 @@ use Pko\Storefront\Support\StorefrontLinks;
 use Pko\Storefront\Support\StorefrontText;
 
 $nav = StorefrontLinks::visible(config('storefront.nav.secondary', []));
-$quoteUrl = StorefrontLinks::safeHref(config('storefront.nav.quote_url', '/contact'));
+$quoteUrl = StorefrontLinks::safeHref(config('storefront.nav.quote_url', '/demande-de-devis'));
 $topbarLinks = StorefrontLinks::visible(config('storefront.topbar.links', []));
 $tagline = brand_tagline();
 // Info franco (banner.*) : affichée dans le bandeau au-dessus du menu. Le texte

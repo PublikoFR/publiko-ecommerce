@@ -36,6 +36,7 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 - [storefront.md](packages/storefront.md) — frontoffice Livewire phase 1
 - [storefront-b2b.md](packages/storefront-b2b.md) — frontoffice B2B pro phase 2
 - [account.md](packages/account.md) — espace compte client (commandes, profil, adresses)
+- [quote-requests.md](packages/quote-requests.md) — formulaire de devis unique et contextuel (modes général / projet / photo), PJ privées validées par signature, suivi admin
 
 ### IA
 

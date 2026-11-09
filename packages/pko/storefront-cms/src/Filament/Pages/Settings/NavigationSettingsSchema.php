@@ -42,7 +42,7 @@ final class NavigationSettingsSchema
             'banner_icon' => Setting::get('banner.icon', $config['banner']['icon'] ?? 'truck'),
             'topbar_links' => Setting::get('topbar.links', $config['topbar']['links'] ?? []),
             'nav_links' => Setting::get('nav.secondary', $config['nav']['secondary'] ?? []),
-            'nav_quote_url' => Setting::get('nav.quote_url', $config['nav']['quote_url'] ?? '/contact'),
+            'nav_quote_url' => Setting::get('nav.quote_url', $config['nav']['quote_url'] ?? '/demande-de-devis'),
             'access_items' => Setting::get('access_band.items', $config['access_band']['items'] ?? []),
             'footer_columns' => Setting::get('footer.columns', $config['footer']['columns'] ?? []),
             'footer_baseline' => Setting::get('footer.baseline', $config['footer']['baseline'] ?? null),

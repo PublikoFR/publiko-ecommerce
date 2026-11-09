@@ -100,6 +100,7 @@ use Pko\OrderNotifications\Filament\Extensions\OrderDelayActionExtension;
 use Pko\Pennylane\Filament\Extensions\OrderInvoiceActionsExtension;
 use Pko\Pennylane\Filament\PennylanePlugin;
 use Pko\ProductDocuments\ProductDocumentsPlugin;
+use Pko\QuoteRequests\Filament\QuoteRequestsPlugin;
 use Pko\Secrets\Facades\Secrets;
 use Pko\ShippingCommon\Filament\Extensions\OrderQuoteActionsExtension;
 use Pko\ShippingCommon\Filament\Extensions\OrderShipmentActionsExtension;
@@ -208,6 +209,10 @@ class AppServiceProvider extends ServiceProvider
                 ->plugin(StoreLocatorPlugin::make())
                 ->plugin(MediaManagerShimPlugin::make())
                 ->plugin(PennylanePlugin::make())
+                // Garde class_exists : le package arrive par `composer install`
+                // (path repository) ; tant qu'il n'est pas installé sur un
+                // environnement, le panel doit continuer de démarrer.
+                ->plugins(class_exists(QuoteRequestsPlugin::class) ? [QuoteRequestsPlugin::make()] : [])
                 ->plugin(AdminNavPlugin::make());
         })->register();
 

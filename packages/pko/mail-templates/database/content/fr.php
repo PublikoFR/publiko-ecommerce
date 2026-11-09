@@ -277,6 +277,42 @@ La fermeture pour les pros.</p>'],
     ],
 
     // 11 — Panier non finalisé
+    // Demande de devis (formulaire unique) — accusé de réception au demandeur
+    'quote_request.received' => [
+        'subject' => 'Nous avons bien reçu votre demande :request_number',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Votre demande est entre de bonnes mains'],
+            ['type' => 'text', 'html' => '<p>Bonjour :contact_name,</p>'],
+            ['type' => 'text', 'html' => '<p>Nous avons bien reçu votre demande <strong>:request_number</strong> (:mode_label).</p>'],
+            ['type' => 'text', 'html' => '<p>Notre équipe l\'étudie et revient vers vous rapidement avec une réponse adaptée à votre besoin.</p>'],
+            ['type' => 'text', 'html' => '<p>À très bientôt,<br>L’équipe :brand_name</p>'],
+        ]),
+    ],
+
+    // Demande de devis — notification équipe
+    'quote_request.received_admin' => [
+        'subject' => 'Demande de devis :request_number — :mode_label',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Nouvelle demande de devis'],
+            ['type' => 'text', 'html' => '<p><strong>Demande</strong> : :request_number (:mode_label)<br>
+<strong>Contact</strong> : :contact_name<br>
+<strong>Société</strong> : :company_name<br>
+<strong>E-mail</strong> : :email<br>
+<strong>Téléphone</strong> : :phone<br>
+<strong>Code postal</strong> : :postcode</p>'],
+            ['type' => 'text', 'html' => '<p><strong>Produit d\'origine</strong> : :product_name<br>
+<strong>Référence</strong> : :reference<br>
+<strong>Catégorie</strong> : :collection<br>
+<strong>Page d\'origine</strong> : :from_url</p>'],
+            ['type' => 'quote', 'text' => ':message', 'cite' => ''],
+            ['type' => 'text', 'html' => '<p><strong>Produits / quantités</strong> : :lines</p>'],
+            ['type' => 'text', 'html' => '<p><strong>Pièces jointes (:attachments_count)</strong> : :attachments</p>'],
+            ['type' => 'button', 'label' => 'Voir la demande et les pièces jointes', 'url' => ':admin_url', 'variant' => 'primary'],
+        ]),
+    ],
+
     'cart.abandoned' => [
         'subject' => 'Votre sélection vous attend sur WEKLO',
         'enabled' => true,
