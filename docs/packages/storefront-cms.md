@@ -162,7 +162,7 @@ correspondants sont retirés du hub **Page d'accueil**, remplacés par l'onglet 
   la pastille. `lift` (par zone) allonge la tige de la pastille là où des
   équipements voisins feraient se chevaucher les tuiles.
 - La famille sélectionnée s'affiche dans une **tuile cliquable en bas à gauche du schéma**
-  (picto, nom, description, flèche) qui mène à la catégorie ; plus de bandeau ni de bouton sous
+  (picto sur fond blanc, sans fond ni contour, nom, description, flèche) qui mène à la catégorie ; plus de bandeau ni de bouton sous
   le schéma.
 - **Pastilles dans le SVG**, ancrées en coordonnées du viewBox — et non en % par-dessus une image
   comme dans la maquette, où elles se décalaient avec la largeur.

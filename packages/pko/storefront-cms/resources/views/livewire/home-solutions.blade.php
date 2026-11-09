@@ -88,7 +88,7 @@
                         wire:navigate
                         class="group/tile absolute left-4 bottom-4 flex items-center gap-4 max-w-[min(26rem,calc(100%-2rem))] rounded-xl bg-white/95 backdrop-blur-sm border border-neutral-200 shadow-md pl-3 pr-4 py-3 hover:border-primary-200 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     >
-                        <span class="w-12 h-12 rounded-lg bg-accent-500 flex items-center justify-center shrink-0">
+                        <span class="w-12 h-12 flex items-center justify-center shrink-0">
                             <img :src="current.icon" @if ($items[0]['icon'] !== '') src="{{ $items[0]['icon'] }}" @endif alt="" width="36" height="36" class="w-9 h-9 object-contain" x-show="current.icon" @if ($items[0]['icon'] === '') style="display: none" @endif>
                             <span class="font-display font-bold text-lg text-primary-700" x-show="! current.icon" x-text="current.number" @if ($items[0]['icon'] !== '') style="display: none" @endif>{{ $items[0]['number'] }}</span>
                         </span>
