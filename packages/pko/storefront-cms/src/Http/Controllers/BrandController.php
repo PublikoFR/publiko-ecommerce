@@ -43,7 +43,7 @@ class BrandController
             'href' => in_array((int) $brand->id, $brandIdsWithPage, true)
                 ? route('brand.view', self::slugFor($brand))
                 : route('search.view', ['b' => [$brand->id => 1]]),
-            'logo' => pko_media_url($brand->getFirstMedia('images'), 'small'),
+            'logo' => pko_media_url(pko_brand_logo($brand), 'small'),
             'letter' => self::letterFor($brand),
         ]);
 
