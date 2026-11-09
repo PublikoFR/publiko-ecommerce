@@ -162,6 +162,12 @@ Deux helpers (autoload `src/helpers.php` du package) contournent ça — **fix t
   depuis `pko_mediables` (groupe `product`, 1re position), fallback `$product->thumbnail`
   natif. Nécessaire car l'importeur/éditeur n'attachent que du média-bibliothèque
   (thumbnail natif = null → cards sans photo).
+- **`pko_brand_logo(?Brand $brand): ?Media`** — logo fabricant affiché sur la fiche
+  produit : `pko_mediables` (groupe `logo`, 1re position) d'abord, puis média natif
+  Lunar de la marque (onglet « Médias » de la marque : image `primary`, sinon la
+  première de `images`). Null → la fiche affiche le nom de la marque en texte.
+  Aucun MediaPicker `logo` n'est encore branché sur le formulaire marque : en l'état,
+  le logo se pose via l'onglet Médias natif.
 
 Utilisés dans `product-page.blade.php` (`large`/`small`), `product-card.blade.php`
 (`medium`), `search-autocomplete.blade.php` (`small`). **Reste à faire (option 1)** :

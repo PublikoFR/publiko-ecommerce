@@ -40,7 +40,26 @@
             <div>
                 <div class="flex items-center gap-3 mb-2">
                     @if ($this->product->brand?->name)
-                        <span class="font-mono text-xs text-neutral-500">{{ $this->product->brand->name }}</span>
+                        @php
+                            $brandName = $this->product->brand->name;
+                            $brandLogo = $this->brandLogo;
+                            $brandUrl = $this->brandUrl;
+                        @endphp
+                        @if ($brandUrl)
+                            <a href="{{ $brandUrl }}" class="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500" title="Voir la marque {{ $brandName }}">
+                        @else
+                            <span class="inline-flex items-center">
+                        @endif
+                            @if ($brandLogo)
+                                <img src="{{ pko_media_url($brandLogo, 'small') }}" alt="Logo {{ $brandName }}" class="h-8 w-auto max-w-[140px] object-contain" data-brand-logo />
+                            @else
+                                <span class="font-mono text-xs text-neutral-500 {{ $brandUrl ? 'hover:text-primary-600 underline-offset-2 hover:underline' : '' }}" data-brand-name>{{ $brandName }}</span>
+                            @endif
+                        @if ($brandUrl)
+                            </a>
+                        @else
+                            </span>
+                        @endif
                     @endif
                     @if ($this->variant->stock > 0)
                         <x-ui.badge tone="success" size="sm" dot>En stock</x-ui.badge>
@@ -53,9 +72,18 @@
                     {{ $this->product->translateAttribute('name') }}
                 </h1>
 
-                <p class="mt-2 font-mono text-xs text-neutral-500">
-                    Réf. <span class="text-neutral-700">{{ $this->variant->sku }}</span>
-                </p>
+                <dl class="mt-2 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-neutral-500">
+                    <div class="flex items-baseline gap-1.5" data-ref="sku">
+                        <dt>Réf. {{ brand_name() }}</dt>
+                        <dd class="text-neutral-700 select-all">{{ $this->variant->sku }}</dd>
+                    </div>
+                    @if (filled($this->variant->mpn))
+                        <div class="flex items-baseline gap-1.5" data-ref="mpn">
+                            <dt>Réf. fabricant</dt>
+                            <dd class="text-neutral-700 select-all">{{ $this->variant->mpn }}</dd>
+                        </div>
+                    @endif
+                </dl>
 
                 @if ($this->product->translateAttribute('description'))
                     <article class="mt-5 text-sm text-neutral-700 leading-relaxed prose prose-sm max-w-none">

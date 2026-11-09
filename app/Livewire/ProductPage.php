@@ -7,6 +7,8 @@ namespace App\Livewire;
 use App\Traits\FetchesUrls;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Component;
 use Lunar\Models\Product;
@@ -144,6 +146,32 @@ class ProductPage extends Component
         }
 
         return $this->images->first();
+    }
+
+    /**
+     * Logo du fabricant (marque du produit), null si absent → repli texte.
+     */
+    public function getBrandLogoProperty(): ?Media
+    {
+        return pko_brand_logo($this->product->brand);
+    }
+
+    /**
+     * URL de la page publique de la marque (`/marque/{slug}`), null sans marque
+     * ou si la route n'est pas enregistrée. Slug : URL Lunar par défaut de la
+     * marque, sinon slug du nom (même résolution que BrandController::show).
+     */
+    public function getBrandUrlProperty(): ?string
+    {
+        $brand = $this->product->brand;
+
+        if ($brand === null || ! Route::has('brand.view')) {
+            return null;
+        }
+
+        $slug = $brand->defaultUrl?->slug ?: Str::slug((string) $brand->name);
+
+        return $slug !== '' ? route('brand.view', ['slug' => $slug]) : null;
     }
 
     /**

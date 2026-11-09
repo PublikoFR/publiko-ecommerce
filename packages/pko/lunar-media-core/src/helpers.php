@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use Lunar\Models\Brand;
 use Lunar\Models\Product;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -71,5 +72,37 @@ if (! function_exists('pko_product_thumbnail')) {
         }
 
         return $product->thumbnail ?? null;
+    }
+}
+
+if (! function_exists('pko_brand_logo')) {
+    /**
+     * Résout le logo d'une marque (fabricant).
+     *
+     * Ordre : médiathèque custom (`pko_mediables`, groupe `logo`, première
+     * position — MediaPicker / `HasMediaAttachments`), puis média natif Lunar
+     * de la marque (onglet « Médias » de BrandResource : image `primary`, sinon
+     * la première). Null si aucun → l'appelant affiche le nom en texte.
+     *
+     * @param  Brand|null  $brand
+     */
+    function pko_brand_logo($brand): ?Media
+    {
+        if ($brand === null) {
+            return null;
+        }
+
+        $mediaId = DB::table('pko_mediables')
+            ->where('mediable_type', $brand::class)
+            ->where('mediable_id', $brand->getKey())
+            ->where('mediagroup', 'logo')
+            ->orderBy('position')
+            ->value('media_id');
+
+        if ($mediaId !== null) {
+            return Media::query()->find((int) $mediaId);
+        }
+
+        return $brand->thumbnail ?? $brand->getFirstMedia('images');
     }
 }
