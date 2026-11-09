@@ -12,6 +12,8 @@ use Illuminate\Pipeline\Pipeline;
 use Lunar\DataTypes\ShippingOption;
 use Lunar\Models\Cart;
 use Lunar\Models\CartLine;
+use Lunar\Models\Channel;
+use Lunar\Models\Currency;
 use Lunar\Models\Order;
 use Lunar\Models\OrderLine;
 use Lunar\Models\ProductVariant;
@@ -108,7 +110,12 @@ class FreezeOrderLineEcotaxTest extends TestCase
     public function test_line_survives_cleanup_when_frozen_after_it(): void
     {
         $variant = $this->variantWithEcotax(16);
-        $cart = Cart::factory()->create();
+        // Devise et canal existants (seedés) : laisser la factory en créer
+        // d'autres provoque des collisions de code aléatoires.
+        $cart = Cart::factory()->create([
+            'currency_id' => Currency::getDefault()->id,
+            'channel_id' => Channel::getDefault()->id,
+        ]);
         CartLine::factory()->create([
             'cart_id' => $cart->id,
             'purchasable_type' => $variant->getMorphClass(),

@@ -127,6 +127,17 @@ class WriterEcotaxTest extends TestCase
             ['price_cents' => 18668, 'ecotax_cents' => 16],
             LunarProductWriter::normalizeLegacyKeys(['price_tex' => '186.52', 'ecotax' => '0.16']),
         );
+        // Arrondi sur la somme des euros : round((10,004 + 0,004) × 100) = 1001,
+        // et non 1000 + 0 en additionnant deux montants déjà arrondis.
+        $this->assertSame(
+            ['price_cents' => 1001, 'ecotax_cents' => 0],
+            LunarProductWriter::normalizeLegacyKeys(['price_tex' => '10,004', 'ecotax' => '0,004']),
+        );
+        // Éco-taxe déjà en cents canoniques : addition en cents.
+        $this->assertSame(
+            ['ecotax_cents' => 16, 'price_cents' => 18668],
+            LunarProductWriter::normalizeLegacyKeys(['price_tex' => '186.52', 'ecotax_cents' => 16]),
+        );
         // price_cents canonique : l'éco-taxe est réputée incluse, rien n'est ajouté.
         $this->assertSame(
             ['price_cents' => 1000, 'ecotax_cents' => 16],

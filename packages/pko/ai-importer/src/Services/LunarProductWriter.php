@@ -1316,6 +1316,15 @@ final class LunarProductWriter
         $priceFromPriceTex = array_key_exists('price_tex', $data)
             && NumberParser::isBlank($data['price_cents'] ?? null)
             && ! NumberParser::isBlank($data['price_tex']);
+        // Valeurs euros brutes, avant conversion : quand prix ET éco-taxe arrivent
+        // en euros, on arrondit la somme (round((price_tex + ecotax) × 100)) plutôt
+        // que d'additionner deux montants déjà arrondis.
+        $priceTexEuros = $priceFromPriceTex ? NumberParser::toFloat($data['price_tex']) : null;
+        $ecotaxEuros = $priceFromPriceTex
+            && array_key_exists('ecotax', $data)
+            && NumberParser::isBlank($data['ecotax_cents'] ?? null)
+                ? NumberParser::toFloat($data['ecotax'])
+                : null;
 
         // price_tex (prix HT en euros) → price_cents ; wholesale_price (prix d'achat
         // en euros) → cost_price_cents ; ecotax (euros) → ecotax_cents.
@@ -1336,6 +1345,13 @@ final class LunarProductWriter
         }
 
         if ($priceFromPriceTex && is_int($data['price_cents'] ?? null)) {
+            if ($priceTexEuros !== null && $ecotaxEuros !== null) {
+                if ($ecotaxEuros > 0) {
+                    $data['price_cents'] = (int) round(($priceTexEuros + $ecotaxEuros) * 100);
+                }
+
+                return $data;
+            }
             $ecotaxCents = NumberParser::isBlank($data['ecotax_cents'] ?? null)
                 ? null
                 : NumberParser::toInt($data['ecotax_cents']);
