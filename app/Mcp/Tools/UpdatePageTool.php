@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Tools\Concerns\DescribesCmsPosts;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
 use InvalidArgumentException;
@@ -11,7 +12,6 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
-use Pko\StorefrontCms\Filament\Resources\PostResource;
 use Pko\StorefrontCms\Models\Post;
 use Pko\StorefrontCms\Services\PageComposer;
 use Throwable;
@@ -23,6 +23,8 @@ use Throwable;
 #[IsDestructive]
 class UpdatePageTool extends Tool
 {
+    use DescribesCmsPosts;
+
     protected string $name = 'update_cms_page';
 
     protected string $description = 'Modifie ou PUBLIE un contenu CMS (page/article) existant, identifié par son id. Édition partielle : ne fournir que les champs à changer. Pour publier une page en brouillon, passer status="published". Le contenu fourni est normalisé/assaini. Retourne l\'état après mise à jour.';
@@ -33,7 +35,7 @@ class UpdatePageTool extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'id' => $schema->integer()->description('Id du contenu à modifier (voir create_cms_page ou la liste des posts).')->required(),
+            'id' => $schema->integer()->description('Id du contenu à modifier (voir list_cms_pages ou create_cms_page).')->required(),
             'status' => $schema->string()->description('"draft" ou "published". Passer "published" pour mettre en ligne.'),
             'title' => $schema->string()->description('Nouveau nom (back-office), optionnel.'),
             'heading' => $schema->string()->description('Nouveau H1 on-page (SEO), optionnel.'),
@@ -41,7 +43,7 @@ class UpdatePageTool extends Tool
             'excerpt' => $schema->string()->description('Nouvel extrait, optionnel.'),
             'seo_title' => $schema->string()->description('Nouveau titre SEO, optionnel.'),
             'seo_description' => $schema->string()->description('Nouvelle méta description, optionnel.'),
-            'content' => $schema->object()->description('Nouvel arbre de contenu { heading?, sections[] } (remplace le contenu), optionnel.'),
+            'content' => $schema->object()->description('Nouvel arbre de contenu { heading?, sections[] } qui REMPLACE tout le contenu : partir du `content` renvoyé par get_cms_page et le renvoyer en entier. Optionnel.'),
             'cover_media_id' => $schema->integer()->description('Id média de couverture (0/absent = inchangé), optionnel.'),
         ];
     }
@@ -78,16 +80,5 @@ class UpdatePageTool extends Tool
             'public_url' => $composer->publicUrl($post),
             'admin_edit_url' => $this->adminUrl($post),
         ]);
-    }
-
-    private function adminUrl(Post $post): ?string
-    {
-        try {
-            // Passer le MODÈLE (pas la clé) : le back-office route par slug
-            // (Post::getRouteKeyName() = 'slug') → Filament utilise getRouteKey().
-            return PostResource::getUrl('edit', ['record' => $post]);
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

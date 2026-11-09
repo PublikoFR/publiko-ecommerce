@@ -126,11 +126,13 @@ Les opérations d'écriture vivent dans **la même API que le reste du dashboard
 
 #### 2. Tools MCP laravel-boost — commodité de dev **local**
 
-En complément (local uniquement), la création se greffe sur le **serveur MCP existant** (`laravel-boost`, `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Deux tools :
+En complément (local uniquement), la création se greffe sur le **serveur MCP existant** (`laravel-boost`, `php artisan boost:mcp`) via ses tools custom. Boost découvre les tools additionnels déclarés dans `config('boost.mcp.tools.include')` (cf. `config/boost.php` applicatif, fusionné par-dessus les défauts vendor). Tools :
 
 | Tool MCP | Rôle |
 |---|---|
 | `page_builder_catalog` (read-only) | Décrit tout le nécessaire : `post_types`, `section_layouts` (1col…6col), **catalogue des blocs** (champs + valeurs autorisées + exemple par bloc), `content_shape`, un `example_page` complet et des `notes`. Source : `PageBuilderManager::blockCatalog()` + `exampleContent()` → **jamais désynchronisé** du normaliseur (valeurs tirées des constantes). |
+| `list_cms_pages` (read-only) | Liste les `Post` existants, **brouillons compris** : filtres `post_type` (handle ou id), `status` (`all`/`draft`/`published`), `search` (titre/slug) ; pagination `page`/`per_page` (20, max 100) ; tri `updated_at` desc. Chaque item : id, type, titre, slug, statut, dates, `blocks_count`, `public_url`, `admin_edit_url`. |
+| `get_cms_page` (read-only) | Lit un `Post` complet par `id` ou `slug` (+ `post_type` si le slug existe dans plusieurs types → sinon erreur explicite) : métadonnées, SEO, `cover_url` et arbre `content`. Point de départ obligatoire d'une modification (`update_cms_page.content` **remplace** tout le contenu). |
 | `create_cms_page` (destructive) | Crée un `Post` (page/article) depuis `{ post_type, title, heading?, slug?, status?, excerpt?, seo_*?, content, cover_media_id? }`. **Brouillon par défaut**. Retourne id, slug, `public_url`, `admin_edit_url`. |
 
 Implémentation :
@@ -141,7 +143,7 @@ Implémentation :
 
 #### 3. Serveur MCP HTTP OAuth — connecteur **claude.ai** (PKOS en hérite)
 
-Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.ai (donc hérité automatiquement par PKOS). Tools exposés : `page_builder_catalog`, `create_cms_page`, `update_cms_page` (modifier / **publier**). Mêmes classes que le MCP boost (transport-agnostiques) → logique partagée.
+Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.ai (donc hérité automatiquement par PKOS). Tools exposés : `page_builder_catalog`, `list_cms_pages`, `get_cms_page`, `create_cms_page`, `update_cms_page` (modifier / **publier**). Le nom de serveur annoncé au client = `brand_name()` + « — Contenus CMS » (`boot()`), jamais de marque en dur. Réponses construites par le trait `App\Mcp\Tools\Concerns\DescribesCmsPosts` (mêmes clés pour tous les tools). Mêmes classes que le MCP boost (transport-agnostiques) → logique partagée.
 
 - **Auth = OAuth 2.1 propre** (jamais de token dans l'URL : claude.ai n'accepte pas de Bearer dans l'UI des connecteurs custom → OAuth requis). `laravel/mcp` + `laravel/passport` font le gros du travail :
   - `routes/ai.php` : `Mcp::oauthRoutes()` (découverte `.well-known/oauth-protected-resource` + `…-authorization-server` + **DCR** `oauth/register`) puis `Mcp::web('/mcp/page-builder', PageBuilderMcpServer::class)->middleware('auth:api')`.
@@ -159,7 +161,7 @@ Serveur MCP **streamable HTTP** ajoutable comme *connecteur custom* dans claude.
 - **claude.ai** : Paramètres → Connecteurs → *Ajouter un connecteur personnalisé*.
 - **ChatGPT** : Paramètres → *Applications et connecteurs* → Paramètres avancés → **Mode développeur** activé, puis *Créer* : URL du serveur, authentification **OAuth**. Le consentement s'ouvre sur `/oauth/authorize` → se connecter avec un compte staff du back-office → *Autoriser*.
 
-Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`.
+Pour qu'un agent IA crée une page : il appelle d'abord `page_builder_catalog` (découverte des blocs), compose un `content` conforme, puis `create_cms_page`. Pour en modifier une : `list_cms_pages` → `get_cms_page` → `update_cms_page` avec le `content` complet modifié.
 
 ### Permission Shield
 
