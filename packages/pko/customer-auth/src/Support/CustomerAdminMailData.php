@@ -9,7 +9,8 @@ use Lunar\Models\Customer;
 use Pko\MailTemplates\Support\PhoneLink;
 
 /**
- * Placeholders de la notification équipe envoyée à chaque inscription.
+ * Placeholders de la notification équipe « compte à valider » (envoyée à la
+ * vérification de l'e-mail du client).
  *
  * @return array<string, string>
  */

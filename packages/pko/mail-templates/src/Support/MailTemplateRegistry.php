@@ -57,14 +57,14 @@ final class MailTemplateRegistry
             'account.activated' => [
                 'group' => 'account',
                 'audience' => self::AUDIENCE_CUSTOMER,
-                'label' => 'Activation du compte',
-                'placeholders' => ['first_name', 'company_name', 'account_url'],
+                'label' => 'Compte validé',
+                'placeholders' => ['first_name', 'company_name', 'login_url', 'account_url'],
                 'required' => [],
             ],
             'account.registered_admin' => [
                 'group' => 'account',
                 'audience' => self::AUDIENCE_ADMIN,
-                'label' => 'Nouvelle inscription (équipe)',
+                'label' => 'Compte à valider (équipe)',
                 'placeholders' => [
                     'company_name',
                     'contact_name',

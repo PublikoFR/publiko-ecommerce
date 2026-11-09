@@ -87,9 +87,11 @@ use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerSiretExtension;
+use Pko\CustomerAuth\Filament\Extensions\CustomerValidationExtension;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoCreateCustomer;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoEditCustomer;
+use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource\Pages\PkoViewCustomer;
 use Pko\CustomerAuth\Sirene\SireneClient;
 use Pko\Loyalty\Filament\Extensions\CustomerLoyaltyExtension;
 use Pko\Loyalty\Filament\LoyaltyPlugin;
@@ -229,12 +231,18 @@ class AppServiceProvider extends ServiceProvider
                 CustomerProfileExtension::class,
                 CustomerLoyaltyExtension::class,
                 CustomerAnonymizeExtension::class,
+                // Après CustomerAnonymizeExtension, qui remplace les actions groupées.
+                CustomerValidationExtension::class,
             ],
             PkoCreateCustomer::class => [
                 CustomerCreateExtension::class,
             ],
             PkoEditCustomer::class => [
                 CustomerSiretExtension::class,
+                CustomerValidationExtension::class,
+            ],
+            PkoViewCustomer::class => [
+                CustomerValidationExtension::class,
             ],
             CustomerGroupResource::class => [
                 CustomerGroupDeletionGuardExtension::class,

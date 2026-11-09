@@ -8,10 +8,11 @@ use Lunar\Models\Customer;
 use Pko\MailTemplates\Mail\TemplatedMail;
 
 /**
- * E-mail 02 « Activation du compte ».
+ * E-mail 02 « Compte validé ».
  *
  * Envoyé au passage de `pko_status` de `pending` à `active`, c'est-à-dire à la
- * vérification de l'adresse e-mail — seul critère d'activation dans ce projet.
+ * validation manuelle du compte par l'équipe en back-office (action « Valider le
+ * compte » ou Select « Statut compte ») — cf. CustomerActivationObserver.
  */
 class AccountActivatedMail extends TemplatedMail
 {
@@ -20,6 +21,7 @@ class AccountActivatedMail extends TemplatedMail
         parent::__construct('account.activated', [
             'first_name' => (string) ($customer->first_name ?? ''),
             'company_name' => (string) ($customer->company_name ?? ''),
+            'login_url' => route('login'),
             'account_url' => url('/compte'),
         ]);
     }

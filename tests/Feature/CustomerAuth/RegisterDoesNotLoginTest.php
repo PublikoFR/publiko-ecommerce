@@ -14,14 +14,12 @@ use Pko\CustomerAuth\Sirene\SireneClient;
 use Tests\TestCase;
 
 /**
- * Garde anti-régression : l'inscription connecte TOUJOURS le nouveau client.
- *
- * L'auto-login a été régressé plusieurs fois en le reconditionnant au statut
- * SIRENE. Or `Status::Pending` est le statut nominal dès que l'INSEE n'est pas
- * consulté (INSEE_ENABLED=false, le défaut) : gater dessus revient à ne jamais
- * auto-connecter personne. Ce test verrouille le cas « INSEE désactivé ».
+ * FEAT-006 : l'inscription ne connecte JAMAIS le nouveau client. Chaque compte pro
+ * est validé manuellement par l'équipe ; après inscription le client est envoyé
+ * sur la page « vérifiez votre boîte mail ». Cas verrouillé : INSEE désactivé
+ * (configuration par défaut du projet).
  */
-class RegisterAutoLoginTest extends TestCase
+class RegisterDoesNotLoginTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -41,7 +39,7 @@ class RegisterAutoLoginTest extends TestCase
         ));
     }
 
-    public function test_registration_logs_the_customer_in_when_insee_is_disabled(): void
+    public function test_registration_does_not_log_the_customer_in(): void
     {
         $this->assertGuest();
 
@@ -61,10 +59,30 @@ class RegisterAutoLoginTest extends TestCase
             ->set('terms', true)
             ->call('submit')
             ->assertHasNoErrors()
-            ->assertRedirect('/');
+            ->assertRedirect(route('register.check-inbox'));
 
-        $this->assertAuthenticated();
-        $this->assertSame('pro@example.test', auth()->user()->email);
+        $this->assertGuest();
+        $this->assertDatabaseHas('users', ['email' => 'pro@example.test', 'email_verified_at' => null]);
+        $this->assertSame('pro@example.test', session(RegisterPage::REGISTERED_EMAIL_SESSION_KEY));
+        $this->assertNull(session('pko.just_registered'), 'Plus aucun flag d\'accès post-inscription.');
+    }
+
+    public function test_check_inbox_page_shows_the_registered_email(): void
+    {
+        $this->withSession([RegisterPage::REGISTERED_EMAIL_SESSION_KEY => 'pro@example.test'])
+            ->get(route('register.check-inbox'))
+            ->assertOk()
+            ->assertSee('Vérifiez votre boîte mail')
+            ->assertSee('pro@example.test');
+
+        $this->assertGuest();
+    }
+
+    public function test_check_inbox_page_renders_without_session(): void
+    {
+        $this->get('/inscription/verifiez-vos-emails')
+            ->assertOk()
+            ->assertSee('Vérifiez votre boîte mail');
     }
 
     public function test_company_name_is_required(): void
@@ -104,9 +122,10 @@ class RegisterAutoLoginTest extends TestCase
             ->set('emailConfirmation', '  PRO4@Example.test ')
             ->call('submit')
             ->assertHasNoErrors()
-            ->assertRedirect('/');
+            ->assertRedirect(route('register.check-inbox'));
 
-        $this->assertSame('pro4@example.test', auth()->user()->email);
+        $this->assertDatabaseHas('users', ['email' => 'pro4@example.test']);
+        $this->assertGuest();
     }
 
     public function test_email_confirmation_is_required(): void

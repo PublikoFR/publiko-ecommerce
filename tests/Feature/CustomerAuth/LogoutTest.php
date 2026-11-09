@@ -54,22 +54,6 @@ class LogoutTest extends TestCase
     }
 
     /**
-     * Le flag « fraîchement inscrit » (accès complet malgré `pending`) ne doit pas
-     * survivre à la déconnexion, sans quoi un compte pending qui se reconnecte
-     * dans la même session rouvrirait l'accès.
-     */
-    public function test_logout_clears_the_just_registered_flag(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)
-            ->withSession(['pko.just_registered' => true])
-            ->post('/deconnexion')
-            ->assertRedirect('/')
-            ->assertSessionMissing('pko.just_registered');
-    }
-
-    /**
      * Impersonation admin : le staff partage le cookie de session. La déconnexion
      * FRONT ne doit vider que la partie client (guard web + marqueur
      * d'impersonation), sans `invalidate()` qui éjecterait l'admin de son panel.

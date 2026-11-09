@@ -22,9 +22,8 @@ class RequireProCustomer
 
         // Un utilisateur authentifié mais sans accès est en « semi-connexion » :
         // le header affiche son nom alors qu'aucune page ne lui est ouverte. On
-        // le déconnecte. Les deux cas où c'est volontaire — impersonation admin
-        // et auto-login juste après l'inscription — sont déjà exclus en amont :
-        // ProAccess::denialReason() y retourne null, donc on ne descend jamais ici.
+        // le déconnecte. Le seul cas où c'est volontaire — l'impersonation admin —
+        // est déjà exclu en amont : ProAccess::denialReason() y retourne null.
         // `logout()` seul, jamais `invalidate()`/`regenerateToken()` : périmer le
         // token CSRF ferait tomber en 419 (« This page has expired ») les
         // composants Livewire des pages déjà ouvertes. Retirer l'authentification

@@ -12,8 +12,10 @@ use Pko\MailTemplates\Mail\TemplatedMail;
 /**
  * E-mail 01 « Bienvenue / inscription du compte ».
  *
- * Porte le lien de vérification : c'est lui qui déclenche ensuite l'activation
- * du compte (cf. route `verification.verify`) et l'e-mail 02.
+ * Porte le lien de vérification (route `verification.verify`). Confirmer l'e-mail
+ * n'active PAS le compte : il reste en attente de validation par l'équipe, qui
+ * est alors prévenue (CustomerRegisteredAdminMail). L'e-mail 02 part à la
+ * validation manuelle.
  */
 class CustomerRegisteredMail extends TemplatedMail
 {
