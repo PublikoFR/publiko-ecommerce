@@ -1,6 +1,9 @@
 {{-- « À chaque installation, sa solution » (FEAT-009) — schéma + liste synchronisés.
-     Desktop : survol/focus d'une ligne ou clic sur une pastille = sélection, la carte
-     du bas porte le CTA « Voir la famille ». Mobile : liste seule (liens directs). --}}
+     Pastilles et lignes portent le picto de la famille (1re image de la catégorie, le
+     même que le menu latéral) ; sans picto, la pastille retombe sur le numéro.
+     Desktop : survol/focus d'une ligne ou clic sur une pastille = sélection ; la tuile
+     en bas à gauche du schéma présente la famille et mène à sa page.
+     Mobile : liste seule (liens directs). --}}
 <div>
     @if ($items !== [])
         <section
@@ -38,10 +41,15 @@
                         @include('storefront-cms::livewire.partials.home-solutions-scene')
 
                         @foreach ($items as $item)
+                            @php
+                                // Tuile 34×34 posée au-dessus de l'ancre, reliée par une tige.
+                                $tx = $item['x'] - 17;
+                                $ty = $item['y'] - $item['lift'] - 34;
+                            @endphp
                             <g
                                 role="button"
                                 tabindex="0"
-                                aria-label="{{ $item['number'] }} — {{ $item['label'] }}"
+                                aria-label="{{ $item['label'] }}"
                                 :aria-pressed="(active === @js($item['key'])).toString()"
                                 class="cursor-pointer outline-none group"
                                 @click="active = @js($item['key'])"
@@ -49,28 +57,50 @@
                                 @focus="active = @js($item['key'])"
                                 @keydown.enter.prevent="window.Livewire.navigate(@js($item['url']))"
                             >
-                                <line x1="{{ $item['x'] }}" y1="{{ $item['y'] }}" x2="{{ $item['x'] }}" y2="{{ $item['y'] - 14 }}" class="stroke-primary-600" stroke-width="1.5" />
+                                <line x1="{{ $item['x'] }}" y1="{{ $item['y'] }}" x2="{{ $item['x'] }}" y2="{{ $item['y'] - $item['lift'] }}" class="stroke-primary-600" stroke-width="1.5" />
                                 <circle cx="{{ $item['x'] }}" cy="{{ $item['y'] }}" r="2.5" class="fill-primary-600 stroke-none" />
-                                <circle
-                                    cx="{{ $item['x'] }}" cy="{{ $item['y'] - 26 }}" r="18"
+                                <rect
+                                    x="{{ $tx - 5 }}" y="{{ $ty - 5 }}" width="44" height="44" rx="12"
                                     class="fill-accent-500/30 stroke-none transition-opacity"
                                     :class="active === @js($item['key']) ? 'opacity-100' : 'opacity-0'"
                                 />
-                                <circle
-                                    cx="{{ $item['x'] }}" cy="{{ $item['y'] - 26 }}" r="12.5"
-                                    class="stroke-white transition-colors group-focus-visible:stroke-accent-500"
-                                    stroke-width="3"
-                                    :class="active === @js($item['key']) ? 'fill-accent-500' : 'fill-primary-600'"
+                                <rect
+                                    x="{{ $tx }}" y="{{ $ty }}" width="34" height="34" rx="8"
+                                    class="stroke-primary-200 transition-colors group-focus-visible:stroke-primary-600"
+                                    stroke-width="1.5"
+                                    :class="active === @js($item['key']) ? 'fill-accent-500' : 'fill-white'"
                                 />
-                                <text
-                                    x="{{ $item['x'] }}" y="{{ $item['y'] - 22 }}"
-                                    text-anchor="middle"
-                                    class="font-sans font-bold text-[11px] stroke-none"
-                                    :class="active === @js($item['key']) ? 'fill-primary-700' : 'fill-white'"
-                                >{{ $item['number'] }}</text>
+                                @if ($item['icon'] !== '')
+                                    <image href="{{ $item['icon'] }}" x="{{ $tx + 5 }}" y="{{ $ty + 5 }}" width="24" height="24" preserveAspectRatio="xMidYMid meet" />
+                                @else
+                                    <text
+                                        x="{{ $item['x'] }}" y="{{ $ty + 21 }}"
+                                        text-anchor="middle"
+                                        class="font-sans font-bold text-[12px] fill-primary-700 stroke-none"
+                                    >{{ $item['number'] }}</text>
+                                @endif
                             </g>
                         @endforeach
                     </svg>
+
+                    {{-- Famille sélectionnée : tuile cliquable dans le coin bas-gauche du schéma --}}
+                    <a
+                        :href="current.url"
+                        href="{{ $items[0]['url'] }}"
+                        wire:navigate
+                        class="group/tile absolute left-4 bottom-4 flex items-center gap-4 max-w-[min(26rem,calc(100%-2rem))] rounded-xl bg-white/95 backdrop-blur-sm border border-neutral-200 shadow-md pl-3 pr-4 py-3 hover:border-primary-200 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    >
+                        <span class="w-12 h-12 rounded-lg bg-accent-500 flex items-center justify-center shrink-0">
+                            <img :src="current.icon" @if ($items[0]['icon'] !== '') src="{{ $items[0]['icon'] }}" @endif alt="" width="36" height="36" class="w-9 h-9 object-contain" x-show="current.icon" @if ($items[0]['icon'] === '') style="display: none" @endif>
+                            <span class="font-display font-bold text-lg text-primary-700" x-show="! current.icon" x-text="current.number" @if ($items[0]['icon'] !== '') style="display: none" @endif>{{ $items[0]['number'] }}</span>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block font-display font-bold text-neutral-900 leading-snug" x-text="current.label">{{ $items[0]['label'] }}</span>
+                            <span class="block text-sm text-neutral-500 leading-snug mt-0.5" x-text="current.description">{{ $items[0]['description'] }}</span>
+                        </span>
+                        <x-ui.icon name="arrow-right" class="w-5 h-5 text-primary-600 shrink-0 transition group-hover/tile:translate-x-1" />
+                        <span class="sr-only">Voir la famille</span>
+                    </a>
                 </div>
 
                 {{-- Liste des familles --}}
@@ -82,10 +112,19 @@
                                 wire:navigate
                                 @mouseenter="active = @js($item['key'])"
                                 @focus="active = @js($item['key'])"
-                                class="flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-md text-sm transition hover:text-primary-600"
+                                class="flex items-center gap-3 px-3 py-2 md:py-1.5 rounded-md text-sm transition hover:text-primary-600"
                                 :class="active === @js($item['key']) ? 'md:bg-accent-50 md:text-primary-700 md:font-semibold' : 'text-neutral-700'"
                             >
-                                <span class="font-mono text-xs text-neutral-400 w-5 shrink-0">{{ $item['number'] }}</span>
+                                <span
+                                    class="w-9 h-9 rounded-md flex items-center justify-center shrink-0 transition-colors"
+                                    :class="active === @js($item['key']) ? 'md:bg-accent-500' : ''"
+                                >
+                                    @if ($item['icon'] !== '')
+                                        <img src="{{ $item['icon'] }}" alt="" width="28" height="28" class="w-7 h-7 object-contain" loading="lazy">
+                                    @else
+                                        <span class="font-mono text-xs text-neutral-400">{{ $item['number'] }}</span>
+                                    @endif
+                                </span>
                                 <span class="flex-1">{{ $item['label'] }}</span>
                                 <x-ui.icon name="chevron-right" class="w-4 h-4 text-neutral-400 shrink-0" />
                             </a>
@@ -94,24 +133,6 @@
                 </ol>
             </div>
 
-            {{-- Famille sélectionnée (desktop) --}}
-            <div class="hidden md:flex items-center justify-between gap-6 mt-5 pb-5 border-b border-neutral-200">
-                <div class="flex items-center gap-4 min-w-0">
-                    <span class="font-display font-bold text-3xl text-accent-600" x-text="current.number">{{ $items[0]['number'] }}</span>
-                    <div class="min-w-0">
-                        <p class="font-display font-bold text-lg text-neutral-900" x-text="current.label">{{ $items[0]['label'] }}</p>
-                        <p class="text-sm text-neutral-500" x-text="current.description">{{ $items[0]['description'] }}</p>
-                    </div>
-                </div>
-                <a
-                    :href="current.url"
-                    href="{{ $items[0]['url'] }}"
-                    wire:navigate
-                    class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-md text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 shadow-sm transition shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                >
-                    Voir la famille <x-ui.icon name="arrow-right" class="w-4 h-4" />
-                </a>
-            </div>
         </section>
     @endif
 </div>
