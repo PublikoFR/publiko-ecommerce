@@ -11,6 +11,7 @@ use Livewire\Component;
 use Lunar\Facades\CartSession;
 use Lunar\Models\CartLine;
 use Lunar\Models\Contracts\Currency as CurrencyContract;
+use Pko\Storefront\Support\CustomerPriceDisplay;
 
 class CartDrawer extends Component
 {
@@ -23,6 +24,9 @@ class CartDrawer extends Component
     public ?string $discountTotal = null;
 
     public ?string $couponCode = null;
+
+    /** @var array{winner: string, headline: string, details: list<string>}|null */
+    public ?array $advantage = null;
 
     public ?string $total = null;
 
@@ -93,6 +97,7 @@ class CartDrawer extends Component
             $this->subTotal = null;
             $this->discountTotal = null;
             $this->couponCode = null;
+            $this->advantage = null;
             $this->total = null;
             $this->ecotaxTotal = null;
             $this->linesCount = 0;
@@ -101,6 +106,7 @@ class CartDrawer extends Component
         }
 
         $this->lines = $cart->lines->map(fn ($line) => [
+            ...self::discountFields($line),
             'id' => $line->id,
             'description' => $line->purchasable->getDescription(),
             'identifier' => $line->purchasable->getIdentifier(),
@@ -117,9 +123,28 @@ class CartDrawer extends Component
             ? $cart->discountTotal->formatted()
             : null;
         $this->couponCode = $cart->coupon_code;
+        // Non-cumul remise client / promotions (package customer-auth, optionnel).
+        $this->advantage = class_exists(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)
+            ? app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($cart)
+            : null;
         $this->total = $cart->total?->formatted();
         $ecotaxCents = Ecotax::forCart($cart);
         $this->ecotaxTotal = $ecotaxCents > 0 ? Ecotax::format($ecotaxCents, $cart->currency) : null;
+    }
+
+    /**
+     * Remise client % de la ligne : prix unitaire avant remise (barré) + badge.
+     *
+     * @return array{unit_original: ?string, discount_badge: ?string}
+     */
+    private static function discountFields(CartLine $line): array
+    {
+        $display = CustomerPriceDisplay::forCartLine($line);
+
+        return [
+            'unit_original' => $display->original?->formatted(),
+            'discount_badge' => $display->badgeLabel(),
+        ];
     }
 
     /** Éco-participation de la ligne (incluse dans le prix), formatée ; null si nulle. */

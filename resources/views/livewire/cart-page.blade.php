@@ -44,7 +44,15 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-neutral-900">{{ $line['description'] }}</p>
                                     <p class="text-xs text-neutral-500 mt-0.5">Réf. {{ $line['identifier'] }}</p>
-                                    <p class="text-xs text-neutral-500">{{ $line['unit_price'] }} / unité</p>
+                                    <p class="text-xs text-neutral-500 flex flex-wrap items-center gap-1.5">
+                                        @if (! empty($line['discount_badge']))
+                                            <s aria-label="Prix avant remise">{{ $line['unit_original'] }}</s>
+                                        @endif
+                                        <span>{{ $line['unit_price'] }} / unité</span>
+                                        @if (! empty($line['discount_badge']))
+                                            <x-ui.badge tone="forest" variant="solid" size="xs">{{ $line['discount_badge'] }}</x-ui.badge>
+                                        @endif
+                                    </p>
                                     @if (($line['availability']['status'] ?? '') === 'weklo')
                                         <p class="text-xs text-success-700 font-medium mt-1">En stock — expédition 24/48 h</p>
                                     @elseif (($line['availability']['status'] ?? '') === 'supplier')
@@ -90,6 +98,7 @@
                                         <span class="font-semibold">-{{ $this->cart->discountTotal->formatted() }}</span>
                                     </div>
                                 @endif
+                                @include('customer-auth::partials.cart-advantage', ['advantage' => app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($this->cart)])
                                 <div class="flex justify-between"><span class="text-neutral-600">TVA</span><span class="font-semibold">{{ $this->cart->taxTotal?->formatted() ?? '—' }}</span></div>
                                 <div class="flex justify-between items-baseline pt-3 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $this->cart->total?->formatted() ?? '—' }}</span></div>
                             </div>

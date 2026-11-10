@@ -9,6 +9,7 @@ use Livewire\Component;
 use Lunar\Facades\CartSession;
 use Lunar\Facades\Discounts;
 use Lunar\Models\Cart;
+use Pko\CustomerAuth\Pricing\CartDiscountArbiter;
 
 class CouponCode extends Component
 {
@@ -50,6 +51,16 @@ class CouponCode extends Component
 
         $this->recalculate($cart);
 
+        // Non-cumul : la remise client % plus avantageuse écarte le code promo.
+        if (app(CartDiscountArbiter::class)->decisionFor($cart)?->outrankedCoupon === $code) {
+            $cart->coupon_code = null;
+            $cart->save();
+            $this->recalculate($cart);
+            $this->addError('code', 'Ce code promo ne se cumule pas avec votre remise client, plus avantageuse sur ce panier.');
+
+            return;
+        }
+
         if (($cart->discountTotal?->value ?? 0) <= 0) {
             $cart->coupon_code = null;
             $cart->save();
@@ -85,6 +96,16 @@ class CouponCode extends Component
         $code = $this->currentCart()?->coupon_code;
 
         return filled($code) ? (string) $code : null;
+    }
+
+    /** Code conservé sur le panier mais écarté par une remise client plus avantageuse. */
+    public function getIsOutrankedProperty(): bool
+    {
+        $cart = $this->currentCart();
+
+        return $cart !== null
+            && filled($cart->coupon_code)
+            && app(CartDiscountArbiter::class)->decisionFor($cart)?->outrankedCoupon === strtoupper((string) $cart->coupon_code);
     }
 
     public function render(): View

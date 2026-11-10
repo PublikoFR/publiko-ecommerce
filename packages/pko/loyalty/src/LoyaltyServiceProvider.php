@@ -14,6 +14,7 @@ use Pko\Loyalty\Console\RecalculateLoyaltyTiersCommand;
 use Pko\Loyalty\Console\ResetAnnualLoyaltyPointsCommand;
 use Pko\Loyalty\Contracts\BfaCreditNoteIssuer;
 use Pko\Loyalty\DiscountTypes\LoyaltyCouponValidator;
+use Pko\Loyalty\DiscountTypes\LoyaltyVoucher;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\PointsHistory;
@@ -45,6 +46,14 @@ class LoyaltyServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'loyalty');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'loyalty');
+
+        // Le bon d'achat fidélité se cumule toujours avec la remise client % et se
+        // déduit après elle (règle de non-cumul, cf. CartDiscountArbiter). Contrat
+        // par config : pas de dépendance de classe entre les deux packages.
+        config(['customer-auth.stackable_discount_types' => array_values(array_unique([
+            ...(array) config('customer-auth.stackable_discount_types', []),
+            LoyaltyVoucher::class,
+        ]))]);
 
         Order::observe(OrderObserver::class);
         Transaction::observe(RefundTransactionObserver::class);

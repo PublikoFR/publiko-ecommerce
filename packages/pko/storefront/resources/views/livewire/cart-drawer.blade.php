@@ -60,6 +60,13 @@
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-sm text-neutral-900 line-clamp-2">{{ $line['description'] }}</p>
                             <p class="text-xs text-neutral-500 mt-0.5">Réf. {{ $line['identifier'] }}</p>
+                            @if (! empty($line['discount_badge']))
+                                <p class="text-xs text-neutral-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    <s aria-label="Prix avant remise">{{ $line['unit_original'] }}</s>
+                                    <span>{{ $line['unit_price'] }} / unité</span>
+                                    <x-ui.badge tone="forest" variant="solid" size="xs">{{ $line['discount_badge'] }}</x-ui.badge>
+                                </p>
+                            @endif
                             <x-storefront.ecotax-note :formatted="$line['ecotax'] ?? null" class="mt-0.5" />
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center gap-1">
@@ -97,6 +104,11 @@
                                 @endif
                             </span>
                             <span>-{{ $discountTotal }}</span>
+                        </div>
+                    @endif
+                    @if ($advantage)
+                        <div class="pt-1">
+                            @include('customer-auth::partials.cart-advantage', ['advantage' => $advantage])
                         </div>
                     @endif
                     @if ($total)
