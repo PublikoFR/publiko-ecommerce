@@ -68,6 +68,9 @@ final class MailPreview
             // Pas d'image d'exemple livrée avec le package : le logo de la
             // boutique tient lieu de photo pour juger la mise en page.
             'gift_image_url' => function_exists('brand_logo') && brand_logo() ? url(brand_logo()) : '',
+            'voucher_code' => 'FID-K3W9QX2B',
+            'voucher_amount' => '50 €',
+            'voucher_expires_at' => now()->addDays(60)->format('d/m/Y'),
             'duration_label' => '2 ans',
             'new_date' => '18 septembre 2026',
             'carrier_name' => 'Chronopost',

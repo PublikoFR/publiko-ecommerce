@@ -42,9 +42,16 @@ class CustomerGiftHistoryRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('tier.name')
                     ->label('Palier'),
-                Tables\Columns\TextColumn::make('tier.gift_title')
+                Tables\Columns\TextColumn::make('gift_label')
                     ->label('Cadeau')
-                    ->limit(40),
+                    ->getStateUsing(fn (GiftHistory $record): string => $record->tier?->giftLabel() ?? '—'),
+                Tables\Columns\TextColumn::make('discount.coupon')
+                    ->label("Bon d'achat")
+                    ->placeholder('—')
+                    ->copyable()
+                    ->description(fn (GiftHistory $record): ?string => ($v = $record->voucher()) !== null
+                        ? $v['status_label'].' · expire le '.$v['expires_at']?->format('d/m/Y')
+                        : null),
                 Tables\Columns\TextColumn::make('points_at_unlock')
                     ->label('Points')
                     ->numeric(),

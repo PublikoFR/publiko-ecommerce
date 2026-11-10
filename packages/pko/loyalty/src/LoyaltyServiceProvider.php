@@ -6,11 +6,13 @@ namespace Pko\Loyalty;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use Lunar\Base\Validation\CouponValidator;
 use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Loyalty\Console\RecalculateLoyaltyTiersCommand;
 use Pko\Loyalty\Console\ResetAnnualLoyaltyPointsCommand;
+use Pko\Loyalty\DiscountTypes\LoyaltyCouponValidator;
 use Pko\Loyalty\Models\CustomerPoints;
 use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\PointsHistory;
@@ -24,6 +26,10 @@ class LoyaltyServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/loyalty.php', 'loyalty');
         $this->app->singleton(LoyaltyManager::class, fn () => new LoyaltyManager);
+
+        // Le validateur Lunar par défaut refuse les codes d'un type de remise
+        // qu'il ne connaît pas : sans ça, un bon fidélité serait rejeté au panier.
+        $this->app->bind(CouponValidator::class, LoyaltyCouponValidator::class);
     }
 
     public function boot(): void

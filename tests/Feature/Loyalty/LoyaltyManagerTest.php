@@ -78,7 +78,6 @@ class LoyaltyManagerTest extends TestCase
         $tier = LoyaltyTier::create([
             'name' => 'Bronze',
             'points_required' => 50,
-            'gift_title' => 'Cadeau',
             'active' => true,
             'position' => 1,
         ]);
@@ -100,7 +99,7 @@ class LoyaltyManagerTest extends TestCase
     {
         Notification::fake();
         $customer = Customer::factory()->create();
-        LoyaltyTier::create(['name' => 'A', 'points_required' => 10, 'gift_title' => 'X', 'active' => true]);
+        LoyaltyTier::create(['name' => 'A', 'points_required' => 10, 'active' => true]);
 
         $manager = app(LoyaltyManager::class);
         $manager->awardForOrder($this->makePlacedOrder($customer, 50_00));
@@ -114,9 +113,9 @@ class LoyaltyManagerTest extends TestCase
         Notification::fake();
         LoyaltyTier::query()->update(['active' => false]); // neutralise les paliers seedés par défaut
         $customer = Customer::factory()->create();
-        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => 'X', 'active' => true]);
-        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'gift_title' => 'Y', 'active' => true]);
-        $or = LoyaltyTier::create(['name' => 'Or', 'points_required' => 2000, 'gift_title' => 'Z', 'active' => true]);
+        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'active' => true]);
+        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'active' => true]);
+        $or = LoyaltyTier::create(['name' => 'Or', 'points_required' => 2000, 'active' => true]);
 
         // Une seule commande fait franchir les 3 paliers d'un coup.
         app(LoyaltyManager::class)->awardForOrder($this->makePlacedOrder($customer, 300_000_00));
@@ -139,14 +138,14 @@ class LoyaltyManagerTest extends TestCase
         Notification::fake();
         LoyaltyTier::query()->update(['active' => false]); // neutralise les paliers seedés par défaut
         $customer = Customer::factory()->create();
-        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'gift_title' => 'TV', 'active' => true]);
+        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 1000, 'active' => true]);
 
         $manager = app(LoyaltyManager::class);
         $manager->awardForOrder($this->makePlacedOrder($customer, 182_300_00));
 
         // Palier ajouté après coup, sous le solde déjà acquis : jamais débloqué tant
         // qu'aucune commande ne redéclenche le calcul.
-        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => "Bon d'achat 50€", 'active' => true]);
+        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'active' => true]);
 
         $this->assertDatabaseMissing('pko_loyalty_gift_history', [
             'customer_id' => $customer->id,
@@ -210,7 +209,7 @@ class LoyaltyManagerTest extends TestCase
         Notification::fake();
         LoyaltyTier::query()->update(['active' => false]);
         $customer = Customer::factory()->create();
-        $tier = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => 'X', 'active' => true]);
+        $tier = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'active' => true]);
 
         $this->travelTo(now()->setDate(2025, 6, 1));
         $this->makePlacedOrder($customer, 60_00);
@@ -261,8 +260,8 @@ class LoyaltyManagerTest extends TestCase
         Notification::fake();
         LoyaltyTier::query()->update(['active' => false]);
         $customer = Customer::factory()->create();
-        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'gift_title' => 'X', 'active' => true]);
-        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 150, 'gift_title' => 'Y', 'active' => true]);
+        $bronze = LoyaltyTier::create(['name' => 'Bronze', 'points_required' => 50, 'active' => true]);
+        $argent = LoyaltyTier::create(['name' => 'Argent', 'points_required' => 150, 'active' => true]);
 
         $this->makePlacedOrder($customer, 60_00, totalCents: 72_00);
         GiftHistory::where('tier_id', $bronze->id)->update(['status' => GiftStatus::Sent->value]);

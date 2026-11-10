@@ -444,6 +444,20 @@ La fermeture pour les pros.</p>'],
         ],
     ],
 
+    // Fidélité — bon d'achat émis au déblocage d'un palier « bon d'achat »
+    'loyalty.voucher_issued' => [
+        'subject' => 'Votre bon d\'achat fidélité de :voucher_amount HT',
+        'enabled' => true,
+        'content' => $page([
+            ['type' => 'text', 'html' => '<p>Bonjour :first_name,</p>'],
+            ['type' => 'text', 'html' => '<p>Vous venez d\'atteindre le palier <strong>:tier_name</strong> de notre programme de fidélité. Il vous offre un bon d\'achat de <strong>:voucher_amount HT</strong>.</p>'],
+            ['type' => 'title', 'level' => 'h3', 'text' => 'Votre code : :voucher_code'],
+            ['type' => 'text', 'html' => '<p>Saisissez ce code dans votre panier avant de valider votre commande. Il est valable jusqu\'au <strong>:voucher_expires_at</strong>, pour une seule commande : si le montant de la commande est inférieur à celui du bon, le reste est perdu.</p>'],
+            ['type' => 'button', 'label' => 'Voir mon espace fidélité', 'url' => ':account_url', 'variant' => 'primary'],
+            ['type' => 'text', 'html' => '<p>Merci pour votre fidélité.</p>'],
+        ]),
+    ],
+
     // Palier fidélité — notification équipe
     'loyalty.tier_unlocked_admin' => [
         'subject' => 'Palier :tier_name atteint — :company_name',

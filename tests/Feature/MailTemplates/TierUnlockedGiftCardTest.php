@@ -68,14 +68,16 @@ class TierUnlockedGiftCardTest extends TestCase
         $tier = LoyaltyTier::create([
             'name' => 'Diamond',
             'points_required' => 5000,
-            'gift_title' => 'PS5',
-            'gift_description' => null,
+            'gift_type' => 'voucher',
+            'voucher_amount' => 50_00,
             'active' => true,
         ]);
 
         $mail = new TierUnlockedMail(null, $tier, 5000);
 
-        $this->assertSame('PS5', $mail->values['gift_title']);
+        // Le cadeau libre n'existe plus : l'intitulé est celui du cadeau typé.
+        $this->assertSame("Bon d'achat de 50 € HT", $mail->values['gift_title']);
+        $this->assertSame("Bon d'achat de 50 € HT", $mail->values['tier_benefit']);
         $this->assertSame('', $mail->values['gift_description']);
         $this->assertSame('', $mail->values['gift_image_url']);
     }

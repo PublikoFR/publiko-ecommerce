@@ -158,6 +158,13 @@ Exemple : `loyalty.tier_unlocked` présente le cadeau dans un encart lime clair
 droite (`:gift_title`, `:gift_description`). Sans photo, le texte prend toute la
 largeur de l'encart.
 
+Depuis les cadeaux typés (cf. [loyalty.md](loyalty.md)), le palier n'a plus de
+photo ni de description : `:gift_title` porte l'intitulé typé (« Bon d'achat de
+50 € HT »), `:gift_image_url` et `:gift_description` sont vides — l'encart se
+replie sur l'intitulé seul, sans migration de contenu. Un palier « bon d'achat »
+n'envoie pas cet e-mail au client mais `loyalty.voucher_issued` (code, montant,
+expiration), mailable `LoyaltyVoucherMail` en file.
+
 ### Texte riche
 
 Le bloc `text` contient du HTML issu de l'éditeur, sémantique et sans style. Un

@@ -11,9 +11,11 @@ use Pko\MailTemplates\Mail\TemplatedMail;
 /**
  * E-mail 17 « Nouveau palier de fidélité ».
  *
- * `tier_benefit` reprend l'intitulé du cadeau du palier, et sa description
- * quand elle existe, en une seule phrase. `gift_title`, `gift_description` et
- * `gift_image_url` servent à l'encart cadeau du message.
+ * `tier_benefit` et `gift_title` portent l'intitulé du cadeau typé du palier
+ * (« Bon d'achat de 50 € HT », cf. `LoyaltyTier::giftLabel()`). Le cadeau libre
+ * (description, photo) n'existe plus : `gift_description` et `gift_image_url`
+ * restent déclarés pour les contenus déjà en base, mais sont vides — l'encart
+ * cadeau du message se replie alors sur l'intitulé seul.
  */
 class TierUnlockedMail extends TemplatedMail
 {
@@ -27,28 +29,14 @@ class TierUnlockedMail extends TemplatedMail
             'tier_name' => (string) $tier->name,
             'tier_benefit' => self::benefit($tier),
             'total_points' => (string) $totalPoints,
-            'gift_title' => (string) $tier->gift_title,
-            'gift_description' => (string) ($tier->gift_description ?? ''),
-            'gift_image_url' => self::giftImageUrl($tier),
+            'gift_title' => $tier->giftLabel(),
+            'gift_description' => '',
+            'gift_image_url' => '',
         ]);
-    }
-
-    /**
-     * URL absolue : un client mail ne résout pas un chemin relatif au site.
-     */
-    public static function giftImageUrl(LoyaltyTier $tier): string
-    {
-        return (string) $tier->firstMedia('gift_image')?->getFullUrl();
     }
 
     public static function benefit(LoyaltyTier $tier): string
     {
-        $benefit = (string) $tier->gift_title;
-
-        if (! empty($tier->gift_description)) {
-            $benefit .= ' — '.$tier->gift_description;
-        }
-
-        return $benefit;
+        return $tier->giftLabel();
     }
 }
