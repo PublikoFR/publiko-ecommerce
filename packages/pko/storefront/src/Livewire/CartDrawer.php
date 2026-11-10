@@ -11,6 +11,7 @@ use Livewire\Component;
 use Lunar\Facades\CartSession;
 use Lunar\Models\CartLine;
 use Lunar\Models\Contracts\Currency as CurrencyContract;
+use Pko\CustomerAuth\Pricing\CartDiscountArbiter;
 use Pko\Storefront\Support\CustomerPriceDisplay;
 
 class CartDrawer extends Component
@@ -124,8 +125,8 @@ class CartDrawer extends Component
             : null;
         $this->couponCode = $cart->coupon_code;
         // Non-cumul remise client / promotions (package customer-auth, optionnel).
-        $this->advantage = class_exists(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)
-            ? app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($cart)
+        $this->advantage = class_exists(CartDiscountArbiter::class)
+            ? app(CartDiscountArbiter::class)->displayFor($cart)
             : null;
         $this->total = $cart->total?->formatted();
         $ecotaxCents = Ecotax::forCart($cart);
