@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Pko\QuoteRequests\Http\Controllers\DownloadQuoteRequestFileController;
+use Pko\QuoteRequests\Http\Controllers\PreviewQuoteRequestFileController;
 use Pko\QuoteRequests\Livewire\QuoteRequestPage;
 use Pko\QuoteRequests\Support\QuoteRequestUrl;
 
@@ -18,3 +19,9 @@ Route::middleware('web')
 Route::middleware(['web', 'auth:staff'])
     ->get('/admin/quote-requests/files/{file}/download', DownloadQuoteRequestFileController::class)
     ->name('quote-requests.files.download');
+
+// Aperçu inline des photos (miniatures + lightbox) : mêmes droits que le
+// téléchargement, formats raster détectés uniquement.
+Route::middleware(['web', 'auth:staff'])
+    ->get('/admin/quote-requests/files/{file}/preview', PreviewQuoteRequestFileController::class)
+    ->name('quote-requests.files.preview');

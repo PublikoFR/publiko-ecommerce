@@ -72,12 +72,58 @@ class QuoteRequestAdminTest extends TestCase
         $this->actingAsAdmin();
 
         $this->get('/admin/quote-requests')->assertOk()->assertSee('Camille Martin');
-        $this->get('/admin/quote-requests/'.$this->request->id)
+        $html = $this->get('/admin/quote-requests/'.$this->request->id)
             ->assertOk()
             ->assertSee($this->request->number())
             ->assertSee('plaque.jpg')
             ->assertSee('Moteur tubulaire')
-            ->assertSee(route('quote-requests.files.download', $this->file), false);
+            // Photo affichée en miniature (aperçu inline).
+            ->assertSee(route('quote-requests.files.preview', $this->file), false)
+            ->getContent();
+
+        // Son lien de téléchargement vit dans les données JSON (échappées) de la lightbox.
+        $this->assertMatchesRegularExpression('#files\\\\*/'.$this->file->id.'\\\\*/download#', (string) $html);
+    }
+
+    public function test_photo_preview_is_served_inline_to_staff(): void
+    {
+        $this->actingAsAdmin();
+
+        $response = $this->get(route('quote-requests.files.preview', $this->file));
+        $response->assertOk();
+        $this->assertStringStartsWith('inline', (string) $response->headers->get('Content-Disposition'));
+        $this->assertSame('image/jpeg', $response->headers->get('Content-Type'));
+        $this->assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+        $this->assertStringContainsString('sandbox', (string) $response->headers->get('Content-Security-Policy'));
+    }
+
+    public function test_non_raster_files_have_no_inline_preview(): void
+    {
+        $this->actingAsAdmin();
+        Storage::disk('local')->put('quote-requests/'.$this->request->id.'/plan.dwg', 'AC1032');
+        $dwg = $this->request->files()->create([
+            'disk' => 'local',
+            'path' => 'quote-requests/'.$this->request->id.'/plan.dwg',
+            'original_name' => 'plan.dwg',
+            'mime_type' => 'image/vnd.dwg',
+            'size' => 6,
+        ]);
+
+        $this->get(route('quote-requests.files.preview', $dwg))->assertNotFound();
+        $this->get(route('quote-requests.files.download', $dwg))->assertOk();
+    }
+
+    public function test_preview_follows_the_same_access_rules_as_download(): void
+    {
+        $this->get(route('quote-requests.files.preview', $this->file))->assertRedirect();
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('quote-requests.files.preview', $this->file))
+            ->assertRedirect();
+
+        $this->actingAsAdmin();
+        Gate::policy(QuoteRequest::class, DenyQuoteRequestPolicy::class);
+        $this->get(route('quote-requests.files.preview', $this->file))->assertForbidden();
     }
 
     public function test_list_filters_by_mode_and_status(): void
