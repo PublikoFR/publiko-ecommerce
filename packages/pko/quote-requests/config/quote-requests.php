@@ -16,6 +16,10 @@ return [
         // les télécharge depuis l'admin (route protégée par la policy).
         'disk' => env('QUOTE_REQUEST_DISK', 'local'),
         'directory' => 'quote-requests',
+        // Cumul maximal (en Ko) des fichiers attachés au mail équipe ; au-delà,
+        // le mail renvoie vers l'admin. 15 Mo ≈ 20 Mo encodés (limite SMTP
+        // courante : 25 Mo).
+        'mail_max_total_kb' => (int) env('QUOTE_REQUEST_MAIL_ATTACHMENTS_KB', 15360),
     ],
 
     /*
