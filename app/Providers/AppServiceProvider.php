@@ -28,6 +28,7 @@ use App\Generators\PkoProductUrlGenerator;
 use App\Observers\CollectionAvailabilityObserver;
 use App\Observers\CollectionDeleteObserver;
 use App\Observers\ProductAvailabilityObserver;
+use App\Support\CollectionVisibility;
 use App\Support\DestructiveCommandGuard;
 use App\Support\Payments\ResilientStripeManager;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
@@ -388,38 +389,28 @@ class AppServiceProvider extends ServiceProvider
         );
 
         // ── Collection scope : navVisible ────────────────────────────────────
-        // A collection is "nav-visible" if pko_enabled=true AND no ancestor in
-        // the nestedset has pko_enabled=false. The subquery uses _lft/_rgt to
-        // detect ancestors without N+1 queries.
+        // A collection is "nav-visible" if pko_enabled=true, no ancestor in the
+        // nestedset has pko_enabled=false, and its parent chain is intact (no
+        // orphan left behind by a deleted tree). Cf. CollectionVisibility.
         Builder::macro('navVisible', function (): Builder {
             /** @var Builder $this */
-            return $this
-                ->where('pko_enabled', true)
-                ->whereNotExists(function ($q): void {
-                    $q->from('lunar_collections as anc')
-                        ->whereColumn('anc._lft', '<', 'lunar_collections._lft')
-                        ->whereColumn('anc._rgt', '>', 'lunar_collections._rgt')
-                        ->where('anc.pko_enabled', false);
-                });
+            CollectionVisibility::constrain($this->getQuery());
+
+            return $this;
         });
 
         // ── Product scope : storefrontVisible ────────────────────────────────
         // A product is visible on the storefront if it belongs to at least one
-        // nav-visible collection (pko_enabled=true, no disabled ancestor).
+        // nav-visible collection (same rules as navVisible).
         // Uses EXISTS + indexed columns to avoid N+1 on large catalogs.
         Builder::macro('storefrontVisible', function (): Builder {
             /** @var Builder $this */
             return $this->whereExists(function ($q): void {
                 $q->from('lunar_collection_product as cp')
                     ->join('lunar_collections as svc', 'svc.id', '=', 'cp.collection_id')
-                    ->whereColumn('cp.product_id', 'lunar_products.id')
-                    ->where('svc.pko_enabled', true)
-                    ->whereNotExists(function ($q2): void {
-                        $q2->from('lunar_collections as anc')
-                            ->whereColumn('anc._lft', '<', 'svc._lft')
-                            ->whereColumn('anc._rgt', '>', 'svc._rgt')
-                            ->where('anc.pko_enabled', false);
-                    });
+                    ->whereColumn('cp.product_id', 'lunar_products.id');
+
+                CollectionVisibility::constrain($q, 'svc');
             });
         });
 

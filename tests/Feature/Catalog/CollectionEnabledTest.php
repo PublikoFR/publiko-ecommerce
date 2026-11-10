@@ -7,6 +7,7 @@ namespace Tests\Feature\Catalog;
 use App\Filament\Pages\TreeManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Lunar\FieldTypes\Text;
 use Lunar\FieldTypes\TranslatedText;
@@ -146,6 +147,65 @@ class CollectionEnabledTest extends TestCase
         $visible = LunarCollection::query()->navVisible()->pluck('id');
 
         $this->assertContains($col->id, $visible);
+    }
+
+    // ─── Reliquats d'arbre supprimé (parent disparu) ──────────────────────────
+
+    /**
+     * Reproduit l'état constaté en base : la racine d'un arbre a été effacée
+     * sans ses descendants, qui gardent un `parent_id` pointant dans le vide.
+     *
+     * @return array{0: LunarCollection, 1: LunarCollection} [orphelin, enfant de l'orphelin]
+     */
+    private function makeOrphanBranch(): array
+    {
+        $root = $this->makeCollection('Racine supprimée');
+        $root->saveAsRoot();
+
+        $orphan = $this->makeCollection('Orpheline');
+        $orphan->appendToNode($root->refresh())->save();
+
+        $child = $this->makeCollection('Enfant d\'orpheline');
+        $child->appendToNode($orphan->refresh())->save();
+
+        // Suppression brute de la seule racine : ni events, ni cascade nestedset.
+        DB::table('lunar_collections')->where('id', $root->id)->delete();
+
+        return [$orphan->refresh(), $child->refresh()];
+    }
+
+    public function test_nav_visible_excludes_orphan_branch(): void
+    {
+        [$orphan, $child] = $this->makeOrphanBranch();
+
+        $visible = LunarCollection::query()->navVisible()->pluck('id');
+
+        $this->assertNotContains($orphan->id, $visible, 'Une catégorie dont le parent a disparu ne doit pas être visible.');
+        $this->assertNotContains($child->id, $visible, 'Les descendants d\'une catégorie orpheline ne doivent pas être visibles.');
+    }
+
+    public function test_orphan_collection_page_returns_404(): void
+    {
+        [$orphan] = $this->makeOrphanBranch();
+
+        $slug = (string) $orphan->defaultUrl()->value('slug');
+        $this->assertNotSame('', $slug, 'La catégorie orpheline doit avoir une URL.');
+
+        $this->get('/collections/'.$slug)->assertNotFound();
+    }
+
+    public function test_storefront_visible_excludes_product_with_only_orphan_collection(): void
+    {
+        [, $child] = $this->makeOrphanBranch();
+
+        /** @var Product $product */
+        $product = Product::query()->first();
+        $this->assertNotNull($product, 'Seeded products are required.');
+        $product->collections()->sync([$child->id]);
+
+        $visible = Product::query()->storefrontVisible()->pluck('id');
+
+        $this->assertNotContains($product->id, $visible);
     }
 
     // ─── storefrontVisible scope ──────────────────────────────────────────────
