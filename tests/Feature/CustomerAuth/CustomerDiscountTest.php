@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Lunar\Facades\Pricing;
 use Lunar\Models\Brand;
 use Lunar\Models\Collection;
@@ -135,7 +136,7 @@ class CustomerDiscountTest extends TestCase
 
     public function test_brand_family_discount_applies(): void
     {
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('lunar_products', 'pko_brand_family_id')) {
+        if (! Schema::hasColumn('lunar_products', 'pko_brand_family_id')) {
             $this->markTestSkipped('Colonne pko_brand_family_id absente.');
         }
 
