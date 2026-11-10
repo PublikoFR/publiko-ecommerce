@@ -44,6 +44,20 @@ class QuoteRequestFile extends Model
         return str_starts_with($this->mime_type, 'image/');
     }
 
+    /**
+     * Photo affichable inline (miniature, lightbox) : type détecté à l'envoi
+     * par les magic bytes, formats raster uniquement.
+     */
+    public function isPreviewable(): bool
+    {
+        return in_array($this->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true);
+    }
+
+    public function previewUrl(): string
+    {
+        return route('quote-requests.files.preview', $this);
+    }
+
     public function humanSize(): string
     {
         $size = $this->size;

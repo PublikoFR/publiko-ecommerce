@@ -69,6 +69,11 @@ reste lisible si le compte change ou est anonymisé. Numéro affiché :
   (`/admin/quote-requests/files/{file}/download`, middleware `auth:staff`),
   toujours en `attachment` + `nosniff`. Autorisation = même règle que la fiche
   admin (cf. « Policies » plus bas).
+- Aperçu inline des photos : route `quote-requests.files.preview`
+  (`/admin/quote-requests/files/{file}/preview`), mêmes droits que le
+  téléchargement, réservée aux formats raster **détectés** (jpg, png, webp —
+  jamais DWG, PDF ni SVG), avec `nosniff` + `Content-Security-Policy: default-src
+  'none'; sandbox`. Sert les miniatures et la lightbox de la fiche admin.
 - Supprimer une demande supprime ses fichiers disque (événements Eloquent, la
   FK cascade seule ne le ferait pas).
 
@@ -122,8 +127,12 @@ back-office (Configuration → E-mails).
 
 `QuoteRequestResource` (plugin `QuoteRequestsPlugin`, groupe Ventes & Clients via
 `lunar-admin-nav`) : liste filtrable par type et statut, badge du nombre de
-demandes nouvelles, fiche avec contexte (lien produit admin), lignes, pièces
-jointes téléchargeables, action « Changer le statut » (+ notes internes),
+demandes nouvelles. Fiche en deux colonnes : à gauche le contenu à chiffrer
+(message, photos en miniatures ouvrables en lightbox avec navigation clavier,
+autres fichiers en cartes téléchargeables, produits et quantités, contexte
+d'origine, notes internes), à droite le suivi (statut, type, date) et le contact
+en libellés en ligne. Les sections produits et contexte sont masquées quand
+elles sont vides. Actions « Changer le statut » (+ notes internes) et
 « Répondre par e-mail ». Pas de création depuis l'admin.
 
 ### Policies
