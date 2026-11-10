@@ -1,22 +1,11 @@
 <x-filament-panels::page>
-    {{-- Métadonnées SEO repliées par défaut : le page-builder démarre en haut de page,
-         aligné avec la sidebar de sous-navigation (SubNavigationPosition::End). --}}
-    <x-filament::section
-        :heading="__('pko-storefront-cms::admin.brand_content.seo_section')"
-        collapsible
-        collapsed
-        icon="heroicon-o-magnifying-glass"
-    >
-        <form wire:submit="save" class="space-y-4">
-            {{ $this->form }}
-
-            <div class="flex justify-end gap-2">
-                <x-filament::button type="submit">
-                    {{ __('pko-storefront-cms::admin.brand_content.save_meta') }}
-                </x-filament::button>
-            </div>
-        </form>
-    </x-filament::section>
+    {{-- Fiche marque unifiée : informations, logo et référence en accordéons
+         repliés, puis le page-builder pleine largeur sous les onglets
+         (SubNavigationPosition::Top, cf. AdminNavPlugin). Le bouton
+         « Enregistrer » de la barre du builder enregistre aussi ce formulaire. --}}
+    <form wire:submit="save">
+        {{ $this->form }}
+    </form>
 
     @livewire('pko-page-builder', [
         'modelClass' => \Pko\StorefrontCms\Models\BrandPage::class,

@@ -50,10 +50,19 @@ Sur un `migrate:fresh`, la migration page-builder s'exécute **avant** celle de 
 
 Table `pko_brand_pages` (1-to-1 avec `lunar_brands`) : `brand_id unique FK, layout, content JSON, seo_title, seo_description`. Le modèle `BrandPage` est géré via le même `<livewire:pko-page-builder>` que Post — le builder est entièrement polymorphique (prend `modelClass` + `recordId`).
 
-Admin : `ManageBrandContent` page Filament, injectée dans `BrandResource` via `BrandContentExtension::extendPages()` + `extendSubNavigation()`. `firstOrNewForBrand()` crée le BrandPage à la première visite si inexistant. ⚠ Propriété page renommée `$data` (array) car `$layout` et `$slug` sont des propriétés statiques de `Filament\Pages\Page` — redéclaration interdite.
+Admin : **fiche marque unifiée** `ManageBrandContent`, montée sur la route `edit` de `BrandResource` par `BrandContentExtension::extendPages()` (lien « Modifier » de la liste, recherche globale et redirection après création y mènent). Onglets (`extendSubNavigation()`, position `Top` via `AdminNavPlugin`) : **Marque / Produits / Collections** — `EditBrand` et `ManageBrandUrls` de Lunar sortent des onglets (la route `urls` reste accessible en direct pour gérer plusieurs URLs).
+
+Contenu de la page : accordéons repliés puis page-builder pleine largeur.
+- « Informations & SEO » : nom, URL par défaut (`/marque/{slug}`, met à jour l'URL Lunar par défaut, unicité par `element_type` + langue comme Lunar, dispatch `ModelUrlsUpdated` ; les autres URLs ne sont pas touchées), SEO titre/description, layout Blade.
+- « Logo » : `MediaPicker` mediagroup **`logo`** — celui que lit `pko_brand_logo()` (liste des marques, fiche produit, recherche). L'ancienne section « Médias » (image principale `thumbnail` + galerie) injectée par `HideLunarMediaExtension` n'était lue nulle part : remplacée pour les marques par `HideBrandLunarMediaExtension` (masque l'UI média Lunar sans section de formulaire).
+- « Référence produit » : `BrandReferencePrefixExtension::prefixField()`, seulement si `pko/catalog-features` est installé (dépendance souple, `class_exists`).
+
+⚠ Form propre à la page : les `extendForm()` de `BrandResource` ne s'y appliquent PAS (ils restent sur la modale de création). Tout champ ajouté à la marque doit être redéclaré ici. Form lié au modèle (`->model($this->record)`) pour que les règles recevant `?Model $record` (préfixe) ignorent la marque elle-même ; logo persisté via `$this->form->saveRelationships()`.
+
+**Une seule sauvegarde** : `PageBuilder::save()` émet `page-builder-saved` (`modelClass`, `recordId`) ; `ManageBrandContent::saveFromBuilder()` (`#[On]`) enregistre alors le formulaire. Le bouton « Enregistrer » de la barre du builder enregistre donc blocs + informations. ⚠ Propriété page renommée `$data` (array) car `$layout` et `$slug` sont des propriétés statiques de `Filament\Pages\Page` — redéclaration interdite. `firstOrNewForBrand()` crée le BrandPage à la première visite si inexistant.
 
 **Sub-navigation : pattern obligatoire pour les `Page` hors `InteractsWithRecord`**  
-`BrandResource` positionne la sous-navigation à `SubNavigationPosition::End` (colonne de droite). `ManageBrandContent` étend `Filament\Resources\Pages\Page` (pas `EditRecord`) — sans override, `getSubNavigation()` retourne `[]` et la sidebar disparaît. Fix : override `getSubNavigation()` → `static::getResource()::getRecordSubNavigation($this)` + `getSubNavigationParameters()` → `['record' => $this->record]`. Appliquer ce pattern à toute `Page` custom dans BrandResource ou tout autre resource avec sous-navigation.
+`ManageBrandContent` étend `Filament\Resources\Pages\Page` (pas `EditRecord`) — sans override, `getSubNavigation()` retourne `[]` et les onglets disparaissent. Fix : override `getSubNavigation()` → `static::getResource()::getRecordSubNavigation($this)` + `getSubNavigationParameters()` → `['record' => $this->record]`. Appliquer ce pattern à toute `Page` custom dans BrandResource ou tout autre resource avec sous-navigation.
 
 Storefront : route `/marque/{slug}` → `BrandController::show`. Résolution brand : Lunar Url (priorité) puis fallback sur `Str::slug($brand->name) === $slug`. Layout via `brandPage->layout` avec fallback `storefront-cms::brands.show`.
 

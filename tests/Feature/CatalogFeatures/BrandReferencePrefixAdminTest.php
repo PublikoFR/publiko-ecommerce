@@ -7,10 +7,10 @@ namespace Tests\Feature\CatalogFeatures;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Lunar\Admin\Filament\Resources\BrandResource\Pages\EditBrand;
 use Lunar\Admin\Filament\Resources\BrandResource\Pages\ListBrands;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Brand;
+use Pko\StorefrontCms\Filament\Pages\ManageBrandContent;
 use Tests\TestCase;
 
 /**
@@ -35,7 +35,7 @@ class BrandReferencePrefixAdminTest extends TestCase
         Brand::create(['name' => 'Somfy Test', 'pko_ref_prefix' => 'SOZ']);
         $brand = Brand::create(['name' => 'Sozo']);
 
-        Livewire::test(EditBrand::class, ['record' => $brand->getRouteKey()])
+        Livewire::test(ManageBrandContent::class, ['record' => $brand->getRouteKey()])
             ->fillForm(['pko_ref_prefix' => 'soz'])
             ->call('save')
             ->assertHasFormErrors(['pko_ref_prefix']);
@@ -47,8 +47,8 @@ class BrandReferencePrefixAdminTest extends TestCase
     {
         $brand = Brand::create(['name' => 'Sozo']);
 
-        Livewire::test(EditBrand::class, ['record' => $brand->getRouteKey()])
-            ->fillForm(['pko_ref_prefix' => ' szo2 '])
+        Livewire::test(ManageBrandContent::class, ['record' => $brand->getRouteKey()])
+            ->fillForm(['pko_ref_prefix' => ' szo2 ', 'slug' => 'sozo'])
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -59,10 +59,22 @@ class BrandReferencePrefixAdminTest extends TestCase
     {
         $brand = Brand::create(['name' => 'Sozo']);
 
-        Livewire::test(EditBrand::class, ['record' => $brand->getRouteKey()])
+        Livewire::test(ManageBrandContent::class, ['record' => $brand->getRouteKey()])
             ->fillForm(['pko_ref_prefix' => 'S-Z'])
             ->call('save')
             ->assertHasFormErrors(['pko_ref_prefix']);
+    }
+
+    public function test_existing_prefix_does_not_collide_with_itself(): void
+    {
+        $brand = Brand::create(['name' => 'Sozo', 'pko_ref_prefix' => 'SOZ']);
+
+        Livewire::test(ManageBrandContent::class, ['record' => $brand->getRouteKey()])
+            ->fillForm(['slug' => 'sozo'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('SOZ', $brand->refresh()->pko_ref_prefix);
     }
 
     public function test_create_without_prefix_gets_default_when_free(): void

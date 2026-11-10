@@ -223,7 +223,7 @@ class QuoteRequestPage extends Component
     {
         return view('pko-quote-requests::livewire.quote-request-page', [
             'currentMode' => QuoteRequestMode::fromQuery($this->mode),
-            'modes' => QuoteRequestMode::cases(),
+            'modes' => QuoteRequestMode::formModes(),
             'hasContext' => QuoteContext::isFilled($this->context),
             'accept' => FileSignature::acceptAttribute(),
             'maxFiles' => $this->maxFiles(),

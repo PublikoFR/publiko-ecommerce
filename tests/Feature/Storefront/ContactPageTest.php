@@ -9,6 +9,10 @@ use App\Mail\ContactMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
+use Pko\QuoteRequests\Enums\QuoteRequestMode;
+use Pko\QuoteRequests\Enums\QuoteRequestStatus;
+use Pko\QuoteRequests\Models\QuoteRequest;
+use RuntimeException;
 use Tests\TestCase;
 
 class ContactPageTest extends TestCase
@@ -47,6 +51,48 @@ class ContactPageTest extends TestCase
         });
     }
 
+    public function test_valid_submission_is_stored_for_the_admin_contacts_page(): void
+    {
+        Mail::fake();
+
+        Livewire::test(ContactPage::class)
+            ->set('name', 'Jean Dupont')
+            ->set('email', 'jean@example.test')
+            ->set('phone', '')
+            ->set('subject', 'Horaires')
+            ->set('message', 'Bonjour, êtes-vous ouverts le samedi ?')
+            ->set('consent', true)
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $stored = QuoteRequest::query()->sole();
+        $this->assertSame(QuoteRequestMode::Contact, $stored->mode);
+        $this->assertSame(QuoteRequestStatus::New, $stored->status);
+        $this->assertSame('Jean Dupont', $stored->name);
+        $this->assertSame('jean@example.test', $stored->email);
+        $this->assertNull($stored->phone);
+        $this->assertSame('Horaires', $stored->subject);
+        $this->assertSame('Bonjour, êtes-vous ouverts le samedi ?', $stored->message);
+    }
+
+    public function test_mail_failure_keeps_the_message_and_shows_success(): void
+    {
+        config(['storefront.contact.email' => 'boutique@example.test']);
+        Mail::shouldReceive('to')->andThrow(new RuntimeException('SMTP down'));
+
+        Livewire::test(ContactPage::class)
+            ->set('name', 'Jean Dupont')
+            ->set('email', 'jean@example.test')
+            ->set('subject', 'Horaires')
+            ->set('message', 'Bonjour, êtes-vous ouverts le samedi ?')
+            ->set('consent', true)
+            ->call('submit')
+            ->assertHasNoErrors()
+            ->assertSet('sent', true);
+
+        $this->assertSame(1, QuoteRequest::query()->count());
+    }
+
     public function test_validation_errors_block_submission(): void
     {
         Mail::fake();
@@ -56,6 +102,7 @@ class ContactPageTest extends TestCase
             ->assertHasErrors(['name', 'email', 'subject', 'message', 'consent']);
 
         Mail::assertNothingSent();
+        $this->assertSame(0, QuoteRequest::query()->count());
     }
 
     public function test_consent_is_required(): void
@@ -90,5 +137,6 @@ class ContactPageTest extends TestCase
             ->assertSet('sent', true);
 
         Mail::assertNothingSent();
+        $this->assertSame(0, QuoteRequest::query()->count());
     }
 }

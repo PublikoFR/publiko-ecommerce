@@ -6,8 +6,10 @@ namespace Pko\AdminNav\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Navigation\NavigationBuilder;
+use Filament\Pages\SubNavigationPosition;
 use Filament\Panel;
 use Lunar\Admin\Filament\Clusters\Taxes;
+use Lunar\Admin\Filament\Resources\BrandResource;
 use Pko\AdminNav\Filament\Clusters\PkoTaxesCluster;
 use Pko\AdminNav\Filament\Pages\HomepageHub;
 use Pko\AdminNav\Filament\Pages\LoyaltyHub;
@@ -31,6 +33,7 @@ class AdminNavPlugin implements Plugin
             ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => Builder::build($builder));
 
         $this->swapTaxesCluster($panel);
+        $this->useTopSubNavigationForBrands();
     }
 
     public function boot(Panel $panel): void {}
@@ -38,6 +41,20 @@ class AdminNavPlugin implements Plugin
     public static function make(): static
     {
         return app(static::class);
+    }
+
+    /**
+     * Sous-navigation des marques (Marque, Produits, Collections — cf.
+     * BrandContentExtension) en onglets horizontaux au lieu de la colonne
+     * de droite Lunar (End) : la colonne amputait la largeur du page-builder
+     * de la fiche marque. BrandResource n'étant pas subclassée, on
+     * écrase sa propriété statique — toutes ses pages lisent cette valeur via
+     * Resource::getSubNavigationPosition().
+     */
+    private function useTopSubNavigationForBrands(): void
+    {
+        (new ReflectionProperty(BrandResource::class, 'subNavigationPosition'))
+            ->setValue(null, SubNavigationPosition::Top);
     }
 
     /**

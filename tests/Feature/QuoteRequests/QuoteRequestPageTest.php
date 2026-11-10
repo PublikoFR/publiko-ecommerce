@@ -61,7 +61,12 @@ class QuoteRequestPageTest extends TestCase
 
     public function test_only_two_modes_are_offered_and_legacy_project_links_land_on_general(): void
     {
-        $this->assertSame(['general', 'part_photo'], array_map(fn (QuoteRequestMode $m): string => $m->value, QuoteRequestMode::cases()));
+        $this->assertSame(['general', 'part_photo'], array_map(fn (QuoteRequestMode $m): string => $m->value, QuoteRequestMode::formModes()));
+
+        // Le type « contact » (formulaire /contact) n'est jamais un onglet du devis.
+        Livewire::withQueryParams(['mode' => 'contact'])
+            ->test(QuoteRequestPage::class)
+            ->assertSet('mode', 'general');
 
         Livewire::withQueryParams(['mode' => 'project'])
             ->test(QuoteRequestPage::class)
@@ -204,7 +209,7 @@ class QuoteRequestPageTest extends TestCase
         Mail::assertQueued(QuoteRequestAdminMail::class, fn (QuoteRequestAdminMail $mail): bool => $mail->hasTo('equipe@example.test')
             && $mail->quoteRequest->is($request)
             && $mail->values['attachments_count'] === '2'
-            && str_contains($mail->values['admin_url'], '/quote-requests/'.$request->id));
+            && str_contains($mail->values['admin_url'], '/admin/contacts/'.$request->id));
         Mail::assertQueued(QuoteRequestReceivedMail::class, fn (QuoteRequestReceivedMail $mail): bool => $mail->hasTo('pro@example.test')
             && $mail->values['request_number'] === $request->number());
     }

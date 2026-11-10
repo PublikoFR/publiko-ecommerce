@@ -10,6 +10,7 @@ use App\Filament\Extensions\CustomerGroupAvailabilityExtension;
 use App\Filament\Extensions\CustomerGroupDeletionGuardExtension;
 use App\Filament\Extensions\CustomerGroupFieldsExtension;
 use App\Filament\Extensions\DisableBrokenChartsExtension;
+use App\Filament\Extensions\HideBrandLunarMediaExtension;
 use App\Filament\Extensions\HideLunarMediaExtension;
 use App\Filament\Extensions\OrderHeaderActionsDropdownExtension;
 use App\Filament\Extensions\OrderLinesTableExtension;
@@ -231,7 +232,7 @@ class AppServiceProvider extends ServiceProvider
                 CollectionEnabledExtension::class,
             ],
             BrandResource::class => [
-                HideLunarMediaExtension::class,
+                HideBrandLunarMediaExtension::class,
                 BrandReferencePrefixExtension::class,
                 BrandContentExtension::class,
             ],

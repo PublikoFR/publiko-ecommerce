@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Mail\ContactMessage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Pko\QuoteRequests\Actions\StoreContactMessage;
+use Throwable;
 
 class ContactPage extends Component
 {
@@ -73,19 +76,29 @@ class ContactPage extends Component
 
         $data = $this->validate();
 
+        // Enregistré d'abord : le message reste suivi dans l'admin (page
+        // « Contacts ») même si l'envoi de l'e-mail échoue.
+        app(StoreContactMessage::class)->handle($data, Auth::user(), request()->ip());
+
         $to = trim((string) brand_setting('contact.email', config('storefront.contact.email')));
         if ($to === '') {
             $to = (string) config('mail.from.address', '');
         }
 
         if ($to !== '') {
-            Mail::to($to)->send(new ContactMessage(
-                senderName: $data['name'],
-                senderEmail: $data['email'],
-                senderPhone: $data['phone'] ?? '',
-                subjectLine: $data['subject'],
-                body: $data['message'],
-            ));
+            try {
+                Mail::to($to)->send(new ContactMessage(
+                    senderName: $data['name'],
+                    senderEmail: $data['email'],
+                    senderPhone: $data['phone'] ?? '',
+                    subjectLine: $data['subject'],
+                    body: $data['message'],
+                ));
+            } catch (Throwable $e) {
+                // Message déjà enregistré : une panne SMTP ne doit ni afficher
+                // d'erreur au visiteur ni l'inciter à renvoyer (doublon).
+                report($e);
+            }
         }
 
         $this->resetForm();

@@ -25,3 +25,11 @@ Route::middleware(['web', 'auth:staff'])
 Route::middleware(['web', 'auth:staff'])
     ->get('/admin/quote-requests/files/{file}/preview', PreviewQuoteRequestFileController::class)
     ->name('quote-requests.files.preview');
+
+// La page admin « Contacts » s'appelait « Demandes de devis » (slug
+// quote-requests) : les liens des e-mails équipe déjà envoyés restent valides.
+Route::middleware('web')->group(function (): void {
+    Route::redirect('/admin/quote-requests', '/admin/contacts', 301);
+    Route::get('/admin/quote-requests/{id}', fn (string $id) => redirect('/admin/contacts/'.$id, 301))
+        ->whereNumber('id');
+});

@@ -71,8 +71,8 @@ class QuoteRequestAdminTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->get('/admin/quote-requests')->assertOk()->assertSee('Camille Martin');
-        $html = $this->get('/admin/quote-requests/'.$this->request->id)
+        $this->get('/admin/contacts')->assertOk()->assertSee('Camille Martin');
+        $html = $this->get('/admin/contacts/'.$this->request->id)
             ->assertOk()
             ->assertSee($this->request->number())
             ->assertSee('plaque.jpg')
@@ -173,7 +173,68 @@ class QuoteRequestAdminTest extends TestCase
     public function test_attachment_is_not_reachable_without_staff_session(): void
     {
         $this->get(route('quote-requests.files.download', $this->file))->assertRedirect();
-        $this->get('/admin/quote-requests')->assertRedirect();
+        $this->get('/admin/contacts')->assertRedirect();
+    }
+
+    public function test_legacy_admin_urls_redirect_to_contacts(): void
+    {
+        $this->get('/admin/quote-requests')->assertRedirect('/admin/contacts');
+        $this->get('/admin/quote-requests/'.$this->request->id)->assertRedirect('/admin/contacts/'.$this->request->id);
+    }
+
+    public function test_contact_messages_are_listed_and_viewable(): void
+    {
+        $this->actingAsAdmin();
+        $contact = QuoteRequest::create([
+            'mode' => QuoteRequestMode::Contact,
+            'name' => 'Léa Durand',
+            'email' => 'lea@example.test',
+            'subject' => 'Horaires du dépôt',
+            'message' => 'Êtes-vous ouverts le samedi ?',
+        ]);
+
+        $this->assertSame('MSG-'.str_pad((string) $contact->id, 6, '0', STR_PAD_LEFT), $contact->number());
+
+        Livewire::test(ListQuoteRequests::class)
+            ->filterTable('mode', 'contact')
+            ->assertCanSeeTableRecords([$contact])
+            ->assertCanNotSeeTableRecords([$this->request]);
+
+        $this->get('/admin/contacts/'.$contact->id)
+            ->assertOk()
+            ->assertSee('Message '.$contact->number())
+            ->assertSee('Horaires du dépôt')
+            ->assertSee('Êtes-vous ouverts le samedi ?')
+            ->assertDontSee('Photos et pièces jointes');
+    }
+
+    public function test_request_can_be_marked_done_from_the_list(): void
+    {
+        $this->actingAsAdmin();
+
+        Livewire::test(ListQuoteRequests::class)
+            ->callTableAction('markDone', $this->request)
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame(QuoteRequestStatus::Done, $this->request->refresh()->status);
+    }
+
+    public function test_requests_can_be_bulk_marked_done(): void
+    {
+        $this->actingAsAdmin();
+        $contact = QuoteRequest::create([
+            'mode' => QuoteRequestMode::Contact,
+            'name' => 'Léa Durand',
+            'email' => 'lea@example.test',
+            'subject' => 'Question',
+            'message' => 'Un message.',
+        ]);
+
+        Livewire::test(ListQuoteRequests::class)
+            ->callTableBulkAction('markDone', [$this->request, $contact]);
+
+        $this->assertSame(QuoteRequestStatus::Done, $this->request->refresh()->status);
+        $this->assertSame(QuoteRequestStatus::Done, $contact->refresh()->status);
     }
 
     public function test_download_follows_the_model_policy(): void
