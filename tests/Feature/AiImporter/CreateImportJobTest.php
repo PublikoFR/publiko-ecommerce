@@ -62,10 +62,10 @@ class CreateImportJobTest extends TestCase
     }
 
     /**
-     * Renseigne le formulaire champ par champ. `fillForm()` de Filament ne fait
-     * rien quand l'application ne se déclare pas en environnement `testing`
-     * (cas du conteneur de dev, où APP_ENV=local est une variable réelle que
-     * phpunit.xml ne surcharge pas) : on passe par `set()`, équivalent à la saisie.
+     * Renseigne le formulaire champ par champ via `set()`, équivalent à la
+     * saisie. Historique : `fillForm()` ne faisait rien tant que phpunit.xml ne
+     * forçait pas APP_ENV=testing (APP_ENV=local réel dans le conteneur de dev) ;
+     * c'est corrigé, `set()` est conservé (cf. docs/workflow.md).
      *
      * @param  array<string, mixed>  $state
      */

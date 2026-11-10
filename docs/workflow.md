@@ -79,6 +79,17 @@ métier custom (ex. SIRET, paiement) doit être écrite directement en français
 
 - **Fixtures sur modèles Lunar guarded** : `Lunar\Models\Product` est `$guarded = ['*']` avec un `$fillable` restreint (`attribute_data, product_type_id, status, brand_id`). Un `$model->update([...])` en mass-assignment **droppe silencieusement** les colonnes custom `pko_*` non fillable (ex. `pko_supplier_id`). Pour poser un état de fixture déterministe, utiliser `forceFill([...])->save()` (ou affecter les attributs en direct), pas `update()`.
 
+- **`APP_ENV` est forcé à `testing` par `phpunit.xml` (2026-11-10)** : dans le conteneur de dev, `APP_ENV=local` est une **vraie variable d'environnement** (posée par `compose.yaml`). Un `<env name="APP_ENV" value="testing"/>` simple ne la surcharge pas → `app()->runningUnitTests()` vaut `false` → les helpers de test Filament qui en dépendent (`fillForm()`, `fillFormDataForTesting()`, `disableFormStateUpdateHooksForTesting()`…) **ne font rien**, sans erreur : un test `fillForm()` + `assertHasFormErrors()` échoue, et un test qui n'assère que l'absence d'erreur peut passer sans rien vérifier. Correctif, **les deux lignes sont nécessaires** :
+
+  ```xml
+  <server name="APP_ENV" value="testing"/>
+  <env name="APP_ENV" value="testing" force="true"/>
+  ```
+
+  `force="true"` sur `<env>` ne réécrit que `getenv()`/`$_ENV` ; or le dépôt d'env de Laravel lit **`$_SERVER` en premier**, qui contient l'`APP_ENV` réel du process. `<server>` réécrit `$_SERVER` (toujours, sans attribut `force`). Avec seulement le `force`, `getenv('APP_ENV')` vaut `testing` mais `app()->environment()` reste `local`.
+
+  **Seul `APP_ENV` est forcé** : `compose.yaml` ne pose que `APP_ENV`/`APP_DEBUG` dans le process, le reste (`CACHE_STORE`, `QUEUE_CONNECTION`, `MAIL_MAILER`, `SESSION_DRIVER`…) vient de `.env`, que les `<env>` de `phpunit.xml` priment déjà (dotenv est immuable : il ne réécrit pas une variable déjà posée). `DB_DATABASE` ne doit **surtout pas** être forcé : le Makefile le surcharge par `-e DB_DATABASE=testing_<slug>` en worktree (cf. § « Isolation de la base `testing` par worktree »). Conséquence côté code : sous test, `environment('local')` est faux et `environment('testing')` vrai partout — ex. les routes de prévisualisation de `pko/mail-templates` (`environment('local', 'testing')`) restent chargées. Les tests qui contournaient le problème par `set('data.<champ>', …)` (`CreateImportJobTest`, `LoyaltyTierGiftTypeTest`) restent valides ; `fillForm()` est de nouveau utilisable. Ne pas confondre avec `make test-only` en worktree, qui lance un `docker run` sans `APP_ENV` dans le process : le bug ne s'y voyait pas, seulement dans `weklo-app`.
+
 - **JAMAIS `truncate()` dans un seeder** : `TRUNCATE` est du DDL → **COMMIT implicite** en MySQL. Quand un seeder tourne dans le `setUp()` d'un test `RefreshDatabase` (`$this->seed(DatabaseSeeder::class)`), le TRUNCATE committe la transaction d'isolation → les données de test ne sont plus rollback → elles s'accumulent entre les tests d'un même process → collisions d'unicité (`Duplicate entry … for key …_unique`) sur les tests suivants. Pire, l'erreur réelle est **masquée** par un `SQLSTATE[42000] 1305 SAVEPOINT trans2 does not exist` (le rollback du savepoint échoue car le COMMIT l'a libéré). Toujours utiliser `->delete()` (DML) pour purger un modèle dans un seeder idempotent.
 
 ---

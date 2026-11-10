@@ -18,7 +18,19 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
+        <!-- APP_ENV forcé à testing. Dans le conteneur de dev, APP_ENV=local est
+             une VRAIE variable d'environnement (compose.yaml) : un <env> simple ne
+             la surcharge pas, et app()->runningUnitTests() vaudrait false — les
+             helpers de test Filament (fillForm(), etc.) ne feraient alors RIEN.
+             Il faut les DEUX lignes : force="true" sur <env> ne réécrit que
+             getenv()/$_ENV, or Laravel lit $_SERVER en premier (qui contient
+             l'APP_ENV réel du process) ; <server> réécrit $_SERVER, toujours.
+             Les autres <env> ne sont PAS forcés : compose ne pose que
+             APP_ENV/APP_DEBUG, le reste vient de .env, que phpunit.xml prime déjà.
+             DB_DATABASE doit surtout rester surchargeable : le Makefile passe
+             -e DB_DATABASE=testing_<slug> en worktree. Cf. docs/workflow.md. -->
+        <server name="APP_ENV" value="testing"/>
+        <env name="APP_ENV" value="testing" force="true"/>
         <!-- Les factories Lunar appellent $faker->state, formatter absent de
              la locale fr_FR : sous APP_FAKER_LOCALE=fr_FR (le .env du projet),
              CartAddressFactory échoue une fois sur deux, au hasard du booléen
