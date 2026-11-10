@@ -7,13 +7,23 @@ et « Identification d'une pièce ». Page publique Livewire `/demande-de-devis`
 
 ## Modes
 
-`Pko\QuoteRequests\Enums\QuoteRequestMode` — un formulaire, trois jeux de textes :
+`Pko\QuoteRequests\Enums\QuoteRequestMode` — un formulaire, deux jeux de textes :
 
 | Mode | Valeur | Spécificités |
 |---|---|---|
-| Demande générale | `general` (défaut) | lignes produit dépliées |
-| Projet | `project` | téléphone obligatoire, lignes dépliées |
-| Identification de pièce | `part_photo` | **au moins une photo** (JPG/PNG/WebP) obligatoire, lignes repliées |
+| Demande de devis | `general` (défaut) | produits, références, chantier ou projet : description obligatoire, pièces jointes facultatives |
+| Identification de pièce | `part_photo` | **au moins une photo** (JPG/PNG/WebP) obligatoire |
+
+Décision (10/11/2026, demande client) : l'ancien mode « projet » n'apportait
+qu'un texte différent et un téléphone obligatoire, il est **fusionné** dans la
+demande générale. `?mode=project` (anciens liens, réglages en base) retombe sur
+`general` ; la migration `2026_11_10_120000_…` a passé les demandes existantes
+en `general`. Les **lignes produit / quantité** ont aussi été retirées du
+formulaire (jugées inutiles : la description et les pièces jointes suffisent) ;
+la description est donc toujours obligatoire. La colonne `lines` reste pour les
+anciennes demandes (affichée dans la fiche admin si non vide) ; le bloc
+« Produits / quantités » a été retiré du mail équipe par défaut et du mail stocké
+s'il n'avait pas été retouché.
 
 Le mode est synchronisé dans l'URL (`#[Url]`). Changer de mode (`setMode()`)
 ne touche à aucune donnée saisie. Mode inconnu → `general`.
@@ -40,7 +50,7 @@ quote_request_url('general', ['product' => $variant, 'ref' => $variant->sku, 'fr
 
 `product` accepte une `ProductVariant` (→ id), un `Product` (→ slug), un id ou un slug.
 Dans un fichier de config (chargé avant les helpers), écrire l'URL en dur :
-`/demande-de-devis?mode=project`.
+`/demande-de-devis?mode=part_photo`.
 
 ## Données
 
