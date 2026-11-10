@@ -41,8 +41,8 @@ class BrandContentExtension extends ResourceExtension
 
     /**
      * Ajoute une section "Page marque" visible dans le formulaire d'édition Brand
-     * avec un bouton direct vers la page builder. Plus discoverable que la sub-nav
-     * en position End.
+     * avec un bouton direct vers la page builder. Complète l'onglet
+     * « Page marque » de la sous-navigation.
      */
     public function extendForm(Form $form): Form
     {

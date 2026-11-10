@@ -93,6 +93,7 @@ Lunar déclare déjà un `Lunar\Admin\Filament\Clusters\Taxes` (Cluster Filament
 - Les 3 Resources du cluster n'ont pas non plus de `$subNavigationPosition`, donc fallback à `Start`
 
 Swap appliqué :
+- `BrandResource` (non subclassée) : `$subNavigationPosition` forcée à `Top` par reflection dans `AdminNavPlugin::useTopSubNavigationForBrands()` — onglets horizontaux, pour laisser toute la largeur au page-builder de « Page marque » (la colonne End le comprimait).
 - Cluster `Taxes` → `PkoTaxesCluster` (subclass, `$subNavigationPosition = End`) via reflection sur `Panel::$clusters` dans `AdminNavPlugin::swapTaxesCluster()`
 - Les 3 Resources `TaxZoneResource`, `TaxClassResource`, `TaxRateResource` → `Pko*` subclasses avec `$subNavigationPosition = End` + `$cluster = PkoTaxesCluster::class` + override de `getDefaultPages()` pointant vers 9 Pko subclass pages (List/Create/Edit × 3), chaque Pko page redéclarant `$resource` vers le Pko Resource.
 - Swap des 3 Resources dans `AppServiceProvider::swapLunarResources()` (via reflection sur `LunarPanelManager::$resources`, même pattern que products — Lunar core tax Resources y sont déclarées).

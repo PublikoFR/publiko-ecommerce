@@ -1,6 +1,6 @@
 <x-filament-panels::page>
-    {{-- Métadonnées SEO repliées par défaut : le page-builder démarre en haut de page,
-         aligné avec la sidebar de sous-navigation (SubNavigationPosition::End). --}}
+    {{-- Métadonnées SEO repliées par défaut : le page-builder démarre juste sous les
+         onglets de sous-navigation (SubNavigationPosition::Top, cf. AdminNavPlugin). --}}
     <x-filament::section
         :heading="__('pko-storefront-cms::admin.brand_content.seo_section')"
         collapsible
