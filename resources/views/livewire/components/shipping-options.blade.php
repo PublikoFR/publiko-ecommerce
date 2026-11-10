@@ -16,7 +16,7 @@
         @elseif ($this->francoRemainingCents > 0)
             <div class="px-5 py-3 bg-amber-50 border-b border-amber-200 flex items-start gap-2 text-sm text-amber-800">
                 <x-ui.icon name="info" class="w-4 h-4 mt-0.5 text-amber-500 shrink-0" />
-                <span>Plus que <strong>{{ $this->formatHtCents($this->francoRemainingCents) }} HT</strong> d'articles éligibles pour bénéficier de la livraison standard offerte.</span>
+                <span>Plus que <strong>{{ $this->formatHtCents($this->francoRemainingCents) }} HT</strong> d'articles éligibles pour bénéficier de la livraison standard offerte{{ $this->hasPersonalFranco ? ' (seuil fidélité de '.$this->formatHtCents($this->francoThresholdCents).' HT)' : '' }}.</span>
             </div>
         @endif
 

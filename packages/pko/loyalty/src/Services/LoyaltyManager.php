@@ -11,6 +11,7 @@ use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Loyalty\Enums\GiftStatus;
+use Pko\Loyalty\Enums\GiftType;
 use Pko\Loyalty\Mail\LoyaltyVoucherMail;
 use Pko\Loyalty\Mail\TierUnlockedAdminMail;
 use Pko\Loyalty\Mail\TierUnlockedMail;
@@ -20,6 +21,7 @@ use Pko\Loyalty\Models\LoyaltyTier;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Models\Setting;
 use Pko\MailTemplates\Support\AdminRecipient;
+use Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider;
 
 class LoyaltyManager
 {
@@ -133,7 +135,8 @@ class LoyaltyManager
      * Si le solde repasse sous un palier débloqué cette année, le cadeau encore
      * en attente est annulé ; un cadeau déjà en préparation ou envoyé est gardé.
      * Un bon d'achat non utilisé est désactivé et son déblocage annulé (quel que
-     * soit son statut) ; un bon déjà utilisé est gardé.
+     * soit son statut) ; un bon déjà utilisé est gardé. Un franco abaissé est
+     * toujours retiré (le seuil personnel disparaît avec le déblocage).
      *
      * @return int Points retirés par cet appel.
      */
@@ -196,13 +199,21 @@ class LoyaltyManager
             $cp->save();
 
             $lost = GiftHistory::query()
-                ->with('discount')
+                ->with(['discount', 'tier'])
                 ->where('customer_id', $cp->customer_id)
                 ->where('year', $this->currentYear())
                 ->whereHas('tier', fn ($q) => $q->where('points_required', '>', $cp->total_points))
                 ->get();
 
             foreach ($lost as $gift) {
+                // Franco abaissé : avantage continu, pas un envoi — il tombe
+                // avec le palier quel que soit son statut.
+                if ($gift->tier?->gift_type === GiftType::Franco) {
+                    $gift->delete();
+
+                    continue;
+                }
+
                 if ($gift->discount !== null) {
                     // Bon déjà utilisé : le cadeau est consommé, on le garde.
                     if ($this->vouchers->isUsed($gift->discount)) {
@@ -394,6 +405,10 @@ class LoyaltyManager
             'gift_history' => $giftHistory,
             'points_year' => $this->currentYear(),
             'points_history' => $pointsHistory,
+            // Seuil de franco personnel (palier « franco abaissé »), cents HT.
+            'franco_threshold' => interface_exists(CustomerFrancoThresholdProvider::class)
+                ? app(LoyaltyFrancoThreshold::class)->forCustomer($customerId)
+                : null,
             'total_active_tiers' => $allTiers->count(),
             'all_tiers_unlocked' => $allTiers->isNotEmpty() && $nextTier === null && $totalPoints > 0,
             'no_tiers_configured' => $allTiers->isEmpty(),

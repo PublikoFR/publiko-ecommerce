@@ -32,6 +32,10 @@ use Pko\ShippingCommon\Support\ZoneResolver;
  *   4. Forfait flat = somme(pko_transport_price_cents × quantité) des lignes flat
  *      Décision : forfait multiplié par la quantité (2 articles volumineux = 2× le forfait)
  *   5. Franco : annule le gridPrice des services couverts (flat et surcharges intacts)
+ *      Seuil effectif = min(seuil global, seuil personnel du client) — le seuil
+ *      personnel vient d'un CustomerFrancoThresholdProvider (fidélité « franco
+ *      abaissé »). Les forfaits flat restent facturés : le franco, global ou
+ *      personnel, ne touche jamais l'étape 4.
  *   6. Suppléments auto/quote (table pko_shipping_surcharges)
  *   7. Blockers si lignes quote présentes
  *   8. Banners franco / progression / lignes exclues / multi-colis
@@ -114,7 +118,9 @@ final class ShippingCalculator
         );
 
         // ── 7. Franco ─────────────────────────────────────────────────────────
-        $threshold = ShippingSettings::thresholdCents();
+        $globalThreshold = ShippingSettings::thresholdCents();
+        $threshold = ShippingSettings::thresholdCentsForCart($cart);
+        $personalFranco = $threshold < $globalThreshold;
         $basis = ShippingSettings::francoBasis();
         $francoServices = ShippingSettings::francoServices();
 
@@ -139,7 +145,7 @@ final class ShippingCalculator
         }
 
         // ── 9. Banners ────────────────────────────────────────────────────────
-        $banners = $this->computeBanners($cart, $options, $francoApplies, $threshold, $basis);
+        $banners = $this->computeBanners($cart, $options, $threshold, $basis, $personalFranco);
 
         return new ShippingQuote(
             options: $options,
@@ -407,7 +413,7 @@ final class ShippingCalculator
      * @param  CalculatedShippingOption[]  $options
      * @return list<array<string, mixed>>
      */
-    private function computeBanners(Cart $cart, array $options, bool $francoApplies, int $threshold, string $basis): array
+    private function computeBanners(Cart $cart, array $options, int $threshold, string $basis, bool $personalFranco): array
     {
         $banners = [];
 
@@ -420,7 +426,7 @@ final class ShippingCalculator
         }
 
         if ($francoReached) {
-            $banners[] = ['type' => 'franco_reached'];
+            $banners[] = ['type' => 'franco_reached', 'threshold_cents' => $threshold, 'personal' => $personalFranco];
         } else {
             // Progression vers le franco
             $current = $basis === 'cart_total'
@@ -429,7 +435,12 @@ final class ShippingCalculator
 
             $remaining = max(0, $threshold - $current);
             if ($remaining > 0) {
-                $banners[] = ['type' => 'franco_progress', 'remaining_cents' => $remaining];
+                $banners[] = [
+                    'type' => 'franco_progress',
+                    'remaining_cents' => $remaining,
+                    'threshold_cents' => $threshold,
+                    'personal' => $personalFranco,
+                ];
             }
         }
 

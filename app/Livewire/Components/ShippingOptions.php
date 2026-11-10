@@ -498,6 +498,33 @@ class ShippingOptions extends Component
     }
 
     /**
+     * Seuil de franco effectif (cents HT) porté par les bandeaux du quote :
+     * le seuil personnel fidélité s'il est plus bas que le global.
+     */
+    public function getFrancoThresholdCentsProperty(): int
+    {
+        foreach ($this->banners as $banner) {
+            if (isset($banner['threshold_cents'])) {
+                return (int) $banner['threshold_cents'];
+            }
+        }
+
+        return 0;
+    }
+
+    /** True si le seuil effectif est un seuil personnel (avantage fidélité). */
+    public function getHasPersonalFrancoProperty(): bool
+    {
+        foreach ($this->banners as $banner) {
+            if (($banner['personal'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Meta de l'option sélectionnée (grid_price_cents, flat_price_cents, surcharge_cents…).
      *
      * @return array<string, mixed>|null
@@ -573,6 +600,7 @@ class ShippingOptions extends Component
      * Lignes du récap ventilé pour les forfaits transport : libellé + montant HT (cents).
      * Le calcul (prix forfait × quantité) reste côté PHP, miroir de
      * ShippingCalculator étape 4 — la vue ne fait aucune arithmétique.
+     * Le franco (global ou personnel fidélité) n'annule jamais ces forfaits.
      *
      * @return array<int, array{label: string, cents: int}>
      */

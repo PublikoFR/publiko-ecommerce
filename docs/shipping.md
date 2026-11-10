@@ -346,6 +346,8 @@ La valeur DB gagne sur la config `.env`/`config/shipping.php`. La config reste l
 **Services** : le calculator annule le `gridPriceCents` de chaque `CalculatedShippingOption` couverte par `ShippingSettings::francoCovers()` (joker `*` ou code présent dans la liste). Le forfait `flatPriceCents` et les suppléments ne sont **pas** annulés par le franco.
 
 **Helpers WeightCalculator** :
+**Seuil personnel (fidélité « franco abaissé »)** — le calculateur utilise `ShippingSettings::thresholdCentsForCart($cart)` = **min(seuil global, seuil personnel)**. Le seuil personnel vient du contrat `Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider` (lié par pko/loyalty, cf. `docs/packages/loyalty.md`) ; aucun binding → seuil global seul. shipping-common ne dépend pas de loyalty. Seul le seuil change : base (`eligible_only`/`cart_total`), services couverts et Chrono 10 jamais offert restent ceux du réglage global. Les produits à forfait transport (`pko_transport_price_cents`, mode flat) restent facturés — l'étape 4 et son miroir `ShippingOptions::getFlatLineRowsProperty()` ne sont pas touchés. Les bandeaux `franco_reached` / `franco_progress` portent `threshold_cents` (seuil effectif) et `personal` (seuil personnel < global) ; panier et checkout affichent le seuil effectif.
+
 - `WeightCalculator::francoEligibleSubtotalHt(Cart): int` — somme HT (cents) des lignes éligibles.
 - `WeightCalculator::cartHasFrancoExcludedLine(Cart): bool` — true si ≥ 1 ligne non éligible.
 - `WeightCalculator::cartSubtotalHt(Cart): int` — somme HT (cents) de TOUTES les lignes (basis `cart_total`).
@@ -421,7 +423,7 @@ Les meta sont injectés par `UnifiedShippingModifier` sur chaque `ShippingOption
 | Bandeau | Type dans `$banners` | Message |
 |---|---|---|
 | Franco atteint (vert) | `franco_reached` | « Votre commande est éligible à la livraison standard offerte… » |
-| Progression franco (ambre) | `franco_progress` + `remaining_cents` | « Plus que X € HT d'articles éligibles… » |
+| Progression franco (ambre) | `franco_progress` + `remaining_cents` (+ `threshold_cents`, `personal`) | « Plus que X € HT d'articles éligibles… » (+ « seuil fidélité de Y € HT » si `personal`) |
 | Exclusion (info) | `excluded_lines` | « Certains produits volumineux… frais complémentaires. » |
 | Multi-colis (info) | `multi_colis` | « Votre commande peut être expédiée en plusieurs colis… » |
 
