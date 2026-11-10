@@ -44,7 +44,8 @@ class HubWidgetEditActionTest extends TestCase
         $tier = LoyaltyTier::create([
             'name' => 'Argent',
             'points_required' => 500,
-            'gift_title' => 'Mug',
+            'gift_type' => 'voucher',
+            'voucher_amount' => 20_00,
             'active' => true,
         ]);
 

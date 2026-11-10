@@ -11,6 +11,7 @@ use Lunar\Models\Customer;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Loyalty\Enums\GiftStatus;
+use Pko\Loyalty\Mail\LoyaltyVoucherMail;
 use Pko\Loyalty\Mail\TierUnlockedAdminMail;
 use Pko\Loyalty\Mail\TierUnlockedMail;
 use Pko\Loyalty\Models\CustomerPoints;
@@ -22,6 +23,10 @@ use Pko\MailTemplates\Support\AdminRecipient;
 
 class LoyaltyManager
 {
+    public function __construct(
+        private readonly LoyaltyVoucherService $vouchers = new LoyaltyVoucherService,
+    ) {}
+
     public function pointsRatio(): float
     {
         $ratio = (float) Setting::get('points_ratio', (string) config('loyalty.default_ratio', 1));
@@ -127,6 +132,8 @@ class LoyaltyManager
      *
      * Si le solde repasse sous un palier débloqué cette année, le cadeau encore
      * en attente est annulé ; un cadeau déjà en préparation ou envoyé est gardé.
+     * Un bon d'achat non utilisé est désactivé et son déblocage annulé (quel que
+     * soit son statut) ; un bon déjà utilisé est gardé.
      *
      * @return int Points retirés par cet appel.
      */
@@ -188,12 +195,30 @@ class LoyaltyManager
                 ->value('id');
             $cp->save();
 
-            GiftHistory::query()
+            $lost = GiftHistory::query()
+                ->with('discount')
                 ->where('customer_id', $cp->customer_id)
                 ->where('year', $this->currentYear())
-                ->where('status', GiftStatus::Pending)
                 ->whereHas('tier', fn ($q) => $q->where('points_required', '>', $cp->total_points))
-                ->delete();
+                ->get();
+
+            foreach ($lost as $gift) {
+                if ($gift->discount !== null) {
+                    // Bon déjà utilisé : le cadeau est consommé, on le garde.
+                    if ($this->vouchers->isUsed($gift->discount)) {
+                        continue;
+                    }
+
+                    $this->vouchers->disableIfUnused($gift);
+                    $gift->delete();
+
+                    continue;
+                }
+
+                if ($gift->status === GiftStatus::Pending) {
+                    $gift->delete();
+                }
+            }
 
             return $delta;
         });
@@ -250,6 +275,11 @@ class LoyaltyManager
                 'unlocked_at' => now(),
             ]);
 
+            // Pas de rétroactivité : seul un déblocage NOUVEAU émet un bon.
+            if ($tier->isVoucher()) {
+                $this->vouchers->issueFor($history);
+            }
+
             $this->dispatchTierUnlocked($cp->customer_id, $tier, $cp->total_points, $history);
             $unlockedCount++;
         }
@@ -276,7 +306,11 @@ class LoyaltyManager
         $customer = Customer::find($customerId);
 
         if ($customer && $email = $this->resolveCustomerEmail($customer)) {
-            $mail = new TierUnlockedMail($customer, $tier, $totalPoints);
+            // Palier « bon d'achat » : le client reçoit le bon (code, montant,
+            // expiration) à la place de l'e-mail générique de palier.
+            $mail = $history->discount !== null
+                ? new LoyaltyVoucherMail($customer, $tier, $history->discount)
+                : new TierUnlockedMail($customer, $tier, $totalPoints);
 
             // `email_sent` ne doit refléter qu'un envoi réel : si le modèle est
             // désactivé en back-office, l'historique reste à false et le palier
@@ -335,7 +369,7 @@ class LoyaltyManager
         }
 
         $giftHistory = GiftHistory::query()
-            ->with('tier')
+            ->with(['tier', 'discount'])
             ->where('customer_id', $customerId)
             ->orderByDesc('unlocked_at')
             ->get();

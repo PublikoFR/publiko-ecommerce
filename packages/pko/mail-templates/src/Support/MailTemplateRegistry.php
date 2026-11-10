@@ -263,6 +263,20 @@ final class MailTemplateRegistry
                 ],
                 'required' => ['tier_name'],
             ],
+            'loyalty.voucher_issued' => [
+                'group' => 'loyalty',
+                'audience' => self::AUDIENCE_CUSTOMER,
+                'label' => "Bon d'achat fidélité",
+                'placeholders' => [
+                    'first_name',
+                    'tier_name',
+                    'voucher_code',
+                    'voucher_amount',
+                    'voucher_expires_at',
+                    'account_url',
+                ],
+                'required' => ['voucher_code'],
+            ],
             'loyalty.tier_unlocked_admin' => [
                 'group' => 'loyalty',
                 'audience' => self::AUDIENCE_ADMIN,

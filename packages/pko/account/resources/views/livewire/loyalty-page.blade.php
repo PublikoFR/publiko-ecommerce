@@ -57,7 +57,7 @@
                 <p class="text-sm text-neutral-600">
                     Plus que <strong class="text-primary-700">{{ $toNext }}</strong>
                     {{ \Illuminate\Support\Str::plural('point', $toNext) }} pour débloquer
-                    <strong class="text-neutral-900">{{ $g1->gift_title }}</strong>
+                    <strong class="text-neutral-900">{{ $g1->giftLabel() }}</strong>
                 </p>
             @elseif (! empty($snapshot['no_tiers_configured']))
                 <p class="text-sm text-neutral-500 mt-2">Aucun palier de fidélité n'est configuré pour le moment.</p>
@@ -82,6 +82,13 @@
                         @php
                             $isCurrent = $item['type'] === 'current';
                             $tier = $item['tier'];
+                            $icon = match (true) {
+                                $item['type'] === 'trophy' => 'trophy',
+                                $tier?->gift_type === \Pko\Loyalty\Enums\GiftType::Franco => 'truck',
+                                $tier?->gift_type === \Pko\Loyalty\Enums\GiftType::Bfa => 'percent',
+                                $tier?->gift_type === \Pko\Loyalty\Enums\GiftType::Voucher => 'tag',
+                                default => 'gift',
+                            };
                         @endphp
 
                         <div
@@ -103,19 +110,7 @@
                                 'bg-neutral-100 border-neutral-200 shadow-sm' => $item['type'] === 'upcoming',
                                 'bg-accent-50 border-accent-300 shadow-accent' => $item['type'] === 'trophy',
                             ])>
-                                @if ($tier?->gift_image_url)
-                                    <img
-                                        src="{{ $tier->gift_image_url }}"
-                                        alt="{{ $tier->gift_title }}"
-                                        draggable="false"
-                                        class="w-full h-full object-cover pointer-events-none"
-                                    />
-                                @else
-                                    <x-ui.icon
-                                        :name="$item['type'] === 'trophy' ? 'trophy' : 'gift'"
-                                        class="w-9 h-9 {{ $isCurrent ? 'text-primary-700' : 'text-neutral-400' }}"
-                                    />
-                                @endif
+                                <x-ui.icon :name="$icon" class="w-9 h-9 {{ $isCurrent ? 'text-primary-700' : 'text-neutral-400' }}" />
 
                                 @if ($item['type'] === 'unlocked')
                                     <span class="absolute bottom-1.5 right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-accent-500 shadow-sm ring-2 ring-white">
@@ -135,7 +130,7 @@
                             @endif
 
                             <p class="mt-2 text-xs font-semibold {{ $isCurrent ? 'text-neutral-900' : 'text-neutral-600' }} leading-tight line-clamp-2">
-                                {{ $tier?->gift_title ?? 'Tout débloqué' }}
+                                {{ $tier?->giftLabel() ?? 'Tout débloqué' }}
                             </p>
                             @if ($tier)
                                 <span class="text-[11px] text-neutral-400">{{ (int) $tier->points_required }} pts</span>
@@ -158,19 +153,35 @@
                 <x-ui.card padding="none">
                     <ul class="divide-y divide-neutral-100">
                         @foreach ($giftHistory as $gift)
+                            @php $voucher = $gift->voucher(); @endphp
                             <li class="flex items-center gap-4 px-5 py-4">
                                 <div class="w-10 h-10 rounded-full bg-accent-50 flex items-center justify-center shrink-0">
-                                    <x-ui.icon name="gift" class="w-5 h-5 text-primary-700" />
+                                    <x-ui.icon :name="$voucher ? 'tag' : 'gift'" class="w-5 h-5 text-primary-700" />
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <p class="font-semibold text-neutral-900 truncate">{{ $gift->tier?->gift_title ?? 'Cadeau' }}</p>
+                                    <p class="font-semibold text-neutral-900 truncate">{{ $gift->tier?->giftLabel() ?? 'Cadeau' }}</p>
                                     @if ($gift->tier?->name)
                                         <p class="text-xs text-neutral-500">Palier {{ $gift->tier->name }}</p>
                                     @endif
+                                    @if ($voucher)
+                                        <p class="mt-1 text-xs text-neutral-600">
+                                            Code <span class="font-mono font-semibold text-neutral-900 select-all">{{ $voucher['code'] }}</span>
+                                            · {{ \Pko\Loyalty\Support\Money::format($voucher['amount']) }} HT
+                                            @if ($voucher['expires_at'])
+                                                · {{ $voucher['status'] === 'active' ? 'valable jusqu’au' : 'expiration' }} {{ $voucher['expires_at']->format('d/m/Y') }}
+                                            @endif
+                                        </p>
+                                    @endif
                                 </div>
-                                <x-ui.badge variant="{{ $gift->status === \Pko\Loyalty\Enums\GiftStatus::Sent ? 'success' : 'primary' }}">
-                                    {{ $gift->status?->label() ?? '—' }}
-                                </x-ui.badge>
+                                @if ($voucher)
+                                    <x-ui.badge :tone="match ($voucher['status']) { 'active' => 'success', 'used' => 'forest', default => 'neutral' }">
+                                        {{ $voucher['status_label'] }}
+                                    </x-ui.badge>
+                                @else
+                                    <x-ui.badge variant="{{ $gift->status === \Pko\Loyalty\Enums\GiftStatus::Sent ? 'success' : 'primary' }}">
+                                        {{ $gift->status?->label() ?? '—' }}
+                                    </x-ui.badge>
+                                @endif
                                 <span class="text-xs text-neutral-400 shrink-0 w-16 text-right">{{ optional($gift->unlocked_at)->format('d/m/Y') }}</span>
                             </li>
                         @endforeach
