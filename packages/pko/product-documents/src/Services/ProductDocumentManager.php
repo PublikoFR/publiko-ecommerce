@@ -25,6 +25,43 @@ class ProductDocumentManager
     }
 
     /**
+     * Attache un média s'il ne l'est pas déjà, SANS toucher à un lien existant
+     * (ordre et catégorie saisis à la main conservés ; une catégorie vide est
+     * seulement complétée). Un nouveau lien est ajouté en fin de liste.
+     * Utilisé par l'import produit : réimporter un fichier ne réordonne rien.
+     *
+     * @return bool true si le lien a été créé
+     */
+    public function attachIfMissing(Product $product, int $mediaId, ?int $categoryId = null): bool
+    {
+        /** @var ProductDocument|null $existing */
+        $existing = ProductDocument::query()
+            ->where('product_id', $product->id)
+            ->where('media_id', $mediaId)
+            ->first();
+
+        if ($existing !== null) {
+            if ($existing->category_id === null && $categoryId !== null) {
+                $existing->update(['category_id' => $categoryId]);
+            }
+
+            return false;
+        }
+
+        $next = (int) ProductDocument::query()->where('product_id', $product->id)->max('sort_order');
+        $hasAny = ProductDocument::query()->where('product_id', $product->id)->exists();
+
+        ProductDocument::query()->create([
+            'product_id' => $product->id,
+            'media_id' => $mediaId,
+            'category_id' => $categoryId,
+            'sort_order' => $hasAny ? $next + 1 : 0,
+        ]);
+
+        return true;
+    }
+
+    /**
      * Retire un lien document-produit (par media_id).
      */
     public function detach(Product $product, int $mediaId): void

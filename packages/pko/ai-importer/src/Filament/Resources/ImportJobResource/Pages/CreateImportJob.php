@@ -5,196 +5,115 @@ declare(strict_types=1);
 namespace Pko\AiImporter\Filament\Resources\ImportJobResource\Pages;
 
 use Filament\Actions;
-use Filament\Forms;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Wizard\Step;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Storage;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Str;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Models\ImporterConfig;
-use Pko\AiImporter\Services\PreparedCsvImporter;
 use Pko\AiImporter\Support\AiPreflight;
+use Pko\AiImporter\Support\ConfigColumnExtractor;
+use Pko\AiImporter\Support\ConfigDiagnostics;
+use Pko\AiImporter\Support\ImportFlow;
 
+/**
+ * « Nouvel import » — assistant en 2 étapes :
+ *
+ *  1. Fichier : configuration + fichier, contrôlés l'un contre l'autre. Une
+ *     erreur bloquante (feuille absente, colonne de jointure introuvable,
+ *     config sans identification) empêche de continuer.
+ *  2. Réglages : lignes à traiter, colonnes à calculer (avec le nombre d'appels
+ *     IA à prévoir), réglages avancés repliés.
+ *
+ * `?config=<id>` présélectionne une configuration (bouton « Nouvel import »
+ * d'une configuration).
+ */
 class CreateImportJob extends CreateRecord
 {
+    use HasWizard;
+
     protected static string $resource = ImportJobResource::class;
+
+    protected static bool $canCreateAnother = false;
 
     public function getTitle(): string
     {
-        return 'Préparer un fichier';
+        return 'Nouvel import';
+    }
+
+    public function getBreadcrumb(): string
+    {
+        return 'Nouvel import';
+    }
+
+    /**
+     * @return array<int, Step>
+     */
+    public function getSteps(): array
+    {
+        return [
+            Step::make('Fichier')
+                ->description('Configuration et fichier fournisseur')
+                ->icon('heroicon-o-document-arrow-up')
+                ->schema(ImportJobResource::fileStep())
+                ->afterValidation(function (): void {
+                    $report = ImportJobResource::preflight($this->data['config_id'] ?? null, $this->data['input_file_path'] ?? null);
+
+                    if (ConfigDiagnostics::hasErrors($report['findings'])) {
+                        Notification::make()
+                            ->danger()
+                            ->title('Le contrôle signale une erreur bloquante')
+                            ->body('Corrigez la configuration ou changez de fichier : en l\'état, la préparation échouerait ou ne produirait rien.')
+                            ->send();
+
+                        throw new Halt;
+                    }
+                }),
+
+            Step::make('Réglages')
+                ->description('Lignes à traiter et colonnes à calculer')
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->schema(ImportJobResource::settingsStep()),
+        ];
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('newConfiguration')
-                ->label('Nouvelle configuration')
-                ->icon('heroicon-o-plus')
-                ->color('success')
-                ->url(ImporterConfigResource::getUrl('create')),
-
-            Actions\Action::make('importJson')
-                ->label('Importer JSON')
-                ->icon('heroicon-o-arrow-up-tray')
+            Actions\Action::make('configs')
+                ->label('Configurations')
+                ->icon('heroicon-o-cog-6-tooth')
                 ->color('gray')
-                ->modalHeading('Importer une configuration JSON')
-                ->modalDescription('Laissez le nom vide pour utiliser le nom du fichier.')
-                ->form([
-                    Forms\Components\TextInput::make('config_name')
-                        ->label('Nom de la configuration')
-                        ->placeholder('Optionnel — défaut : nom du fichier')
-                        ->maxLength(128),
-                    Forms\Components\FileUpload::make('config_file')
-                        ->label('Fichier JSON')
-                        ->acceptedFileTypes(['application/json', 'text/json'])
-                        ->disk('local')
-                        ->directory('ai-importer/tmp-configs')
-                        ->required(),
-                ])
-                ->action(fn (array $data) => $this->importJsonConfig($data)),
-
-            Actions\Action::make('importPreparedCsv')
-                ->label('Importer un CSV préparé')
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->modalHeading('Importer un CSV déjà préparé')
-                ->modalDescription('Charge directement les lignes en staging, sans configuration ni traitement IA. Séparateur « ; », 1ʳᵉ ligne = en-têtes.')
-                ->form([
-                    Forms\Components\TextInput::make('import_name')
-                        ->label('Nom de l\'import')
-                        ->placeholder('Optionnel — défaut : nom du fichier')
-                        ->maxLength(128),
-                    Forms\Components\FileUpload::make('csv_file')
-                        ->label('Fichier CSV préparé')
-                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
-                        ->disk(config('ai-importer.storage.disk', 'local'))
-                        ->directory(config('ai-importer.storage.inputs_path', 'ai-importer/inputs'))
-                        ->required(),
-                ])
-                ->action(fn (array $data) => $this->importPreparedCsv($data)),
-
-            Actions\Action::make('runCron')
-                ->label('Exécuter CRON')
-                ->icon('heroicon-o-arrow-path')
-                ->color('warning')
-                ->requiresConfirmation()
-                ->modalDescription('Lance immédiatement les imports Lunar programmés dont la date est échue (équivalent de la commande planifiée ai-importer:run-scheduled).')
-                ->action(function (): void {
-                    Artisan::call('ai-importer:run-scheduled');
-                    Notification::make()
-                        ->success()
-                        ->title('CRON exécuté')
-                        ->body(trim(Artisan::output()) ?: 'Aucun job programmé dû.')
-                        ->send();
-                }),
+                ->url(ImporterConfigResource::getUrl('index')),
         ];
     }
 
     /**
-     * Importe un JSON Publiko AI Importer via la commande dédiée (réutilise la
-     * normalisation + le rapport de compatibilité côté CLI).
-     *
-     * @param  array<string, mixed>  $data
+     * Présélection d'une configuration passée en query string : ses colonnes
+     * calculables sont cochées comme si elle venait d'être choisie.
      */
-    public function importJsonConfig(array $data): void
+    protected function afterFill(): void
     {
-        $path = $data['config_file'] ?? null;
-        if (! is_string($path) || ! Storage::disk('local')->exists($path)) {
-            Notification::make()->danger()->title('Fichier JSON introuvable')->send();
-
+        $config = ImporterConfig::query()->find(request()->integer('config'));
+        if ($config === null) {
             return;
         }
 
-        $absolute = Storage::disk('local')->path($path);
-        $name = trim((string) ($data['config_name'] ?? ''));
-
-        $options = ['file' => $absolute, '--replace' => true];
-        if ($name !== '') {
-            $options['--name'] = $name;
-        }
-
-        $exit = Artisan::call('ai-importer:import-ps-config', $options);
-        Storage::disk('local')->delete($path);
-
-        if ($exit === 0) {
-            Notification::make()->success()->title('Configuration importée')->body(trim(Artisan::output()))->send();
-        } else {
-            Notification::make()->danger()->title('Échec de l\'import')->body(trim(Artisan::output()))->send();
-        }
+        $this->data['config_id'] = $config->id;
+        $this->data['options']['columns_to_process'] = ConfigColumnExtractor::allColumnKeys($config);
     }
 
-    /**
-     * Importe un CSV déjà préparé directement en staging (sans config), puis
-     * redirige vers la vue du job créé. Portage de la fonction read-only
-     * `ajaxProcessImportPreparedCsv` du module PrestaShop.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    public function importPreparedCsv(array $data): void
+    protected function getSubmitFormAction(): Actions\Action
     {
-        $path = $data['csv_file'] ?? null;
-        $disk = config('ai-importer.storage.disk', 'local');
-
-        if (! is_string($path) || ! Storage::disk($disk)->exists($path)) {
-            Notification::make()->danger()->title('Fichier CSV introuvable')->send();
-
-            return;
-        }
-
-        try {
-            $job = app(PreparedCsvImporter::class)->import($path, $data['import_name'] ?? null);
-        } catch (\Throwable $e) {
-            Notification::make()->danger()->title('Échec de l\'import CSV')->body($e->getMessage())->send();
-
-            return;
-        }
-
-        if ($job->staging_count === 0) {
-            Notification::make()->warning()->title('Aucune ligne importée')
-                ->body('Le fichier ne contient aucune ligne de données.')->send();
-        } else {
-            Notification::make()->success()->title('CSV importé en staging')
-                ->body($job->staging_count.' ligne(s) prête(s) à l\'import.')->send();
-        }
-
-        $this->redirect(ImportJobResource::getUrl('view', ['record' => $job]));
-    }
-
-    public function duplicateImporterConfig(int $id): void
-    {
-        $config = ImporterConfig::find($id);
-        if (! $config) {
-            return;
-        }
-
-        $clone = $config->replicate();
-        $clone->name = $config->name.' (copie)';
-        $clone->save();
-
-        Notification::make()->success()->title('Configuration dupliquée')->send();
-    }
-
-    public function deleteImporterConfig(int $id): void
-    {
-        ImporterConfig::whereKey($id)->delete();
-
-        Notification::make()->success()->title('Configuration supprimée')->send();
-    }
-
-    protected function getCreateFormAction(): Actions\Action
-    {
-        return parent::getCreateFormAction()
-            ->label('Préparer les données')
-            ->icon('heroicon-o-play');
-    }
-
-    protected function getCreateAnotherFormAction(): Actions\Action
-    {
-        return parent::getCreateAnotherFormAction()->hidden();
+        return parent::getSubmitFormAction()
+            ->label('Lancer la préparation')
+            ->icon('heroicon-m-play');
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array
@@ -202,34 +121,57 @@ class CreateImportJob extends CreateRecord
         $data['uuid'] ??= (string) Str::uuid();
         $data['status'] ??= JobStatus::Pending->value;
         $data['import_status'] ??= ImportStatus::Pending->value;
+        $data['created_by_id'] ??= Filament::auth()->id();
+
+        // Une date d'import automatique posée dès la création = import programmé.
+        if (! empty($data['scheduled_at'])) {
+            $data['import_status'] = ImportStatus::Scheduled->value;
+        }
 
         return $data;
     }
 
     /**
      * Bloque la création si la config utilise une IA inutilisable : la
-     * préparation partirait au cron et ses colonnes IA resteraient vides.
+     * préparation partirait et ses colonnes IA resteraient vides.
      */
     protected function beforeCreate(): void
     {
         $configId = $this->data['config_id'] ?? null;
         $columns = (array) ($this->data['options']['columns_to_process'] ?? []);
 
-        if (! AiPreflight::allowsParse($configId ? ImporterConfig::find($configId) : null, $columns)) {
+        if ($columns === [] && ConfigColumnExtractor::allColumnKeys(ImportJobResource::config($configId)) !== []) {
+            Notification::make()->danger()->title('Aucune colonne à calculer')
+                ->body('Cochez au moins une colonne : la préparation ne produirait rien.')->send();
+
+            $this->halt();
+        }
+
+        if (! AiPreflight::allowsParse(ImportJobResource::config($configId), $columns)) {
             $this->halt();
         }
     }
 
     protected function afterCreate(): void
     {
-        // On NE dispatche PAS ici : la préparation est déclenchée par le cron
-        // (`ai-importer:run-scheduled`, phase parse) qui attrape les jobs restés
-        // en `status=pending`. Évite le parse synchrone dans la requête web
-        // (bloquant, et fatal sur de gros fichiers / appels LLM).
+        $started = ImportFlow::startParse($this->record);
+
         Notification::make()
             ->success()
-            ->title('Préparation en file d\'attente')
-            ->body('Le fichier sera préparé automatiquement au prochain passage du CRON. Suivez l\'avancement sur la fiche du job.')
+            ->title('Préparation lancée')
+            ->body($started
+                ? 'Le fichier est en cours de préparation. Cette page se met à jour toute seule.'
+                : 'Le fichier sera pris en charge dans les 2 minutes. Cette page se met à jour toute seule.')
             ->send();
+    }
+
+    protected function getCreatedNotification(): ?Notification
+    {
+        return null;
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return ImportJobResource::getUrl('view', ['record' => $this->record]);
     }
 }

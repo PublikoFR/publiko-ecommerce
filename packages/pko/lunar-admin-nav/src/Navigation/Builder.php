@@ -28,6 +28,7 @@ use Pko\AdminNav\Filament\Resources\PkoChannelResource;
 use Pko\AdminNav\Filament\Resources\PkoCurrencyResource;
 use Pko\AdminNav\Filament\Resources\PkoStaffResource;
 use Pko\AdminNav\Filament\Resources\PkoTagResource;
+use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
@@ -119,7 +120,12 @@ class Builder
                 self::resItem(PkoTagResource::class, 'heroicon-o-hashtag', 'Tags'),
                 self::resItem(DocumentCategoryResource::class, 'heroicon-o-document-text', 'Catégories de documents'),
             ], sort: 3),
-            self::resItem(ImportJobResource::class, 'heroicon-o-arrow-down-on-square-stack', 'Imports')?->sort(4),
+            // Les deux écrans du parcours d'import : les imports eux-mêmes, et les
+            // configurations de mapping qu'ils utilisent.
+            self::nestedMenu('Imports', 'heroicon-o-arrow-down-on-square-stack', [
+                self::resItem(ImportJobResource::class, 'heroicon-o-arrow-down-on-square-stack', 'Imports de produits'),
+                self::resItem(ImporterConfigResource::class, 'heroicon-o-cog-6-tooth', 'Configurations'),
+            ], sort: 4),
         ]));
     }
 

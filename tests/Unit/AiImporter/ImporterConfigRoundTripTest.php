@@ -6,6 +6,7 @@ namespace Tests\Unit\AiImporter;
 
 use PHPUnit\Framework\TestCase;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
+use Pko\AiImporter\Support\MappingOrder;
 
 /**
  * Pure round-trip guard for the visual editor serialisation. Asserts that
@@ -24,7 +25,37 @@ class ImporterConfigRoundTripTest extends TestCase
         $hydrated = ImporterConfigResource::hydrateVisual(['config_data' => $config]);
         $dehydrated = ImporterConfigResource::dehydrateVisual($hydrated);
 
-        return ImporterConfigResource::arrayify($dehydrated['config_data']);
+        $config = ImporterConfigResource::arrayify($dehydrated['config_data']);
+        // Ordre des colonnes, tenu à part de l'objet `mapping` (testé plus bas).
+        unset($config['mapping_order']);
+
+        return $config;
+    }
+
+    public function test_column_order_survives_storage_that_reorders_json_keys(): void
+    {
+        $config = ['mapping' => [
+            'reference' => ['col' => 'A'],
+            'name' => ['col' => 'B'],
+            'id' => ['col' => 'C'],
+        ]];
+
+        $saved = ImporterConfigResource::dehydrateVisual(ImporterConfigResource::hydrateVisual(['config_data' => $config]))['config_data'];
+        $this->assertSame(['reference', 'name', 'id'], $saved['mapping_order']);
+
+        // MySQL rend les clés d'un objet JSON triées par longueur puis alphabet.
+        $stored = $saved;
+        uksort($stored['mapping'], fn (string $a, string $b): int => [strlen($a), $a] <=> [strlen($b), $b]);
+        $this->assertSame(['id', 'name', 'reference'], array_keys($stored['mapping']));
+
+        // L'éditeur et la préparation relisent l'ordre choisi.
+        $reloaded = ImporterConfigResource::hydrateVisual(['config_data' => $stored])['config_data'];
+        $this->assertSame(['reference', 'name', 'id'], array_column($reloaded['mapping_repeater'], 'key'));
+        $this->assertSame(['reference', 'name', 'id'], array_keys(MappingOrder::declared($stored)));
+
+        // Une clé ajoutée hors éditeur (JSON brut) suit, sans être perdue.
+        $stored['mapping']['ean'] = ['col' => 'D'];
+        $this->assertSame(['reference', 'name', 'id', 'ean'], array_keys(MappingOrder::declared($stored)));
     }
 
     public function test_sheets_and_primary_keys_round_trip(): void
@@ -33,12 +64,18 @@ class ImporterConfigRoundTripTest extends TestCase
             'primary_sheet' => 'B01_COMMERCE',
             'join_key' => 'REFCIALE',
             'sheets' => [
-                'B02_LOGISTIQUE' => ['relation' => 'one', 'join_key' => 'REF', 'type' => 'logistics', 'skip_first_row' => true],
+                'B02_LOGISTIQUE' => ['relation' => 'one', 'join_key' => 'REF', 'type' => 'logistics', 'skip_first_row' => false],
                 'B03_IMAGES' => ['relation' => 'many', 'type' => 'images'],
             ],
         ];
 
         $this->assertSame($config, $this->roundTrip($config));
+
+        // « 1ʳᵉ ligne = en-têtes » est le défaut du parser : un `true` explicite
+        // n'est pas resérialisé (seule l'exception `false` l'est).
+        $explicit = $config;
+        $explicit['sheets']['B03_IMAGES']['skip_first_row'] = true;
+        $this->assertSame($config, $this->roundTrip($explicit));
     }
 
     public function test_ai_block_round_trips_and_is_dropped_when_empty(): void

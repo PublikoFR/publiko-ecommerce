@@ -61,6 +61,7 @@ final class LunarBackupManager
     /** Product columns the writer can change on update. */
     private const PRODUCT_COLUMNS = [
         'brand_id', 'product_type_id', 'status', 'attribute_data', 'pko_supplier_id', 'pko_port_mode',
+        'pko_transport_price_cents',
         'pko_brand_family_id',
     ];
 

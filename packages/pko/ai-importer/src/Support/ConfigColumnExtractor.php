@@ -25,7 +25,7 @@ use Pko\AiImporter\Models\ImporterConfig;
 final class ConfigColumnExtractor
 {
     /**
-     * @return array<int, array{value: string, label: string, has_ai: bool}>
+     * @return array<int, array{value: string, label: string, has_ai: bool, source: string}>
      */
     public static function fromConfig(?ImporterConfig $config): array
     {
@@ -38,7 +38,7 @@ final class ConfigColumnExtractor
 
     /**
      * @param  array<string, mixed>  $mapping
-     * @return array<int, array{value: string, label: string, has_ai: bool}>
+     * @return array<int, array{value: string, label: string, has_ai: bool, source: string}>
      */
     public static function fromMapping(array $mapping): array
     {
@@ -82,12 +82,67 @@ final class ConfigColumnExtractor
                 'value' => (string) $key,
                 'label' => $source !== '' ? (string) $key.' ('.$source.')' : (string) $key,
                 'has_ai' => $hasAi,
+                'source' => $source,
             ];
         }
 
         usort($columns, static fn (array $a, array $b): int => strcmp($a['label'], $b['label']));
 
         return $columns;
+    }
+
+    /**
+     * Colonne STATIQUE : ni colonne source ni action, seulement une valeur par
+     * défaut (ex. `supplier: {default: "SOMFY"}`). Rien à calculer : elle est
+     * toujours écrite en staging, quelle que soit la sélection de colonnes.
+     */
+    public static function isStatic(mixed $columnConfig): bool
+    {
+        if (! is_array($columnConfig)) {
+            return false;
+        }
+
+        return empty($columnConfig['col'])
+            && self::actionsOf($columnConfig) === []
+            && array_key_exists('default', $columnConfig);
+    }
+
+    /** La colonne déclenche-t-elle au moins un appel IA (`llm_transform`) ? */
+    public static function usesAi(mixed $columnConfig): bool
+    {
+        if (! is_array($columnConfig)) {
+            return false;
+        }
+
+        foreach (self::actionsOf($columnConfig) as $action) {
+            if (is_array($action) && ($action['type'] ?? null) === 'llm_transform') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Colonnes statiques d'une config : `[clé => valeur par défaut]`.
+     *
+     * @return array<string, string>
+     */
+    public static function staticColumns(?ImporterConfig $config): array
+    {
+        if (! $config) {
+            return [];
+        }
+
+        $out = [];
+        foreach (self::mappingOf($config) as $key => $columnConfig) {
+            if (self::isStatic($columnConfig)) {
+                $default = $columnConfig['default'];
+                $out[(string) $key] = is_scalar($default) ? (string) $default : (string) json_encode($default, JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -123,7 +178,7 @@ final class ConfigColumnExtractor
             $data = $data->getArrayCopy();
         }
 
-        return is_array($data) ? (array) ($data['mapping'] ?? []) : [];
+        return is_array($data) ? MappingOrder::declared($data) : [];
     }
 
     /**

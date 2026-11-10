@@ -49,7 +49,11 @@ final class ProductFieldCatalog
             'Stock' => [
                 'stock' => 'Stock',
                 'min_quantity' => 'Quantité minimale de commande',
+            ],
+            'Frais de port' => [
                 'port_mode' => 'Facturation du port (inherit/standard/flat/free/quote)',
+                'transport_price_cents' => 'Forfait transport (cents HT, remplace le forfait existant)',
+                'logistics_class' => 'Classe logistique (A/B/C, ancien format)',
             ],
             'Dimensions' => [
                 'weight_value' => 'Poids',
@@ -73,6 +77,7 @@ final class ProductFieldCatalog
                 'features' => 'Caractéristiques',
                 'images' => 'Images',
                 'image_alt' => 'Texte alternatif des images',
+                'replace_images' => 'Remplacer les images existantes (0/1)',
                 'videos' => 'Vidéos',
                 'documents' => 'Documents (notices, brochures)',
             ],
@@ -125,6 +130,7 @@ final class ProductFieldCatalog
         'link_rewrite' => 'URL (slug)',
         'image' => 'Images',
         'image_alt' => 'Alt images',
+        'attachments' => 'Documents (notices, brochures)',
         'width' => 'Largeur',
         'height' => 'Hauteur',
         'depth' => 'Profondeur',
@@ -149,6 +155,6 @@ final class ProductFieldCatalog
         'delivery_in_stock' => 'Livraison (en stock)',
         'delivery_out_stock' => 'Livraison (rupture)',
         'delete_existing_images' => 'Supprimer images existantes',
-        'additional_shipping_cost' => 'Frais de port additionnels',
+        'additional_shipping_cost' => 'Forfait transport (euros)',
     ];
 }

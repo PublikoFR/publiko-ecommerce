@@ -56,7 +56,7 @@ class PreviewConfigCommand extends Command
         LlmTransformAction::flushConfigCache();
         $parser->load($file, $configArr);
         $primary = $parser->primarySheetName();
-        $mapping = MappingOrder::sorted((array) ($configArr['mapping'] ?? []));
+        $mapping = MappingOrder::sorted(MappingOrder::declared($configArr));
         $joinKey = $parser->joinKeyName();
 
         $placeholder = new ImportJob;

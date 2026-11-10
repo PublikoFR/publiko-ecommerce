@@ -364,6 +364,55 @@ class ActionTypesTest extends TestCase
         $this->assertSame(3, $action->execute(null, $this->ctx([], $sheets)));
     }
 
+    public function test_multiline_aggregate_sum_adds_filtered_values(): void
+    {
+        // Feuille réglementaire FAB-DIS : l'éco-participation est la somme des
+        // lignes CONTRIB (DEEE, mobilier…), pas « la première ligne ».
+        $sheets = [
+            'B04' => [
+                ['RTYP' => 'ROHS', 'RVAL' => ''],
+                ['RTYP' => 'CONTRIB', 'RVAL' => 0.16],
+                ['RTYP' => 'BATTERY', 'RVAL' => 23],
+                ['RTYP' => 'CONTRIB', 'RVAL' => '1,20'],
+            ],
+        ];
+
+        $sum = fn (?string $filter): mixed => Action::make([
+            'type' => 'multiline_aggregate', 'sheet' => 'B04', 'method' => 'sum',
+            'filter_type' => $filter, 'type_col' => 'RTYP', 'columns' => ['RVAL'],
+        ])->execute(null, $this->ctx([], $sheets));
+
+        $this->assertSame(1.36, $sum('CONTRIB'));
+        // Aucune ligne du type, ou aucune valeur : null (jamais 0 — une éco-taxe
+        // absente ne doit pas écraser celle en base).
+        $this->assertNull($sum('PEP'));
+        $this->assertNull($sum('ROHS'));
+    }
+
+    public function test_multiline_aggregate_first_and_last_return_the_value_of_a_single_column(): void
+    {
+        $sheets = ['X' => [['foo' => 'a', 'bar' => 1], ['foo' => 'b', 'bar' => 2]]];
+        $run = fn (string $method, array $columns): mixed => Action::make([
+            'type' => 'multiline_aggregate', 'sheet' => 'X', 'method' => $method, 'columns' => $columns,
+        ])->execute(null, $this->ctx([], $sheets));
+
+        $this->assertSame('a', $run('first', ['foo']));
+        $this->assertSame('b', $run('last', ['foo']));
+        // Plusieurs colonnes : la ligne extraite, comme avant.
+        $this->assertSame(['foo' => 'a', 'bar' => 1], $run('first', ['foo', 'bar']));
+    }
+
+    public function test_multiline_aggregate_template_formats_each_row(): void
+    {
+        $sheets = ['X' => [['N' => 'u1', 'L' => 'alt 1'], ['N' => 'u2', 'L' => 'alt 2']]];
+        $action = Action::make([
+            'type' => 'multiline_aggregate', 'sheet' => 'X', 'method' => 'template',
+            'separator' => ',', 'row_template' => '{N}:{L}',
+        ]);
+
+        $this->assertSame('u1:alt 1,u2:alt 2', $action->execute(null, $this->ctx([], $sheets)));
+    }
+
     public function test_multiline_aggregate_filter_type_accepts_csv(): void
     {
         $sheets = [

@@ -102,8 +102,29 @@ fichier distant (URL) **dans la médiathèque custom** (média Spatie possédé 
 `TomatoPHP\FilamentMediaManager\Models\Folder`, `collection = folder.collection`),
 avec **déduplication à deux niveaux** stockée en `custom_properties` :
 
-1. `source_url` — réutilise le média si la même URL a déjà été importée (zéro re-download).
-2. `sha1` — réutilise si le même binaire existe déjà (même image, URL différente) — calculé après download.
+1. **URL** — `source_url` (URL d'origine) + `source_keys` (clés normalisées par `urlKey()` :
+   sans schéma, domaine en minuscules sans `www.`, sans port par défaut ni ancre ; le chemin
+   et la query string sont conservés). Une variante `http`/`https` ou un `#ancre` désigne donc
+   le même média (zéro re-download).
+2. **`sha1`** — réutilise si le même binaire existe déjà sous une autre URL (calculé après
+   download). L'URL est alors **ajoutée aux `source_keys`** du média existant : les imports
+   suivants ne la retéléchargent plus (avant 2026-11, chaque import retéléchargeait le fichier
+   pour constater à nouveau le doublon). Un média **déposé à la main** n'a pas d'empreinte :
+   les médias de même taille sans `sha1` (20 au plus) voient leur empreinte calculée et
+   mémorisée à la volée, puis comparée.
+
+Règles (décisions 2026-11) :
+
+- **Bibliothèque uniquement** : seuls les médias possédés par un `Folder` sont réutilisés. Un
+  média Spatie possédé par une catégorie ou un produit disparaît avec son propriétaire ; le
+  partager casserait la galerie d'un autre produit.
+- **Mémo par instance** : une URL déjà résolue, ou déjà en échec, n'est ni recherchée ni
+  retéléchargée tant que l'objet vit. Garder **une instance par import** (le writer le fait).
+  Une notice introuvable référencée par 200 produits coûtait 200 × 20 s de timeout.
+- **`lastError()`** : motif du dernier échec (`HTTP 404`, type de fichier non autorisé, fichier
+  trop volumineux…), à journaliser par l'appelant. `null` après un succès.
+- Rejeté : une colonne générée indexée sur `source_url`. La recherche JSON suffit au volume
+  actuel (quelques milliers de médias) ; à revoir au-delà de ~50 000 lignes dans `media`.
 
 API :
 ```php

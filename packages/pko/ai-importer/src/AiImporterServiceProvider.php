@@ -14,6 +14,7 @@ use Pko\AiImporter\Console\PreviewConfigCommand;
 use Pko\AiImporter\Console\RunScheduledImportsCommand;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages\CreateImporterConfig;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource\Pages\EditImporterConfig;
+use Pko\AiImporter\Http\Middleware\RaiseStaffUploadLimit;
 use Pko\AiImporter\Services\ActionPipeline;
 
 class AiImporterServiceProvider extends ServiceProvider
@@ -35,6 +36,17 @@ class AiImporterServiceProvider extends ServiceProvider
         ], 'ai-importer-config');
 
         ActionRegistry::bootDefaults();
+
+        // Envoi de gros fichiers fournisseurs : la limite Livewire (12 Mo) est relevée
+        // pour le personnel connecté uniquement — cf. RaiseStaffUploadLimit. On ajoute
+        // le middleware à ceux déjà configurés (throttle par défaut), sans les remplacer.
+        // Sans objet si l'application a défini ses propres règles d'envoi.
+        if (config('livewire.temporary_file_upload.rules') === null) {
+            $middleware = (array) (config('livewire.temporary_file_upload.middleware') ?? 'throttle:60,1');
+            if (! in_array(RaiseStaffUploadLimit::class, $middleware, true)) {
+                config(['livewire.temporary_file_upload.middleware' => [...$middleware, RaiseStaffUploadLimit::class]]);
+            }
+        }
 
         // Éditeur de pipeline custom (modal « Configurer ») : on injecte le moteur
         // JS lifté + le CSS + les globals (palette, opérateurs…) dans le HTML

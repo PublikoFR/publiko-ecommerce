@@ -18,7 +18,7 @@ enum StagingStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Pending => 'À valider',
+            self::Pending => 'À importer',
             self::Validated => 'Validé',
             self::Created => 'Créé',
             self::Updated => 'Mis à jour',

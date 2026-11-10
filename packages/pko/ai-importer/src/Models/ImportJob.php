@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Lunar\Admin\Models\Staff;
 use Pko\AiImporter\Enums\ErrorPolicy;
+use Pko\AiImporter\Enums\FlowState;
 use Pko\AiImporter\Enums\ImportStatus;
 use Pko\AiImporter\Enums\JobStatus;
 use Pko\AiImporter\Enums\StagingStatus;
@@ -89,6 +90,55 @@ class ImportJob extends Model
         return $this->hasMany(ImportLog::class, 'import_job_id');
     }
 
+    /** État lisible de l'import (étape + situation), dérivé des deux statuts. */
+    public function flowState(): FlowState
+    {
+        return FlowState::of($this->status, $this->import_status);
+    }
+
+    /** Nom affiché : nom saisi (CSV préparé), sinon configuration, sinon « Import ». */
+    public function displayName(): string
+    {
+        $name = trim((string) ($this->options['import_name'] ?? ''));
+
+        return $name !== '' ? $name : ($this->config?->name ?? 'Import');
+    }
+
+    public function sourceFilename(): ?string
+    {
+        return filled($this->input_file_path) ? basename((string) $this->input_file_path) : null;
+    }
+
+    /** Lignes encore à écrire dans le catalogue (à vérifier, validées, avertissements). */
+    public function remainingRows(): int
+    {
+        return $this->stagingRecords()
+            ->whereIn('status', [StagingStatus::Pending->value, StagingStatus::Validated->value, StagingStatus::Warning->value])
+            ->count();
+    }
+
+    /**
+     * Références portées par plusieurs lignes à importer : elles viseraient le
+     * même produit, chaque ligne écrasant la précédente. Signe habituel d'une
+     * colonne de référence mal lue (toutes les lignes à « SOM », par exemple).
+     *
+     * @return array<string, int> référence → nombre de lignes (les plus fréquentes d'abord)
+     */
+    public function duplicateReferences(int $limit = 3): array
+    {
+        return $this->stagingRecords()
+            ->whereIn('status', [StagingStatus::Pending->value, StagingStatus::Validated->value, StagingStatus::Warning->value])
+            ->selectRaw("JSON_UNQUOTE(JSON_EXTRACT(data, '$.reference')) as ref, COUNT(*) as aggregate")
+            ->groupBy('ref')
+            ->havingRaw('COUNT(*) > 1')
+            ->havingRaw("ref IS NOT NULL AND ref <> '' AND ref <> 'null'")
+            ->orderByDesc('aggregate')
+            ->limit($limit)
+            ->pluck('aggregate', 'ref')
+            ->map(fn ($count): int => (int) $count)
+            ->all();
+    }
+
     public function progressPercentage(): int
     {
         if (! $this->total_rows || $this->total_rows < 1) {
@@ -103,7 +153,7 @@ class ImportJob extends Model
      * portage du bandeau PrestaShop (Total / En attente / Importé /
      * Avertissements / Erreurs). Une seule requête GROUP BY.
      *
-     * @return array{total:int, pending:int, imported:int, warning:int, error:int, skipped:int}
+     * @return array{total:int, pending:int, created:int, updated:int, imported:int, warning:int, error:int, skipped:int}
      */
     public function stagingStatusCounts(): array
     {
@@ -118,6 +168,8 @@ class ImportJob extends Model
         return [
             'total' => (int) $byStatus->sum(),
             'pending' => $count(StagingStatus::Pending, StagingStatus::Validated),
+            'created' => $count(StagingStatus::Created),
+            'updated' => $count(StagingStatus::Updated, StagingStatus::Imported),
             'imported' => $count(StagingStatus::Imported, StagingStatus::Created, StagingStatus::Updated),
             'warning' => $count(StagingStatus::Warning),
             'error' => $count(StagingStatus::Error),

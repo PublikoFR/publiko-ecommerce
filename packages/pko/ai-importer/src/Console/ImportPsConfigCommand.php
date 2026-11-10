@@ -186,6 +186,13 @@ class ImportPsConfigCommand extends Command
             }
         }
 
+        // Ordre des colonnes du fichier JSON, conservé à part : la colonne JSON de
+        // MySQL réordonne les clés du mapping (cf. MappingOrder::declared()). Un
+        // `mapping_order` déjà présent (config exportée d'ici) est repris tel quel.
+        if (empty($data['mapping_order']) || ! is_array($data['mapping_order'])) {
+            $data['mapping_order'] = array_map('strval', array_keys((array) ($data['mapping'] ?? [])));
+        }
+
         $ai = (array) ($data['ai'] ?? []);
         if (array_key_exists('llm_global_context', $data)) {
             $context = $data['llm_global_context'];
