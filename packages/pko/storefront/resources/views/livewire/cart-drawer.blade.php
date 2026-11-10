@@ -106,6 +106,11 @@
                             <span>-{{ $discountTotal }}</span>
                         </div>
                     @endif
+                    @if ($advantage)
+                        <div class="pt-1">
+                            @include('customer-auth::partials.cart-advantage', ['advantage' => $advantage])
+                        </div>
+                    @endif
                     @if ($total)
                         <div class="flex justify-between items-baseline pt-2 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $total }}</span></div>
                     @endif

@@ -8,7 +8,6 @@ use Lunar\Actions\Carts\GetExistingCartLine;
 use Lunar\Actions\Carts\RemovePurchasable;
 use Lunar\Actions\Carts\SetShippingOption;
 use Lunar\Actions\Carts\UpdateCartLine;
-use Lunar\Pipelines\Cart\ApplyDiscounts;
 use Lunar\Pipelines\Cart\ApplyShipping;
 use Lunar\Pipelines\Cart\Calculate;
 use Lunar\Pipelines\Cart\CalculateLines;
@@ -21,6 +20,7 @@ use Lunar\Validation\Cart\ShippingOptionValidator;
 use Lunar\Validation\Cart\ValidateCartForOrderCreation;
 use Lunar\Validation\CartLine\CartLineQuantity;
 use Lunar\Validation\CartLine\CartLineStock;
+use Pko\CustomerAuth\Pricing\ApplyDiscountsWithCustomerPricing;
 
 return [
     /*
@@ -64,7 +64,9 @@ return [
         'cart' => [
             CalculateLines::class,
             ApplyShipping::class,
-            ApplyDiscounts::class,
+            // Remplace ApplyDiscounts : non-cumul remise client % / promotions
+            // (cf. docs/packages/customer-auth.md).
+            ApplyDiscountsWithCustomerPricing::class,
             CalculateTax::class,
             Calculate::class,
         ],

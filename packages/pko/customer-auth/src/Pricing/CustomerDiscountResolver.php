@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\CustomerAuth\Pricing;
 
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Lunar\Facades\Pricing;
@@ -52,6 +53,9 @@ class CustomerDiscountResolver
     private array $negotiated = [];
 
     private ?CustomerPriceBreakdown $last = null;
+
+    /** Remise % suspendue (calcul du panier « promotions » par CartDiscountArbiter). */
+    private bool $percentSuspended = false;
 
     /**
      * Prix client détaillé d'une variante. Passe par le PricingManager Lunar (donc
@@ -106,7 +110,7 @@ class CustomerDiscountResolver
             $source = CustomerPriceBreakdown::SOURCE_NEGOTIATED;
         }
 
-        $bp = $this->bestBasisPoints($variant, $customerIds);
+        $bp = $this->percentSuspended ? null : $this->bestBasisPoints($variant, $customerIds);
         $discounted = null;
         if ($bp !== null) {
             $discounted = self::applyBasisPoints($resolvedCents, $bp);
@@ -163,6 +167,33 @@ class CustomerDiscountResolver
         }
 
         return $best > 0 ? $best : null;
+    }
+
+    /**
+     * Exécute $callback avec la remise client % désactivée (prix négocié conservé) :
+     * sert à calculer le prix « non remisé » sur lequel s'appliquent les promotions.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public function withoutPercentDiscount(Closure $callback): mixed
+    {
+        $previous = $this->percentSuspended;
+        $this->percentSuspended = true;
+
+        try {
+            return $callback();
+        } finally {
+            $this->percentSuspended = $previous;
+        }
+    }
+
+    /** @param  list<int>  $customerIds */
+    public function hasDiscounts(array $customerIds): bool
+    {
+        return $this->discountsFor($customerIds) !== null;
     }
 
     /** @return list<int> */
