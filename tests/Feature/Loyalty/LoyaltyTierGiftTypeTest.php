@@ -9,6 +9,7 @@ use Database\Seeders\DatabaseSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Lunar\Admin\Models\Staff;
 use Lunar\Models\Customer;
@@ -48,14 +49,13 @@ class LoyaltyTierGiftTypeTest extends TestCase
     {
         $this->actingAsStaff();
 
-        Livewire::test(CreateLoyaltyTier::class)
-            ->fillForm([
-                'name' => 'Platine',
-                'points_required' => 5000,
-                'gift_type' => GiftType::Voucher->value,
-                'voucher_amount' => '75.50',
-                'active' => true,
-            ])
+        $this->fill(Livewire::test(CreateLoyaltyTier::class), [
+            'name' => 'Platine',
+            'points_required' => 5000,
+            'gift_type' => GiftType::Voucher->value,
+            'voucher_amount' => '75.50',
+            'active' => true,
+        ])
             ->assertFormFieldIsVisible('voucher_amount')
             ->assertFormFieldIsHidden('franco_threshold')
             ->assertFormFieldIsHidden('bfa_percent')
@@ -71,13 +71,12 @@ class LoyaltyTierGiftTypeTest extends TestCase
     {
         $this->actingAsStaff();
 
-        Livewire::test(CreateLoyaltyTier::class)
-            ->fillForm([
-                'name' => 'Sans montant',
-                'points_required' => 10,
-                'gift_type' => GiftType::Voucher->value,
-                'voucher_amount' => null,
-            ])
+        $this->fill(Livewire::test(CreateLoyaltyTier::class), [
+            'name' => 'Sans montant',
+            'points_required' => 10,
+            'gift_type' => GiftType::Voucher->value,
+            'voucher_amount' => null,
+        ])
             ->call('create')
             ->assertHasFormErrors(['voucher_amount' => 'required']);
     }
@@ -93,13 +92,15 @@ class LoyaltyTierGiftTypeTest extends TestCase
             'active' => true,
         ]);
 
-        Livewire::test(EditLoyaltyTier::class, ['record' => $tier->getRouteKey()])
-            ->assertFormSet(['voucher_amount' => '100.00'])
-            ->fillForm([
-                'gift_type' => GiftType::Bfa->value,
-                'bfa_fixed_amount' => '150',
-                'bfa_percent' => '2.5',
-            ])
+        $page = Livewire::test(EditLoyaltyTier::class, ['record' => $tier->getRouteKey()])
+            ->assertFormSet(['voucher_amount' => '100.00']);
+
+        $this->fill($page, [
+            'gift_type' => GiftType::Bfa->value,
+            'bfa_fixed_amount' => '150',
+            'bfa_percent' => '2.5',
+        ])
+            ->assertFormFieldIsHidden('voucher_amount')
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -144,6 +145,24 @@ class LoyaltyTierGiftTypeTest extends TestCase
             ->assertSee("Bon d'achat de 50 € HT")
             ->assertSee($voucher['expires_at']->format('d/m/Y'))
             ->assertSee('Valable');
+    }
+
+    /**
+     * Renseigne le formulaire champ par champ, comme la saisie en admin (le
+     * Select `gift_type` est live). `fillForm()` de Filament ne fait rien quand
+     * l'application ne se déclare pas en environnement `testing` (conteneur de
+     * dev : APP_ENV=local est une variable réelle que phpunit.xml ne surcharge
+     * pas, donc `runningUnitTests()` est faux).
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function fill(Testable $page, array $state): Testable
+    {
+        foreach ($state as $key => $value) {
+            $page->set('data.'.$key, $value);
+        }
+
+        return $page;
     }
 
     private function actingAsStaff(): void
