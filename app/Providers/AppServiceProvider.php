@@ -85,7 +85,9 @@ use Pko\AiImporter\Filament\AiImporterPlugin;
 use Pko\CatalogFeatures\Filament\CatalogFeaturesPlugin;
 use Pko\CatalogFeatures\Filament\Extensions\BrandReferencePrefixExtension;
 use Pko\CatalogFeatures\Filament\Extensions\ProductFeaturesExtension;
+use Pko\CustomerAuth\Filament\CustomerAuthPlugin;
 use Pko\CustomerAuth\Filament\Extensions\CustomerCreateExtension;
+use Pko\CustomerAuth\Filament\Extensions\CustomerDiscountsExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerProfileExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerSiretExtension;
 use Pko\CustomerAuth\Filament\Extensions\CustomerValidationExtension;
@@ -202,6 +204,7 @@ class AppServiceProvider extends ServiceProvider
                 // 2026_07_31_120000_retire_legacy_table_rate_shipping_methods.
                 ->plugin(TransportersPlugin::make())
                 ->plugin(CatalogFeaturesPlugin::make())
+                ->plugin(CustomerAuthPlugin::make())
                 ->plugin(ProductDocumentsPlugin::make())
                 ->plugin(AiImporterPlugin::make())
                 ->plugin(LoyaltyPlugin::make())
@@ -236,6 +239,8 @@ class AppServiceProvider extends ServiceProvider
             // keyées sur les classes Pko (resource + pages), sinon elles n'appliquent plus.
             PkoCustomerResource::class => [
                 CustomerProfileExtension::class,
+                // Onglet « Remises », après « Prix négociés » (relations par défaut).
+                CustomerDiscountsExtension::class,
                 CustomerLoyaltyExtension::class,
                 CustomerAnonymizeExtension::class,
                 // Après CustomerAnonymizeExtension, qui remplace les actions groupées.

@@ -31,6 +31,7 @@ use Pko\AdminNav\Filament\Resources\PkoTagResource;
 use Pko\AiImporter\Filament\Resources\ImporterConfigResource;
 use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
+use Pko\CustomerAuth\Filament\Resources\CustomerDiscountResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
 use Pko\MailTemplates\Filament\Resources\MailTemplateResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
@@ -86,10 +87,11 @@ class Builder
         return array_values(array_filter([
             self::resItem(PkoCustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
             self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(2),
-            self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(3),
-            self::resItem(QuoteRequestResource::class, 'heroicon-o-clipboard-document-list', 'Demandes de devis')?->sort(4),
-            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(5),
-            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(6),
+            self::resItem(CustomerDiscountResource::class, 'heroicon-o-receipt-percent', 'Remises clients')?->sort(3),
+            self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(4),
+            self::resItem(QuoteRequestResource::class, 'heroicon-o-clipboard-document-list', 'Demandes de devis')?->sort(5),
+            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(6),
+            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(7),
         ]));
     }
 

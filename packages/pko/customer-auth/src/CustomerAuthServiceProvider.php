@@ -22,6 +22,7 @@ use Pko\CustomerAuth\Observers\CustomerActivationObserver;
 use Pko\CustomerAuth\Observers\CustomerGroupHandleObserver;
 use Pko\CustomerAuth\Pricing\CustomerDiscountResolver;
 use Pko\CustomerAuth\Sirene\SireneClient;
+use Pko\CustomerAuth\Support\CustomerDiscountTargets;
 
 class CustomerAuthServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,9 @@ class CustomerAuthServiceProvider extends ServiceProvider
         // Une instance par requête / job : mémorise les remises du client et les
         // cibles produit (pas de N+1 sur les listings), sans fuite entre requêtes.
         $this->app->scoped(CustomerDiscountResolver::class);
+
+        // Libellés des cibles de remise (back-office), chargés une fois par requête.
+        $this->app->scoped(CustomerDiscountTargets::class);
     }
 
     public function boot(Router $router): void

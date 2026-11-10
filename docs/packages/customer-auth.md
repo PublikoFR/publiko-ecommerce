@@ -56,6 +56,27 @@ Règles :
 - **Produit non remisable** : colonne `lunar_products.pko_not_discountable` (bool, défaut
   `false`). Aucune remise % ; le prix négocié reste applicable.
 
+## Back-office
+
+- **Fiche client → onglet « Remises »** : `CustomerDiscountsRelationManager`, ajouté par
+  `CustomerDiscountsExtension` (ResourceExtension sur `PkoCustomerResource`, après « Prix
+  négociés »). Éditable depuis la page View (`isReadOnly()` forcé à `false` : Filament rend
+  sinon les relation managers en lecture seule sur une page View).
+- **Ventes & Clients → « Remises clients »** : `CustomerDiscountResource` (page unique
+  `ManageRecords`, édition en modale), enregistrée par `CustomerAuthPlugin`. Vue de toutes les
+  remises tous clients confondus, filtres client / type + cible, recherche par client.
+  Policy Shield `App\Policies\CustomerDiscountPolicy` (permissions `*_customer::discount`).
+- Formulaire et colonnes partagés : `CustomerDiscountResource::targetFields()` /
+  `discountColumns()`. Validation : `0 < % ≤ 100`, 2 décimales max, unicité
+  client + type + cible (même règle que l'index unique SQL).
+- Libellés des cibles : `Pko\CustomerAuth\Support\CustomerDiscountTargets` (scoped, une
+  requête par type et par requête HTTP). Collections = chemin complet « Famille › Sous-famille ›
+  Sous-sous-famille » dans l'ordre de l'arbre, groupé par groupe de collections ; familles
+  fabricant = « Marque · CODE — Libellé » (lecture directe de `pko_brand_families`, sans
+  dépendance de classe vers `pko/catalog-features`).
+- **Fiche produit** (`EditProductUnified`, carte Organisation) : interrupteur « Non remisable »
+  → `lunar_products.pko_not_discountable`.
+
 ## Exposer le détail (prix barré, badge, non-cumul)
 
 ```php
@@ -95,5 +116,6 @@ requête ; sinon 2 requêtes par produit, une seule fois par requête HTTP.
 ## Tests
 
 `tests/Feature/CustomerAuth/CustomerDiscountTest.php` (héritage d'arbre, plus forte gagne,
-min avec prix négocié, non remisable, client sans remise, absence de N+1) et
-`NegotiatedPriceTest.php`.
+min avec prix négocié, non remisable, client sans remise, absence de N+1),
+`CustomerDiscountAdminTest.php` (onglet client, vue globale, validation, doublons, case
+produit) et `NegotiatedPriceTest.php`.
