@@ -22,6 +22,7 @@ use Pko\QuoteRequests\Enums\QuoteRequestStatus;
  * @property string $email
  * @property string|null $phone
  * @property string|null $postcode
+ * @property string|null $subject
  * @property string $message
  * @property array<int, array{label: string, quantity: int}>|null $lines
  * @property int|null $product_id
@@ -83,10 +84,10 @@ class QuoteRequest extends Model
         return $this->belongsTo(Customer::modelClass(), 'customer_id');
     }
 
-    /** Numéro lisible, stable (dérivé de l'id) : « DEV-000042 ». */
+    /** Numéro lisible, stable (dérivé du type et de l'id) : « DEV-000042 », « MSG-000043 ». */
     public function number(): string
     {
-        return 'DEV-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+        return $this->mode->numberPrefix().'-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
     }
 
     /** Libellé du produit d'origine, figé à la création (cf. context). */

@@ -124,7 +124,7 @@ final class StoreQuoteRequest
         OnceMailer::send(new QuoteRequestReceivedMail($request), $request->email, $request);
     }
 
-    private static function customerId(?Authenticatable $user): ?int
+    public static function customerId(?Authenticatable $user): ?int
     {
         $customer = $user !== null && method_exists($user, 'latestCustomer') ? $user->latestCustomer() : null;
 

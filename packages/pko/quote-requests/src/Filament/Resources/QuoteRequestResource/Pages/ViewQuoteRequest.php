@@ -9,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Contracts\Support\Htmlable;
+use Pko\QuoteRequests\Enums\QuoteRequestMode;
 use Pko\QuoteRequests\Enums\QuoteRequestStatus;
 use Pko\QuoteRequests\Filament\Resources\QuoteRequestResource;
 use Pko\QuoteRequests\Models\QuoteRequest;
@@ -22,7 +23,9 @@ class ViewQuoteRequest extends ViewRecord
 
     public function getTitle(): string|Htmlable
     {
-        return 'Demande '.$this->record->number();
+        $kind = $this->record->mode === QuoteRequestMode::Contact ? 'Message ' : 'Demande ';
+
+        return $kind.$this->record->number();
     }
 
     public function getSubheading(): string|Htmlable|null
@@ -59,7 +62,9 @@ class ViewQuoteRequest extends ViewRecord
                 ->label('Répondre par e-mail')
                 ->icon('heroicon-o-envelope')
                 ->color('gray')
-                ->url(fn (): string => 'mailto:'.$this->record->email.'?subject='.rawurlencode('Votre demande '.$this->record->number())),
+                ->url(fn (): string => 'mailto:'.$this->record->email.'?subject='.rawurlencode(
+                    $this->record->subject ? 'Re : '.$this->record->subject : 'Votre demande '.$this->record->number()
+                )),
         ];
     }
 }

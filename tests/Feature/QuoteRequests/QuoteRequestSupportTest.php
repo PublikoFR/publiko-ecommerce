@@ -150,7 +150,7 @@ class QuoteRequestSupportTest extends TestCase
         $this->assertStringContainsString('Plaque illisible.', $html);
         // Plus de bloc « Produits / quantités » dans le mail équipe.
         $this->assertStringNotContainsString('Produits / quantités', $html);
-        $this->assertStringContainsString('/quote-requests/'.$request->id, $html);
+        $this->assertStringContainsString('/admin/contacts/'.$request->id, $html);
         $this->assertStringNotContainsString('<b>Martin</b>', $html);
         $this->assertTrue($admin->hasReplyTo('camille@example.test'));
 

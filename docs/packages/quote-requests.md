@@ -3,7 +3,7 @@
 Un seul parcours pour tous les CTA « Demander un devis », « Devis pour un projet »
 et « Identification d'une pièce ». Page publique Livewire `/demande-de-devis`
 (route `quote-request`), demandes persistées et suivies en back-office
-(Ventes & Clients → Demandes de devis). Aucun prix n'est affiché dans ce parcours.
+(Ventes & Clients → Contacts). Aucun prix n'est affiché dans ce parcours.
 
 ## Modes
 
@@ -27,6 +27,26 @@ s'il n'avait pas été retouché.
 
 Le mode est synchronisé dans l'URL (`#[Url]`). Changer de mode (`setMode()`)
 ne touche à aucune donnée saisie. Mode inconnu → `general`.
+
+### Messages du formulaire de contact (`contact`)
+
+Décision (10/11/2026, demande client) : les messages du formulaire de contact
+classique (`/contact`, `App\Livewire\ContactPage`) sont **aussi enregistrés**
+dans `pko_quote_requests`, mode `contact`, pour être suivis et marqués comme
+traités dans la même page admin « Contacts » que les devis. Une table et une
+Resource séparées ont été écartées : l'équipe veut une seule boîte de
+réception, avec le même statut et le même badge.
+
+- `Actions\StoreContactMessage` enregistre le message (objet dans la colonne
+  `subject`, client/utilisateur connecté rattachés), **avant** l'e-mail
+  `App\Mail\ContactMessage` à la boutique, inchangé. Un échec d'envoi est
+  `report()` sans erreur visible : le message est déjà en base, le visiteur ne
+  doit pas renvoyer (doublon).
+- Le mode `contact` n'est **jamais** un onglet du formulaire de devis :
+  `formModes()` (onglets) l'exclut et `fromQuery('contact')` retombe sur
+  `general`. `cases()` / `options()` l'incluent (filtre admin).
+- Numéro `MSG-000043` au lieu de `DEV-…` (`QuoteRequestMode::numberPrefix()`).
+- Pas d'accusé de réception ni de pièce jointe pour ce mode.
 
 ## Contexte d'origine et URL
 
@@ -56,12 +76,12 @@ Dans un fichier de config (chargé avant les helpers), écrire l'URL en dur :
 
 | Table | Contenu |
 |---|---|
-| `pko_quote_requests` | mode, statut (`new` / `in_progress` / `done`), coordonnées copiées, message, `lines` (JSON `{label, quantity}`), `product_id`, `product_variant_id`, `reference`, `collection`, `from_url`, `context` (JSON : nom produit, URL produit, nom catégorie figés), `customer_id`, `user_id`, `ip`, `admin_notes` |
+| `pko_quote_requests` | mode, statut (`new` / `in_progress` / `done`), coordonnées copiées, `subject` (objet, formulaire de contact uniquement), message, `lines` (JSON `{label, quantity}`), `product_id`, `product_variant_id`, `reference`, `collection`, `from_url`, `context` (JSON : nom produit, URL produit, nom catégorie figés), `customer_id`, `user_id`, `ip`, `admin_notes` |
 | `pko_quote_request_files` | pièces jointes : `disk`, `path`, `original_name`, `mime_type` **détecté**, `size` |
 
 Les coordonnées sont **copiées** même si le client est connecté : la demande
 reste lisible si le compte change ou est anonymisé. Numéro affiché :
-`DEV-000042` (dérivé de l'id, jamais d'un COUNT).
+`DEV-000042` (`MSG-000042` pour un message de contact), dérivé de l'id, jamais d'un COUNT.
 
 ## Pièces jointes
 
@@ -135,14 +155,21 @@ back-office (Configuration → E-mails).
 
 ## Admin
 
-`QuoteRequestResource` (plugin `QuoteRequestsPlugin`, groupe Ventes & Clients via
-`lunar-admin-nav`) : liste filtrable par type et statut, badge du nombre de
-demandes nouvelles. Fiche en deux colonnes : à gauche le contenu à chiffrer
+`QuoteRequestResource` (plugin `QuoteRequestsPlugin`, entrée « Contacts » du
+groupe Ventes & Clients via `lunar-admin-nav`, slug **`/admin/contacts`**) :
+liste filtrable par type (devis, identification de pièce, message de contact)
+et statut, badge du nombre de demandes nouvelles, colonne « Objet / produit »
+(objet du message ou référence produit). Action de ligne « Marquer traitée » et
+action groupée « Marquer comme traitées » (policy `update` vérifiée ligne par
+ligne). L'ancien slug `quote-requests` redirige en 301 (`routes/web.php`) pour
+les liens des e-mails équipe déjà envoyés ; les routes de fichiers gardent leur
+chemin `/admin/quote-requests/files/…`. Fiche en deux colonnes : à gauche le contenu à chiffrer
 (message, photos en miniatures ouvrables en lightbox avec navigation clavier,
 autres fichiers en cartes téléchargeables, produits et quantités, contexte
 d'origine, notes internes), à droite le suivi (statut, type, date) et le contact
 en libellés en ligne. Les sections produits et contexte sont masquées quand
-elles sont vides. Actions « Changer le statut » (+ notes internes) et
+elles sont vides, la section pièces jointes l'est pour un message de contact
+sans fichier ; l'objet du message s'affiche sous « Message du client ». Actions « Changer le statut » (+ notes internes) et
 « Répondre par e-mail ». Pas de création depuis l'admin.
 
 ### Policies

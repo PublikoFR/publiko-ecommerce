@@ -11,24 +11,32 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use Pko\QuoteRequests\Enums\QuoteRequestMode;
 use Pko\QuoteRequests\Enums\QuoteRequestStatus;
 use Pko\QuoteRequests\Filament\Resources\QuoteRequestResource\Pages;
 use Pko\QuoteRequests\Models\QuoteRequest;
 
+/**
+ * Page admin « Contacts » : demandes de devis, identifications de pièce et
+ * messages du formulaire de contact classique, suivis avec un même statut.
+ */
 class QuoteRequestResource extends Resource
 {
     protected static ?string $model = QuoteRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $slug = 'quote-requests';
+    protected static ?string $slug = 'contacts';
 
     protected static ?int $navigationSort = 4;
 
@@ -92,10 +100,11 @@ class QuoteRequestResource extends Resource
                     ->searchable(['name', 'company', 'email']),
                 TextColumn::make('email')->label('E-mail')->copyable()->toggleable(),
                 TextColumn::make('reference')
-                    ->label('Produit / réf.')
-                    ->state(fn (QuoteRequest $record): ?string => $record->reference ?? $record->productLabel())
+                    ->label('Objet / produit')
+                    ->state(fn (QuoteRequest $record): ?string => $record->subject ?? $record->reference ?? $record->productLabel())
                     ->placeholder('—')
-                    ->searchable(['reference'])
+                    ->limit(60)
+                    ->searchable(['subject', 'reference'])
                     ->toggleable(),
                 TextColumn::make('files_count')->label('PJ')->alignCenter()->placeholder('0'),
             ])
@@ -103,7 +112,32 @@ class QuoteRequestResource extends Resource
                 SelectFilter::make('mode')->label('Type')->options(QuoteRequestMode::options()),
                 SelectFilter::make('status')->label('Statut')->options(QuoteRequestStatus::options()),
             ])
-            ->actions([ViewAction::make()]);
+            ->actions([
+                ViewAction::make(),
+                Action::make('markDone')
+                    ->label('Marquer traitée')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (QuoteRequest $record): bool => $record->status !== QuoteRequestStatus::Done && static::canEdit($record))
+                    ->action(fn (QuoteRequest $record) => $record->update(['status' => QuoteRequestStatus::Done]))
+                    ->successNotificationTitle('Demande marquée comme traitée'),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    BulkAction::make('markDone')
+                        ->label('Marquer comme traitées')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        // Policy « update » vérifiée ligne par ligne (pas d'updateAny).
+                        ->action(function (Collection $records): void {
+                            $records
+                                ->filter(fn (QuoteRequest $record): bool => static::canEdit($record))
+                                ->each(fn (QuoteRequest $record) => $record->update(['status' => QuoteRequestStatus::Done]));
+                        })
+                        ->deselectRecordsAfterCompletion()
+                        ->successNotificationTitle('Demandes marquées comme traitées'),
+                ]),
+            ]);
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -118,6 +152,7 @@ class QuoteRequestResource extends Resource
                     ->schema([
                         Section::make('Message du client')
                             ->icon('heroicon-o-chat-bubble-left-ellipsis')
+                            ->description(fn (QuoteRequest $record): ?string => $record->subject ? 'Objet : '.$record->subject : null)
                             ->schema([
                                 TextEntry::make('message')->hiddenLabel()
                                     ->placeholder('Aucune description.')
@@ -126,6 +161,8 @@ class QuoteRequestResource extends Resource
                             ]),
                         Section::make('Photos et pièces jointes')
                             ->icon('heroicon-o-photo')
+                            // Le formulaire de contact n'accepte pas de fichier.
+                            ->visible(fn (QuoteRequest $record): bool => $record->mode->isQuoteForm() || $record->files->isNotEmpty())
                             ->description(fn (QuoteRequest $record): string => self::filesDescription($record))
                             ->schema([
                                 ViewEntry::make('files')->hiddenLabel()

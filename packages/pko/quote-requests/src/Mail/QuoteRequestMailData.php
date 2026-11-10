@@ -62,10 +62,10 @@ final class QuoteRequestMailData
 
     private static function adminUrl(QuoteRequest $request): string
     {
-        $route = 'filament.lunar.resources.quote-requests.view';
+        $route = 'filament.lunar.resources.contacts.view';
 
         return app('router')->has($route)
             ? route($route, $request)
-            : url('/admin/quote-requests/'.$request->id);
+            : url('/admin/contacts/'.$request->id);
     }
 }
