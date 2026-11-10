@@ -33,9 +33,9 @@ return [
         'plural' => 'Tuiles accueil',
     ],
     'post' => [
-        'nav' => 'Contenus',
+        'nav' => 'Articles & Pages',
         'label' => 'contenu',
-        'plural' => 'Contenus',
+        'plural' => 'Articles & Pages',
         'status' => [
             'draft' => 'Brouillon',
             'published' => 'Publié',

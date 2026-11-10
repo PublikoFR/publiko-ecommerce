@@ -215,16 +215,20 @@ Layout final retenu, construit sur l'infra Organisation A. `Builder::build()` :
 1 raccourci **Tableau de bord** + 5 groupes :
 
 ```
-[Ventes & Clients] Clients · Commandes · Factures · Expédition · Groupes de clients
+[Ventes & Clients] Clients · Remises clients · Commandes · Contacts · Factures · Expédition
 [Catalogue]        Produits · Médias · ⌄ Catégorisation · ⌄ Imports (Imports de produits, Configurations)
-[Marketing]        Réductions · Fidélité · Newsletter
-[Boutique]         Slider accueil · Tuiles accueil · Offres du moment · Contenus
-[Configuration]    ⌄ Réglages · ⌄ Financier · Configurations LLM
+[Marketing]        Réductions · BFA de fin d'année · Newsletter
+[Page d'accueil]   Slider accueil · Tuiles accueil · Offres du moment · Articles & Pages
+[Configuration]    ⌄ Réglages · ⌄ Financier · Configurations LLM · Fidélité · Groupes de clients
 ```
 
 `⌄` = **sous-menu imbriqué dropdown animé dans la sidebar** :
 - Catégorisation : Catégories (TreeManager `?tab=categories`), Caractéristiques, Marques, Fournisseurs (interne, `SupplierResource` hors cluster), Types de produits, Groupes d'attributs, Groupes de collections, Tags, Catégories de documents
-- Réglages : Paramètres, Canaux, Activités, Rôles, Personnel
+- Réglages : Paramètres, Vérification SIRET, Canaux, Activités, Rôles, Personnel, E-mails
+
+Libellés menu ≠ noms techniques : « Contacts » = `QuoteRequestResource`, « Articles & Pages »
+= `PostResource` (libellés nav/pluriel alignés dans les fichiers `lang/fr/admin.php` des
+packages). Fidélité et Groupes de clients vivent en Configuration (réglages peu fréquents).
 - Financier : Devises, Taxes, Stripe, Pennylane
 
 ### Système de sous-menu imbriqué (réutilisable)
@@ -267,7 +271,7 @@ sidebar chacun → leur sub-nav on-page reste le seul accès à leurs sous-pages
 ### Bouton « Types de contenus »
 
 `PostTypeResource` est retiré du menu et exposé via une **header action** sur la page
-Contenus (`PostResource/Pages/ListPosts`).
+Articles & Pages (`PostResource/Pages/ListPosts`).
 
 ### Reste à figer (dette assumée)
 - i18n des libellés de groupes/items (actuellement littéraux FR dans `Builder`).

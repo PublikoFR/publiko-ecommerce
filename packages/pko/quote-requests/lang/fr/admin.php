@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 return [
     'quote_requests' => [
-        'nav' => 'Demandes de devis',
+        'nav' => 'Contacts',
         'label' => 'demande de devis',
-        'plural' => 'demandes de devis',
+        'plural' => 'contacts',
     ],
 ];

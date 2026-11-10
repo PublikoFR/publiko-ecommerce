@@ -53,7 +53,7 @@ use Pko\StorefrontCms\Filament\Resources\PostResource;
  * Navigation custom du panel admin — layout « Weklo » (sur-mesure Rom).
  *
  * 1 raccourci (Tableau de bord) + 5 groupes : Ventes & Clients, Catalogue,
- * Marketing, Boutique, Configuration. Deux sous-menus IMBRIQUÉS animés dans la
+ * Marketing, Page d'accueil, Configuration. Deux sous-menus IMBRIQUÉS animés dans la
  * sidebar (Catégorisation, et Réglages / Financier) via
  * self::nestedMenu() — le rendu (flèche dépliable + animation x-collapse +
  * indentation) est assuré par l'override de vue
@@ -77,7 +77,7 @@ class Builder
                 NavigationGroup::make('Ventes & Clients')->items(self::sales()),
                 NavigationGroup::make('Catalogue')->items(self::catalogue()),
                 NavigationGroup::make('Marketing')->items(self::marketing()),
-                NavigationGroup::make('Boutique')->items(self::boutique()),
+                NavigationGroup::make('Page d\'accueil')->items(self::homepage()),
                 NavigationGroup::make('Configuration')->items(self::configuration()),
             ]);
     }
@@ -87,12 +87,11 @@ class Builder
     {
         return array_values(array_filter([
             self::resItem(PkoCustomerResource::class, 'heroicon-o-users', 'Clients')?->sort(1),
-            self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(2),
-            self::resItem(CustomerDiscountResource::class, 'heroicon-o-receipt-percent', 'Remises clients')?->sort(3),
-            self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(4),
-            self::resItem(QuoteRequestResource::class, 'heroicon-o-clipboard-document-list', 'Demandes de devis')?->sort(5),
-            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(6),
-            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(7),
+            self::resItem(CustomerDiscountResource::class, 'heroicon-o-receipt-percent', 'Remises clients')?->sort(2),
+            self::resItem(OrderResource::class, 'heroicon-o-shopping-bag', 'Commandes')?->sort(3),
+            self::resItem(QuoteRequestResource::class, 'heroicon-o-clipboard-document-list', 'Contacts')?->sort(4),
+            self::resItem(PennylaneInvoiceResource::class, 'heroicon-o-document-text', 'Factures')?->sort(5),
+            self::resItem(Shipping::class, 'heroicon-o-truck', 'Expédition')?->sort(6),
         ]));
     }
 
@@ -137,22 +136,21 @@ class Builder
     {
         return array_values(array_filter([
             self::resItem(DiscountResource::class, 'heroicon-o-receipt-percent', 'Réductions')?->sort(1),
-            self::resItem(LoyaltyHub::class, 'heroicon-o-gift', 'Fidélité')?->sort(2),
-            self::resItem(BfaPayouts::class, 'heroicon-o-receipt-refund', 'BFA de fin d\'année')?->sort(3),
-            self::resItem(NewsletterSubscriberResource::class, 'heroicon-o-envelope', 'Newsletter')?->sort(4),
+            self::resItem(BfaPayouts::class, 'heroicon-o-receipt-refund', 'BFA de fin d\'année')?->sort(2),
+            self::resItem(NewsletterSubscriberResource::class, 'heroicon-o-envelope', 'Newsletter')?->sort(3),
         ]));
     }
 
     /** @return array<NavigationItem> */
-    private static function boutique(): array
+    private static function homepage(): array
     {
         return array_values(array_filter([
             self::resItem(HomeSlideResource::class, 'heroicon-o-rectangle-group', 'Slider accueil')?->sort(1),
             self::resItem(HomeTileResource::class, 'heroicon-o-squares-2x2', 'Tuiles accueil')?->sort(2),
             self::resItem(HomeOfferResource::class, 'heroicon-o-megaphone', 'Offres du moment')?->sort(3),
-            // « Type de contenus » est déplacé en bouton header de la page Contenus
-            // (PostResource), volontairement absent du menu.
-            self::resItem(PostResource::class, 'heroicon-o-document-duplicate', 'Contenus')?->sort(4),
+            // « Type de contenus » est déplacé en bouton header de la page
+            // Articles & Pages (PostResource), volontairement absent du menu.
+            self::resItem(PostResource::class, 'heroicon-o-document-duplicate', 'Articles & Pages')?->sort(4),
         ]));
     }
 
@@ -176,6 +174,9 @@ class Builder
                 self::resItem(PennylaneConfig::class, 'heroicon-o-building-library', 'Pennylane'),
             ], sort: 2),
             self::resItem(LlmConfigResource::class, 'heroicon-o-sparkles', 'Configurations LLM')?->sort(3),
+            self::resItem(LoyaltyHub::class, 'heroicon-o-gift', 'Fidélité')?->sort(4),
+            // Volontairement en dernier : réglage rarement modifié.
+            self::resItem(CustomerGroupResource::class, 'heroicon-o-user-group', 'Groupes de clients')?->sort(5),
         ]));
     }
 
