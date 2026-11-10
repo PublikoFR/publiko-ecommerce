@@ -140,6 +140,9 @@ class EditProductUnified extends Page implements HasForms
     /** Famille fabricant PRIVÉE (famille de remise, propre à la marque) — jamais affichée au front. */
     public ?int $brandFamilyId = null;
 
+    /** Exclut le produit des remises client % (le prix négocié reste applicable). */
+    public bool $notDiscountable = false;
+
     public array $tagInputs = [];
 
     public string $newTag = '';
@@ -223,6 +226,7 @@ class EditProductUnified extends Page implements HasForms
         $this->supplierId = $product->pko_supplier_id !== null ? (int) $product->pko_supplier_id : null;
         $this->brandId = $product->brand_id;
         $this->brandFamilyId = $product->pko_brand_family_id !== null ? (int) $product->pko_brand_family_id : null;
+        $this->notDiscountable = (bool) ($product->pko_not_discountable ?? false);
         $this->collectionIds = $product->collections->pluck('id')->map(fn ($v) => (int) $v)->all();
         $this->tagInputs = $product->tags->pluck('value')->all();
 
@@ -1104,6 +1108,7 @@ class EditProductUnified extends Page implements HasForms
             // Colonne custom non-fillable : assignation directe. Une famille d'une
             // autre marque n'est jamais persistée (cohérence marque ↔ famille).
             $product->pko_brand_family_id = $this->brandFamilyBelongsToBrand() ? $this->brandFamilyId : null;
+            $product->pko_not_discountable = $this->notDiscountable;
             $product->save();
 
             $product->collections()->sync($this->collectionIds);

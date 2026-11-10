@@ -1043,6 +1043,9 @@
                     </p>
                 </div>
 
+                {{-- Remises client % : exclusion du produit (le prix négocié reste applicable) --}}
+                <x-pko-product::switch-row label="Non remisable" description="Aucune remise client (%) ne s'applique à ce produit. Les prix négociés restent appliqués." model="notDiscountable" />
+
                 {{-- Fournisseur --}}
                 <div>
                     <label class="block text-[12.5px] font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('pko-shipping-common::admin.product.supplier') }}</label>
