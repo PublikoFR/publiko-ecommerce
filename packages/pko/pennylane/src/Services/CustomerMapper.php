@@ -74,6 +74,34 @@ final class CustomerMapper
     }
 
     /**
+     * Client Pennylane d'un client Lunar, hors contexte commande (avoir
+     * autonome). Sans correspondance existante, la fiche est créée depuis la
+     * dernière commande du client (adresse de facturation obligatoire).
+     */
+    public function resolveForCustomer(Customer $customer): int
+    {
+        $mapping = PennylaneCustomer::where('lunar_customer_id', $customer->id)->first();
+
+        if ($mapping && $mapping->pennylane_customer_id) {
+            $this->completeRegNoQuietly($mapping);
+
+            return (int) $mapping->pennylane_customer_id;
+        }
+
+        $order = Order::query()
+            ->where('customer_id', $customer->id)
+            ->whereNotNull('placed_at')
+            ->latest('placed_at')
+            ->first();
+
+        if (! $order) {
+            throw new \RuntimeException("Client {$customer->id} sans commande : impossible de créer sa fiche Pennylane (adresse de facturation inconnue).");
+        }
+
+        return $this->resolveOrCreate($order);
+    }
+
+    /**
      * Complète le SIREN (`reg_no`) d'un client entreprise déjà créé dans
      * Pennylane sans lui : les fiches créées avant la lecture de
      * `meta['siret']` sont restées incomplètes. Retourne true si mis à jour.

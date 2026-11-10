@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Account\Contracts\CustomerInvoices;
+use Pko\Loyalty\Contracts\BfaCreditNoteIssuer;
 use Pko\Pennylane\Api\PennylaneClient;
 use Pko\Pennylane\Api\Resources\CommercialDocumentsResource;
 use Pko\Pennylane\Api\Resources\CustomerInvoicesResource;
@@ -29,6 +30,7 @@ use Pko\Pennylane\Services\CustomerInvoiceListing;
 use Pko\Pennylane\Services\CustomerMapper;
 use Pko\Pennylane\Services\DeliveryNoteSynchronizer;
 use Pko\Pennylane\Services\InvoiceSynchronizer;
+use Pko\Pennylane\Services\LoyaltyBfaCreditNoteIssuer;
 use Pko\Pennylane\Services\OrderToDeliveryNoteMapper;
 use Pko\Pennylane\Services\OrderToInvoiceMapper;
 use Pko\Pennylane\Services\TransactionToCreditNoteMapper;
@@ -59,6 +61,11 @@ final class PennylaneServiceProvider extends ServiceProvider
         $this->app->singleton(CreditNoteSynchronizer::class);
         $this->app->singleton(OrderToDeliveryNoteMapper::class);
         $this->app->singleton(DeliveryNoteSynchronizer::class);
+
+        // Avoirs BFA du programme de fidélité (package optionnel).
+        if (interface_exists(BfaCreditNoteIssuer::class)) {
+            $this->app->bind(BfaCreditNoteIssuer::class, LoyaltyBfaCreditNoteIssuer::class);
+        }
     }
 
     public function boot(): void

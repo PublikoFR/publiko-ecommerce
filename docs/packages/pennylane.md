@@ -58,6 +58,17 @@ packages/pko/pennylane/
         └── Resources/PennylaneInvoiceResource.php (lecture + action resync)
 ```
 
+## Avoirs de BFA fidélité (avoir autonome)
+
+`Services\LoyaltyBfaCreditNoteIssuer` implémente `Pko\Loyalty\Contracts\BfaCreditNoteIssuer` (lié dans `PennylaneServiceProvider` si le package loyalty est installé). Pour un versement de BFA (`pko_loyalty_bfa_payouts`) :
+
+- client Pennylane via `CustomerMapper::resolveForCustomer()` (correspondance existante, sinon fiche créée depuis la dernière commande du client — l'adresse de facturation est obligatoire) ;
+- une ligne `service`, prix unitaire **négatif** = montant HT, TVA `loyalty.bfa.vat_rate`, intitulé « Bonus de fin d'année N (palier) — du … au … » ;
+- `CreateCreditNoteData` avec `parentInvoicePennylaneId = null` ; création puis finalisation, **jamais** de `link_credit_note` (différence avec `CreditNoteSynchronizer`, qui crédite la facture d'une commande) ;
+- idempotent par `external_reference` `bfa_<année>_<gift_history_id>` : en reprise, l'avoir est retrouvé (`findByExternalReference`) et seulement finalisé.
+
+Le document n'est **pas** écrit dans `pko_pennylane_invoices` : tout ce qui lit cette table (e-mail « facture disponible », espace client, liste admin) suppose une pièce liée à une commande. Statut et numéro d'avoir sont suivis sur `pko_loyalty_bfa_payouts` (page Marketing → BFA de fin d'année). Détails métier : docs/packages/loyalty.md.
+
 ## Tables DB
 
 ### `pko_pennylane_invoices`
@@ -145,6 +156,7 @@ divergeait sur tous les points ci-dessous. La spec OpenAPI fait foi.
 | Langue | Locale complète (`fr_FR`). |
 | Finalisation | Lue sur le booléen `draft`. `status` décrit le **paiement** (`upcoming`, `paid`, `late`…) : la valeur `finalized` n'existe pas. |
 | Avoir | Facture à **montants négatifs** créée par le même endpoint, puis `POST /customer_invoices/{facture}/link_credit_note` une fois finalisée. Pas de champ `credit_note` ni `parent_invoice_id` à la création. |
+| Avoir autonome | Même création, **sans** `link_credit_note` : l'avoir ne crédite aucune facture (BFA fidélité). Le rattachement est une étape séparée et facultative du contrat v2. À valider sur la sandbox au premier usage réel. |
 | Modèle de facture | `customer_invoice_template_id` est optionnel. Le lister demande le scope `customer_invoice_templates:readonly`. |
 | Chronologie | Une facture ne peut pas être finalisée avec une date antérieure à la dernière facture finalisée (422). La facture est donc datée **du jour de la synchro**, pas de la commande ; la référence de commande figure dans l'objet du PDF. Sinon, tout backfill et tout job rejoué après une commande plus récente échoueraient. |
 | Numérotation | La finalisation échoue en 422 (« Configurez d'abord la numérotation des factures ») tant que la numérotation n'est pas configurée dans le compte Pennylane, sandbox compris. |

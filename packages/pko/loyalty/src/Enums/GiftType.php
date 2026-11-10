@@ -9,10 +9,11 @@ namespace Pko\Loyalty\Enums;
  *
  * - `Voucher` : bon d'achat Lunar à usage unique émis au déblocage.
  * - `Franco` : seuil de franco de port abaissé pour le client.
- * - `Bfa` : bon de fin d'année (montant fixe + pourcentage).
+ * - `Bfa` : bonus de fin d'année (montant fixe + pourcentage du CA de la
+ *   tranche), versé en avoir comptable en janvier (`BfaCalculator`).
  *
- * Seul le bon d'achat a un effet dans ce package ; franco et BFA sont déclarés
- * et configurables ici, leur effet vit ailleurs (cf. docs/packages/loyalty.md).
+ * Le franco abaissé est déclaré et configurable ici, son effet vit ailleurs
+ * (cf. docs/packages/loyalty.md).
  */
 enum GiftType: string
 {

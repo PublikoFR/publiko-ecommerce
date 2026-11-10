@@ -141,6 +141,40 @@
             @endif
         </x-ui.card>
 
+        {{-- BFA : estimation en temps réel (tranches de l'année en cours) --}}
+        @if (! empty($snapshot['bfa']))
+            @php $bfa = $snapshot['bfa']; @endphp
+            <x-ui.card padding="lg">
+                <div class="flex items-start gap-3">
+                    <x-ui.icon name="percent" class="w-6 h-6 text-primary-700 shrink-0 mt-0.5" />
+                    <div class="min-w-0">
+                        <p class="text-sm text-neutral-600">Bonus de fin d'année</p>
+                        <p class="text-lg font-display font-bold text-neutral-900">
+                            BFA acquis à ce jour : {{ \Pko\Loyalty\Support\Money::format((int) $bfa['acquired']) }} HT
+                        </p>
+                        <p class="text-sm text-neutral-500">Versé en janvier {{ (int) $bfa['year'] + 1 }}, sous forme d'avoir.</p>
+                    </div>
+                </div>
+
+                <ul class="mt-4 divide-y divide-neutral-100 text-sm">
+                    @foreach ($bfa['tranches'] as $tranche)
+                        <li class="flex items-center justify-between gap-4 py-2">
+                            <span class="text-neutral-600">
+                                {{ $tranche->tierName }} — depuis le {{ $tranche->start->format('d/m/Y') }}
+                                @unless ($tranche->isOpen())
+                                    jusqu'au {{ $tranche->end->format('d/m/Y') }}
+                                @endunless
+                                <span class="block text-xs text-neutral-400">
+                                    CA HT de la période : {{ \Pko\Loyalty\Support\Money::format($tranche->revenueHt) }}
+                                </span>
+                            </span>
+                            <span class="font-semibold text-neutral-900 whitespace-nowrap">{{ \Pko\Loyalty\Support\Money::format($tranche->amount) }} HT</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-ui.card>
+        @endif
+
         {{-- Suivi des cadeaux débloqués --}}
         <div>
             <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Suivi de vos cadeaux débloqués</h2>
