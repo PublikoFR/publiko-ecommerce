@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Pko\StorefrontCms\Filament\Extensions;
 
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Form;
+use Lunar\Admin\Filament\Resources\BrandResource\Pages\EditBrand;
+use Lunar\Admin\Filament\Resources\BrandResource\Pages\ManageBrandUrls;
 use Lunar\Admin\Support\Extending\ResourceExtension;
 use Pko\StorefrontCms\Filament\Pages\ManageBrandContent;
 
 /**
- * Injecte la page "Contenu" (page-builder universel) dans BrandResource.
- * Ajoute aussi un raccourci visible dans le formulaire edit.
+ * Remplace l'édition Lunar d'une marque par la fiche unifiée ManageBrandContent
+ * (informations, URL, logo, SEO + page-builder) sur la route `edit` : lien
+ * « Modifier » de la liste, recherche globale et redirection après création
+ * y mènent. Onglets restants : Marque, Produits, Collections.
+ *
+ * La route `urls` reste enregistrée (accès direct à la gestion multi-URLs),
+ * mais sort des onglets.
  */
 class BrandContentExtension extends ResourceExtension
 {
@@ -23,7 +26,7 @@ class BrandContentExtension extends ResourceExtension
      */
     public function extendPages(array $pages): array
     {
-        $pages['content'] = ManageBrandContent::route('/{record}/content');
+        $pages['edit'] = ManageBrandContent::route('/{record}/edit');
 
         return $pages;
     }
@@ -34,32 +37,11 @@ class BrandContentExtension extends ResourceExtension
      */
     public function extendSubNavigation(array $pages): array
     {
-        $pages[] = ManageBrandContent::class;
+        $pages = array_values(array_filter(
+            $pages,
+            fn (string $page): bool => ! in_array($page, [EditBrand::class, ManageBrandUrls::class], true),
+        ));
 
-        return $pages;
-    }
-
-    /**
-     * Ajoute une section "Page marque" visible dans le formulaire d'édition Brand
-     * avec un bouton direct vers la page builder. Complète l'onglet
-     * « Page marque » de la sous-navigation.
-     */
-    public function extendForm(Form $form): Form
-    {
-        return $form->schema([
-            ...$form->getComponents(),
-            Section::make('Page marque (builder)')
-                ->description('Éditez le layout et le contenu visuel de la page publique /marque/{slug}.')
-                ->schema([
-                    Actions::make([
-                        Action::make('editBrandContent')
-                            ->label('Ouvrir l\'éditeur de contenu')
-                            ->icon('heroicon-o-document-text')
-                            ->url(fn ($record) => $record ? ManageBrandContent::getUrl(['record' => $record]) : null)
-                            ->visible(fn ($record) => $record !== null),
-                    ]),
-                ])
-                ->collapsible(),
-        ]);
+        return [ManageBrandContent::class, ...$pages];
     }
 }

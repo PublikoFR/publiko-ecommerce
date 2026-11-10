@@ -44,10 +44,10 @@ class AdminNavPlugin implements Plugin
     }
 
     /**
-     * Sous-navigation des marques (Informations de base, URLs, Produits,
-     * Collections, Page marque) en onglets horizontaux au lieu de la colonne
+     * Sous-navigation des marques (Marque, Produits, Collections — cf.
+     * BrandContentExtension) en onglets horizontaux au lieu de la colonne
      * de droite Lunar (End) : la colonne amputait la largeur du page-builder
-     * de la page « Page marque ». BrandResource n'étant pas subclassée, on
+     * de la fiche marque. BrandResource n'étant pas subclassée, on
      * écrase sa propriété statique — toutes ses pages lisent cette valeur via
      * Resource::getSubNavigationPosition().
      */

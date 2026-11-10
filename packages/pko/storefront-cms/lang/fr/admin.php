@@ -12,10 +12,10 @@ return [
         'title' => 'Paramètres storefront',
     ],
     'brand_content' => [
-        'nav' => 'Page marque',
-        'seo_section' => 'SEO & Configuration',
-        'save_meta' => 'Enregistrer les métadonnées',
-        'saved' => 'Métadonnées enregistrées',
+        'nav' => 'Marque',
+        'info_section' => 'Informations & SEO',
+        'logo_section' => 'Logo',
+        'saved' => 'Marque enregistrée',
     ],
     'home_offer' => [
         'nav' => 'Offres du moment',

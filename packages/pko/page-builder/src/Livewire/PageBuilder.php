@@ -748,6 +748,9 @@ class PageBuilder extends Component implements HasActions, HasForms
     {
         $this->persist();
         $this->dispatch('notify', title: 'Contenu enregistré', type: 'success');
+        // Permet à la page hôte d'enregistrer son propre formulaire au même clic
+        // (ex. fiche marque : nom, URL, SEO). Sans écouteur, sans effet.
+        $this->dispatch('page-builder-saved', modelClass: $this->modelClass, recordId: $this->recordId);
     }
 
     public function publish(): void
