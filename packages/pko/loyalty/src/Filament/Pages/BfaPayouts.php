@@ -162,7 +162,7 @@ class BfaPayouts extends BasePage implements HasTable
                 TableAction::make('adjust')
                     ->label(__('loyalty::admin.bfa.adjust'))
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(fn (BfaPayout $record): bool => $record->isEditable())
+                    ->visible(fn (BfaPayout $record): bool => $record->isAmountEditable())
                     ->fillForm(fn (BfaPayout $record): array => [
                         'amount' => number_format($record->amountToIssue() / 100, 2, ',', ''),
                     ])
@@ -177,6 +177,13 @@ class BfaPayouts extends BasePage implements HasTable
                             ->suffix('€ HT'),
                     ])
                     ->action(function (BfaPayout $record, array $data): void {
+                        $record->refresh();
+                        if (! $record->isAmountEditable()) {
+                            Notification::make()->danger()->title(__('loyalty::admin.bfa.amount_locked'))->send();
+
+                            return;
+                        }
+
                         $cents = self::toCents((string) $data['amount']);
 
                         // Montant égal au calcul : on retombe sur le pré-calcul.

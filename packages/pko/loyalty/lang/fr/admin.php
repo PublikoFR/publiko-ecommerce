@@ -23,6 +23,7 @@ return [
         'adjusted' => 'Montant ajusté',
         'amount_eur' => 'Montant à verser',
         'amount_help' => 'En euros HT. Laisser le montant calculé pour revenir au pré-calcul.',
+        'amount_locked' => 'Montant gelé : un avoir existe déjà en comptabilité pour cette ligne.',
         'empty' => 'Aucun BFA pour cette année',
         'empty_help' => 'Lancez le pré-calcul pour lister les tranches des clients ayant débloqué un palier BFA.',
         'columns' => [

@@ -198,47 +198,122 @@ class LoyaltyBfaTest extends TestCase
         Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'link_credit_note'));
     }
 
-    public function test_failed_emission_is_recorded_and_retry_reuses_the_remote_document(): void
+    public function test_failed_finalization_freezes_the_amount_and_retry_reuses_the_remote_document(): void
     {
-        $customer = $this->scenario2025();
-        $this->travelTo('2026-01-05 09:00:00');
-        app(BfaCalculator::class)->precompute(2025);
-        $payout = BfaPayout::orderBy('period_start')->firstOrFail();
-        // Seconde tranche mise à zéro : seule la première est émise.
-        BfaPayout::whereKeyNot($payout->id)->update(['adjusted_amount' => 0]);
-
-        $this->configurePennylane(enabled: true);
-        PennylaneCustomer::create([
-            'lunar_customer_id' => $customer->id,
-            'external_reference' => 'lunar_cust_'.$customer->id,
-            'pennylane_customer_id' => 555,
-        ]);
+        $payout = $this->firstPayoutOnly();
 
         // Avoir créé côté Pennylane, mais finalisation refusée.
         Http::fake([
             '*/customer_invoices/9001/finalize' => Http::sequence()
                 ->push(['message' => 'Configurez la numérotation'], 422)
                 ->push(['id' => 9001, 'draft' => false, 'invoice_number' => 'AV-1']),
-            '*/customer_invoices?*' => Http::sequence()
-                ->push(['items' => []])
-                ->push(['items' => [['id' => 9001, 'draft' => true]]]),
+            '*/customer_invoices/9001' => Http::response(['id' => 9001, 'draft' => true, 'currency_amount_before_tax' => '-68.0']),
+            '*/customer_invoices?*' => Http::response(['items' => []]),
             '*/customer_invoices' => Http::response(['id' => 9001, 'draft' => true]),
         ]);
 
         $emitter = app(BfaPayoutEmitter::class);
         $this->assertSame(BfaPayoutEmitter::RESULT_FAILED, $emitter->emit($payout));
-        $this->assertSame(BfaPayout::STATUS_FAILED, $payout->fresh()->status);
-        $this->assertNotNull($payout->fresh()->last_error);
+
+        $payout->refresh();
+        $this->assertSame(BfaPayout::STATUS_FAILED, $payout->status);
+        $this->assertNotNull($payout->last_error);
+        // Document distant mémorisé dès sa création : montant gelé.
+        $this->assertSame(9001, $payout->pennylane_id);
+        $this->assertTrue($payout->isEditable());
+        $this->assertFalse($payout->isAmountEditable());
+
+        $this->actingAsStaff();
+        Livewire::test(BfaPayouts::class)->assertTableActionHidden('adjust', $payout);
+
+        // Le pré-calcul ne recalcule ni ne purge une ligne qui a un document distant.
+        $payout->update(['computed_amount' => 68_00]);
+        GiftHistory::whereKey($payout->gift_history_id)->delete();
+        app(BfaCalculator::class)->precompute(2025);
+        $this->assertNotNull(BfaPayout::find($payout->id));
 
         $counts = $emitter->emitYear(2025);
         $this->assertSame(1, $counts[BfaPayoutEmitter::RESULT_ISSUED]);
         $this->assertSame(0, $counts[BfaPayoutEmitter::RESULT_FAILED]);
 
-        // Pas de seconde création : l'avoir existant a été retrouvé par sa référence.
-        $creations = collect(Http::recorded())->filter(fn (array $pair): bool => $pair[0]->method() === 'POST' && str_ends_with($pair[0]->url(), '/customer_invoices'));
-        $this->assertCount(1, $creations);
-        $this->assertSame(BfaPayout::STATUS_ISSUED, $payout->fresh()->status);
-        $this->assertNull($payout->fresh()->last_error);
+        // Pas de seconde création : l'avoir est relu par son id, puis finalisé.
+        $this->assertCount(1, $this->recordedCreations());
+        Http::assertSent(fn (Request $r): bool => $r->method() === 'GET' && str_ends_with($r->url(), '/customer_invoices/9001'));
+        $payout->refresh();
+        $this->assertSame(BfaPayout::STATUS_ISSUED, $payout->status);
+        $this->assertSame('AV-1', $payout->credit_note_number);
+        $this->assertNull($payout->last_error);
+    }
+
+    public function test_a_remote_document_with_a_different_amount_is_never_finalized(): void
+    {
+        $payout = $this->firstPayoutOnly();
+        // Divergence locale (donnée antérieure au gel du montant).
+        $payout->update(['pennylane_id' => 9001, 'status' => BfaPayout::STATUS_FAILED, 'adjusted_amount' => 70_00]);
+
+        Http::fake([
+            '*/customer_invoices/9001/finalize' => Http::response(['id' => 9001, 'draft' => false]),
+            '*/customer_invoices/9001' => Http::sequence()
+                ->push(['id' => 9001, 'draft' => true, 'currency_amount_before_tax' => '-68.00'])
+                ->push(['id' => 9001, 'draft' => false, 'currency_amount_before_tax' => '-68.00']),
+            '*/customer_invoices?*' => Http::response(['items' => [['id' => 9002, 'draft' => true, 'currency_amount_before_tax' => '-10.00']]]),
+            '*/customer_invoices' => Http::response(['id' => 9999, 'draft' => true]),
+        ]);
+
+        $emitter = app(BfaPayoutEmitter::class);
+
+        // Brouillon distant à 68 €, montant local 70 € : échec explicite.
+        $this->assertSame(BfaPayoutEmitter::RESULT_FAILED, $emitter->emit($payout));
+        $payout->refresh();
+        $this->assertSame(BfaPayout::STATUS_FAILED, $payout->status);
+        $this->assertStringContainsString('brouillon', $payout->last_error);
+        $this->assertStringContainsString('68,00 € HT', $payout->last_error);
+        $this->assertStringContainsString('70,00 € HT', $payout->last_error);
+
+        // Avoir finalisé à 68 € : échec explicite, rien n'est modifié.
+        $this->assertSame(BfaPayoutEmitter::RESULT_FAILED, $emitter->emit($payout));
+        $this->assertStringContainsString('finalisé', $payout->fresh()->last_error);
+
+        // Avoir retrouvé par sa référence externe (id local inconnu) avec un autre montant.
+        $gold = BfaPayout::whereKeyNot($payout->id)->firstOrFail();
+        $gold->update(['adjusted_amount' => null]);
+        $this->assertSame(BfaPayoutEmitter::RESULT_FAILED, $emitter->emit($gold));
+        $this->assertSame(9002, $gold->fresh()->pennylane_id);
+
+        Http::assertNotSent(fn (Request $r): bool => str_ends_with($r->url(), '/finalize'));
+        $this->assertCount(0, $this->recordedCreations());
+    }
+
+    public function test_a_draft_deleted_in_pennylane_is_recreated(): void
+    {
+        $payout = $this->firstPayoutOnly();
+        $payout->update(['pennylane_id' => 9001, 'status' => BfaPayout::STATUS_FAILED]);
+
+        Http::fake([
+            '*/customer_invoices/9002/finalize' => Http::response(['id' => 9002, 'draft' => false, 'invoice_number' => 'AV-2']),
+            '*/customer_invoices/9001' => Http::response(['message' => 'Not found'], 404),
+            '*/customer_invoices?*' => Http::response(['items' => []]),
+            '*/customer_invoices' => Http::response(['id' => 9002, 'draft' => true]),
+        ]);
+
+        $this->assertSame(BfaPayoutEmitter::RESULT_ISSUED, app(BfaPayoutEmitter::class)->emit($payout));
+        $this->assertSame(9002, $payout->fresh()->pennylane_id);
+        $this->assertCount(1, $this->recordedCreations());
+    }
+
+    public function test_precompute_purges_only_pure_drafts(): void
+    {
+        $this->scenario2025();
+        $this->travelTo('2026-01-05 09:00:00');
+        app(BfaCalculator::class)->precompute(2025);
+        [$silver, $gold] = BfaPayout::orderBy('period_start')->get()->all();
+        $silver->update(['status' => BfaPayout::STATUS_FAILED, 'last_error' => 'boom']);
+
+        GiftHistory::query()->delete();
+        app(BfaCalculator::class)->precompute(2025);
+
+        $this->assertNotNull(BfaPayout::find($silver->id));
+        $this->assertNull(BfaPayout::find($gold->id));
     }
 
     public function test_open_year_and_zero_amounts_are_not_emitted(): void
@@ -308,6 +383,37 @@ class LoyaltyBfaTest extends TestCase
         $this->assertSame(0, BfaCalculator::percentOf(1000_00, '0.00'));
         $this->assertSame(66_67, BfaCalculator::netOfRefunds(100_00, 40_00, 120_00));
         $this->assertSame(0, BfaCalculator::netOfRefunds(100_00, 130_00, 120_00));
+    }
+
+    /**
+     * Année 2025 close, Pennylane actif, seule la première tranche (Argent,
+     * 68 €) est à émettre.
+     */
+    private function firstPayoutOnly(): BfaPayout
+    {
+        $customer = $this->scenario2025();
+        $this->travelTo('2026-01-05 09:00:00');
+        app(BfaCalculator::class)->precompute(2025);
+        $payout = BfaPayout::orderBy('period_start')->firstOrFail();
+        BfaPayout::whereKeyNot($payout->id)->update(['adjusted_amount' => 0]);
+
+        $this->configurePennylane(enabled: true);
+        PennylaneCustomer::create([
+            'lunar_customer_id' => $customer->id,
+            'external_reference' => 'lunar_cust_'.$customer->id,
+            'pennylane_customer_id' => 555,
+        ]);
+
+        return $payout;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array{0: Request, 1: mixed}>
+     */
+    private function recordedCreations(): \Illuminate\Support\Collection
+    {
+        return collect(Http::recorded())
+            ->filter(fn (array $pair): bool => $pair[0]->method() === 'POST' && str_ends_with($pair[0]->url(), '/customer_invoices'));
     }
 
     /**

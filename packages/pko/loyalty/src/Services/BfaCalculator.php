@@ -110,7 +110,8 @@ class BfaCalculator
                         ->lockForUpdate()
                         ->first();
 
-                    if ($payout !== null && ! $payout->isEditable()) {
+                    // Émise, en cours, ou document distant déjà créé : montant gelé.
+                    if ($payout !== null && ! $payout->isAmountEditable()) {
                         return;
                     }
 
@@ -144,7 +145,10 @@ class BfaCalculator
 
         BfaPayout::query()
             ->where('year', $year)
-            ->whereIn('status', [BfaPayout::STATUS_DRAFT, BfaPayout::STATUS_FAILED])
+            // Brouillons purs uniquement : une ligne en échec garde la trace
+            // de l'erreur, et un document distant ne doit jamais perdre sa ligne.
+            ->where('status', BfaPayout::STATUS_DRAFT)
+            ->whereNull('pennylane_id')
             ->where(fn ($q) => $q->whereNull('gift_history_id')->orWhereNotIn('gift_history_id', $kept))
             ->delete();
 

@@ -23,6 +23,7 @@ use Lunar\Models\Customer;
  * @property int|null $adjusted_amount
  * @property string $status
  * @property string $external_reference
+ * @property int|null $pennylane_id
  */
 class BfaPayout extends Model
 {
@@ -88,6 +89,17 @@ class BfaPayout extends Model
     public function isEditable(): bool
     {
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_FAILED], true);
+    }
+
+    /**
+     * Montant ajustable (et recalculable) : modifiable ET aucun document
+     * distant encore créé. Dès que l'avoir existe chez l'intégration
+     * comptable (même en brouillon, finalisation échouée), le montant est
+     * gelé : un ajustement local ne serait jamais reporté sur le document.
+     */
+    public function isAmountEditable(): bool
+    {
+        return $this->isEditable() && $this->pennylane_id === null;
     }
 
     /** Intitulé de la ligne d'avoir. */

@@ -13,6 +13,9 @@ use Pko\Loyalty\Models\BfaPayout;
  *
  * Doit être idempotent sur `$payout->external_reference` : un second appel
  * pour le même versement renvoie l'avoir existant au lieu d'en créer un autre.
+ * Doit mémoriser `pennylane_id` sur le versement dès la création distante
+ * (avant toute finalisation), et lever une exception plutôt que finaliser un
+ * document existant dont le montant diffère de `amountToIssue()`.
  */
 interface BfaCreditNoteIssuer
 {
