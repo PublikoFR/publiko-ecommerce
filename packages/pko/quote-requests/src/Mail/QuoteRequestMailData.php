@@ -6,6 +6,7 @@ namespace Pko\QuoteRequests\Mail;
 
 use Pko\MailTemplates\Support\PhoneLink;
 use Pko\QuoteRequests\Models\QuoteRequest;
+use Pko\QuoteRequests\Support\MailAttachmentSelection;
 
 /**
  * Valeurs de placeholders des deux e-mails de demande de devis.
@@ -53,7 +54,7 @@ final class QuoteRequestMailData
             'collection' => (string) ($context['collection_name'] ?? $request->collection ?? '—'),
             'product_url' => $productUrl,
             'from_url' => $request->from_url ? url($request->from_url) : '—',
-            'attachments' => $request->files->isEmpty() ? 'aucune' : $request->files->pluck('original_name')->implode(', '),
+            'attachments' => MailAttachmentSelection::for($request)->summary(),
             'attachments_count' => (string) $request->files->count(),
             'admin_url' => self::adminUrl($request),
         ];

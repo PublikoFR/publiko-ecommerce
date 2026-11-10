@@ -83,6 +83,7 @@ doit être lisible que par l'équipe → table de fichiers dédiée, disque priv
 | `attachments.max_size_kb` | `QUOTE_REQUEST_MAX_FILE_KB` | `10240` (10 Mo) |
 | `attachments.max_files` | `QUOTE_REQUEST_MAX_FILES` | `8` |
 | `attachments.disk` | `QUOTE_REQUEST_DISK` | `local` |
+| `attachments.mail_max_total_kb` | `QUOTE_REQUEST_MAIL_ATTACHMENTS_KB` | `15360` (15 Mo) |
 | `rate_limit.max_attempts` | `QUOTE_REQUEST_RATE_LIMIT` | `5` demandes / heure / IP |
 | `max_lines` | — | `30` |
 
@@ -105,8 +106,15 @@ Deux clés `pko/lunar-mail-templates`, en `ShouldQueue`, envoyées via `OnceMail
 | `quote_request.received_admin` | e-mail de **contact** de la boutique (`brand_setting('contact.email')` → `CONTACT_EMAIL`), repli `admin_notification_email()` puis `mail.from.address` | `QuoteRequestAdminMail` (Reply-To = demandeur) |
 | `quote_request.received` | le demandeur | `QuoteRequestReceivedMail` |
 
-Les pièces jointes ne sont **pas** attachées au mail équipe (jusqu'à 80 Mo, et
-elles restent privées) : le mail liste leurs noms et renvoie vers la fiche admin.
+Pièces jointes du mail équipe (`Support\MailAttachmentSelection`) : les fichiers
+sont attachés dans l'ordre d'envoi tant que leur cumul reste sous
+`attachments.mail_max_total_kb` (15 Mo, ≈ 20 Mo encodés en base64, sous la
+limite SMTP courante de 25 Mo). Un fichier qui ferait dépasser le plafond est
+sauté (un plus petit derrière peut encore passer), un fichier absent du disque
+n'est jamais joint. Le placeholder `:attachments` indique pour chaque nom
+« joint à ce mail » ou « à télécharger dans l'admin ». Une demande complète
+(8 × 10 Mo) ne tient pas dans un mail : d'où le plafond plutôt que tout joindre.
+L'accusé de réception client ne porte jamais de pièce jointe.
 Contenus par défaut dans `mail-templates/database/content/fr.php`, éditables en
 back-office (Configuration → E-mails).
 
