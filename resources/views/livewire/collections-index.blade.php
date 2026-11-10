@@ -33,6 +33,7 @@
                 <p class="text-neutral-500">Aucune nouveauté pour le moment.</p>
             @else
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    @php(\Pko\Storefront\Support\CustomerPriceDisplay::preloadProducts($newArrivals))
                     @foreach ($newArrivals as $product)
                         <x-storefront.product-card :product="$product" />
                     @endforeach

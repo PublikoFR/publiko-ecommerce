@@ -11,6 +11,7 @@ use Livewire\Component;
 use Lunar\Facades\CartSession;
 use Lunar\Models\CartLine;
 use Lunar\Models\Contracts\Currency as CurrencyContract;
+use Pko\Storefront\Support\CustomerPriceDisplay;
 
 class CartDrawer extends Component
 {
@@ -101,6 +102,7 @@ class CartDrawer extends Component
         }
 
         $this->lines = $cart->lines->map(fn ($line) => [
+            ...self::discountFields($line),
             'id' => $line->id,
             'description' => $line->purchasable->getDescription(),
             'identifier' => $line->purchasable->getIdentifier(),
@@ -120,6 +122,21 @@ class CartDrawer extends Component
         $this->total = $cart->total?->formatted();
         $ecotaxCents = Ecotax::forCart($cart);
         $this->ecotaxTotal = $ecotaxCents > 0 ? Ecotax::format($ecotaxCents, $cart->currency) : null;
+    }
+
+    /**
+     * Remise client % de la ligne : prix unitaire avant remise (barré) + badge.
+     *
+     * @return array{unit_original: ?string, discount_badge: ?string}
+     */
+    private static function discountFields(CartLine $line): array
+    {
+        $display = CustomerPriceDisplay::forCartLine($line);
+
+        return [
+            'unit_original' => $display->original?->formatted(),
+            'discount_badge' => $display->badgeLabel(),
+        ];
     }
 
     /** Éco-participation de la ligne (incluse dans le prix), formatée ; null si nulle. */

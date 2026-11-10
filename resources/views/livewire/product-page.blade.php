@@ -286,6 +286,7 @@
                     <div x-ref="track"
                          class="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1
                                 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        @php(\Pko\Storefront\Support\CustomerPriceDisplay::preloadProducts($this->relatedProducts))
                         @foreach ($this->relatedProducts as $related)
                             <div wire:key="related_{{ $related->id }}"
                                  class="snap-start shrink-0 w-[78%] sm:w-[46%] lg:w-[calc((100%-3.75rem)/4)]">
