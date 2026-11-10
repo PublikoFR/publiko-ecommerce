@@ -22,4 +22,9 @@ return [
 
     'allowed_nafs' => [],
 
+    // Types de remise Lunar qui se cumulent TOUJOURS avec la remise client % et
+    // s'appliquent après elle (les autres promotions/coupons : meilleure des deux).
+    // Chaque package y ajoute ses types au boot (ex. bon d'achat fidélité).
+    'stackable_discount_types' => [],
+
 ];

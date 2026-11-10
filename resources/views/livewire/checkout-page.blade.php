@@ -81,6 +81,10 @@
                             </div>
                         @endif
 
+                        <div class="py-3">
+                            @include('customer-auth::partials.cart-advantage', ['advantage' => app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($cart)])
+                        </div>
+
                         @if ($this->shippingOption)
                             <div class="flex flex-wrap py-4">
                                 <dt class="w-1/2 font-medium">

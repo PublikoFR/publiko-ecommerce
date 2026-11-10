@@ -90,6 +90,7 @@
                                         <span class="font-semibold">-{{ $this->cart->discountTotal->formatted() }}</span>
                                     </div>
                                 @endif
+                                @include('customer-auth::partials.cart-advantage', ['advantage' => app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($this->cart)])
                                 <div class="flex justify-between"><span class="text-neutral-600">TVA</span><span class="font-semibold">{{ $this->cart->taxTotal?->formatted() ?? '—' }}</span></div>
                                 <div class="flex justify-between items-baseline pt-3 border-t border-neutral-100"><span class="font-bold">Total TTC</span><span class="font-display font-bold text-2xl text-primary-600">{{ $this->cart->total?->formatted() ?? '—' }}</span></div>
                             </div>

@@ -4,7 +4,7 @@
             <div class="min-w-0 flex items-start gap-2">
                 <x-ui.icon name="percent" class="w-4 h-4 mt-0.5 text-success-700 shrink-0" />
                 <div class="min-w-0">
-                    <p class="text-xs font-medium text-success-800">Code promo appliqué</p>
+                    <p class="text-xs font-medium text-success-800">{{ $this->isOutranked ? 'Code promo non cumulé avec votre remise client' : 'Code promo appliqué' }}</p>
                     <p class="font-mono text-sm font-semibold text-success-900 truncate">{{ $this->appliedCode }}</p>
                 </div>
             </div>

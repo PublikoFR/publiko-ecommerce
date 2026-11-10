@@ -24,6 +24,9 @@ class CartDrawer extends Component
 
     public ?string $couponCode = null;
 
+    /** @var array{winner: string, headline: string, details: list<string>}|null */
+    public ?array $advantage = null;
+
     public ?string $total = null;
 
     /** Éco-participation totale du panier, formatée (incluse dans le sous-total) ; null si nulle. */
@@ -93,6 +96,7 @@ class CartDrawer extends Component
             $this->subTotal = null;
             $this->discountTotal = null;
             $this->couponCode = null;
+            $this->advantage = null;
             $this->total = null;
             $this->ecotaxTotal = null;
             $this->linesCount = 0;
@@ -117,6 +121,10 @@ class CartDrawer extends Component
             ? $cart->discountTotal->formatted()
             : null;
         $this->couponCode = $cart->coupon_code;
+        // Non-cumul remise client / promotions (package customer-auth, optionnel).
+        $this->advantage = class_exists(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)
+            ? app(\Pko\CustomerAuth\Pricing\CartDiscountArbiter::class)->displayFor($cart)
+            : null;
         $this->total = $cart->total?->formatted();
         $ecotaxCents = Ecotax::forCart($cart);
         $this->ecotaxTotal = $ecotaxCents > 0 ? Ecotax::format($ecotaxCents, $cart->currency) : null;

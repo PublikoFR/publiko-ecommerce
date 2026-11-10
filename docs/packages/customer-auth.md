@@ -25,8 +25,8 @@ prix remisé = prix déjà résolu × (1 − plus forte remise %)
   plus proche (`applyBasisPoints()`). Aucun float sur un montant.
 - Égalité négocié = remisé → la source retenue est `negotiated` (pas de badge remise).
 - Utilisateur invité ou staff (admin hors impersonation) → pipeline inactif.
-- Promotions/coupons Lunar : appliqués ensuite dans le pipeline panier. La règle de non-cumul
-  avec la remise client (sauf bon d'achat fidélité) est traitée séparément (task « non-cumul »).
+- Promotions/coupons Lunar : arbitrés ensuite au niveau du panier (cf. « Non-cumul avec les
+  promotions / coupons Lunar »).
 
 ## Remises client (%)
 
@@ -55,6 +55,48 @@ Règles :
   (même logique que le prix négocié, `min`).
 - **Produit non remisable** : colonne `lunar_products.pko_not_discountable` (bool, défaut
   `false`). Aucune remise % ; le prix négocié reste applicable.
+
+## Non-cumul avec les promotions / coupons Lunar
+
+Règle : la remise client % ne se cumule pas avec les promotions et coupons Lunar ; le client
+obtient **la meilleure des deux au niveau du panier**. Exception : les **bons d'achat
+fidélité** se cumulent toujours et se déduisent **après** l'avantage retenu.
+
+Mécanisme : `config/lunar/cart.php` remplace l'étape `Lunar\Pipelines\Cart\ApplyDiscounts`
+(classe `final`, non extensible) par `Pko\CustomerAuth\Pricing\ApplyDiscountsWithCustomerPricing`,
+qui délègue à `CartDiscountArbiter` (lié en `scoped`). Les lignes arrivent au prix client
+(remise % intégrée par `NegotiatedPricePipeline`). Si le client a des remises :
+
+1. **A** = lignes au prix client, sous-total HT `A` (aucune promotion) ;
+2. lignes recalculées (pipeline `cart_lines`) sous `CustomerDiscountResolver::withoutPercentDiscount()`
+   → prix **sans remise %** mais **avec prix négocié** (un prix négocié n'est pas une remise
+   et reste cumulable avec une promotion) ; promotions/coupons Lunar appliqués → total `B` ;
+3. `B < A` → promotions retenues ; sinon (égalité incluse) l'état A est restauré (prix, remises,
+   `discountBreakdown`, `freeItems`, `meta` des lignes) et aucune promotion n'est consommée
+   (`$cart->discounts` vide → `markAsUsed` n'incrémente pas ses usages à la commande) ;
+4. les types **cumulables** sont appliqués sur l'état retenu.
+
+- Comparaison sur le **HT des lignes avant bons cumulables** (un bon plafonné au panier
+  fausserait la comparaison). Le port (`ApplyShipping`, avant les remises) est calculé sur le
+  prix client : un franco basé sur le sous-total ne bascule pas selon l'avantage retenu.
+- Client sans remise → comportement Lunar standard, aucun recalcul. Client avec remises mais
+  aucune ligne réellement remisée (non remisable, négocié plus bas…) → après le 2ᵉ passage
+  `cart_lines`, comportement standard. Ce surcoût ne concerne que les clients remisés.
+- Les remises sont relues par `Discounts::getDiscounts($cart)` à chaque calcul (le mémo de
+  `DiscountManager::apply()` n'est pas utilisé).
+- **Types cumulables** : `config('customer-auth.stackable_discount_types')` (vide par défaut).
+  `LoyaltyServiceProvider::boot()` y ajoute `LoyaltyVoucher` : contrat par config, pas de
+  dépendance de classe entre `customer-auth` et `loyalty`. Rejeté : tester la classe du bon
+  depuis customer-auth (couplage) ou une interface marqueur (dépendance Composer inverse).
+- **Affichage** : `CartDiscountArbiter::decisionFor($cart)` → `CartAdvantage` (null si aucune
+  remise client en jeu) : `winner` (`customer_discount` | `promotion`), économies
+  `customerDiscountCents` / `promotionCents`, `outrankedCoupon`, `stackedCents`. Partial
+  `customer-auth::partials.cart-advantage` (via `displayFor()`, forme sérialisable) inclus dans le
+  récap du panier, du checkout et du tiroir panier : « Promotion retenue » / « Votre remise
+  client est retenue » / « Remise client incluse », montants comparés, code écarté, bon cumulé.
+- **Code promo** (`CouponCode`) : un code battu par la remise client est refusé avec un message
+  explicite (« ne se cumule pas avec votre remise client… ») et retiré du panier ; un code déjà
+  posé qui devient moins avantageux (panier modifié) reste sur le panier, affiché « non cumulé ».
 
 ## Back-office
 
@@ -117,5 +159,7 @@ requête ; sinon 2 requêtes par produit, une seule fois par requête HTTP.
 
 `tests/Feature/CustomerAuth/CustomerDiscountTest.php` (héritage d'arbre, plus forte gagne,
 min avec prix négocié, non remisable, client sans remise, absence de N+1),
+`CustomerDiscountCartArbitrationTest.php` (promo plus forte, remise plus forte, bon fidélité
+cumulé avec la remise, bon + promo, code refusé, affichage panier),
 `CustomerDiscountAdminTest.php` (onglet client, vue globale, validation, doublons, case
 produit) et `NegotiatedPriceTest.php`.
