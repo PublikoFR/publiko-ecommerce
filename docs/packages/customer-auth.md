@@ -72,6 +72,28 @@ $breakdown->discountPercent();        // plus forte remise couvrant le produit, 
 `priceFor()` passe par le `PricingManager` Lunar (donc par le pipeline) : le détail est
 toujours cohérent avec le prix réellement facturé. `$user` omis → utilisateur connecté.
 
+## Affichage front (prix barré + badge)
+
+`Pko\Storefront\Support\CustomerPriceDisplay` (package storefront, dépendance **souple** :
+sans customer-auth, prix Lunar brut) traduit le détail en objets `Price` pour les vues :
+
+- `forVariant($variant)` → utilisé par `<x-storefront.price-gate>` (fiche produit, cartes de
+  listing, collections, recherche, accueil, produits associés) ;
+- `forCartLine($line)` → `CartPage` et `CartDrawer` (champs `unit_original`, `discount_badge`).
+  Le barré n'apparaît que si le détail recalculé égale **exactement** `unitPrice` de la ligne
+  (filet de sécurité : jamais un barré incohérent avec le prix facturé) ;
+- `preloadProducts($products)` → appelé dans chaque vue de listing avant la boucle.
+
+Règle d'affichage : barré + badge `-X %` (`x-ui.badge` forest solid, jamais lime : le lime est
+réservé au CTA unique) **seulement** si `isDiscounted()` (la remise % fixe le prix). Prix
+négocié seul, négocié plus bas que la remise, produit non remisable → prix net, sans barré.
+
+Devis, commande et Pennylane ne recalculent rien : ils lisent `CartLine::unitPrice`
+(pipeline Lunar → `NegotiatedPricePipeline`), puis les montants figés de la commande
+(`CheckoutPage` → `CreateSplitQuoteOrder`, `OrderToInvoiceMapper`). Le formulaire
+`quote-requests` n'a plus de lignes produit, donc aucun prix. Tests :
+`tests/Feature/CustomerAuth/CustomerDiscountDisplayTest.php`.
+
 ## Performance (listings)
 
 Le résolveur est lié en **`scoped`** (une instance par requête / job) et mémorise :
