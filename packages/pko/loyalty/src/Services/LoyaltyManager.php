@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Pko\Loyalty\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Lunar\DataTypes\Price;
@@ -20,6 +21,7 @@ use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\LoyaltyTier;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Models\Setting;
+use Pko\Loyalty\Support\BfaTranche;
 use Pko\MailTemplates\Support\AdminRecipient;
 use Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider;
 
@@ -412,6 +414,28 @@ class LoyaltyManager
             'total_active_tiers' => $allTiers->count(),
             'all_tiers_unlocked' => $allTiers->isNotEmpty() && $nextTier === null && $totalPoints > 0,
             'no_tiers_configured' => $allTiers->isEmpty(),
+            'bfa' => $this->bfaSnapshot($customerId),
+        ];
+    }
+
+    /**
+     * Estimation en temps réel du BFA de l'année, ou null si aucun palier BFA
+     * n'est débloqué cette année.
+     *
+     * @return array{year: int, acquired: int, tranches: Collection<int, BfaTranche>}|null
+     */
+    protected function bfaSnapshot(int $customerId): ?array
+    {
+        $tranches = app(BfaCalculator::class)->tranches($customerId, $this->currentYear());
+
+        if ($tranches->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'year' => $this->currentYear(),
+            'acquired' => (int) $tranches->sum('amount'),
+            'tranches' => $tranches,
         ];
     }
 }

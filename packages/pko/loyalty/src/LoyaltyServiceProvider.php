@@ -12,6 +12,7 @@ use Lunar\Models\Order;
 use Lunar\Models\Transaction;
 use Pko\Loyalty\Console\RecalculateLoyaltyTiersCommand;
 use Pko\Loyalty\Console\ResetAnnualLoyaltyPointsCommand;
+use Pko\Loyalty\Contracts\BfaCreditNoteIssuer;
 use Pko\Loyalty\DiscountTypes\LoyaltyCouponValidator;
 use Pko\Loyalty\DiscountTypes\LoyaltyVoucher;
 use Pko\Loyalty\Models\CustomerPoints;
@@ -19,8 +20,10 @@ use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Observers\OrderObserver;
 use Pko\Loyalty\Observers\RefundTransactionObserver;
+use Pko\Loyalty\Services\BfaCalculator;
 use Pko\Loyalty\Services\LoyaltyFrancoThreshold;
 use Pko\Loyalty\Services\LoyaltyManager;
+use Pko\Loyalty\Services\NullBfaCreditNoteIssuer;
 use Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider;
 
 class LoyaltyServiceProvider extends ServiceProvider
@@ -29,6 +32,11 @@ class LoyaltyServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/loyalty.php', 'loyalty');
         $this->app->singleton(LoyaltyManager::class, fn () => new LoyaltyManager);
+        $this->app->singleton(BfaCalculator::class);
+
+        // Avoirs BFA : l'intégration comptable (pko/pennylane) remplace ce
+        // défaut. `bindIf` : l'ordre d'enregistrement des providers est libre.
+        $this->app->bindIf(BfaCreditNoteIssuer::class, NullBfaCreditNoteIssuer::class);
 
         // Le validateur Lunar par défaut refuse les codes d'un type de remise
         // qu'il ne connaît pas : sans ça, un bon fidélité serait rejeté au panier.

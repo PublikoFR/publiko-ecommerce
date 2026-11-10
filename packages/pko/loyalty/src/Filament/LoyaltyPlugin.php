@@ -6,6 +6,7 @@ namespace Pko\Loyalty\Filament;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use Pko\Loyalty\Filament\Pages\BfaPayouts;
 use Pko\Loyalty\Filament\Pages\LoyaltySettings;
 use Pko\Loyalty\Filament\Resources\GiftHistoryResource;
 use Pko\Loyalty\Filament\Resources\LoyaltyTierResource;
@@ -28,6 +29,7 @@ class LoyaltyPlugin implements Plugin
             ])
             ->pages([
                 LoyaltySettings::class,
+                BfaPayouts::class,
             ]);
     }
 

@@ -10,6 +10,9 @@ use Pko\Pennylane\Support\Language;
  * En v2, un avoir est une facture client à montants négatifs, créée par le même
  * endpoint puis rattachée à la facture d'origine via `link_credit_note` : le
  * payload ne porte donc ni `credit_note` ni `parent_invoice_id`.
+ *
+ * Sans facture parente (`parentInvoicePennylaneId` null), c'est un avoir
+ * autonome (ex. BFA fidélité) : créé et finalisé, jamais rattaché.
  */
 final class CreateCreditNoteData
 {
@@ -19,7 +22,7 @@ final class CreateCreditNoteData
     public function __construct(
         public readonly int $pennylaneCustomerId,
         public readonly ?int $customerInvoiceTemplateId,
-        public readonly int $parentInvoicePennylaneId,
+        public readonly ?int $parentInvoicePennylaneId,
         public readonly string $externalReference,
         public readonly string $date,
         public readonly string $currency,

@@ -33,6 +33,7 @@ use Pko\AiImporter\Filament\Resources\ImportJobResource;
 use Pko\AiImporter\Filament\Resources\LlmConfigResource;
 use Pko\CustomerAuth\Filament\Resources\CustomerDiscountResource;
 use Pko\CustomerAuth\Filament\Resources\PkoCustomerResource;
+use Pko\Loyalty\Filament\Pages\BfaPayouts;
 use Pko\MailTemplates\Filament\Resources\MailTemplateResource;
 use Pko\Pennylane\Filament\Pages\PennylaneConfig;
 use Pko\Pennylane\Filament\Resources\PennylaneInvoiceResource;
@@ -137,7 +138,8 @@ class Builder
         return array_values(array_filter([
             self::resItem(DiscountResource::class, 'heroicon-o-receipt-percent', 'Réductions')?->sort(1),
             self::resItem(LoyaltyHub::class, 'heroicon-o-gift', 'Fidélité')?->sort(2),
-            self::resItem(NewsletterSubscriberResource::class, 'heroicon-o-envelope', 'Newsletter')?->sort(3),
+            self::resItem(BfaPayouts::class, 'heroicon-o-receipt-refund', 'BFA de fin d\'année')?->sort(3),
+            self::resItem(NewsletterSubscriberResource::class, 'heroicon-o-envelope', 'Newsletter')?->sort(4),
         ]));
     }
 
