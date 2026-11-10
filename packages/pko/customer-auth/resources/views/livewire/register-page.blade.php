@@ -85,15 +85,13 @@
                     </div>
 
                     <x-ui.input wire:model="phone" label="Téléphone" required :error="$errors->first('phone')" />
+
+                    {{-- Mots de passe dans la colonne 2, l'un sous l'autre : ils comblent
+                         l'espace laissé sous le téléphone et équilibrent les deux colonnes. --}}
+                    <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
+
+                    <x-ui.input wire:model="passwordConfirmation" label="Confirmer le mot de passe" type="password" required />
                 </div>
-            </div>
-
-            {{-- Mots de passe sur une ligne pleine largeur : équilibre les deux colonnes,
-                 qui restent sinon de hauteurs très inégales. --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                <x-ui.input wire:model="password" label="Mot de passe (min. 8 car.)" type="password" required :error="$errors->first('password')" />
-
-                <x-ui.input wire:model="passwordConfirmation" label="Confirmer le mot de passe" type="password" required />
             </div>
 
             <div class="flex flex-col items-center text-center">
