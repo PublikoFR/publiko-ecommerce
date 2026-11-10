@@ -6,6 +6,7 @@ namespace Tests\Feature\QuoteRequests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Lunar\Models\ProductVariant;
 use Pko\QuoteRequests\Enums\QuoteRequestMode;
 use Pko\QuoteRequests\Mail\QuoteRequestAdminMail;
@@ -26,8 +27,13 @@ class QuoteRequestSupportTest extends TestCase
         $this->assertSame('/demande-de-devis', quote_request_url());
         $this->assertSame('/demande-de-devis?mode=part_photo', quote_request_url('part_photo'));
         $this->assertSame(
-            '/demande-de-devis?mode=project&product=42&ref=MT-10&from=%2Fproduits%2Fx',
-            quote_request_url('project', ['product' => 42, 'ref' => 'MT-10', 'from' => '/produits/x']),
+            '/demande-de-devis?mode=part_photo&product=42&ref=MT-10&from=%2Fproduits%2Fx',
+            quote_request_url('part_photo', ['product' => 42, 'ref' => 'MT-10', 'from' => '/produits/x']),
+        );
+        // Ancien mode « projet » (fusionné) : demande générale, sans paramètre de mode.
+        $this->assertSame(
+            '/demande-de-devis?product=42',
+            quote_request_url('project', ['product' => 42]),
         );
         // URL d'origine externe : écartée, jamais propagée.
         $this->assertSame('/demande-de-devis', quote_request_url('general', ['from' => 'https://evil.example/']));
@@ -142,7 +148,8 @@ class QuoteRequestSupportTest extends TestCase
         $html = $admin->render();
         $this->assertStringContainsString($request->number(), $html);
         $this->assertStringContainsString('Plaque illisible.', $html);
-        $this->assertStringContainsString('MT-10 × 2', $html);
+        // Plus de bloc « Produits / quantités » dans le mail équipe.
+        $this->assertStringNotContainsString('Produits / quantités', $html);
         $this->assertStringContainsString('/quote-requests/'.$request->id, $html);
         $this->assertStringNotContainsString('<b>Martin</b>', $html);
         $this->assertTrue($admin->hasReplyTo('camille@example.test'));
@@ -161,5 +168,37 @@ class QuoteRequestSupportTest extends TestCase
         $this->assertContains('/demande-de-devis?mode=part_photo', $hrefs);
         $this->assertContains('/demande-de-devis?mode=project', $hrefs);
         $this->assertSame('/demande-de-devis', $config['footer']['columns'][0]['links'][0]['href']);
+    }
+
+    public function test_merge_migration_moves_project_requests_and_strips_the_default_lines_block(): void
+    {
+        $request = QuoteRequest::create([
+            'mode' => QuoteRequestMode::General,
+            'name' => 'Ancien Projet',
+            'email' => 'projet@example.test',
+            'message' => 'Rénovation.',
+        ]);
+        DB::table('pko_quote_requests')->where('id', $request->id)->update(['mode' => 'project']);
+
+        $block = ['type' => 'text', 'html' => '<p><strong>Produits / quantités</strong> : :lines</p>'];
+        $edited = ['type' => 'text', 'html' => '<p>Texte retouché : :lines</p>'];
+        $content = ['heading' => '', 'sections' => [['layout' => '1col', 'columns' => [['blocks' => [
+            ['type' => 'title', 'level' => 'h2', 'text' => 'Nouvelle demande de devis'], $block, $edited,
+        ]]]]]];
+        DB::table('pko_mail_templates')->updateOrInsert(
+            ['key' => 'quote_request.received_admin', 'locale' => 'fr'],
+            ['subject' => 'Demande', 'content' => json_encode($content), 'enabled' => true],
+        );
+
+        $migration = require base_path('packages/pko/quote-requests/database/migrations/2026_11_10_120000_merge_project_mode_and_drop_lines_from_admin_mail.php');
+        $migration->up();
+
+        $this->assertSame('general', DB::table('pko_quote_requests')->where('id', $request->id)->value('mode'));
+        $stored = json_decode((string) DB::table('pko_mail_templates')->where('key', 'quote_request.received_admin')->value('content'), true);
+        $blocks = $stored['sections'][0]['columns'][0]['blocks'];
+        $this->assertCount(2, $blocks);
+        $this->assertNotContainsEquals($block, $blocks);
+        // Un bloc retouché en admin n'est jamais supprimé.
+        $this->assertContainsEquals($edited, $blocks);
     }
 }

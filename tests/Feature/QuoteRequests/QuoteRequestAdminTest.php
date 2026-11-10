@@ -130,7 +130,7 @@ class QuoteRequestAdminTest extends TestCase
     {
         $this->actingAsAdmin();
         $other = QuoteRequest::create([
-            'mode' => QuoteRequestMode::Project,
+            'mode' => QuoteRequestMode::General,
             'status' => QuoteRequestStatus::Done,
             'name' => 'Autre Contact',
             'email' => 'autre@example.test',

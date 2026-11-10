@@ -38,7 +38,7 @@
                     {{-- Choix du mode : la saisie est conservée d'un mode à l'autre. --}}
                     <fieldset>
                         <legend class="text-sm font-semibold text-neutral-900 mb-3">Type de demande</legend>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup">
                             @foreach ($modes as $option)
                                 @php $active = $option === $currentMode; @endphp
                                 <button
@@ -78,7 +78,7 @@
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <x-ui.input label="E-mail *" type="email" wire:model="email" autocomplete="email" placeholder="jean.dupont@exemple.fr" :error="$errors->first('email')" />
-                            <x-ui.input :label="$currentMode === \Pko\QuoteRequests\Enums\QuoteRequestMode::Project ? 'Téléphone *' : 'Téléphone'" type="tel" wire:model="phone" autocomplete="tel" placeholder="06 12 34 56 78" :error="$errors->first('phone')" />
+                            <x-ui.input label="Téléphone" type="tel" wire:model="phone" autocomplete="tel" placeholder="06 12 34 56 78" :error="$errors->first('phone')" />
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             <x-ui.input label="Code postal du chantier / de livraison" wire:model="postcode" autocomplete="postal-code" :error="$errors->first('postcode')" />
@@ -94,56 +94,6 @@
                         :placeholder="$currentMode->messagePlaceholder()"
                         :error="$errors->first('message')"
                     />
-
-                    {{-- Lignes produit / quantité (répétables) --}}
-                    <div>
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <p class="text-sm font-semibold text-neutral-900">Produits et quantités</p>
-                            @unless ($linesVisible)
-                                <button type="button" wire:click="$set('showLines', true)" class="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                                    Ajouter des références
-                                </button>
-                            @endunless
-                        </div>
-                        @if ($linesVisible)
-                        <div class="space-y-3">
-                            @foreach ($lines as $index => $line)
-                                <div class="flex items-start gap-3" wire:key="quote-line-{{ $index }}">
-                                    <div class="flex-1">
-                                        <x-ui.input
-                                            :id="'quote-line-label-'.$index"
-                                            :label="$loop->first ? 'Référence ou désignation' : null"
-                                            wire:model="lines.{{ $index }}.label"
-                                            placeholder="Ex. moteur tubulaire 10 Nm"
-                                            :error="$errors->first('lines.'.$index.'.label')"
-                                        />
-                                    </div>
-                                    <div class="w-24">
-                                        <x-ui.input
-                                            :id="'quote-line-qty-'.$index"
-                                            :label="$loop->first ? 'Quantité' : null"
-                                            type="number"
-                                            min="1"
-                                            wire:model="lines.{{ $index }}.quantity"
-                                            :error="$errors->first('lines.'.$index.'.quantity')"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        wire:click="removeLine({{ $index }})"
-                                        @class(['shrink-0 p-2.5 rounded-md text-neutral-500 hover:text-danger-600 hover:bg-neutral-100 transition', 'mt-7' => $loop->first])
-                                        aria-label="Retirer la ligne"
-                                    >
-                                        <x-ui.icon name="trash" class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            @endforeach
-                            <x-ui.button variant="secondary" size="sm" icon="plus" wire:click="addLine">
-                                Ajouter une ligne
-                            </x-ui.button>
-                        </div>
-                        @endif
-                    </div>
 
                     {{-- Pièces jointes --}}
                     <div>

@@ -54,17 +54,11 @@ class QuoteRequestPage extends Component
 
     public string $message = '';
 
-    /** @var array<int, array{label: string, quantity: int|string}> */
-    public array $lines = [];
-
     /** Fichiers retenus (validés un par un à l'ajout). @var array<int, TemporaryUploadedFile> */
     public array $attachments = [];
 
     /** Sélection en cours dans le champ fichier, fusionnée dans $attachments. @var array<int, TemporaryUploadedFile> */
     public array $newAttachments = [];
-
-    /** Lignes produit dépliées à la demande dans le mode photo. */
-    public bool $showLines = false;
 
     public bool $consent = false;
 
@@ -81,13 +75,6 @@ class QuoteRequestPage extends Component
         $this->context = QuoteContext::fromQuery(request()->query());
 
         $this->prefillFromCustomer();
-
-        $first = $this->context['reference'] ?? $this->context['product_name'] ?? null;
-        $label = is_string($first) ? $first : '';
-        if ($label !== '' && ($this->context['reference'] ?? null) && ($this->context['product_name'] ?? null)) {
-            $label = $this->context['reference'].' — '.$this->context['product_name'];
-        }
-        $this->lines = [['label' => $label, 'quantity' => 1]];
     }
 
     public function setMode(string $mode): void
@@ -99,22 +86,6 @@ class QuoteRequestPage extends Component
     public function updatedMode(): void
     {
         $this->mode = QuoteRequestMode::fromQuery($this->mode)->value;
-    }
-
-    public function addLine(): void
-    {
-        if (count($this->lines) < (int) config('quote-requests.max_lines', 30)) {
-            $this->lines[] = ['label' => '', 'quantity' => 1];
-        }
-    }
-
-    public function removeLine(int $index): void
-    {
-        unset($this->lines[$index]);
-        $this->lines = array_values($this->lines);
-        if ($this->lines === []) {
-            $this->lines[] = ['label' => '', 'quantity' => 1];
-        }
     }
 
     /**
@@ -186,9 +157,8 @@ class QuoteRequestPage extends Component
         }
 
         $mode = QuoteRequestMode::fromQuery($this->mode);
-        $lines = $this->filledLines();
 
-        $this->validate($this->rules($mode, $lines !== []), $this->messages());
+        $this->validate($this->rules(), $this->messages());
         $this->validateAttachments($mode);
 
         RateLimiter::hit($rateKey, (int) config('quote-requests.rate_limit.decay_seconds', 3600));
@@ -203,7 +173,7 @@ class QuoteRequestPage extends Component
                 'postcode' => $this->postcode,
                 'message' => trim($this->message),
             ],
-            lines: $lines,
+            lines: [],
             context: $this->context,
             files: $this->attachments,
             user: Auth::user(),
@@ -218,23 +188,17 @@ class QuoteRequestPage extends Component
     /**
      * @return array<string, array<int, mixed>>
      */
-    protected function rules(?QuoteRequestMode $mode = null, bool $hasLines = false): array
+    protected function rules(): array
     {
-        $mode ??= QuoteRequestMode::fromQuery($this->mode);
-        // Une liste de références suffit à une demande générale ou projet ;
-        // sinon la description est indispensable pour traiter la demande.
-        $messageRule = $hasLines ? ['nullable', 'string', 'max:5000'] : ['required', 'string', 'min:10', 'max:5000'];
-
         return [
             'name' => ['required', 'string', 'max:120'],
             'company' => ['nullable', 'string', 'max:160'],
             'email' => ['required', 'email', 'max:180'],
-            'phone' => [$mode === QuoteRequestMode::Project ? 'required' : 'nullable', 'string', 'max:40'],
+            'phone' => ['nullable', 'string', 'max:40'],
             'postcode' => ['nullable', 'string', 'max:20'],
-            'message' => $messageRule,
-            'lines' => ['array', 'max:'.(int) config('quote-requests.max_lines', 30)],
-            'lines.*.label' => ['nullable', 'string', 'max:190'],
-            'lines.*.quantity' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            // La description est le seul support de la demande (plus de lignes
+            // produit) : elle est toujours obligatoire.
+            'message' => ['required', 'string', 'min:10', 'max:5000'],
             'consent' => ['accepted'],
         ];
     }
@@ -248,11 +212,8 @@ class QuoteRequestPage extends Component
             'name.required' => 'Merci d\'indiquer votre nom.',
             'email.required' => 'Merci d\'indiquer votre e-mail.',
             'email.email' => 'L\'adresse e-mail n\'est pas valide.',
-            'phone.required' => 'Merci d\'indiquer un téléphone pour échanger sur votre projet.',
-            'message.required' => 'Merci de décrire votre demande (ou d\'indiquer au moins une référence).',
+            'message.required' => 'Merci de décrire votre demande.',
             'message.min' => 'Votre description doit contenir au moins 10 caractères.',
-            'lines.*.quantity.integer' => 'La quantité doit être un nombre entier.',
-            'lines.*.quantity.min' => 'La quantité doit être au moins de 1.',
             'consent.accepted' => 'Vous devez accepter la politique de confidentialité.',
         ];
     }
@@ -264,9 +225,6 @@ class QuoteRequestPage extends Component
             'currentMode' => QuoteRequestMode::fromQuery($this->mode),
             'modes' => QuoteRequestMode::cases(),
             'hasContext' => QuoteContext::isFilled($this->context),
-            'linesVisible' => $this->showLines
-                || QuoteRequestMode::fromQuery($this->mode)->showsLinesByDefault()
-                || $this->filledLines() !== [],
             'accept' => FileSignature::acceptAttribute(),
             'maxFiles' => $this->maxFiles(),
             'maxSizeMb' => (int) round($this->maxSizeKb() / 1024),
@@ -288,21 +246,6 @@ class QuoteRequestPage extends Component
         $this->company = (string) ($customer->company_name ?? '');
         $this->phone = (string) ($customer?->meta['phone'] ?? '');
         $this->postcode = (string) ($customer->pko_postcode ?? '');
-    }
-
-    /** @return array<int, array{label: string, quantity: int}> */
-    private function filledLines(): array
-    {
-        $lines = [];
-        foreach ($this->lines as $line) {
-            $label = trim((string) ($line['label'] ?? ''));
-            if ($label === '') {
-                continue;
-            }
-            $lines[] = ['label' => mb_substr($label, 0, 190), 'quantity' => max(1, (int) ($line['quantity'] ?? 1))];
-        }
-
-        return $lines;
     }
 
     /**
@@ -361,7 +304,6 @@ class QuoteRequestPage extends Component
     private function resetForm(): void
     {
         $this->reset(['message', 'consent', 'website', 'attachments', 'newAttachments']);
-        $this->lines = [['label' => '', 'quantity' => 1]];
         if (Auth::guest()) {
             $this->reset(['name', 'company', 'email', 'phone', 'postcode']);
         }

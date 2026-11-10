@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace Pko\QuoteRequests\Enums;
 
 /**
- * Les trois parcours du formulaire de devis. Un seul formulaire, des textes et
+ * Les deux parcours du formulaire de devis. Un seul formulaire, des textes et
  * des champs mis en avant différents selon le mode.
+ *
+ * L'ancien mode « projet » a été fusionné dans la demande générale (même
+ * formulaire, aucun champ propre) : `?mode=project` retombe sur General.
  */
 enum QuoteRequestMode: string
 {
     case General = 'general';
-    case Project = 'project';
     case PartPhoto = 'part_photo';
 
     public static function fromQuery(mixed $value): self
@@ -24,7 +26,6 @@ enum QuoteRequestMode: string
     {
         return match ($this) {
             self::General => 'Demande de devis',
-            self::Project => 'Devis pour un projet',
             self::PartPhoto => 'Identification d\'une pièce',
         };
     }
@@ -33,7 +34,6 @@ enum QuoteRequestMode: string
     {
         return match ($this) {
             self::General => 'messages-square',
-            self::Project => 'clipboard-pen',
             self::PartPhoto => 'camera',
         };
     }
@@ -42,7 +42,6 @@ enum QuoteRequestMode: string
     {
         return match ($this) {
             self::General => 'Demander un devis',
-            self::Project => 'Présentez-nous votre projet',
             self::PartPhoto => 'Identifier une pièce',
         };
     }
@@ -50,8 +49,7 @@ enum QuoteRequestMode: string
     public function intro(): string
     {
         return match ($this) {
-            self::General => 'Indiquez les références ou les produits recherchés et les quantités : notre équipe vous répond avec une proposition adaptée.',
-            self::Project => 'Chantier, rénovation, installation complète : décrivez votre besoin et joignez vos plans ou listes de matériel, nous étudions la meilleure solution.',
+            self::General => 'Produits, références, chantier ou installation complète : décrivez votre besoin et joignez vos plans, photos ou listes de matériel, notre équipe vous répond avec une proposition adaptée.',
             self::PartPhoto => 'Vous ne connaissez pas la référence ? Envoyez-nous des photos de la pièce, de son étiquette et de son environnement : nous l\'identifions pour vous.',
         };
     }
@@ -60,7 +58,6 @@ enum QuoteRequestMode: string
     {
         return match ($this) {
             self::General => 'Votre demande',
-            self::Project => 'Description du projet',
             self::PartPhoto => 'Description de la pièce',
         };
     }
@@ -68,16 +65,9 @@ enum QuoteRequestMode: string
     public function messagePlaceholder(): string
     {
         return match ($this) {
-            self::General => 'Précisez votre besoin, vos délais, vos contraintes de livraison…',
-            self::Project => 'Type de chantier, dimensions, nombre d\'ouvrants, délais, contraintes…',
+            self::General => 'Produits ou références recherchés, quantités, type de chantier, délais, contraintes de livraison…',
             self::PartPhoto => 'Marque et modèle de l\'équipement si connus, inscriptions visibles, symptôme ou panne…',
         };
-    }
-
-    /** Les lignes produit sont proposées d'emblée (dépliées) dans ce mode. */
-    public function showsLinesByDefault(): bool
-    {
-        return $this !== self::PartPhoto;
     }
 
     /** Au moins une photo est attendue dans ce mode. */
@@ -90,8 +80,7 @@ enum QuoteRequestMode: string
     {
         return match ($this) {
             self::PartPhoto => 'Au moins une photo : vue d\'ensemble, étiquette / plaque signalétique, détail des fixations.',
-            self::Project => 'Plans, photos du chantier, listes de matériel (PDF, images, CSV, XLSX).',
-            self::General => 'Facultatif : photos, PDF, listes de références (CSV, XLSX).',
+            self::General => 'Facultatif : plans, photos, listes de matériel (PDF, images, CSV, XLSX).',
         };
     }
 

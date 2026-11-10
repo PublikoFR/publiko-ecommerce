@@ -50,12 +50,23 @@ class QuoteRequestPageTest extends TestCase
             ->assertSee(QuoteRequestMode::General->title())
             ->assertSee('Envoyer ma demande');
 
-        $this->get('/demande-de-devis?mode=project')->assertOk()
-            ->assertSee(QuoteRequestMode::Project->title());
-
         $this->get('/demande-de-devis?mode=part_photo')->assertOk()
-            ->assertSee(QuoteRequestMode::PartPhoto->title())
-            ->assertSee('Ajouter des références');
+            ->assertSee(QuoteRequestMode::PartPhoto->title());
+
+        // Plus de lignes produit à saisir : la description suffit.
+        $this->get('/demande-de-devis')->assertOk()
+            ->assertDontSee('Ajouter des références')
+            ->assertDontSee('Produits et quantités');
+    }
+
+    public function test_only_two_modes_are_offered_and_legacy_project_links_land_on_general(): void
+    {
+        $this->assertSame(['general', 'part_photo'], array_map(fn (QuoteRequestMode $m): string => $m->value, QuoteRequestMode::cases()));
+
+        Livewire::withQueryParams(['mode' => 'project'])
+            ->test(QuoteRequestPage::class)
+            ->assertSet('mode', 'general')
+            ->assertDontSee('Devis pour un projet');
     }
 
     public function test_unknown_mode_falls_back_to_general(): void
@@ -71,15 +82,13 @@ class QuoteRequestPageTest extends TestCase
             ->set('name', 'Jean Dupont')
             ->set('email', 'jean@example.test')
             ->set('message', 'Une description assez longue.')
-            ->set('lines.0.label', 'MT-10')
             ->call('setMode', 'part_photo')
             ->assertSet('mode', 'part_photo')
             ->assertSee(QuoteRequestMode::PartPhoto->title())
             ->assertSet('name', 'Jean Dupont')
             ->assertSet('message', 'Une description assez longue.')
-            ->assertSet('lines.0.label', 'MT-10')
-            ->call('setMode', 'project')
-            ->assertSet('mode', 'project')
+            ->call('setMode', 'general')
+            ->assertSet('mode', 'general')
             ->assertSet('email', 'jean@example.test');
     }
 
@@ -98,8 +107,7 @@ class QuoteRequestPageTest extends TestCase
             ->assertSet('context.reference', 'MT-10')
             ->assertSet('context.from', '/produits/moteur-tubulaire')
             ->assertSee('Moteur tubulaire 10 Nm')
-            ->assertSee('MT-10')
-            ->assertSet('lines.0.label', 'MT-10 — Moteur tubulaire 10 Nm');
+            ->assertSee('MT-10');
 
         $this->fillValid($component)->call('submit')->assertHasNoErrors();
 
@@ -167,12 +175,10 @@ class QuoteRequestPageTest extends TestCase
         $photo = UploadedFile::fake()->createWithContent('plaque.jpg', self::JPEG);
 
         Livewire::actingAs($user)
-            ->withQueryParams(['mode' => 'project'])
             ->test(QuoteRequestPage::class)
             ->set('name', 'Camille Martin')
             ->set('phone', '0612345678')
             ->set('message', 'Rénovation de 12 volets roulants.')
-            ->set('lines', [['label' => 'MT-10', 'quantity' => 12], ['label' => '', 'quantity' => 1]])
             ->set('newAttachments', [$pdf, $photo])
             ->assertHasNoErrors()
             ->assertCount('attachments', 2)
@@ -182,12 +188,12 @@ class QuoteRequestPageTest extends TestCase
             ->assertSet('sent', true);
 
         $request = QuoteRequest::query()->with('files')->sole();
-        $this->assertSame(QuoteRequestMode::Project, $request->mode);
+        $this->assertSame(QuoteRequestMode::General, $request->mode);
         $this->assertSame(QuoteRequestStatus::New, $request->status);
         $this->assertSame('pro@example.test', $request->email);
         $this->assertSame($customer->id, $request->customer_id);
         $this->assertSame($user->id, $request->user_id);
-        $this->assertSame([['label' => 'MT-10', 'quantity' => 12]], $request->lines);
+        $this->assertNull($request->lines);
         $this->assertCount(2, $request->files);
 
         $pdfFile = $request->files->firstWhere('original_name', 'plan.pdf');
@@ -258,20 +264,18 @@ class QuoteRequestPageTest extends TestCase
         $this->assertSame(0, QuoteRequest::query()->count());
     }
 
-    public function test_lines_alone_are_enough_without_description(): void
+    public function test_description_is_always_required(): void
     {
         Mail::fake();
 
         Livewire::test(QuoteRequestPage::class)
             ->set('name', 'Jean Dupont')
             ->set('email', 'jean@example.test')
-            ->set('lines.0.label', 'MT-10')
-            ->set('lines.0.quantity', 3)
             ->set('consent', true)
             ->call('submit')
-            ->assertHasNoErrors();
+            ->assertHasErrors(['message' => 'required']);
 
-        $this->assertSame('', QuoteRequest::query()->sole()->message);
+        $this->assertSame(0, QuoteRequest::query()->count());
     }
 
     public function test_honeypot_simulates_success_without_storing(): void

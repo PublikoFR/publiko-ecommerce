@@ -307,7 +307,6 @@ La fermeture pour les pros.</p>'],
 <strong>Catégorie</strong> : :collection<br>
 <strong>Page d\'origine</strong> : :from_url</p>'],
             ['type' => 'quote', 'text' => ':message', 'cite' => ''],
-            ['type' => 'text', 'html' => '<p><strong>Produits / quantités</strong> : :lines</p>'],
             ['type' => 'text', 'html' => '<p><strong>Pièces jointes (:attachments_count)</strong> : :attachments</p>'],
             ['type' => 'button', 'label' => 'Voir la demande et les pièces jointes', 'url' => ':admin_url', 'variant' => 'primary'],
         ]),
