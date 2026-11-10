@@ -16,9 +16,11 @@ use Pko\CustomerAuth\Livewire\ForgotPasswordPage;
 use Pko\CustomerAuth\Livewire\LoginPage;
 use Pko\CustomerAuth\Livewire\RegisterPage;
 use Pko\CustomerAuth\Livewire\ResetPasswordPage;
+use Pko\CustomerAuth\Models\CustomerDiscount;
 use Pko\CustomerAuth\Models\NegotiatedPrice;
 use Pko\CustomerAuth\Observers\CustomerActivationObserver;
 use Pko\CustomerAuth\Observers\CustomerGroupHandleObserver;
+use Pko\CustomerAuth\Pricing\CustomerDiscountResolver;
 use Pko\CustomerAuth\Sirene\SireneClient;
 
 class CustomerAuthServiceProvider extends ServiceProvider
@@ -33,6 +35,10 @@ class CustomerAuthServiceProvider extends ServiceProvider
             enabled: (bool) config('customer-auth.sirene.enabled'),
             timeout: (int) config('customer-auth.sirene.timeout'),
         ));
+
+        // Une instance par requête / job : mémorise les remises du client et les
+        // cibles produit (pas de N+1 sur les listings), sans fuite entre requêtes.
+        $this->app->scoped(CustomerDiscountResolver::class);
     }
 
     public function boot(Router $router): void
@@ -62,6 +68,12 @@ class CustomerAuthServiceProvider extends ServiceProvider
         Customer::resolveRelationUsing(
             'negotiatedPrices',
             fn (Customer $customer) => $customer->hasMany(NegotiatedPrice::class, 'customer_id'),
+        );
+
+        // Remises client % (collection / famille fabricant / marque).
+        Customer::resolveRelationUsing(
+            'customerDiscounts',
+            fn (Customer $customer) => $customer->hasMany(CustomerDiscount::class, 'customer_id'),
         );
 
         Livewire::component('customer-auth.login', LoginPage::class);

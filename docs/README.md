@@ -36,6 +36,7 @@ Chaque package `packages/pko/*` a sa propre doc sous [packages/](packages/) :
 - [storefront-cms.md](packages/storefront-cms.md) — CMS unifié multi-post-type + brand pages + facets + sanitization
 - [storefront.md](packages/storefront.md) — frontoffice Livewire phase 1
 - [storefront-b2b.md](packages/storefront-b2b.md) — frontoffice B2B pro phase 2
+- [customer-auth.md](packages/customer-auth.md) — prix client : prix négociés + remises client % (collection/famille fabricant/marque), pipeline pricing unique, `CustomerDiscountResolver`
 - [account.md](packages/account.md) — espace compte client (commandes, profil, adresses)
 - [quote-requests.md](packages/quote-requests.md) — formulaire de devis unique et contextuel (modes général / projet / photo), PJ privées validées par signature, suivi admin
 
