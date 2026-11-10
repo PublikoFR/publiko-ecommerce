@@ -40,7 +40,9 @@ if ($isPassword) {
         <div class="flex items-end justify-between gap-2 mb-1.5">
             <label for="{{ $id }}" class="block text-sm font-medium text-neutral-700">{{ $label }}@if ($isRequired)<span class="text-danger-500"> *</span>@endif</label>
             @if (! is_null($labelTrailing))
-                <div class="shrink-0">{{ $labelTrailing }}</div>
+                {{-- flex : sans lui, ce bloc prend la hauteur de ligne du texte de base
+                     (24 px) au lieu des 20 px du label, et décale le champ de 4 px. --}}
+                <div class="shrink-0 flex">{{ $labelTrailing }}</div>
             @endif
         </div>
     @endif
