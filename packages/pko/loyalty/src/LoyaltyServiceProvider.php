@@ -19,7 +19,9 @@ use Pko\Loyalty\Models\GiftHistory;
 use Pko\Loyalty\Models\PointsHistory;
 use Pko\Loyalty\Observers\OrderObserver;
 use Pko\Loyalty\Observers\RefundTransactionObserver;
+use Pko\Loyalty\Services\LoyaltyFrancoThreshold;
 use Pko\Loyalty\Services\LoyaltyManager;
+use Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider;
 
 class LoyaltyServiceProvider extends ServiceProvider
 {
@@ -31,6 +33,13 @@ class LoyaltyServiceProvider extends ServiceProvider
         // Le validateur Lunar par défaut refuse les codes d'un type de remise
         // qu'il ne connaît pas : sans ça, un bon fidélité serait rejeté au panier.
         $this->app->bind(CouponValidator::class, LoyaltyCouponValidator::class);
+
+        // Palier « franco abaissé » : seuil de franco personnel lu par le
+        // calculateur de frais de port. Dépendance optionnelle — sans
+        // pko/shipping-common, le palier reste configurable mais sans effet.
+        if (interface_exists(CustomerFrancoThresholdProvider::class)) {
+            $this->app->bind(CustomerFrancoThresholdProvider::class, LoyaltyFrancoThreshold::class);
+        }
     }
 
     public function boot(): void

@@ -17,6 +17,8 @@
             $unlocked = $snapshot['unlocked_tiers'] ?? collect();
             $giftHistory = $snapshot['gift_history'] ?? $unlocked;
             $pointsHistory = $snapshot['points_history'] ?? collect();
+            $francoThreshold = $snapshot['franco_threshold'] ?? null;
+            $pointsYear = (int) ($snapshot['points_year'] ?? now()->year);
 
             $g1 = $upcoming[0] ?? null;
 
@@ -141,6 +143,25 @@
             @endif
         </x-ui.card>
 
+        {{-- Avantage en cours : franco de port abaissé (palier fidélité) --}}
+        @if ($francoThreshold !== null)
+            <x-ui.card padding="lg">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-full bg-accent-50 flex items-center justify-center shrink-0">
+                        <x-ui.icon name="truck" class="w-5 h-5 text-primary-700" />
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-semibold text-neutral-900">
+                            Livraison standard offerte dès {{ \Pko\Loyalty\Support\Money::format((int) $francoThreshold) }} HT
+                        </p>
+                        <p class="text-sm text-neutral-600 mt-1">
+                            Avantage fidélité valable jusqu’au 31/12/{{ $pointsYear }}. Les produits à frais de transport spécifiques restent facturés.
+                        </p>
+                    </div>
+                </div>
+            </x-ui.card>
+        @endif
+
         {{-- Suivi des cadeaux débloqués --}}
         <div>
             <h2 class="text-lg font-display font-bold text-neutral-900 mb-3">Suivi de vos cadeaux débloqués</h2>
@@ -153,10 +174,13 @@
                 <x-ui.card padding="none">
                     <ul class="divide-y divide-neutral-100">
                         @foreach ($giftHistory as $gift)
-                            @php $voucher = $gift->voucher(); @endphp
+                            @php
+                                $voucher = $gift->voucher();
+                                $isFranco = $gift->tier?->gift_type === \Pko\Loyalty\Enums\GiftType::Franco;
+                            @endphp
                             <li class="flex items-center gap-4 px-5 py-4">
                                 <div class="w-10 h-10 rounded-full bg-accent-50 flex items-center justify-center shrink-0">
-                                    <x-ui.icon :name="$voucher ? 'tag' : 'gift'" class="w-5 h-5 text-primary-700" />
+                                    <x-ui.icon :name="$voucher ? 'tag' : ($isFranco ? 'truck' : 'gift')" class="w-5 h-5 text-primary-700" />
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="font-semibold text-neutral-900 truncate">{{ $gift->tier?->giftLabel() ?? 'Cadeau' }}</p>
@@ -176,6 +200,10 @@
                                 @if ($voucher)
                                     <x-ui.badge :tone="match ($voucher['status']) { 'active' => 'success', 'used' => 'forest', default => 'neutral' }">
                                         {{ $voucher['status_label'] }}
+                                    </x-ui.badge>
+                                @elseif ($isFranco)
+                                    <x-ui.badge :tone="(int) $gift->year === $pointsYear ? 'success' : 'neutral'">
+                                        {{ (int) $gift->year === $pointsYear ? 'Actif' : 'Expiré' }}
                                     </x-ui.badge>
                                 @else
                                     <x-ui.badge variant="{{ $gift->status === \Pko\Loyalty\Enums\GiftStatus::Sent ? 'success' : 'primary' }}">

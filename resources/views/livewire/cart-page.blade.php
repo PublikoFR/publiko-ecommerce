@@ -107,7 +107,11 @@
                             </div>
                         @endif
                         <x-ui.button variant="accent" size="lg" href="/checkout" fullWidth iconRight="arrow-right" class="mt-6">Passer la commande</x-ui.button>
-                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format(\Pko\ShippingCommon\Settings\ShippingSettings::thresholdCents() / 100, 0, ',', ' ') }} € HT</p>
+                        <p class="text-xs text-neutral-500 text-center mt-3">Livraison offerte dès {{ number_format($this->francoThresholdCents / 100, 0, ',', ' ') }} € HT
+                            @if ($this->hasPersonalFranco)
+                                <span class="font-semibold text-primary-700">· avantage fidélité</span>
+                            @endif
+                        </p>
                     </x-ui.card>
                 </aside>
             </div>

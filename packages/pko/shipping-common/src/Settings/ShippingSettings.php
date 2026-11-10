@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Pko\ShippingCommon\Settings;
 
+use Lunar\Models\Contracts\Cart;
+use Pko\ShippingCommon\Contracts\CustomerFrancoThresholdProvider;
 use Pko\StorefrontCms\Models\Setting;
 use Throwable;
 
@@ -31,6 +33,35 @@ final class ShippingSettings
         }
 
         return (int) (config('shipping.franco.threshold_ht_cents') ?? 50000);
+    }
+
+    /**
+     * Seuil de franco personnel du client du panier (cents HT), ou null.
+     * Fourni par un `CustomerFrancoThresholdProvider` lié dans le conteneur
+     * (avantage fidélité « franco abaissé ») ; null si aucun n'est lié.
+     */
+    public static function personalThresholdCents(?Cart $cart): ?int
+    {
+        if ($cart === null || ! app()->bound(CustomerFrancoThresholdProvider::class)) {
+            return null;
+        }
+
+        $personal = app(CustomerFrancoThresholdProvider::class)->thresholdCentsFor($cart);
+
+        return $personal !== null && $personal >= 0 ? $personal : null;
+    }
+
+    /**
+     * Seuil de franco EFFECTIF pour un panier : le plus bas entre le seuil
+     * global et le seuil personnel du client. Un seuil personnel supérieur au
+     * global ne pénalise jamais le client.
+     */
+    public static function thresholdCentsForCart(?Cart $cart): int
+    {
+        $global = self::thresholdCents();
+        $personal = self::personalThresholdCents($cart);
+
+        return $personal !== null ? min($global, $personal) : $global;
     }
 
     /**

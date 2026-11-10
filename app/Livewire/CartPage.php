@@ -12,6 +12,7 @@ use Lunar\Facades\CartSession;
 use Lunar\Models\CartLine;
 use Lunar\Models\Contracts\Currency as CurrencyContract;
 use Pko\ShippingCommon\Models\Supplier;
+use Pko\ShippingCommon\Settings\ShippingSettings;
 use Pko\Storefront\Support\CustomerPriceDisplay;
 
 class CartPage extends Component
@@ -132,6 +133,21 @@ class CartPage extends Component
         $cart = CartSession::current();
 
         return $cart ? Ecotax::forCart($cart) : 0;
+    }
+
+    /**
+     * Seuil de franco EFFECTIF du panier (cents HT) : le plus bas entre le seuil
+     * global et le seuil personnel du client (avantage fidélité).
+     */
+    public function getFrancoThresholdCentsProperty(): int
+    {
+        return ShippingSettings::thresholdCentsForCart(CartSession::current());
+    }
+
+    /** True si le seuil affiché est un seuil personnel (avantage fidélité). */
+    public function getHasPersonalFrancoProperty(): bool
+    {
+        return $this->francoThresholdCents < ShippingSettings::thresholdCents();
     }
 
     public function getHasMixedCartProperty(): bool

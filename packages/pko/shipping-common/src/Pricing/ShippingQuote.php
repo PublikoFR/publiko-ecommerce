@@ -11,8 +11,10 @@ namespace Pko\ShippingCommon\Pricing;
  * Consommé par UnifiedShippingModifier pour peupler le ShippingManifest Lunar.
  *
  * Banners :
- *   ['type' => 'franco_reached']
- *   ['type' => 'franco_progress', 'remaining_cents' => int]
+ *   ['type' => 'franco_reached', 'threshold_cents' => int, 'personal' => bool]
+ *   ['type' => 'franco_progress', 'remaining_cents' => int, 'threshold_cents' => int, 'personal' => bool]
+ *   `threshold_cents` = seuil effectif ; `personal` = seuil personnel (fidélité)
+ *   plus bas que le seuil global.
  *   ['type' => 'excluded_lines']  — lignes flat facturées en sus
  *   ['type' => 'multi_colis']     — origines d'expédition multiples
  */

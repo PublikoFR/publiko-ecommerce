@@ -11,8 +11,10 @@ namespace Pko\Loyalty\Enums;
  * - `Franco` : seuil de franco de port abaissé pour le client.
  * - `Bfa` : bon de fin d'année (montant fixe + pourcentage).
  *
- * Seul le bon d'achat a un effet dans ce package ; franco et BFA sont déclarés
- * et configurables ici, leur effet vit ailleurs (cf. docs/packages/loyalty.md).
+ * Le bon d'achat est émis par ce package. Le franco abaissé est exposé au
+ * calcul des frais de port par `LoyaltyFrancoThreshold` (contrat de
+ * pko/shipping-common). Le BFA est déclaré ici, son effet vit ailleurs
+ * (cf. docs/packages/loyalty.md).
  */
 enum GiftType: string
 {
