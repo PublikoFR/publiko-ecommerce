@@ -11,7 +11,7 @@
         </div>
 
         @if ($sent)
-            <div class="max-w-3xl rounded-2xl border border-neutral-200 p-6 md:p-8">
+            <div class="max-w-3xl rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
                 <x-ui.alert variant="success" title="Demande envoyée">
                     Merci&nbsp;! Votre demande @if ($sentNumber)<span class="font-mono">{{ $sentNumber }}</span>@endif a bien été transmise à notre équipe.
                     Un e-mail de confirmation vous a été envoyé&nbsp;; nous revenons vers vous dans les meilleurs délais.
@@ -29,7 +29,7 @@
             </div>
         @else
             <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-10 items-start">
-                <form wire:submit.prevent="submit" class="space-y-6 rounded-2xl border border-neutral-200 p-6 md:p-8" novalidate>
+                <form wire:submit.prevent="submit" class="space-y-6 rounded-2xl border border-neutral-200 bg-white p-6 md:p-8" novalidate>
                     {{-- Honeypot anti-spam : masqué aux humains, piège à bots. --}}
                     <div class="hidden" aria-hidden="true">
                         <label>Ne pas remplir<input type="text" wire:model="website" tabindex="-1" autocomplete="off" /></label>
@@ -226,7 +226,7 @@
                         </div>
                     @endif
 
-                    <div class="rounded-2xl border border-neutral-200 p-5">
+                    <div class="rounded-2xl border border-neutral-200 bg-white p-5">
                         <div class="flex items-start gap-3">
                             <span class="shrink-0 w-9 h-9 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center">
                                 <x-ui.icon name="clock" class="w-5 h-5" />
@@ -240,7 +240,7 @@
 
                     @php $phone = brand_setting('contact.phone', config('storefront.contact.phone')); @endphp
                     @if ($phone)
-                        <div class="rounded-2xl border border-neutral-200 p-5">
+                        <div class="rounded-2xl border border-neutral-200 bg-white p-5">
                             <div class="flex items-start gap-3">
                                 <span class="shrink-0 w-9 h-9 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center">
                                     <x-ui.icon name="headset" class="w-5 h-5" />
